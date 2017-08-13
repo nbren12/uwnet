@@ -1,0 +1,15 @@
+data_root = "/scratch/ndb245/Data/id/0c31ce4c6763d8ec2abccafe6bde2fa0bed8124d"
+workdir: "wd"
+include: 'deriv.snakemake'
+
+
+rule coarse_grain:
+    output: "A/{n}d/{field}.nc"
+    run:
+
+        data_path = os.path.join(data_root, f'data/{wildcards.n}d',
+                                 wildcards.field + '.nc')
+
+        xopen(data_path)[wildcards.field]\
+            .pipe(lambda x: coarsen(x, x=64))\
+            .to_netcdf(output[0])

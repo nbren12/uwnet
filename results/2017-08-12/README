@@ -1,0 +1,15 @@
+Maximum Covariance Analysis of Q1, Q2, T, and Q
+
+Key things to compute:
+ - Q1
+ - Q2
+ - coarse graining
+
+Directory structure:
+./A/var.nc   - coarse graining
+./A/Q1.nc
+./A/Q2.nc
+./Dx/A/var.nc - derivatives
+./Dtime/A/var.nc
+./Dz/A/var.nc
+
