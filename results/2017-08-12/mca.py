@@ -69,7 +69,7 @@ U, S, Vt = svd(C, full_matrices=0)   # singular value decomposition
 neig = 20
 Ux = svd2xr(U[:,:neig], X)
 Vx = svd2xr(Vt.T[:,:neig], Y)
-S = xr.DataArray(S[:neig], (np.r_[0:neig],), ('m',))
+S = xr.DataArray(S[:neig], (np.r_[0:neig],), ('m',))/S.sum()
 
 # output dataset
 d = xr.concat([Ux,Vx],'variable').to_dataset("variable")
