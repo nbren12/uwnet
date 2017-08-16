@@ -20,8 +20,14 @@ def firstvar(d):
 
 def wrap_xarray_calculation(f):
     def fun(*args, **kwargs):
-        args = (firstvar(xopen(a)) for a in args)
-        return f(*args, **kwargs)
+        new_args = []
+        for a in args:
+            if isinstance(a, str):
+                new_args.append(firstvar(xopen(a)))
+            else:
+                new_args.append(a)
+
+        return f(*new_args, **kwargs)
 
     return fun
 
@@ -42,19 +48,23 @@ wildcard_constraints:
 
 rule derivative:
     input: f="{f}.nc"
-    output:temp("D{dim}/{f}.nc")
+    output:"D{dim}/{f}.nc"
     run:
         dim = wildcards.dim
         f = xopen(input[0])\
-            .apply(lambda x: calc_der(x, dim) if dim in x.dims else x)\
-            .to_netcdf(output[0])
+            .apply(lambda x: calc_der(x, dim) if dim in x.dims else x)
+
+        if dim == 'time':
+            f /= 86400
+        f.to_netcdf(output[0])
+
 
 rule material_derivative:
     input: u="{d}/U.nc", w="{d}/W.nc",
            dx="Dx/{d}/{field}.nc",
            dz="Dz/{d}/{field}.nc",
            dt="Dtime/{d}/{field}.nc"
-    output: temp("M/{d}/{field}.nc")
+    output: "M/{d}/{field}.nc"
     run:
         out = calc_matder(input.dt, input.dx, input.dz, input.u, input.w)
         out.to_dataset(name=wildcards.field).to_netcdf(output[0])

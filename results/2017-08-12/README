@@ -13,3 +13,17 @@ Directory structure:
 ./Dtime/A/var.nc
 ./Dz/A/var.nc
 
+# Computing Q1
+
+The preserved variable of the SAM model is the liquid-ice potential temperature.
+
+s_l = T + g/cp z - Lc (qc + qr)
+
+I just computed this using SAM output by running T + g /cp z - Lc (qn + qp).
+This neglects the ice phase change.
+
+# Computing Q2
+
+We define Q2 as the budget residual of q_t = q_v + q_n. This does not include
+precipitation.
+
