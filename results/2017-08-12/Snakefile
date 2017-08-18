@@ -82,3 +82,10 @@ rule maximum_cov_analysis:
            stat="stat.nc"
     output: "calc/mca.nc"
     script: "mca.py"
+
+rule least_squares:
+    input: q1="calc/q1.nc", q2="calc/q2.nc",
+           sl="calc/sl.nc", qt="calc/qt.nc",
+           stat="stat.nc"
+    output: "calc/ls.nc"
+    script: "ls.py"

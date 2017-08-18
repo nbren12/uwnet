@@ -4,39 +4,8 @@ import numpy as np
 from scipy.linalg import svd
 import pandas as pd
 import xarray as xr
-from gnl.xarray import integrate
+from gnl.xarray import integrate, xr2mat
 
-
-def xr2mat(fields, sample_dims, feature_dims,
-           scale=True, weight=None):
-    """Prepare list of data arrays for input to Machine Learning
-
-    Parameters
-    ----------
-    fields: Dataset object
-        input dataset
-    sample_dims: tuple of string
-        Dimensions which will be considered samples
-    feature_dims: tuple of strings
-        dimensions which be considered features
-    scale: Bool
-        center and scale the output. [default: True]
-    weight: xarray
-        weight the xarray fields using this object. Typically,
-        np.sqrt(rho)/integrate(rho, 'z') for mass aware methods.
-    """
-    normalize_dim='z'   # this could be an argument
-
-    fields = xr.merge(fields)
-    dat = fields.to_array() * weight
-
-    if scale:
-        mu = dat.mean(sample_dims)
-        V = np.sqrt(integrate((dat-mu)**2, normalize_dim)).mean(sample_dims)
-        dat = (dat-mu)/V
-
-    return dat.stack(features=('variable',)+feature_dims, samples=sample_dims)\
-              .transpose('samples', 'features'), V
 
 
 def svd2xr(U, X, weight, scale):
