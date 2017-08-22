@@ -12,11 +12,15 @@ def liquid_water_temperature(t, qn, qp):
     """This is an approximate calculation neglecting ice and snow
     """
 
-    return t + grav/cp * t.z - Lc/cp * (qp + qn)/1000.0
+    sl = t + grav/cp * t.z - Lc/cp * (qp + qn)/1000.0
+    sl.attrs['units'] = 'K'
+    return sl
 
 @wrap_xarray_calculation
 def total_water(qv, qn):
-    return qv + qn
+    qt =  qv + qn
+    qt.attrs['units'] = 'g/kg'
+    return qt
 
 rule link_data:
     output: "stat.nc"
@@ -60,9 +64,13 @@ rule apparent_heating:
         dsl = xr.open_dataset(input.dsl).sl
         ttend = xr.open_dataset(input.stat).TTEND.reindex_like(dsl, method='nearest')
         # need to translate from K/s to K/d
-        q1 = (dsl - ttend/86400.0) * 86400
+        q1 = dsl * 86400
         q1.attrs['units'] = 'K/d'
-        q1.to_dataset(name="q1").to_netcdf(output[0])
+        d = q1.to_dataset(name="q1")
+        # include tendency
+        d['tend'] = ttend
+
+        d.to_netcdf(output[0])
 
 rule apparent_moistening:
     input: dqt="M/calc/qt.nc", stat="stat.nc"
