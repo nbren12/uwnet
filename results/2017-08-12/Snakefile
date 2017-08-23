@@ -91,9 +91,8 @@ rule maximum_cov_analysis:
     output: "calc/mca.nc"
     script: "mca.py"
 
-rule least_squares:
-    input: q1="calc/q1.nc", q2="calc/q2.nc",
-           sl="calc/sl.nc", qt="calc/qt.nc",
+rule partial_least_squares:
+    input: files=["calc/q1.nc", "calc/q2.nc", "calc/qt.nc", "calc/sl.nc"],
            stat="stat.nc"
-    output: "calc/ls.nc"
-    script: "ls.py"
+    output: "calc/pls.nc"
+    shell: "python ../pls.py -i qt,sl -p q1,q2 -s x,time -f z --stat stat.nc -o {output} {input.files}"
