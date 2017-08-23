@@ -7,6 +7,14 @@ import xarray as xr
 from gnl.xarray import integrate, xr2mat
 
 
+def get_dz(z):
+    zext = np.hstack((0,  z,  2.0*z[-1] - 1.0*z[-2]))
+    zw = .5 * (zext[1:] + zext[:-1])
+    dz = zw[1:] - zw[:-1]
+
+    return xr.DataArray(dz, z.coords)
+
+    
 
 def svd2xr(U, X, weight, scale):
     neig = U.shape[1]
@@ -19,8 +27,11 @@ def mysel(x):
     return x.sel(time=slice(20,None))
 
 # density
-rho = xr.open_dataset(snakemake.input.stat).RHO[-1]
-weight = np.sqrt(rho/integrate(rho, 'z'))
+stats = xr.open_dataset(snakemake.input.stat)
+dz = get_dz(stats.z)
+rho = stats.RHO[-1]
+weight = np.sqrt(rho*dz/(rho*dz).sum('z'))
+
 
 # dependent variables
 q1 = xr.open_dataset(snakemake.input.q1).pipe(mysel)

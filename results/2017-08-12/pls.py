@@ -77,6 +77,7 @@ def main(input_variables, output_variables, filenames,
     mod.fit(X-X_mean, Y-Y_mean)
 
     pred = mod.predict(X-X_mean) + Y_mean.values
+    from IPython import embed; embed()
     # predicted values
     save_pls(mod, X, Y, pred, output)
 

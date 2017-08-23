@@ -72,7 +72,7 @@ rule apparent_heating:
 
         d.to_netcdf(output[0])
 
-rule apparent_moistening:
+rule apparent_drying:
     input: dqt="M/calc/qt.nc", stat="stat.nc"
     output: "calc/q2.nc"
     run:
@@ -80,8 +80,9 @@ rule apparent_moistening:
         tend = xr.open_dataset(input.stat).QTEND.reindex_like(dqt, method='nearest')
         scal  = 86400/1000 * Lc/cp
         # need to translate from g/kg/s to K/day
-        q2 = (dqt - tend/86400.0)*scal
+        q2 = -(dqt - tend/86400.0)*scal
         q2.attrs['units'] = 'K/d'
+        q2.attrs['long_name'] = "Apparent drying"
         q2.to_dataset(name="q2").to_netcdf(output[0])
 
 rule maximum_cov_analysis:
