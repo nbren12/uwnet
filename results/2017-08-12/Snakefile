@@ -94,5 +94,7 @@ rule maximum_cov_analysis:
 rule partial_least_squares:
     input: files=["calc/q1.nc", "calc/q2.nc", "calc/qt.nc", "calc/sl.nc"],
            stat="stat.nc"
+    params: input_vars=["qt", "sl"], pred_vars=["q1", "q2"],
+            feature_dims=["z"], sample_dims=["time", "x"]
     output: "calc/pls.nc"
-    shell: "python ../pls.py -i qt,sl -p q1,q2 -s x,time -f z --stat stat.nc -o {output} {input.files}"
+    script: "pls.py"

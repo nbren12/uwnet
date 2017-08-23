@@ -93,15 +93,31 @@ def test_main():
     main(input_variables, output_variables, filenames,
          sample_dims, feature_dims, stat_file)
 
-if __name__ == '__main__':
-    args = docopt(__doc__)
-    input_vars = args['<input_vars>'].split(',')
-    pred_vars = args['<pred_vars>'].split(',')
-    sample_dims = args['<sample_dims>'].split(',')
-    feature_dims = args['<feat_dims>'].split(',')
-    output = args['-o']
-    files = args['<files>']
+try:
+    input_vars = snakemake.params.input_vars
+    pred_vars = snakemake.params.pred_vars
+    feature_dims = snakemake.params.feature_dims
+    sample_dims = snakemake.params.sample_dims
+
+    statfile = snakemake.input.stat
+    files = snakemake.input.files
+    output = snakemake.output[0]
+
     main(input_vars, pred_vars, files,
-         sample_dims, feature_dims, args['--stat'],
-         output)
+         sample_dims, feature_dims,
+         statfile, output)
+
+except NameError:
+
+    if __name__ == '__main__':
+        args = docopt(__doc__)
+        input_vars = args['<input_vars>'].split(',')
+        pred_vars = args['<pred_vars>'].split(',')
+        sample_dims = args['<sample_dims>'].split(',')
+        feature_dims = args['<feat_dims>'].split(',')
+        output = args['-o']
+        files = args['<files>']
+        main(input_vars, pred_vars, files,
+            sample_dims, feature_dims, args['--stat'],
+            output)
 
