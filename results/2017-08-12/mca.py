@@ -14,7 +14,6 @@ def get_dz(z):
 
     return xr.DataArray(dz, z.coords)
 
-    
 
 def svd2xr(U, X, weight, scale):
     neig = U.shape[1]
@@ -58,7 +57,6 @@ S = xr.DataArray(S[:neig]**2, (np.r_[0:neig],), ('m',))/(S**2).sum()
 
 # rescale data
 d = xr.concat([Ux,Vx],'variable') * xr.concat([scale_X, scale_Y], 'variable')
-d = d/d.sel(variable='qt').max()
 
 # output dataset
 d = d.to_dataset('variable')
