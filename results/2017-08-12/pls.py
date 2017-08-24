@@ -14,6 +14,7 @@ import pandas as pd
 import xarray as xr
 from docopt import docopt
 from sklearn.cross_decomposition import PLSRegression
+from sklearn.externals import joblib
 
 from gnl.xarray import integrate, xr2mat
 
@@ -45,7 +46,7 @@ def save_pls(mod, X, Y, weight, pred, output_name):
     (yw.pipe(flatten_output)/weight).to_netcdf(output_name, group="y_weights", mode="a")
     y_pred.pipe(flatten_output).to_netcdf(output_name, group="pred", mode="a")
 
-    np.savez('calc/lrf.npz', mod.coef_)
+    joblib.dump(mod, snakemake.output.pkl)
 
 
 

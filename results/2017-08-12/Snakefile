@@ -32,6 +32,10 @@ def get_dz(z):
 
     return xr.DataArray(dz, z.coords)
 
+def layer_mass(rho):
+    dz = get_dz(rho.z)
+    return rho*dz
+
 rule link_data:
     output: "stat.nc"
     shell: "ln -s {data_root}/data/stat.nc stat.nc"
@@ -107,7 +111,7 @@ rule partial_least_squares:
            weight="w.nc"
     params: input_vars=["qt", "sl"], pred_vars=["q1", "q2"],
             feature_dims=["z"], sample_dims=["time", "x"]
-    output: "calc/pls.nc"
+    output: "calc/pls.nc", pkl="calc/pls.pkl"
     script: "pls.py"
 
 rule weights:
@@ -117,5 +121,27 @@ rule weights:
         stats = xr.open_dataset(input[0])
         dz = get_dz(stats.z)
         rho = stats.RHO[-1]
-        weight = np.sqrt(rho*dz/(rho*dz).sum('z'))
-        weight.to_netcdf(output[0])
+        w = layer_mass(rho)
+        w = np.sqrt(w/w.sum('z'))
+        w.to_netcdf(output[0])
+
+rule weight_ngaqua:
+    input: "/home/disk/eos8/pnaren/ML/codes/forlaptop/data.nc"
+    output: w="ngaqua/w.nc", p="ngaqua/p.nc"
+    run:
+        w = layer_mass(xr.open_dataset(input[0]).rho)
+        w = np.sqrt(w/w.sum('z'))
+        w.to_netcdf(output.w)
+
+        # output pressure
+        xr.open_dataset(input[0]).p.to_dataset(name="p")\
+          .to_netcdf(output.p)
+
+
+rule partial_least_squares_ngaqua:
+    input: files=["/home/disk/eos8/pnaren/ML/codes/forlaptop/data.nc"],
+           weight= "ngaqua/w.nc"
+    output: "ngaqua/pls.nc", pkl="ngaqua/pls.pkl"
+    params: input_vars=["qt", "sl"], pred_vars=["q1c", "q2"],
+            feature_dims=["z"], sample_dims=["time", "x"]
+    script: "pls.py"
