@@ -26,11 +26,7 @@ def mysel(x):
     return x.sel(time=slice(20,None))
 
 # density
-stats = xr.open_dataset(snakemake.input.stat)
-dz = get_dz(stats.z)
-rho = stats.RHO[-1]
-weight = np.sqrt(rho*dz/(rho*dz).sum('z'))
-
+weight = xr.open_dataarray(snakemake.input.weight)
 
 # dependent variables
 q1 = xr.open_dataset(snakemake.input.q1).pipe(mysel)
@@ -38,12 +34,12 @@ q2 = xr.open_dataset(snakemake.input.q2).q2.pipe(mysel)
 
 q1c = q1.q1-q1.tend
 q1c.name = 'q1c'
-X, scale_X = xr2mat([q1c, q2], ('time', 'x'), ('z',), weight=weight)
+X, scale_X = xr2mat([q1c, q2], ('time', 'x'), ('z',))
 
 # independent variables
 sl = xr.open_dataset(snakemake.input.sl).sl.pipe(mysel)
 qt = xr.open_dataset(snakemake.input.qt).qt.pipe(mysel)
-Y, scale_Y = xr2mat([sl, qt], ('time', 'x'), ('z',), weight=weight)
+Y, scale_Y = xr2mat([sl, qt], ('time', 'x'), ('z',))
 
 # Perform the analysis
 C = X.values.T.dot(Y.values)/(len(X.samples)-1)  # covariance matrix

@@ -1,3 +1,5 @@
+import numpy as np
+
 data_root = "~/Data/id/0c31ce4c6763d8ec2abccafe6bde2fa0bed8124d"
 workdir: "wd"
 include: 'deriv.snakemake'
@@ -21,6 +23,14 @@ def total_water(qv, qn):
     qt =  qv + qn
     qt.attrs['units'] = 'g/kg'
     return qt
+
+
+def get_dz(z):
+    zext = np.hstack((0,  z,  2.0*z[-1] - 1.0*z[-2]))
+    zw = .5 * (zext[1:] + zext[:-1])
+    dz = zw[1:] - zw[:-1]
+
+    return xr.DataArray(dz, z.coords)
 
 rule link_data:
     output: "stat.nc"
@@ -88,14 +98,24 @@ rule apparent_drying:
 rule maximum_cov_analysis:
     input: q1="calc/q1.nc", q2="calc/q2.nc",
            sl="calc/sl.nc", qt="calc/qt.nc",
-           stat="stat.nc"
+           weight="w.nc"
     output: "calc/mca.nc"
     script: "mca.py"
 
 rule partial_least_squares:
     input: files=["calc/q1.nc", "calc/q2.nc", "calc/qt.nc", "calc/sl.nc"],
-           stat="stat.nc"
+           weight="w.nc"
     params: input_vars=["qt", "sl"], pred_vars=["q1", "q2"],
             feature_dims=["z"], sample_dims=["time", "x"]
     output: "calc/pls.nc"
     script: "pls.py"
+
+rule weights:
+    input: "stat.nc"
+    output: "w.nc"
+    run:
+        stats = xr.open_dataset(input[0])
+        dz = get_dz(stats.z)
+        rho = stats.RHO[-1]
+        weight = np.sqrt(rho*dz/(rho*dz).sum('z'))
+        weight.to_netcdf(output[0])

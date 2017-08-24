@@ -3,7 +3,7 @@
 
 Usage:
   pls.py -i <input_vars> -p <pred_vars> -s <sample_dims> -f <feat_dims>
-         --stat FILE
+         -w <weight>
          -o <output> <files>...
 
 Example:
@@ -45,41 +45,36 @@ def save_pls(mod, X, Y, pred, output_name):
     yw.pipe(flatten_output).to_netcdf(output_name, group="y_weights", mode="a")
     y_pred.pipe(flatten_output).to_netcdf(output_name, group="pred", mode="a")
 
+    np.savez('calc/lrf.npz', mod.coef_)
 
-def get_weight(stat_file):
-    rho = xr.open_dataset(stat_file).RHO[-1]
-    return np.sqrt(rho/integrate(rho, 'z'))
 
 
 def main(input_variables, output_variables, filenames,
-         sample_dims, feature_dims, stat_file,
-         output):
+         sample_dims, feature_dims, weight_file, output):
 
 
     # open datasets
     D = xr.open_mfdataset(filenames)
 
     # get weight
-    weight = get_weight(stat_file)
+    weight = xr.open_dataarray(weight_file)
+    Dw = D * weight
 
     # form data matrices
-    X, x_scale = xr2mat(D[input_variables], sample_dims, feature_dims,
-                        weight=weight, scale=False)
-    X_mean = X.mean('samples')
-    Y, y_scale = xr2mat(D[output_variables],sample_dims, feature_dims,
-                        weight=weight, scale=False)
-    Y_mean = Y.mean('samples')
+    X, x_scale = xr2mat(Dw[input_variables], sample_dims, feature_dims,
+                        scale=False)
+    Y, y_scale = xr2mat(Dw[output_variables],sample_dims, feature_dims,
+                        scale=False)
     # compute data
     X.load()
     Y.load()
     # perform regression
     mod = PLSRegression(n_components=4, scale=False)
-    mod.fit(X-X_mean, Y-Y_mean)
+    mod.fit(X, Y)
 
-    pred = mod.predict(X-X_mean) + Y_mean.values
-    from IPython import embed; embed()
+    pred = mod.predict(X)
     # predicted values
-    save_pls(mod, X, Y, pred, output)
+    save_pls(mod, X, Y, weight, pred, output)
 
 
 def test_main():
@@ -89,10 +84,9 @@ def test_main():
     sample_dims = ('x', 'time')
     feature_dims = ('z',)
 
-    stat_file = 'wd/stat.nc'
 
     main(input_variables, output_variables, filenames,
-         sample_dims, feature_dims, stat_file)
+         sample_dims, feature_dims, weight_file)
 
 try:
     input_vars = snakemake.params.input_vars
@@ -100,13 +94,12 @@ try:
     feature_dims = snakemake.params.feature_dims
     sample_dims = snakemake.params.sample_dims
 
-    statfile = snakemake.input.stat
     files = snakemake.input.files
     output = snakemake.output[0]
 
     main(input_vars, pred_vars, files,
          sample_dims, feature_dims,
-         statfile, output)
+         snakemake.input.weight, output)
 
 except NameError:
 
@@ -119,6 +112,6 @@ except NameError:
         output = args['-o']
         files = args['<files>']
         main(input_vars, pred_vars, files,
-            sample_dims, feature_dims, args['--stat'],
+            sample_dims, feature_dims, args['-w'],
             output)
 
