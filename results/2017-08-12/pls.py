@@ -39,10 +39,10 @@ def parse_pls_output(mod, X, Y, pred):
     return xw, yw, y_pred
 
 
-def save_pls(mod, X, Y, pred, output_name):
+def save_pls(mod, X, Y, weight, pred, output_name):
     xw, yw, y_pred = parse_pls_output(mod, X, Y, pred)
-    xw.pipe(flatten_output).to_netcdf(output_name, group="x_weights")
-    yw.pipe(flatten_output).to_netcdf(output_name, group="y_weights", mode="a")
+    (xw.pipe(flatten_output)/weight).to_netcdf(output_name, group="x_weights")
+    (yw.pipe(flatten_output)/weight).to_netcdf(output_name, group="y_weights", mode="a")
     y_pred.pipe(flatten_output).to_netcdf(output_name, group="pred", mode="a")
 
     np.savez('calc/lrf.npz', mod.coef_)
