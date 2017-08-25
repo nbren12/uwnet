@@ -147,3 +147,8 @@ rule partial_least_squares_ngaqua:
     params: input_vars=["qt", "sl"], pred_vars=["q1c", "q2"],
             feature_dims=["z"], sample_dims=["time", "x"]
     script: "pls.py"
+
+rule report:
+    input: "ngaqua/w.nc", "ngaqua/p.nc", "calc/pls.pkl", "calc/mca.nc", "A64/2d/Prec.nc"
+    output: "Report for August 8, 2017.html"
+    shell: 'jupyter nbconvert --execute ../"Report for August 8, 2017.ipynb"'
