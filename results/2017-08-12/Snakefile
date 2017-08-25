@@ -129,7 +129,9 @@ rule weight_ngaqua:
     input: "/home/disk/eos8/pnaren/ML/codes/forlaptop/data.nc"
     output: w="ngaqua/w.nc", p="ngaqua/p.nc"
     run:
-        w = layer_mass(xr.open_dataset(input[0]).rho)
+        D  = xr.open_dataset(input[0])
+        D['z'] = D['zkm']
+        w = layer_mass(D.rho)
         w = np.sqrt(w/w.sum('z'))
         w.to_netcdf(output.w)
 

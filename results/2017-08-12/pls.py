@@ -33,8 +33,8 @@ def parse_pls_output(mod, X, Y, pred):
     ncomp = mod.n_components
     m = pd.Index(range(ncomp), name='m')
     # get weights
-    xw = xr.DataArray(mod.x_weights_, (X.coords['features'], m), name="xw")
-    yw = xr.DataArray(mod.y_weights_, (Y.coords['features'], m), name="yw")
+    xw = xr.DataArray(mod.x_loadings_, (X.coords['features'], m), name="xw")
+    yw = xr.DataArray(mod.y_loadings_, (Y.coords['features'], m), name="yw")
     # get prediction
     y_pred = xr.DataArray(pred, Y.coords, name="pred")
     return xw, yw, y_pred
