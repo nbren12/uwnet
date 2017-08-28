@@ -1,0 +1,9 @@
+
+# use data from the previous directory
+subworkflow data:
+    workdir: "../2017-08-12/wd"
+    snakefile: "../2017-08-12/Snakefile"
+
+rule all:
+    input: data("A64/2d/Prec.nc")
+    shell: "echo {input}"
