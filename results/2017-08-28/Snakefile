@@ -5,5 +5,15 @@ subworkflow data:
     snakefile: "../2017-08-12/Snakefile"
 
 rule all:
-    input: data("A64/2d/Prec.nc")
-    shell: "echo {input}"
+    input: "02.done"
+
+rule inputs:
+    input: data("calc/sl.nc"), data("calc/qt.nc")
+    output: "homo2d/X.nc"
+    run:
+        xr.open_mfdataset(input)
+
+rule anl02:
+    input: data("calc/sl.nc"), data("calc/qt.nc"), data("A64/2d/Prec.nc"), nb="02-classifying_positive_precip.ipynb"
+    output: touch("02.done")
+    shell:  "jupyter nbconvert --inplace --to notebook --execute {input.nb} "
