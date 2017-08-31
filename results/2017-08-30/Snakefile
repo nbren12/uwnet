@@ -1,0 +1,35 @@
+import numpy as np
+import xarray as xr
+from gnl.xarray import map_overlap
+data = "/home/disk/eos4/nbren12/Data/id/880e581fd387681d0b91fde66e14903c2a0d8bf8/data"
+
+rule xgrid:
+    input:  data + "/{f}.nc"
+    output: "x/{f}.nc"
+    shell: "ncks -d x,,,64 -o {output} {input}"
+
+
+rule horiz:
+    input: "x/3d/{f}.nc", u="x/3d/U.nc"
+    output: "xadv/{f}.nc"
+    run:
+        phi = xr.open_dataarray(input[0], chunks={'time':100})
+        u   = xr.open_dataarray(input.u, chunks={'time':100})
+        F = phi * u
+
+        axis = F.get_axis_num('x')
+        def diff(x):
+            return x-np.roll(x, 1, axis)
+
+        dF = map_overlap(F, diff, {'x': 1}, {'x': 'periodic'})
+
+        # handle x coordinates
+        right_value = u.x[-1] *2 - u.x[-2]
+        x = np.hstack([u.x.values, right_value])
+        dx = x[1:] -x[:-1]
+        xh = (x[1:] +x[:-1])/2
+
+        out = dF/dx
+        out['x'] = xh
+        out.attrs['units'] = phi.units +'/s'
+        (dF/dx).to_dataset(name=f"d{phi.name}").to_netcdf(output[0])
