@@ -1,13 +1,68 @@
 import numpy as np
+from scipy.interpolate import interp1d
 import xarray as xr
 from gnl.xarray import map_overlap
+import dask.array as da
+from dask.array.core import atop
+from dask import delayed
+
 data = "/home/disk/eos4/nbren12/Data/id/880e581fd387681d0b91fde66e14903c2a0d8bf8/data"
+
+
+def interface_to_centers(zw):
+    """Get centers of the cells bounded by z with padding on the right
+    """
+    # cell centered z
+    top = zw[-1] *2 - zw[-2]
+    zc  = np.hstack(((zw[:-1] + zw[1:])/2,top))
+    return zc
+
+
+def vertdiv(phi, w):
+    """Vertical advection divergence
+
+    w is assumed to be on the vertical faces
+    phi re at the cell centers.
+
+    """
+
+    phi = phi.transpose(*w.dims) # ensure data are tranposed correctly
+    axis = phi.get_axis_num('z')
+
+    # get vertical coordinate at cell centers
+    zw = phi.z.values
+    zc = interface_to_centers(zw)
+
+
+    def fun(phi, w):
+        phi = phi.swapaxes(axis, 0)
+        w = w.swapaxes(axis, 0)
+
+        phiw = interp1d(zc, phi, axis=0, fill_value='extrapolate')(zw)
+        F = phiw * w
+
+        out = np.zeros_like(phi)
+        zwb = zw.reshape([-1] + [1]*(phi.ndim-1))
+        out[:-1] = (F[1:]-F[:-1])/(zwb[1:] - zwb[:-1])
+
+        return out.swapaxes(axis, 0)
+
+
+    out_dask = atop(fun, 'ijk', phi.data, 'ijk', w.data, 'ijk',
+                    dtype=phi.data.dtype)
+
+    return xr.DataArray(out_dask, w.coords)
+
+
+subworkflow dataflow:
+    workdir: "../2017-08-12/wd"
+    snakefile: "../2017-08-12/Snakefile"
+
 
 rule xgrid:
     input:  data + "/{f}.nc"
     output: "x/{f}.nc"
     shell: "ncks -d x,,,64 -o {output} {input}"
-
 
 rule horiz:
     input: "x/3d/{f}.nc", u="x/3d/U.nc"
@@ -33,3 +88,15 @@ rule horiz:
         out['x'] = xh
         out.attrs['units'] = phi.units +'/s'
         (dF/dx).to_dataset(name=f"d{phi.name}").to_netcdf(output[0])
+
+
+rule vert:
+    input: dataflow("{f}.nc"), w=dataflow("{f}.nc"), stat=dataflow("stat.nc")
+    output: "zadv/{f}.nc"
+    run:
+        phi = xr.open_dataarray(input[0])
+        w = xr.open_dataarray(input.w)
+        rho = xr.open_dataset(input.stat).RHO[-1]
+
+        vertdiv(rho*phi, w).to_netcdf(output[0])
+
