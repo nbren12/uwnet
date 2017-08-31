@@ -1,6 +1,9 @@
+import glob
+import os
+from pathlib import Path
 import numpy as np
 
-data_root = "~/Data/id/0c31ce4c6763d8ec2abccafe6bde2fa0bed8124d"
+data_root = "/home/disk/eos4/nbren12/Data/SAM6.10.9/JOBS/Run-0c31ce4c6763d8ec2abccafe6bde2fa0bed8124d/data"
 workdir: "wd"
 include: 'deriv.snakemake'
 
@@ -36,18 +39,32 @@ def layer_mass(rho):
     dz = get_dz(rho.z)
     return rho*dz
 
+
+# Rules for Linking data
+def data_files():
+    for file in glob.glob(f"{data_root}/**/*.nc", recursive=True):
+        yield file[len(data_root)+1:]
+
+
+def link_files(files):
+    for file in files:
+        path = Path(file)
+        path.parent.mkdir(exist_ok=True)
+        os.system(f"ln -s {data_root}/{file} {path}")
+
+
 rule link_data:
-    output: "stat.nc"
-    shell: "ln -s {data_root}/data/stat.nc stat.nc"
+    output: *data_files()
+    run:
+        link_files(output)
 
 rule coarse_grain:
-    output: "A{m}/{n}d/{field}.nc"
+    input: "{f}.nc"
+    output: "A{m,[0-9]+}/{f}.nc"
     run:
         m = int(wildcards.m)
 
-        data_path = os.path.join(data_root, f'data/{wildcards.n}d',
-                                 wildcards.field + '.nc')
-        xopen(data_path)[wildcards.field]\
+        xr.open_dataarray(input[0], chunks={'time': 50})\
             .pipe(lambda x: coarsen(x, x=m))\
             .to_netcdf(output[0])
 

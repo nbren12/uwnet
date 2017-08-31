@@ -33,7 +33,7 @@ def wrap_xarray_calculation(f):
 
 
 def calc_der(f, dim):
-    bdy = {'x': 'periodic', 'z':'extrap', 'time':'extrap'}
+    bdy = {'x': 'periodic', 'z':'periodic', 'time':'periodic'}
     return f.centderiv(dim, boundary=bdy[dim])
 
 
