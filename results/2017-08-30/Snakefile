@@ -6,20 +6,20 @@ import dask.array as da
 from dask.array.core import atop
 from dask import delayed
 
+workdir: "wd"
 include: "sam.rules"
 
 data = "/home/disk/eos4/nbren12/Data/id/880e581fd387681d0b91fde66e14903c2a0d8bf8/data"
 
-def interface_to_centers(zw):
+def centers_to_interface(zc):
     """Get centers of the cells bounded by z with padding on the right
     """
     # cell centered z
-    top = zw[-1] *2 - zw[-2]
-    zc  = np.hstack(((zw[:-1] + zw[1:])/2,top))
-    return zc
+    zc  = np.hstack((-zc[0], zc))
+    return (zc[1:] + zc[:-1])/2
 
 
-def vertdiv(phi, w):
+def vertdiv(phi, w, rho):
     """Vertical advection divergence
 
     w is assumed to be on the vertical faces
@@ -31,25 +31,27 @@ def vertdiv(phi, w):
     axis = phi.get_axis_num('z')
 
     # get vertical coordinate at cell centers
-    zw = phi.z.values
-    zc = interface_to_centers(zw)
+    zc = phi.z.values
+    zw = centers_to_interface(zc)
 
 
-    def fun(phi, w):
-        phi = phi.swapaxes(axis, 0)
-        w = w.swapaxes(axis, 0)
+    def fun(phi, w, rho):
+        phi = phi.swapaxes(axis, -1)
+        w = w.swapaxes(axis, -1)
 
-        phiw = interp1d(zc, phi, axis=0, fill_value='extrapolate')(zw)
-        F = phiw * w
+        phiw = interp1d(zc, phi, axis=-1, fill_value='extrapolate')(zw)
+        rhow = interp1d(zc, rho, axis=-1, fill_value='extrapolate')(zw)
+        F = phiw * w * rhow
+        out = (np.roll(F, -1, -1) - F)/(np.roll(zw, -1) - zw)/rho
 
-        out = np.zeros_like(phi)
-        zwb = zw.reshape([-1] + [1]*(phi.ndim-1))
-        out[:-1] = (F[1:]-F[:-1])/(zwb[1:] - zwb[:-1])
+        return out.swapaxes(axis, -1)
 
-        return out.swapaxes(axis, 0)
+    tup4d = list(range(3))
 
-
-    out_dask = atop(fun, 'ijk', phi.data, 'ijk', w.data, 'ijk',
+    out_dask = atop(fun, tup4d,
+                    phi.data, tup4d,
+                    w.data, tup4d,
+                    rho.data, (axis,),
                     dtype=phi.data.dtype)
 
     return xr.DataArray(out_dask, w.coords)
@@ -58,9 +60,14 @@ def vertdiv(phi, w):
 
 
 rule xgrid:
-    input:  data + "/{f}.nc"
+    input:  "{f}.nc", c="A64/3d/QV.nc"
     output: "x/{f}.nc"
-    shell: "ncks -d x,,,64 -o {output} {input}"
+    shell:
+        """
+        ncks -d x,,,64 -o {output} {input[0]}
+        ncks -A -v x -o {output} {input.c}
+        """
+
 
 rule horiz:
     input: "x/3d/{f}.nc", u="x/3d/U.nc"
@@ -96,17 +103,25 @@ rule vert:
         w = xr.open_dataarray(input.w)
         rho = xr.open_dataset(input.stat).RHO[-1]
 
-        vertdiv(rho*phi, w).to_netcdf(output[0])
+        vertdiv(phi, w, rho).to_netcdf(output[0])
 
-rule budget:
+rule residual:
     input: x="xadv/QV.nc", z="zadv/A64/3d/QV.nc", y="A64/3d/QV.nc"
-    output: "M/QV.nc"
+    output: "B/QV.nc"
     run:
         x= xopena(input.x)
         z= xopena(input.z)
         y = xopena(input.y)
 
-        (y-z-x)
+        if x.time.units != 'd':
+            raise ValueError("The time dimension must have units 'd'")
+        dt = (x.time[1] - x.time[0])*3600
+
+        g = z + x
+
+        out = (y - dt * g)
+        out.attrs['units'] = y.units
+        out.to_netcdf(output[0])
 
 
 

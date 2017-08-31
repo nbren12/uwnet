@@ -15,6 +15,19 @@ cp = 1004
 Lc = 2.5104e6
 rho0 = 1.19
 
+def wrap_xarray_calculation(f):
+    def fun(*args, **kwargs):
+        new_args = []
+        for a in args:
+            if isinstance(a, str):
+                new_args.append(xopena(a))
+            else:
+                new_args.append(a)
+
+        return f(*new_args, **kwargs)
+
+    return fun
+
 @wrap_xarray_calculation
 def liquid_water_temperature(t, qn, qp):
     """This is an approximate calculation neglecting ice and snow
@@ -182,18 +195,6 @@ def xopen(name, nt=20):
 def xopena(name, nt=20):
     return xr.open_dataarray(name, chunks={'time': nt})
 
-def wrap_xarray_calculation(f):
-    def fun(*args, **kwargs):
-        new_args = []
-        for a in args:
-            if isinstance(a, str):
-                new_args.append(xopena(a))
-            else:
-                new_args.append(a)
-
-        return f(*new_args, **kwargs)
-
-    return fun
 
 
 def calc_der(f, dim):
