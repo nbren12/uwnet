@@ -6,8 +6,9 @@ import dask.array as da
 from dask.array.core import atop
 from dask import delayed
 
-data = "/home/disk/eos4/nbren12/Data/id/880e581fd387681d0b91fde66e14903c2a0d8bf8/data"
+include: "sam.rules"
 
+data = "/home/disk/eos4/nbren12/Data/id/880e581fd387681d0b91fde66e14903c2a0d8bf8/data"
 
 def interface_to_centers(zw):
     """Get centers of the cells bounded by z with padding on the right
@@ -54,9 +55,6 @@ def vertdiv(phi, w):
     return xr.DataArray(out_dask, w.coords)
 
 
-subworkflow dataflow:
-    workdir: "../2017-08-12/wd"
-    snakefile: "../2017-08-12/Snakefile"
 
 
 rule xgrid:
@@ -85,13 +83,13 @@ rule horiz:
         xh = (x[1:] +x[:-1])/2
 
         out = dF/dx
-        out['x'] = xh
+        # out['x'] = xh
         out.attrs['units'] = phi.units +'/s'
         (dF/dx).to_dataset(name=f"d{phi.name}").to_netcdf(output[0])
 
 
 rule vert:
-    input: dataflow("{f}.nc"), w=dataflow("{f}.nc"), stat=dataflow("stat.nc")
+    input: "{f}.nc", w="A64/3d/W.nc", stat="stat.nc"
     output: "zadv/{f}.nc"
     run:
         phi = xr.open_dataarray(input[0])
@@ -99,4 +97,16 @@ rule vert:
         rho = xr.open_dataset(input.stat).RHO[-1]
 
         vertdiv(rho*phi, w).to_netcdf(output[0])
+
+rule budget:
+    input: x="xadv/QV.nc", z="zadv/A64/3d/QV.nc", y="A64/3d/QV.nc"
+    output: "M/QV.nc"
+    run:
+        x= xopena(input.x)
+        z= xopena(input.z)
+        y = xopena(input.y)
+
+        (y-z-x)
+
+
 
