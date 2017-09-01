@@ -11,53 +11,6 @@ include: "sam.rules"
 
 data = "/home/disk/eos4/nbren12/Data/id/880e581fd387681d0b91fde66e14903c2a0d8bf8/data"
 
-def centers_to_interface(zc):
-    """Get centers of the cells bounded by z with padding on the right
-    """
-    # cell centered z
-    zc  = np.hstack((-zc[0], zc))
-    return (zc[1:] + zc[:-1])/2
-
-
-def vertdiv(phi, w, rho):
-    """Vertical advection divergence
-
-    w is assumed to be on the vertical faces
-    phi re at the cell centers.
-
-    """
-
-    phi = phi.transpose(*w.dims) # ensure data are tranposed correctly
-    axis = phi.get_axis_num('z')
-
-    # get vertical coordinate at cell centers
-    zc = phi.z.values
-    zw = centers_to_interface(zc)
-
-
-    def fun(phi, w, rho):
-        phi = phi.swapaxes(axis, -1)
-        w = w.swapaxes(axis, -1)
-
-        phiw = interp1d(zc, phi, axis=-1, fill_value='extrapolate')(zw)
-        rhow = interp1d(zc, rho, axis=-1, fill_value='extrapolate')(zw)
-        F = phiw * w * rhow
-        out = (np.roll(F, -1, -1) - F)/(np.roll(zw, -1) - zw)/rho
-
-        return out.swapaxes(axis, -1)
-
-    tup4d = list(range(3))
-
-    out_dask = atop(fun, tup4d,
-                    phi.data, tup4d,
-                    w.data, tup4d,
-                    rho.data, (axis,),
-                    dtype=phi.data.dtype)
-
-    return xr.DataArray(out_dask, w.coords)
-
-
-
 
 rule xgrid:
     input:  "{f}.nc", c="A64/3d/QV.nc"
@@ -69,41 +22,7 @@ rule xgrid:
         """
 
 
-rule horiz:
-    input: "x/3d/{f}.nc", u="x/3d/U.nc"
-    output: "xadv/{f}.nc"
-    run:
-        phi = xr.open_dataarray(input[0], chunks={'time':100})
-        u   = xr.open_dataarray(input.u, chunks={'time':100})
-        F = phi * u
 
-        axis = F.get_axis_num('x')
-        def diff(x):
-            return x-np.roll(x, 1, axis)
-
-        dF = map_overlap(F, diff, {'x': 1}, {'x': 'periodic'})
-
-        # handle x coordinates
-        right_value = u.x[-1] *2 - u.x[-2]
-        x = np.hstack([u.x.values, right_value])
-        dx = x[1:] -x[:-1]
-        xh = (x[1:] +x[:-1])/2
-
-        out = dF/dx
-        # out['x'] = xh
-        out.attrs['units'] = phi.units +'/s'
-        (dF/dx).to_dataset(name=f"d{phi.name}").to_netcdf(output[0])
-
-
-rule vert:
-    input: "{f}.nc", w="A64/3d/W.nc", stat="stat.nc"
-    output: "zadv/{f}.nc"
-    run:
-        phi = xr.open_dataarray(input[0])
-        w = xr.open_dataarray(input.w)
-        rho = xr.open_dataset(input.stat).RHO[-1]
-
-        vertdiv(phi, w, rho).to_netcdf(output[0])
 
 rule residual:
     input: x="xadv/QV.nc", z="zadv/A64/3d/QV.nc", y="A64/3d/QV.nc"
