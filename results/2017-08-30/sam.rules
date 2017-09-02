@@ -137,20 +137,6 @@ rule apparent_drying:
         q2.attrs['long_name'] = "Apparent drying"
         q2.to_dataset(name="q2").to_netcdf(output[0])
 
-rule maximum_cov_analysis:
-    input: q1="calc/q1.nc", q2="calc/q2.nc",
-           sl="calc/sl.nc", qt="calc/qt.nc",
-           weight="w.nc"
-    output: "calc/mca.nc"
-    script: "mca.py"
-
-rule partial_least_squares:
-    input: files=["calc/q1.nc", "calc/q2.nc", "calc/qt.nc", "calc/sl.nc"],
-           weight="w.nc"
-    params: input_vars=["qt", "sl"], pred_vars=["q1", "q2"],
-            feature_dims=["z"], sample_dims=["time", "x"]
-    output: "calc/pls.nc", pkl="calc/pls.pkl"
-    script: "pls.py"
 
 rule weights:
     input: "stat.nc"
@@ -177,20 +163,11 @@ rule weight_ngaqua:
         xr.open_dataset(input[0]).p.to_dataset(name="p")\
           .to_netcdf(output.p)
 
-
-rule partial_least_squares_ngaqua:
-    input: files=["/home/disk/eos8/pnaren/ML/codes/forlaptop/data.nc"],
-           weight= "ngaqua/w.nc"
-    output: "ngaqua/pls.nc", pkl="ngaqua/pls.pkl"
-    params: input_vars=["qt", "sl"], pred_vars=["q1c", "q2"],
-            feature_dims=["z"], sample_dims=["time", "x"]
-    script: "pls.py"
-
-rule report:
-    input: "ngaqua/w.nc", "ngaqua/p.nc", "calc/pls.pkl", "calc/mca.nc", "A64/2d/Prec.nc"
-    output: "Report for August 8, 2017.html"
-    shell: 'jupyter nbconvert --execute ../"Report for August 8, 2017.ipynb"'
-
+# rule report:
+#     input: "ngaqua/w.nc", "ngaqua/p.nc", "calc/pls.pkl", "calc/mca.nc", "A64/2d/Prec.nc"
+#     output: "Report for August 8, 2017.html"
+#     shell: 'jupyter nbconvert --execute ../"Report for August 8, 2017.ipynb"'
+# 
 
 
 def xopen(name, nt=20):
