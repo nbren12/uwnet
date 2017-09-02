@@ -81,6 +81,7 @@ rule link_data:
 rule coarse_grain:
     input: "{f}.nc"
     output: "A{m,[0-9]+}/{f}.nc"
+    threads: 8
     run:
         m = int(wildcards.m)
 
