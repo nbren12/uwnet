@@ -11,36 +11,23 @@ include: "sam.rules"
 
 data = "/home/disk/eos4/nbren12/Data/id/880e581fd387681d0b91fde66e14903c2a0d8bf8/data"
 
-
-rule xgrid:
-    input:  "{f}.nc", c="A64/3d/QV.nc"
-    output: "x/{f}.nc"
-    shell:
-        """
-        ncks -d x,,,64 -o {output} {input[0]}
-        ncks -A -v x -o {output} {input.c}
-        """
-
-
-
-
-rule residual:
-    input: x="xadv/QV.nc", z="zadv/A64/3d/QV.nc", y="A64/3d/QV.nc"
-    output: "B/QV.nc"
+@wrap_xarray_calculation
+def source(x, f):
+    dt = float(x.time[1] - x.time[0])
+    return x.shift(time=-1) - dt/2 * (f.shift(time=-1) + f)
+    
+rule inputs:
+    input: "calc/qt.nc", "calc/sl.nc", "A64/2d/LHF.nc", "A64/2d/Prec.nc"
+    output: "ml/X.nc"
     run:
-        x= xopena(input.x)
-        z= xopena(input.z)
-        y = xopena(input.y)
+        xr.merge((xopena(f) for f in input), join='inner')\
+          .to_netcdf(output[0])
 
-        if x.time.units != 'd':
-            raise ValueError("The time dimension must have units 'd'")
-        dt = (x.time[1] - x.time[0])*3600
+rule outputs:
+    input: qt="calc/qt.nc", sl="calc/sl.nc", aqt="adv/calc/qt.nc", asl="adv/calc/sl.nc"
+    output: Y="ml/Y.nc"
+    run:
+        y_qt = source(input.qt, input.aqt)
+        y_sl = source(input.sl, input.asl)
 
-        g = z + x
-
-        out = (y - dt * g)
-        out.attrs['units'] = y.units
-        out.to_netcdf(output[0])
-
-
-
+        xr.Dataset({'qt':y_qt, 'sl': y_sl}).to_netcdf(output.Y)
