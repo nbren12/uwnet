@@ -17,7 +17,7 @@ def source(x, f):
     return x.shift(time=-1) - dt/2 * (f.shift(time=-1) + f)
     
 rule inputs:
-    input: "calc/qt.nc", "calc/sl.nc", "A64/2d/LHF.nc", "A64/2d/Prec.nc"
+    input: "calc/qt.nc", "calc/sl.nc", "A64/2d/LHF.nc", "A64/2d/SHF.nc"
     output: "ml/X.nc"
     run:
         xr.merge((xopena(f) for f in input), join='inner')\
