@@ -12,10 +12,16 @@ class DataMatrix(object):
     """
 
     def __init__(self, feature_dims, sample_dims, variables):
-        self.feature_dims = feature_dims
-        self.sample_dims = sample_dims
         self.dims = {'samples': sample_dims, 'features': feature_dims}
         self.variables = variables
+
+    @property
+    def feature_dims(self):
+        return self.dims['features']
+
+    @property
+    def sample_dims(self):
+        return self.dims['samples']
 
     def dataset_to_mat(self, X):
         Xs = X.stack(samples=self.sample_dims, features=self.feature_dims)\
@@ -56,7 +62,6 @@ class DataMatrix(object):
                 out = out.rename({dim: self.dims[dim][0]})
 
         return out
-
 
     def column_var(self, x):
         if x.ndim == 1:
