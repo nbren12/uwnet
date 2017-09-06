@@ -14,6 +14,7 @@ class DataMatrix(object):
     def __init__(self, feature_dims, sample_dims, variables):
         self.feature_dims = feature_dims
         self.sample_dims = sample_dims
+        self.dims = {'samples': sample_dims, 'features': feature_dims}
         self.variables = variables
 
     def dataset_to_mat(self, X):
@@ -44,7 +45,18 @@ class DataMatrix(object):
                 data = data[:, 0]
 
             data_dict[k] = xr.DataArray(data, self._var_coords[k], name=k)
-        return xr.Dataset(data_dict)
+
+        # unstack data in safe manner
+        out = xr.Dataset(data_dict)
+        for dim in ['features', 'samples']:
+            try:
+                out = out.unstack(dim)
+            except ValueError:
+                # unstack returns error if the dim is not an multiindex
+                out = out.rename({dim: self.dims[dim][0]})
+
+        return out
+
 
     def column_var(self, x):
         if x.ndim == 1:
@@ -67,4 +79,4 @@ def test_datamatrix():
     x = mat.mat_to_dataset(y)
 
     for k in D.data_vars:
-        np.testing.assert_allclose(D[k], x[k])
+        np.testing.assert_allclose(D[k], x[k].transpose(*D[k].dims))
