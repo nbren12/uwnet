@@ -136,7 +136,7 @@ rule weights:
         dz = get_dz(stats.z)
         rho = stats.RHO[-1]
         w = layer_mass(rho)
-        w = np.sqrt(w/w.sum('z'))
+        w = w/w.sum('z')
         w.to_netcdf(output[0])
 
 rule weight_ngaqua:
@@ -184,4 +184,3 @@ rule xtavg:
     input: "{f}.nc"
     output: "bar/{f}.nc"
     shell: "ncwa -O -a time,x {input} {output}"
-
