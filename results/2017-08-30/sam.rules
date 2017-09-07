@@ -12,6 +12,8 @@ import dask.array as da
 from dask.array.core import atop
 from dask import delayed
 
+from util import wrap_xarray_calculation, xopen, xopena
+
 data_root = "/home/disk/eos4/nbren12/Data/SAM6.10.9/JOBS/Run-0c31ce4c6763d8ec2abccafe6bde2fa0bed8124d/data"
 
 grav = 9.81
@@ -19,18 +21,6 @@ cp = 1004
 Lc = 2.5104e6
 rho0 = 1.19
 
-def wrap_xarray_calculation(f):
-    def fun(*args, **kwargs):
-        new_args = []
-        for a in args:
-            if isinstance(a, str):
-                new_args.append(xopena(a))
-            else:
-                new_args.append(a)
-
-        return f(*new_args, **kwargs)
-
-    return fun
 
 @wrap_xarray_calculation
 def liquid_water_temperature(t, qn, qp):
@@ -163,159 +153,35 @@ rule weight_ngaqua:
         xr.open_dataset(input[0]).p.to_dataset(name="p")\
           .to_netcdf(output.p)
 
-# rule report:
-#     input: "ngaqua/w.nc", "ngaqua/p.nc", "calc/pls.pkl", "calc/mca.nc", "A64/2d/Prec.nc"
-#     output: "Report for August 8, 2017.html"
-#     shell: 'jupyter nbconvert --execute ../"Report for August 8, 2017.ipynb"'
-# 
-
-
-def xopen(name, nt=20):
-    return xr.open_dataset(name, chunks=dict(time=nt))\
-             .apply(lambda x: x.squeeze())
-
-def xopena(name, nt=20):
-    return xr.open_dataarray(name, chunks={'time': nt})
-
-
-
-def calc_der(f, dim):
-    bdy = {'x': 'periodic', 'z':'periodic', 'time':'periodic'}
-    return f.centderiv(dim, boundary=bdy[dim])
-
-
-@wrap_xarray_calculation
-def calc_matder(dt, dx, dz, u, w):
-    return (dt + dx*u + dz*w)
-
-def centers_to_interface(zc):
-    """Get centers of the cells bounded by z with padding on the right
-    """
-    # cell centered z
-    zc  = np.hstack((-zc[0], zc))
-    return (zc[1:] + zc[:-1])/2
-
-
-def vertdiv(phi, w, rho):
-    """Vertical advection divergence
-
-    w is assumed to be on the vertical faces
-    phi re at the cell centers.
-
-    """
-
-    phi = phi.transpose(*w.dims) # ensure data are tranposed correctly
-    axis = phi.get_axis_num('z')
-
-    # get vertical coordinate at cell centers
-    zc = phi.z.values
-    zw = centers_to_interface(zc)
-
-
-    def fun(phi, w, rho):
-        phi = phi.swapaxes(axis, -1)
-        w = w.swapaxes(axis, -1)
-
-        phiw = interp1d(zc, phi, axis=-1, fill_value='extrapolate')(zw)
-        rhow = interp1d(zc, rho, axis=-1, fill_value='extrapolate')(zw)
-        F = phiw * w * rhow
-        out = (np.roll(F, -1, -1) - F)/(np.roll(zw, -1) - zw)/rho
-
-        return out.swapaxes(axis, -1)
-
-    tup4d = list(range(3))
-
-    out_dask = atop(fun, tup4d,
-                    phi.data, tup4d,
-                    w.data, tup4d,
-                    rho.data, (axis,),
-                    dtype=phi.data.dtype)
-
-    return xr.DataArray(out_dask, w.coords)
-
-def xdiv(phi, u):
-    
-    xu = phi.x # value at x-faces
-    phi = phi.transpose(*u.dims)
-    axis = phi.get_axis_num('x')
-
-    # Assumes the horizontal grid is equally spaced
-    dx = float(xu[1]-xu[0])
-
-    def myghost(phi):
-        return da.ghost.ghost(phi.data, {axis: 1}, {axis: "periodic"})
-
-    def fun(phi, u):
-        phi = phi.swapaxes(axis, -1)
-        u = u.swapaxes(axis, -1)
-
-        phiu = (np.roll(phi, 1, -1) + phi)/2.0
-        F = phiu * u
-        out = (np.roll(F, -1, -1) - F)/dx
-
-        return out.swapaxes(axis, -1)
-
-    out_dask = atop(fun, phi.dims,
-            myghost(phi), phi.dims,
-            myghost(u), u.dims,
-            dtype=phi.data.dtype)
-
-    out_dask = da.ghost.trim_internal(out_dask, {axis:1})
-
-    return xr.DataArray(out_dask, u.coords)
-         
-
 
 wildcard_constraints:
     dim="(x|time|z)", # used for arguments to operators
     field="[^/]+"    # no path seperators
 
 
-rule derivative:
-    input: f="{f}.nc"
-    output:"Dx/{f}.nc"
-    run:
-        dim = wildcards.dim
-        f = xopen(input[0])\
-            .apply(lambda x: calc_der(x, 'x') if 'x' in x.dims else x)
-        f.to_netcdf(output[0])
-
-rule vertical_derivative:
-    input: "{f}.nc"
-    output: "Dz/{f}.nc"
-
-rule vertical_advection:
-    input: "{f}.nc", w="A64/3d/W.nc", stat="stat.nc"
-    output: "zadv/{f}.nc"
-    run:
-        phi = xr.open_dataarray(input[0])
-        w = xr.open_dataarray(input.w)
-        rho = xr.open_dataset(input.stat).RHO[-1]
-
-        vertdiv(phi, w, rho).to_netcdf(output[0])
-
-
-rule horizontal_advection:
-    input: "{f}.nc", u="A64/3d/U.nc"
-    output: "xadv/{f}.nc"
-    run:
-        phi = xopena(input[0])
-        u = xopena(input.u)
-
-        xdiv(phi, u).to_netcdf(output[0])
-
 rule total_advection:
-    input: x="xadv/{f}.nc", z="zadv/{f}.nc"
+    input: u="A64/3d/U.nc", w="A64/3d/W.nc", phi="{f}.nc"
     output: "adv/{f}.nc"
-    run:
-        (xopena(input.x) + xopena(input.z)).to_netcdf(output[0])
+    script: "advection.py"
+
+
+@wrap_xarray_calculation
+def budget(f, adv):
+    t = f.time
+    dt = float(t[1]-t[0])
+    out = (f.shift(time=-1) - f)/dt \
+          + (adv.shift(time=-1) + adv)/2*86400
+
+    return out.isel(time=slice(0, -1))
 
 rule material_derivative:
-    input: u="{d}/U.nc", w="{d}/W.nc",
-           dx="Dx/{d}/{field}.nc",
-           dz="Dz/{d}/{field}.nc",
-           dt="Dtime/{d}/{field}.nc"
-    output: "M/{d}/{field}.nc"
+    input: f="{f}.nc", adv='adv/{f}.nc'
+    output: "budget/{f}.nc"
     run:
-        out = calc_matder(input.dt, input.dx, input.dz, input.u, input.w)
-        out.to_dataset(name=wildcards.field).to_netcdf(output[0])
+        budget(input.f, input.adv).to_netcdf(output[0])
+
+rule xtavg:
+    input: "{f}.nc"
+    output: "bar/{f}.nc"
+    shell: "ncwa -O -a time,x {input} {output}"
+

@@ -15,7 +15,7 @@ data = "/home/disk/eos4/nbren12/Data/id/880e581fd387681d0b91fde66e14903c2a0d8bf8
 def source(x, f):
     dt = float(x.time[1] - x.time[0])
     return x.shift(time=-1) - dt/2 * (f.shift(time=-1) + f)
-    
+
 rule inputs:
     input: "calc/qt.nc", "calc/sl.nc", "A64/2d/LHF.nc", "A64/2d/SHF.nc"
     output: "ml/X.nc"

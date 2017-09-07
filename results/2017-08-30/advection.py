@@ -3,6 +3,8 @@
 import numpy as np
 import xarray as xr
 
+from util import wrap_xarray_calculation
+
 
 def zadv_numpy(phi, w, dz, axis=-1):
     phi = phi.swapaxes(axis, -1)
@@ -31,6 +33,8 @@ def xadv(phi, u, dim='x'):
     out = zadv_numpy(phi.data, u.data, dx, axis=phi.get_axis_num(dim))
     return xr.DataArray(out, phi.coords)
 
+def advection(phi, u, w):
+    return xadv(phi, u) + zadv(phi, w)
 
 
 def test_advection():
@@ -60,3 +64,18 @@ def test_advection():
     exact = np.cos(zc) *np.sin(xc) * zc*np.cos(xc)
     approx = xadv(phi, u)
     np.testing.assert_allclose(exact.values, approx.values, atol=1e-3)
+
+
+def main_snakemake():
+    i = snakemake.input
+    out = wrap_xarray_calculation(advection)(i.phi, i.u, i.w)
+    out.to_netcdf(snakemake.output[0])
+
+try:
+    snakemake
+except NameError:
+    print("No snakemake object...exiting")
+    import sys
+    sys.exit(-1)
+
+main_snakemake()
