@@ -14,13 +14,12 @@ from dask import delayed
 
 from util import wrap_xarray_calculation, xopen, xopena
 
-data_root = "/home/disk/eos4/nbren12/Data/SAM6.10.9/JOBS/Run-0c31ce4c6763d8ec2abccafe6bde2fa0bed8124d/data"
-
 grav = 9.81
 cp = 1004
 Lc = 2.5104e6
 rho0 = 1.19
 
+data_root = config['data_root']
 
 @wrap_xarray_calculation
 def liquid_water_temperature(t, qn, qp):

@@ -6,9 +6,10 @@ import dask.array as da
 from dask.array.core import atop
 from dask import delayed
 
+configfile: "config.yaml"
+
 include: "sam.rules"
 
-data = "/home/disk/eos4/nbren12/Data/id/880e581fd387681d0b91fde66e14903c2a0d8bf8/data"
 
 
 def get_jupyter_inputs(wildcards):
@@ -22,13 +23,14 @@ def get_jupyter_inputs(wildcards):
         inputs += cell.get("metadata", {})\
                       .get("inputs", [])
 
+    inputs += notebook['metadata'].get('snakemake_inputs', [])
 
-    return inputs
+    return list(set(inputs))
 
 
 rule all:
-    input: "01-neural network autoencoders.done",
-        "02-ridge regression cross validation.done",
+    input: "01-neural-network-autoencoders.done",
+        "02-ridge-regression-cross-validation.done",
         "03-arcsinh-q1.done",
         "04-performance-linear-models.done"
 
