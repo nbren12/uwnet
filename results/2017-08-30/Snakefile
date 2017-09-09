@@ -7,7 +7,6 @@ from dask.array.core import atop
 from dask import delayed
 
 configfile: "config.yaml"
-
 include: "sam.rules"
 
 
