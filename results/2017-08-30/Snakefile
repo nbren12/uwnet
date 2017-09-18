@@ -66,4 +66,4 @@ rule ml:
 rule reports:
     input:  get_jupyter_inputs
     output: touch("{f}.done")
-    shell: "jupyter nbconvert --execute --to notebook --inplace {wildcards.f}.ipynb"
+    shell: "jupyter nbconvert --ExecutePreprocessor.timeout=600 --execute --to notebook --inplace {wildcards.f}.ipynb"
