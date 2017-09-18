@@ -33,13 +33,14 @@ rule all:
         "03-arcsinh-q1.done",
         "04-performance-linear-models.done"
 
-def mysel(x):
-    return x.sel(time=slice(20,None))
 
 @wrap_xarray_calculation
 def source(x, f):
     dt = float(x.time[1] - x.time[0])
     return x.shift(time=-1) - dt/2 * (f.shift(time=-1) + f)
+
+def mysel(x):
+    return x.sel(time=slice(20,None)).isel(x=0)
 
 rule inputs:
     input: "calc/qt.nc", "calc/sl.nc", "A64/2d/LHF.nc", "A64/2d/SHF.nc"
@@ -57,11 +58,18 @@ rule outputs:
                          q2=xopena(input.q2) * Lc / cp * 1e-3)
 
         xr.Dataset(data_vars).pipe(mysel).to_netcdf(output.Y)
-
 rule ml:
     input: X="ml/X.nc", Y="ml/Y.nc", weight="w.nc"
     output: X="ml/x.npz", Y="ml/y.npz"
     script: "ml.py"
+
+
+rule test_train_split:
+    input: "{f}.nc"
+    output: train="train/{f}.nc", test="test/{f}.nc"
+    params: t_split=70.0
+    script: "test_train_split.py"
+
 
 rule reports:
     input:  get_jupyter_inputs
