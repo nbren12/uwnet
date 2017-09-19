@@ -6,6 +6,8 @@ import dask.array as da
 from dask.array.core import atop
 from dask import delayed
 
+import models
+
 configfile: "config.yaml"
 include: "sam.rules"
 
@@ -40,7 +42,7 @@ def source(x, f):
     return x.shift(time=-1) - dt/2 * (f.shift(time=-1) + f)
 
 def mysel(x):
-    return x.sel(time=slice(20,None)).isel(x=0)
+    return x.sel(time=slice(20,None)).isel(x=slice(0,100))
 
 rule inputs:
     input: "calc/qt.nc", "calc/sl.nc", "A64/2d/LHF.nc", "A64/2d/SHF.nc"
@@ -69,6 +71,16 @@ rule test_train_split:
     output: train="train/{f}.nc", test="test/{f}.nc"
     params: t_split=70.0
     script: "test_train_split.py"
+
+
+rule cross_validate:
+    input: input_train="train/ml/X.nc", output_train="train/ml/Y.nc",
+           input_test="test/ml/X.nc", output_test="test/ml/Y.nc",
+           weight="w.nc"
+    output: model="cross_validation/mod.npz",
+            score="cross_validation/score.txt"
+    params: model=models.Ridge(1000)
+    script: "cross_validate.py"
 
 
 rule reports:
