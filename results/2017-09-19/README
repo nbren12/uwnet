@@ -1,0 +1,10 @@
+Improve the computation of Q1 and Q2, so that it is exact.
+
+Also, dmd.py attempts to find a linear model $A$, which pushes forward the dynamics:
+x^{n+1} = x^{n} A
+and then estimates the matrix $B$ by $log(A)$
+
+It is unclear whether this is better than trying to find a model $B$.
+(x^{n+1} - x_{n-1})/2/dt = B x^n
+
+I suspect that the second approach (which is the one we have been using) is actually less noisy than the first.
