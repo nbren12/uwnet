@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.interpolate import interp1d
 import xarray as xr
-from gnl.xarray import map_overlap
+from xnoah.xarray import map_overlap
 import dask.array as da
 from dask.array.core import atop
 from dask import delayed
@@ -60,11 +60,6 @@ rule outputs:
                          q2=xopena(input.q2) * Lc / cp * 1e-3)
 
         xr.Dataset(data_vars).pipe(mysel).to_netcdf(output.Y)
-rule ml:
-    input: X="ml/X.nc", Y="ml/Y.nc", weight="w.nc"
-    output: X="ml/x.npz", Y="ml/y.npz"
-    script: "ml.py"
-
 
 rule test_train_split:
     input: "{f}.nc"

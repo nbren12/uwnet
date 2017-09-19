@@ -5,9 +5,9 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 
-import gnl.xcalc
-from gnl.xarray import coarsen
-from gnl.xarray import map_overlap
+import xnoah.xcalc
+from xnoah.xarray import coarsen
+from xnoah.xarray import map_overlap
 import dask.array as da
 from dask.array.core import atop
 from dask import delayed

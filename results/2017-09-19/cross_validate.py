@@ -15,7 +15,7 @@ Parameters
 model: sklearn model object
 """
 import xarray as xr
-from gnl.data_matrix import NormalizedDataMatrix
+from xnoah.data_matrix import NormalizedDataMatrix
 from sklearn.externals import joblib
 
 
@@ -34,8 +34,7 @@ def main(snakemake):
     D_train = xr.merge([X_train, Y_train], join='inner')
     D_test = xr.merge([X_test, Y_test], join='inner')
 
-    common_kwargs = dict(feature_dims=['z'], sample_dims=['time', 'x'],
-                         weight=weight, apply_weight=True)
+    common_kwargs = dict(sample_dims=['x', 'time'], weight=weight, apply_weight=True)
 
     # normalized tranformer matrices
     in_dm = NormalizedDataMatrix(variables=['sl', 'qt', 'LHF', 'SHF'],
