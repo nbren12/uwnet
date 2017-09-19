@@ -56,6 +56,7 @@ def main(snakemake):
     mod.fit(x_train, y_train)
 
     score = mod.score(x_test, y_test)
+    print(f"Cross validation score is {score}")
 
     # write score to file
     with open(snakemake.output.score, "w") as f:
@@ -63,6 +64,32 @@ def main(snakemake):
 
     # write fitted mod to file
     joblib.dump(mod, snakemake.output.model)
+
+    # compute prediction and residuals
+    D = xr.concat((D_train, D_test), dim='time')
+    try:
+        snakemake.output.prediction
+    except AttributeError:
+        pass
+    else:
+        print("Saving prediction")
+        x = in_dm.transform(D)
+        # need to run this to initialize DM
+        ytrue = out_dm.transform(D)
+        ypred = mod.predict(x)
+
+        Y = out_dm.inverse_transform(ypred)
+        Y.to_netcdf(snakemake.output.prediction)
+
+    # output residual
+    try:
+        snakemake.output.residual
+    except AttributeError:
+        pass
+    else:
+        print("Saving Residual")
+        resid = out_dm.inverse_transform(ytrue-ypred)
+        resid.to_netcdf(snakemake.output.residual)
 
 
 try:

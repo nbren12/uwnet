@@ -78,8 +78,11 @@ rule cross_validate:
            input_test="test/ml/X.nc", output_test="test/ml/Y.nc",
            weight="w.nc"
     output: model="cross_validation/mod.npz",
-            score="cross_validation/score.txt"
-    params: model=models.Ridge(1000)
+            score="cross_validation/score.txt",
+            prediction="cross_validation/pred.nc",
+            residual="cross_validation/resid.nc"
+
+    params: model=models.Ridge(1)
     script: "cross_validate.py"
 
 
