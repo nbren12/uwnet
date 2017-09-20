@@ -18,33 +18,14 @@ import numpy as np
 import xarray as xr
 from xnoah.data_matrix import unstack_cat, stack_cat, compute_weighted_scale
 from sklearn.externals import joblib
-import models
-
-
-def get_input_output(ds, weight,
-                     inputs=['sl', 'qt', 'LHF', 'SHF'],
-                     outputs=['q1', 'q2']):
-
-    sample_dims = ['x', 'time']
-
-    # normalize inputs
-    scales = compute_weighted_scale(weight, sample_dims, ds[inputs])
-    in_ds = ds[inputs]
-    # in_ds = (in_ds-in_ds.mean(axis=0))/scales*np.sqrt(weight)
-    # in_ds = in_ds * np.sqrt(weight)
-
-    # do not normalize outputs
-    # weight them though...
-    out_ds = ds[outputs]
-
-
-    return models.get_mat(in_ds), models.get_mat(out_ds)
-
+from models import *
 
 
 def main(snakemake):
 
-    inputs = ['qt', 'sl', 'LHF', 'SHF']
+    inputs = ['LHF', 'SHF', 'qt', 'sl']
+    outputs = ['q1', 'q2']
+
     # density
     weight = xr.open_dataarray(snakemake.input.weight)
 
@@ -58,22 +39,26 @@ def main(snakemake):
     D_train = xr.merge([X_train, Y_train], join='inner')
     D_test = xr.merge([X_test, Y_test], join='inner')
 
-    # Create 2D data matrices
-    x_train, y_train = get_input_output(D_train, weight)
-    x_test, y_test = get_input_output(D_test, weight)
+    # xarray preparation transformer
+    xprep = XarrayPreparer(sample_dims=['x','time'], weight=weight)
 
-    # mod is in snakemake
-    mod = models.RidgeRemover
-    # mod = snakemake.params.model
+    # regression pipeline
+    mod = make_pipeline(NullFeatureRemover(), Ridge(1.0, normalize=True))
+
+    # fit model
     print(f"Fitting {mod}")
-    mod.fit(x_train, y_train)
+    x_train, y_train = xprep.fit_transform(D_train[inputs], D_train[outputs])
+    feats=mod.fit(x_train, y_train)
 
+    # compute cross validation score
+    x_test, y_test = xprep.transform(D_test[inputs], D_test[outputs])
     score = mod.score(x_test, y_test)
     print(f"Cross validation score is {score}")
 
-    # write score to file
+    # save score to file
     with open(snakemake.output.score, "w") as f:
         f.write(f"{score}")
+
 
     # write fitted mod to file
     joblib.dump(mod, snakemake.output.model)
@@ -86,11 +71,11 @@ def main(snakemake):
         pass
     else:
         print("Saving prediction")
-        x, ytrue = get_input_output(D, weight)
+        x, ytrue = xprep.transform(D[inputs], D[outputs])
         ypred = mod.predict(x)
 
-        Y = unstack_cat(xr.DataArray(ypred, ytrue.coords), 'features')\
-                .unstack('samples')
+        Y = unstack_cat(xr.DataArray(ypred, ytrue.coords), 'features') \
+            .unstack('samples')
         Y.to_netcdf(snakemake.output.prediction)
 
     # output residual
