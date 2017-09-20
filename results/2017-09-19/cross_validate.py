@@ -14,10 +14,27 @@ Parameters
 ----------
 model: sklearn model object
 """
+import numpy as np
 import xarray as xr
-from xnoah.data_matrix import NormalizedDataMatrix
+from xnoah.data_matrix import unstack_cat, stack_cat, compute_weighted_scale
 from sklearn.externals import joblib
 
+def prepvars(ds, weight,
+             sample_dims=['x', 'time'],
+             feature_dims=['z']):
+
+    scales = compute_weighted_scale(weight, sample_dims, ds)
+    ds = (ds - ds.mean(sample_dims))/scales * np.sqrt(weight)
+    return stack_cat(ds, 'features', feature_dims) \
+        .stack(samples=sample_dims) \
+        .transpose('samples', 'features')
+
+def get_input_output(ds, weight,
+                     inputs=['sl', 'qt', 'LHF', 'SHF'],
+                     outputs=['q1', 'q2']):
+    x_train = prepvars(ds[inputs], weight)
+    y_train = prepvars(ds[outputs], weight)
+    return x_train, y_train
 
 def main(snakemake):
 
@@ -37,17 +54,10 @@ def main(snakemake):
     common_kwargs = dict(sample_dims=['x', 'time'], weight=weight, apply_weight=True)
 
     # normalized tranformer matrices
-    in_dm = NormalizedDataMatrix(variables=['sl', 'qt', 'LHF', 'SHF'],
-                                 **common_kwargs)
-    out_dm = NormalizedDataMatrix(variables=['q1', 'q2'],
-                                  **common_kwargs)
 
     # Create 2D data matrices
-    x_train = in_dm.transform(D_train)
-    y_train = out_dm.transform(D_train)
-
-    x_test = in_dm.transform(D_test)
-    y_test = out_dm.transform(D_test)
+    x_train, y_train = get_input_output(D_train, weight)
+    x_test, y_test = get_input_output(D_test, weight)
 
     # mod is in snakemake
     mod = snakemake.params.model
@@ -72,12 +82,11 @@ def main(snakemake):
         pass
     else:
         print("Saving prediction")
-        x = in_dm.transform(D)
-        # need to run this to initialize DM
-        ytrue = out_dm.transform(D)
+        x, ytrue = get_input_output(D, weight)
         ypred = mod.predict(x)
 
-        Y = out_dm.inverse_transform(ypred)
+        Y = unstack_cat(xr.DataArray(ypred, ytrue.coords), 'features')\
+                .unstack('samples')
         Y.to_netcdf(snakemake.output.prediction)
 
     # output residual
@@ -87,7 +96,8 @@ def main(snakemake):
         pass
     else:
         print("Saving Residual")
-        resid = out_dm.inverse_transform(ytrue-ypred)
+        resid = unstack_cat(xr.DataArray(ytrue-ypred, ytrue.coords), 'features') \
+                    .unstack('samples')
         resid.to_netcdf(snakemake.output.residual)
 
 
