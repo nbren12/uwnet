@@ -18,26 +18,33 @@ import numpy as np
 import xarray as xr
 from xnoah.data_matrix import unstack_cat, stack_cat, compute_weighted_scale
 from sklearn.externals import joblib
+import models
 
-def prepvars(ds, weight,
-             sample_dims=['x', 'time'],
-             feature_dims=['z']):
-
-    scales = compute_weighted_scale(weight, sample_dims, ds)
-    ds = (ds - ds.mean(sample_dims))/scales * np.sqrt(weight)
-    return stack_cat(ds, 'features', feature_dims) \
-        .stack(samples=sample_dims) \
-        .transpose('samples', 'features')
 
 def get_input_output(ds, weight,
                      inputs=['sl', 'qt', 'LHF', 'SHF'],
                      outputs=['q1', 'q2']):
-    x_train = prepvars(ds[inputs], weight)
-    y_train = prepvars(ds[outputs], weight)
-    return x_train, y_train
+
+    sample_dims = ['x', 'time']
+
+    # normalize inputs
+    scales = compute_weighted_scale(weight, sample_dims, ds[inputs])
+    in_ds = ds[inputs]
+    # in_ds = (in_ds-in_ds.mean(axis=0))/scales*np.sqrt(weight)
+    # in_ds = in_ds * np.sqrt(weight)
+
+    # do not normalize outputs
+    # weight them though...
+    out_ds = ds[outputs]
+
+
+    return models.get_mat(in_ds), models.get_mat(out_ds)
+
+
 
 def main(snakemake):
 
+    inputs = ['qt', 'sl', 'LHF', 'SHF']
     # density
     weight = xr.open_dataarray(snakemake.input.weight)
 
@@ -51,16 +58,13 @@ def main(snakemake):
     D_train = xr.merge([X_train, Y_train], join='inner')
     D_test = xr.merge([X_test, Y_test], join='inner')
 
-    common_kwargs = dict(sample_dims=['x', 'time'], weight=weight, apply_weight=True)
-
-    # normalized tranformer matrices
-
     # Create 2D data matrices
     x_train, y_train = get_input_output(D_train, weight)
     x_test, y_test = get_input_output(D_test, weight)
 
     # mod is in snakemake
-    mod = snakemake.params.model
+    mod = models.RidgeRemover
+    # mod = snakemake.params.model
     print(f"Fitting {mod}")
     mod.fit(x_train, y_train)
 

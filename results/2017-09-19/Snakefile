@@ -77,7 +77,7 @@ rule cross_validate:
             prediction="cross_validation/pred.nc",
             residual="cross_validation/resid.nc"
 
-    params: model=models.Ridge(1)
+    params: model=models.Ridge(10.0)
     script: "cross_validate.py"
 
 

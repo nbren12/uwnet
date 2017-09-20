@@ -6,12 +6,19 @@ from sklearn.base import RegressorMixin, TransformerMixin, BaseEstimator
 
 class MCA(BaseEstimator, TransformerMixin):
 
-    def __init__(self, n_components=4):
+    def __init__(self, n_components=4, demean=True):
         self.n_components = n_components
+        self.demean = demean
 
     def fit(self, X, Y):
 
         m, n = X.shape
+        self.x_mean_ = X.mean(axis=0)
+        self.y_mean_ = Y.mean(axis=0)
+
+        if self.demean:
+            X = X - self.x_mean_
+            Y = Y - self.y_mean_
 
         self.cov_ = X.T.dot(Y)/(m-1)  # covariance matrix
         U, S, Vt = svd(self.cov_, full_matrices=False)
@@ -26,11 +33,10 @@ class MCA(BaseEstimator, TransformerMixin):
         return self
 
     def transform(self, X, y=None):
-        x_scores = X.dot(self.x_components_)
+        x_scores = (X-self.x_mean_).dot(self.x_components_)
 
         if y is not None:
-            y_scores_ = y.dot(self.y_components_)
-            return x_scores, y_scores_
+            return x_scores, y-self.y_mean_
 
         return x_scores
 
