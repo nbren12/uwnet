@@ -26,6 +26,18 @@ def main(snakemake):
     inputs = ['LHF', 'SHF', 'qt', 'sl']
     outputs = ['q1', 'q2']
 
+    mod = snakemake.params.model
+    prep_kwargs = snakemake.params.get('prep_kwargs', None)
+
+    if prep_kwargs is None:
+        try:
+            prep_kwargs = mod.prep_kwargs
+        except NameError:
+            prep_kwargs = {}
+
+    print(f"Running Cross Validation with", mod)
+    print("Preparation kwargs are", prep_kwargs)
+
     # density
     weight = xr.open_dataarray(snakemake.input.weight)
 
@@ -40,17 +52,14 @@ def main(snakemake):
     D_test = xr.merge([X_test, Y_test], join='inner')
 
     # xarray preparation transformer
-    xprep = XarrayPreparer(sample_dims=['x','time'], weight=weight)
-
-    # regression pipeline
-    mod = make_pipeline(NullFeatureRemover(), Ridge(1.0, normalize=True))
+    xprep = XarrayPreparer(sample_dims=['x','time'], weight=weight, **prep_kwargs)
 
     # fit model
-    print(f"Fitting {mod}")
+    print(f"Fitting model")
     x_train, y_train = xprep.fit_transform(D_train[inputs], D_train[outputs])
-    feats=mod.fit(x_train, y_train)
-
+    mod.fit(x_train, y_train)
     # compute cross validation score
+    print("Computing Cross Validation Score")
     x_test, y_test = xprep.transform(D_test[inputs], D_test[outputs])
     score = mod.score(x_test, y_test)
     print(f"Cross validation score is {score}")

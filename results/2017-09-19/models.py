@@ -10,9 +10,13 @@ class NullFeatureRemover(TransformerMixin, BaseEstimator):
     def fit(self, x, y=None):
         x = np.asarray(x)
         std = x.std(axis=0)
-        self.mask_ = std < 1e-5
+        self.mask_ = std < 1e-3
 
         return self
+
+    @property
+    def nnz(self):
+        return (-self.mask_).sum()
 
     def transform(self, x, y=None):
         if self.mask_.shape[0] != x.shape[1]:
@@ -92,3 +96,9 @@ class XarrayPreparer(TransformerMixin):
 
     def fit_transform(self, X, y=None):
         return self.fit(X,y).transform(X,y)
+
+
+# Ridge Regression
+MyRidge = make_pipeline(Ridge(1.0, normalize=True))
+MyRidge.prep_kwargs = dict(scale_input=False, scale_output=False,
+                           weight_input=True, weight_output=True)
