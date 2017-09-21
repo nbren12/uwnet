@@ -15,6 +15,7 @@ dependencies:
   - ipython
   - jupyter
   - cython
+  - jq
   - pip
   - pip:
       - git+https://github.com/nbren12/gnl@master#subdirectory=packages/gnl
