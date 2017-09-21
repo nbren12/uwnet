@@ -54,8 +54,14 @@ def  _prepare_variable(x, do_scale, do_weight, scale, weight, sample_dims):
     if do_scale:
         x /= scale
 
+    def mul_if_dims_subset(x):
+        if set(weight.dims) <= set(x.dims):
+            return x * np.sqrt(weight)
+        else:
+            return x
+
     if do_weight:
-        x *= np.sqrt(weight)
+        x = x.apply(mul_if_dims_subset)
 
     return get_mat(x, sample_dims)
 
