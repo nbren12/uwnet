@@ -18,28 +18,8 @@ import numpy as np
 import xarray as xr
 from xnoah.data_matrix import unstack_cat, stack_cat, compute_weighted_scale
 from sklearn.externals import joblib
+from sklearn.model_selection import ParameterGrid
 from models import *
-
-
-def _unstack(y, coords):
-    return unstack_cat(xr.DataArray(y, coords), 'features') \
-             .unstack('samples')
-
-
-def score_dataset(y_true, y, sample_dims, return_scalar=True):
-
-    if not set(y.dims)  >= set(sample_dims):
-        raise ValueError("Sample dims must be a subset of data dimensions")
-
-    # means
-    ss = ((y_true - y_true.mean(sample_dims))**2).sum(sample_dims).sum()
-
-    # prediction
-    sse = ((y_true - y)**2).sum(sample_dims).sum()
-
-    r2 = 1- sse/ss
-    return r2
-
 
 
 def main(snakemake):
@@ -83,36 +63,21 @@ def main(snakemake):
     # xarray preparation transformer
     xprep = XarrayPreparer(sample_dims=sample_dims, weight=weight, **prep_kwargs)
 
+    x_train, y_train = xprep.fit_transform(D_train[inputs], D_train[outputs])
+    x_test, y_test = xprep.transform(D_test[inputs], D_test[outputs])
+
     # fit model
     print(f"Fitting model")
-    x_train, y_train = xprep.fit_transform(D_train[inputs], D_train[outputs])
     mod.fit(x_train, y_train)
 
     # compute cross validation score
     print("Computing Cross Validation Score")
-    x_test, y_test = xprep.transform(D_test[inputs], D_test[outputs])
     y_pred = mod.predict(x_test)
+    score, score_q1, score_q2 = xprep.score(y_pred, y_test)
 
-    # turn into Dataset
-    y_true_dataset = _unstack(y_test, y_test.coords)
-    y_pred_dataset = _unstack(y_pred, y_test.coords)
-
-
-    # This might be unnessary
-    # I think this might just be removed in the R2 calculation
-    # also weighting would be removed
-    if prep_kwargs['scale_output']:
-        y_true_dataset *= xprep.scale_y_
-        y_pred_dataset *= xprep.scale_y_
-
-
-
-    r2 = score_dataset(y_true_dataset, y_pred_dataset, sample_dims)
-    print(f"cross validation score is {r2}")
+    print(f"cross validation score is {score}, q1:{score_q1}, q2:{score_q2}")
     with open(snakemake.output.r2, "w") as f:
-        for key, val in r2.items():
-            val = float(val)
-            f.write(f"{key},{val}\n")
+        f.write(f"{score},{score_q1},{score_q2}\n")
 
     # write fitted mod to file
     joblib.dump(mod, snakemake.output.model)

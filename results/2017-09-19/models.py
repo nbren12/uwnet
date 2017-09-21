@@ -1,8 +1,9 @@
 import numpy as np
+import xarray as xr
 from sklearn.base import TransformerMixin, BaseEstimator
-from sklearn.pipeline import  make_pipeline
+from sklearn.pipeline import make_pipeline
 from sklearn.linear_model import Ridge
-from xnoah.data_matrix import  stack_cat
+from xnoah.data_matrix import stack_cat, unstack_cat
 from mca import MCA
 
 class NullFeatureRemover(TransformerMixin, BaseEstimator):
@@ -58,6 +59,29 @@ def  _prepare_variable(x, do_scale, do_weight, scale, weight, sample_dims):
 
     return get_mat(x, sample_dims)
 
+def _unstack(y, coords):
+    return unstack_cat(xr.DataArray(y, coords), 'features') \
+        .unstack('samples')
+
+
+def _score_dataset(y_true, y, sample_dims, return_scalar=True):
+
+    if not set(y.dims)  >= set(sample_dims):
+        raise ValueError("Sample dims must be a subset of data dimensions")
+
+    # means
+    ss = ((y_true - y_true.mean(sample_dims))**2).sum(sample_dims).sum()
+
+    # prediction
+    sse = ((y_true - y)**2).sum(sample_dims).sum()
+
+    r2 = 1- sse/ss
+    sse_ = sse.to_array().sum()
+    ss_ = ss.to_array().sum()
+
+    return float(1- sse_/ss_), float(r2.q1), float(r2.q2)
+
+
 class XarrayPreparer(TransformerMixin):
     """Object for preparing data for input
 
@@ -97,8 +121,26 @@ class XarrayPreparer(TransformerMixin):
     def fit_transform(self, X, y=None):
         return self.fit(X,y).transform(X,y)
 
+    def score(xprep, y_pred, y):
+
+        # turn into Dataset
+        y_true_dataset = _unstack(y, y.coords)
+        y_pred_dataset = _unstack(y_pred, y.coords)
+
+
+        # This might be unnessary
+        # I think this might just be removed in the R2 calculation
+        # also weighting would be removed
+        if xprep.scale_output:
+            y_true_dataset *= xprep.scale_y_
+            y_pred_dataset *= xprep.scale_y_
+
+
+        return _score_dataset(y_true_dataset, y_pred_dataset, xprep.sample_dims)
+
 
 # Ridge Regression
 MyRidge = make_pipeline(Ridge(1.0, normalize=True))
 MyRidge.prep_kwargs = dict(scale_input=False, scale_output=False,
                            weight_input=True, weight_output=True)
+MyRidge.param_grid = {'ridge__alpha': np.logspace(-10, 3, 15)}
