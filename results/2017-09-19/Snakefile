@@ -72,7 +72,7 @@ rule cross_validate:
     input: input_train="train/ml/X.nc", output_train="train/ml/Y.nc",
            input_test="test/ml/X.nc", output_test="test/ml/Y.nc",
            weight="w.nc"
-    output: #model="cv_ridge/mod.npz",
+    output: model="cv/{model}/model.pkl",
             cv="cv/{model}/cv.json",
             prediction="cv/{model}/pred.nc",
             residual="cv/{model}/resid.nc"

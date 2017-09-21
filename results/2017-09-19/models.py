@@ -2,7 +2,7 @@ import numpy as np
 import xarray as xr
 from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.pipeline import make_pipeline
-from sklearn.linear_model import Ridge
+from sklearn.linear_model import Ridge, LinearRegression
 from xnoah.data_matrix import stack_cat, unstack_cat
 from mca import MCA
 
@@ -151,7 +151,15 @@ MyRidge.prep_kwargs = dict(scale_input=False, scale_output=False,
                            weight_input=True, weight_output=True)
 MyRidge.param_grid = {'ridge__alpha': np.logspace(-10, 3, 15)}
 
+# MCA
+_MCA = make_pipeline(MCA(), LinearRegression())
+_MCA.prep_kwargs = dict(scale_input=True, scale_output=False,
+                           weight_input=True, weight_output=True)
+_MCA.param_grid = {'mca__n_components': [1, 2, 4, 5, 6, 7, 8, 9,
+                                         10, 20, 30, 40, 50, 100, 120]}
+
 # This dictionary is used by the Snakefile
 model_dict = {
-    'ridge': MyRidge
+    'ridge': MyRidge,
+    'mca': _MCA
 }

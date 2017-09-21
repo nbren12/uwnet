@@ -41,6 +41,7 @@ def main(snakemake):
     inputs = ['LHF', 'SHF', 'qt', 'sl']
     outputs = ['q1', 'q2']
     sample_dims = ['x', 'time']
+    is_mca_model = snakemake.wildcards.model ==  'mca'
 
     mod = snakemake.params.model
 
@@ -79,6 +80,14 @@ def main(snakemake):
 
     x_train, y_train = xprep.fit_transform(D_train[inputs], D_train[outputs])
     x_test, y_test = xprep.transform(D_test[inputs], D_test[outputs])
+    print("X_Train shape is ", x_train.shape)
+
+    if is_mca_model:
+        xprep1 = XarrayPreparer(sample_dims=sample_dims, weight=weight, **prep_kwargs)
+        y_in_train = xprep1.fit_transform(D_train[outputs])
+        x_train = [x_train, y_in_train]
+        x_test = [x_test, None]
+        xprep1 = None
 
     ## Begin machine learning
     cv_results = []
@@ -116,7 +125,12 @@ def main(snakemake):
     print("Best params are", best_params)
 
     # fit model using the best parameters available
+    print("Re-fitting model with the best parameters")
     mod.set_params(**best_params)
+    mod.fit(x_train, y_train)
+    # save this model to disk
+    print("Saving model to disk")
+    joblib.dump(mod, snakemake.output.model)
 
     # compute prediction and residuals
     D = xr.concat((D_train, D_test), dim='time')
@@ -127,6 +141,8 @@ def main(snakemake):
     else:
         print("Saving prediction")
         x, ytrue = xprep.transform(D[inputs], D[outputs])
+        if is_mca_model:
+            x = [x, None]
         ypred = mod.predict(x)
 
         Y = unstack_cat(xr.DataArray(ypred, ytrue.coords), 'features') \
