@@ -3,6 +3,7 @@ import xarray as xr
 from sklearn.base import TransformerMixin, BaseEstimator
 from sklearn.pipeline import make_pipeline
 from sklearn.linear_model import Ridge, LinearRegression
+from sklearn.decomposition import PCA
 from xnoah.data_matrix import stack_cat, unstack_cat
 from mca import MCA
 
@@ -158,8 +159,16 @@ _MCA.prep_kwargs = dict(scale_input=True, scale_output=False,
 _MCA.param_grid = {'mca__n_components': [1, 2, 4, 5, 6, 7, 8, 9,
                                          10, 20, 30, 40, 50, 100, 120]}
 
+# Principal component regression
+# PCA automatically demeans the data, which is what we want to happen
+_PCR = make_pipeline(PCA(), LinearRegression())
+_PCR.prep_kwargs = dict(scale_input=True, scale_output=False,
+                        weight_input=True, weight_output=True)
+_PCR.param_grid = {'pca__n_components': [1, 2, 4, 5, 6, 7, 8, 9,
+                                         10, 20, 30, 40, 50, 100, 120]}
 # This dictionary is used by the Snakefile
 model_dict = {
     'ridge': MyRidge,
-    'mca': _MCA
+    'mca': _MCA,
+    'pcr': _PCR
 }
