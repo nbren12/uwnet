@@ -14,12 +14,26 @@ Parameters
 ----------
 model: sklearn model object
 """
+import json
 import numpy as np
 import xarray as xr
 from xnoah.data_matrix import unstack_cat, stack_cat, compute_weighted_scale
 from sklearn.externals import joblib
 from sklearn.model_selection import ParameterGrid
 from models import *
+
+
+def get_best_params(cv_results, score_key=0):
+    best_score = -1000
+    params = None
+    for res in cv_results:
+        score = res['test_scores'][score_key]
+        if score > best_score:
+            best_score = score
+            params = res['params']
+            scores = res['test_scores']
+
+    return params, scores
 
 
 def main(snakemake):
@@ -66,21 +80,43 @@ def main(snakemake):
     x_train, y_train = xprep.fit_transform(D_train[inputs], D_train[outputs])
     x_test, y_test = xprep.transform(D_test[inputs], D_test[outputs])
 
-    # fit model
-    print(f"Fitting model")
-    mod.fit(x_train, y_train)
+    ## Begin machine learning
+    cv_results = []
+    for params in ParameterGrid(mod.param_grid):
+        print("Performing cross validation with the following params")
+        print(params)
+        cv_result = {'params': params}
 
-    # compute cross validation score
-    print("Computing Cross Validation Score")
-    y_pred = mod.predict(x_test)
-    score, score_q1, score_q2 = xprep.score(y_pred, y_test)
+        mod.set_params(**params)
+        # fit model
+        print(f"Fitting model")
+        mod.fit(x_train, y_train)
 
-    print(f"cross validation score is {score}, q1:{score_q1}, q2:{score_q2}")
-    with open(snakemake.output.r2, "w") as f:
-        f.write(f"{score},{score_q1},{score_q2}\n")
+        # compute fitting score
+        y_pred = mod.predict(x_train)
+        cv_result['train_scores'] = xprep.score(y_pred, y_train)
 
-    # write fitted mod to file
-    joblib.dump(mod, snakemake.output.model)
+        # compute cross validation score
+        print("Computing Cross Validation Score")
+        y_pred = mod.predict(x_test)
+        cv_result['test_scores'] = xprep.score(y_pred, y_test)
+
+        # print(f"cross validation score is {score}, q1:{score_q1}, q2:{score_q2}")
+        # with open(snakemake.output.r2, "w") as f:
+        #     f.write(f"{score},{score_q1},{score_q2}\n")
+        cv_results.append(cv_result)
+
+    # write CV results to disk
+    with open(snakemake.output.cv, "w") as f:
+        json.dump(cv_results, f)
+
+    # find the best parameter set
+    best_params, best_scores = get_best_params(cv_results)
+    print("Best scores are", best_scores)
+    print("Best params are", best_params)
+
+    # fit model using the best parameters available
+    mod.set_params(**best_params)
 
     # compute prediction and residuals
     D = xr.concat((D_train, D_test), dim='time')

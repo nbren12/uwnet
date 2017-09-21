@@ -72,11 +72,10 @@ rule cross_validate:
     input: input_train="train/ml/X.nc", output_train="train/ml/Y.nc",
            input_test="test/ml/X.nc", output_test="test/ml/Y.nc",
            weight="w.nc"
-    output: model="cross_validation/mod.npz",
-            r2="cross_validation/r2.txt",
-            prediction="cross_validation/pred.nc",
-            residual="cross_validation/resid.nc"
-
+    output: #model="cv_ridge/mod.npz",
+            cv="cv/ridge/cv.json",
+            prediction="cv/ridge/pred.nc",
+            residual="cv/ridge/resid.nc"
     params: model=models.MyRidge
     script: "cross_validate.py"
 
