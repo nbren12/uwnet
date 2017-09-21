@@ -73,7 +73,7 @@ rule cross_validate:
            input_test="test/ml/X.nc", output_test="test/ml/Y.nc",
            weight="w.nc"
     output: model="cross_validation/mod.npz",
-            score="cross_validation/score.txt",
+            r2="cross_validation/r2.txt",
             prediction="cross_validation/pred.nc",
             residual="cross_validation/resid.nc"
 

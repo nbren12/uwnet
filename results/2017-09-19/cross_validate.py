@@ -21,19 +21,48 @@ from sklearn.externals import joblib
 from models import *
 
 
+def _unstack(y, coords):
+    return unstack_cat(xr.DataArray(y, coords), 'features') \
+             .unstack('samples')
+
+
+def score_dataset(y_true, y, sample_dims, return_scalar=True):
+
+    if not set(y.dims)  >= set(sample_dims):
+        raise ValueError("Sample dims must be a subset of data dimensions")
+
+    # means
+    ss = ((y_true - y_true.mean(sample_dims))**2).sum(sample_dims).sum()
+
+    # prediction
+    sse = ((y_true - y)**2).sum(sample_dims).sum()
+
+    r2 = 1- sse/ss
+    return r2
+
+
+
 def main(snakemake):
 
     inputs = ['LHF', 'SHF', 'qt', 'sl']
     outputs = ['q1', 'q2']
+    sample_dims = ['x', 'time']
 
     mod = snakemake.params.model
-    prep_kwargs = snakemake.params.get('prep_kwargs', None)
 
-    if prep_kwargs is None:
-        try:
-            prep_kwargs = mod.prep_kwargs
-        except NameError:
-            prep_kwargs = {}
+    prep_kwargs = dict(scale_input=False, scale_output=False,
+                       weight_input=True, weight_output=True)
+
+    # update with kwargs from snakemake
+    prep_kwargs.update(snakemake.params.get('prep_kwargs', {}))
+
+    # update with monkey-patched kwargs
+    try:
+        mod.prep_kwargs
+    except NameError:
+        pass
+    else:
+        prep_kwargs.update(mod.prep_kwargs)
 
     print(f"Running Cross Validation with", mod)
     print("Preparation kwargs are", prep_kwargs)
@@ -52,22 +81,38 @@ def main(snakemake):
     D_test = xr.merge([X_test, Y_test], join='inner')
 
     # xarray preparation transformer
-    xprep = XarrayPreparer(sample_dims=['x','time'], weight=weight, **prep_kwargs)
+    xprep = XarrayPreparer(sample_dims=sample_dims, weight=weight, **prep_kwargs)
 
     # fit model
     print(f"Fitting model")
     x_train, y_train = xprep.fit_transform(D_train[inputs], D_train[outputs])
     mod.fit(x_train, y_train)
+
     # compute cross validation score
     print("Computing Cross Validation Score")
     x_test, y_test = xprep.transform(D_test[inputs], D_test[outputs])
-    score = mod.score(x_test, y_test)
-    print(f"Cross validation score is {score}")
+    y_pred = mod.predict(x_test)
 
-    # save score to file
-    with open(snakemake.output.score, "w") as f:
-        f.write(f"{score}")
+    # turn into Dataset
+    y_true_dataset = _unstack(y_test, y_test.coords)
+    y_pred_dataset = _unstack(y_pred, y_test.coords)
 
+
+    # This might be unnessary
+    # I think this might just be removed in the R2 calculation
+    # also weighting would be removed
+    if prep_kwargs['scale_output']:
+        y_true_dataset *= xprep.scale_y_
+        y_pred_dataset *= xprep.scale_y_
+
+
+
+    r2 = score_dataset(y_true_dataset, y_pred_dataset, sample_dims)
+    print(f"cross validation score is {r2}")
+    with open(snakemake.output.r2, "w") as f:
+        for key, val in r2.items():
+            val = float(val)
+            f.write(f"{key},{val}\n")
 
     # write fitted mod to file
     joblib.dump(mod, snakemake.output.model)
