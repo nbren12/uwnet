@@ -144,3 +144,8 @@ MyRidge = make_pipeline(Ridge(1.0, normalize=True))
 MyRidge.prep_kwargs = dict(scale_input=False, scale_output=False,
                            weight_input=True, weight_output=True)
 MyRidge.param_grid = {'ridge__alpha': np.logspace(-10, 3, 15)}
+
+# This dictionary is used by the Snakefile
+model_dict = {
+    'ridge': MyRidge
+}

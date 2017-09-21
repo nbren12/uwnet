@@ -73,10 +73,10 @@ rule cross_validate:
            input_test="test/ml/X.nc", output_test="test/ml/Y.nc",
            weight="w.nc"
     output: #model="cv_ridge/mod.npz",
-            cv="cv/ridge/cv.json",
-            prediction="cv/ridge/pred.nc",
-            residual="cv/ridge/resid.nc"
-    params: model=models.MyRidge
+            cv="cv/{model}/cv.json",
+            prediction="cv/{model}/pred.nc",
+            residual="cv/{model}/resid.nc"
+    params: model=lambda wildcards: models.model_dict[wildcards.model]
     script: "cross_validate.py"
 
 
