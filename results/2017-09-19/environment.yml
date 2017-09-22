@@ -18,6 +18,6 @@ dependencies:
   - jq
   - pip
   - pip:
-      - git+https://github.com/nbren12/gnl@master#subdirectory=packages/gnl
-      - git+https://github.com/nbren12/gnl@master#subdirectory=packages/xnoah
+      - git+https://github.com/nbren12/gnl@cc05a72f8a0de6e19a2cc312717c1737d99e8f36#subdirectory=packages/gnl
+      - git+https://github.com/nbren12/gnl@cc05a72f8a0de6e19a2cc312717c1737d99e8f36#subdirectory=packages/xnoah
       - snakemake
