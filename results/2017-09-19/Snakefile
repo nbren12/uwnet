@@ -72,7 +72,8 @@ rule cross_validate:
             cv="cv/{model}/cv.json",
             prediction="cv/{model}/pred.nc",
             residual="cv/{model}/resid.nc"
-    params: model=lambda wildcards: models.model_dict[wildcards.model]
+    params: model=lambda wildcards: models.model_dict[wildcards.model],
+            sample_dims=['x', 'time']
     script: "cross_validate.py"
 
 
