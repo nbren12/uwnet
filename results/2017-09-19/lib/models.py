@@ -5,7 +5,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.linear_model import Ridge, LinearRegression
 from sklearn.decomposition import PCA
 from xnoah.data_matrix import stack_cat, unstack_cat
-from mca import MCA
+from .mca import MCA
 
 class NullFeatureRemover(TransformerMixin, BaseEstimator):
 

@@ -6,7 +6,7 @@ import dask.array as da
 from dask.array.core import atop
 from dask import delayed
 
-import models
+import lib.models as models
 
 configfile: "config.yaml"
 include: "sam.rules"
@@ -30,11 +30,7 @@ def get_jupyter_inputs(wildcards):
 
 
 rule all:
-    input: "01-neural-network-autoencoders.done",
-        "02-ridge-regression-cross-validation.done",
-        "03-arcsinh-q1.done",
-        "04-performance-linear-models.done"
-
+    input: "01-cross-validation-mca-ridge.done"
 
 @wrap_xarray_calculation
 def source(x, f):

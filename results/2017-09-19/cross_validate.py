@@ -20,7 +20,7 @@ import xarray as xr
 from xnoah.data_matrix import unstack_cat, stack_cat, compute_weighted_scale
 from sklearn.externals import joblib
 from sklearn.model_selection import ParameterGrid
-from models import *
+from lib.models import *
 
 
 def get_best_params(cv_results, score_key=0):
