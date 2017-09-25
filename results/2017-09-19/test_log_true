@@ -1,0 +1,12 @@
+Running Cross Validation with Pipeline(steps=[('ridge', Ridge(alpha=1.0, copy_X=True, fit_intercept=True, max_iter=None,
+   normalize=True, random_state=None, solver='auto', tol=0.001))])
+Performing cross validation with the following params
+{'ridge__alpha': 0.19}
+Fitting model
+Computing Cross Validation Score
+Best scores are (0.14401885808960346, 0.10874865793101529, 0.16191934436732014)
+Best params are {'ridge__alpha': 0.19}
+Re-fitting model with the best parameters
+Saving model to disk
+Saving prediction
+Saving Residual

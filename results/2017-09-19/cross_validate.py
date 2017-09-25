@@ -14,6 +14,7 @@ Parameters
 ----------
 model: sklearn model object
 """
+from functools import partial
 import json
 import numpy as np
 import xarray as xr
@@ -21,6 +22,7 @@ from xnoah.data_matrix import unstack_cat, stack_cat, compute_weighted_scale
 from sklearn.externals import joblib
 from sklearn.model_selection import ParameterGrid
 from models import *
+from models import _prepare_variable, _score_dataset
 
 
 def get_best_params(cv_results, score_key=0):
@@ -41,29 +43,14 @@ def main(snakemake):
     inputs = ['LHF', 'SHF', 'qt', 'sl']
     outputs = ['q1', 'q2']
     sample_dims = ['x', 'time']
-    is_mca_model = snakemake.wildcards.model ==  'mca'
 
-    mod = snakemake.params.model
 
-    prep_kwargs = dict(scale_input=False, scale_output=False,
-                       weight_input=True, weight_output=True)
-
-    # update with kwargs from snakemake
-    prep_kwargs.update(snakemake.params.get('prep_kwargs', {}))
-
-    # update with monkey-patched kwargs
-    try:
-        mod.prep_kwargs
-    except NameError:
-        pass
-    else:
-        prep_kwargs.update(mod.prep_kwargs)
-
-    print(f"Running Cross Validation with", mod)
-    print("Preparation kwargs are", prep_kwargs)
 
     # density
     weight = xr.open_dataarray(snakemake.input.weight)
+
+    mod = XWrapper(snakemake.params.model, sample_dims, weight)
+    print(f"Running Cross Validation with", mod._model)
 
     # Load data
     X_train = xr.open_dataset(snakemake.input.input_train)
@@ -75,23 +62,9 @@ def main(snakemake):
     D_train = xr.merge([X_train, Y_train], join='inner')
     D_test = xr.merge([X_test, Y_test], join='inner')
 
-    # xarray preparation transformer
-    xprep = XarrayPreparer(sample_dims=sample_dims, weight=weight, **prep_kwargs)
-
-    x_train, y_train = xprep.fit_transform(D_train[inputs], D_train[outputs])
-    x_test, y_test = xprep.transform(D_test[inputs], D_test[outputs])
-    print("X_Train shape is ", x_train.shape)
-
-    if is_mca_model:
-        xprep1 = XarrayPreparer(sample_dims=sample_dims, weight=weight, **prep_kwargs)
-        y_in_train = xprep1.fit_transform(D_train[outputs])
-        x_train = [x_train, y_in_train]
-        x_test = [x_test, None]
-        xprep1 = None
-
     ## Begin machine learning
     cv_results = []
-    for params in ParameterGrid(mod.param_grid):
+    for params in ParameterGrid(mod._model.param_grid):
         print("Performing cross validation with the following params")
         print(params)
         cv_result = {'params': params}
@@ -99,16 +72,14 @@ def main(snakemake):
         mod.set_params(**params)
         # fit model
         print(f"Fitting model")
-        mod.fit(x_train, y_train)
+        mod.fit(D_train[inputs], D_train[outputs])
 
         # compute fitting score
-        y_pred = mod.predict(x_train)
-        cv_result['train_scores'] = xprep.score(y_pred, y_train)
+        cv_result['train_scores'] = mod.score(D_train[inputs], D_train[outputs])
 
         # compute cross validation score
         print("Computing Cross Validation Score")
-        y_pred = mod.predict(x_test)
-        cv_result['test_scores'] = xprep.score(y_pred, y_test)
+        cv_result['test_scores'] = mod.score(D_test[inputs], D_test[outputs])
 
         # print(f"cross validation score is {score}, q1:{score_q1}, q2:{score_q2}")
         # with open(snakemake.output.r2, "w") as f:
@@ -127,7 +98,7 @@ def main(snakemake):
     # fit model using the best parameters available
     print("Re-fitting model with the best parameters")
     mod.set_params(**best_params)
-    mod.fit(x_train, y_train)
+    mod.fit(D_train[inputs], D_train[outputs])
     # save this model to disk
     print("Saving model to disk")
     joblib.dump(mod, snakemake.output.model)
@@ -140,14 +111,8 @@ def main(snakemake):
         pass
     else:
         print("Saving prediction")
-        x, ytrue = xprep.transform(D[inputs], D[outputs])
-        if is_mca_model:
-            x = [x, None]
-        ypred = mod.predict(x)
-
-        Y = unstack_cat(xr.DataArray(ypred, ytrue.coords), 'features') \
-            .unstack('samples')
-        Y.to_netcdf(snakemake.output.prediction)
+        ypred = mod.predict(D[inputs])
+        ypred.to_netcdf(snakemake.output.prediction)
 
     # output residual
     try:
@@ -156,8 +121,7 @@ def main(snakemake):
         pass
     else:
         print("Saving Residual")
-        resid = unstack_cat(xr.DataArray(ytrue-ypred, ytrue.coords), 'features') \
-                    .unstack('samples')
+        resid = D[outputs]-ypred
         resid.to_netcdf(snakemake.output.residual)
 
 

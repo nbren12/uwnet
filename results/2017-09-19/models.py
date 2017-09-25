@@ -1,3 +1,4 @@
+from functools import partial
 import numpy as np
 import xarray as xr
 from sklearn.base import TransformerMixin, BaseEstimator
@@ -50,19 +51,21 @@ def compute_weighted_scale(weight, sample_dims, ds):
     return ds.apply(f)
 
 
-def  _prepare_variable(x, do_scale, do_weight, scale, weight, sample_dims):
+def mul_if_dims_subset(weight, x):
+    if set(weight.dims) <= set(x.dims):
+        return x * np.sqrt(weight)
+    else:
+        return x
 
-    if do_scale:
+def  _prepare_variable(x, sample_dims, scale=None, weight=None):
+
+    if scale is not None:
         x /= scale
 
-    def mul_if_dims_subset(x):
-        if set(weight.dims) <= set(x.dims):
-            return x * np.sqrt(weight)
-        else:
-            return x
+    weighter = partial(mul_if_dims_subset, weight)
 
-    if do_weight:
-        x = x.apply(mul_if_dims_subset)
+    if weight is not None:
+        x = x.apply(weighter)
 
     return get_mat(x, sample_dims)
 
@@ -89,68 +92,59 @@ def _score_dataset(y_true, y, sample_dims, return_scalar=True):
     return float(1- sse_/ss_), float(r2.q1), float(r2.q2)
 
 
-class XarrayPreparer(TransformerMixin):
-    """Object for preparing data for input
-
-    I am not sure if this class is necessary or not. I implemented it to plug into the sklearn pipeline infrastructure,
-    but sklearn pipelines do not apply transformations to the output variables, so it isn't really very helpful.
-    """
-    def __init__(self, sample_dims=(), weight=1.0, weight_input=False,
-                 weight_output=True, scale_input=False, scale_output=False):
-
+class XWrapper(object):
+    def __init__(self, model, sample_dims, weight):
+        self._model = model
         self.sample_dims = sample_dims
         self.weight = weight
-        self.weight_input=weight_input
-        self.weight_output=weight_output
-        self.scale_input = scale_input
-        self.scale_output = scale_output
-        super(XarrayPreparer, self).__init__()
+        self.scales_x_ = None
 
-    def fit(self, X, y=None):
-        self.scales_x_ = compute_weighted_scale(self.weight, self.sample_dims, X)
-        if y is not None:
-            self.scales_y_ = compute_weighted_scale(self.weight, self.sample_dims, y)
+    def fit(self, x, y):
+        self.scales_x_ = compute_weighted_scale(self.weight,
+                                                self.sample_dims,
+                                                x)
+        x, y = self.prepvars(x, y)
+        self.yfeats = y.features
+        self._model.fit(x,y)
         return self
 
-    def transform(self, X, y=None):
-        # normalize inputs
-        X = _prepare_variable(X, self.scale_input, self.weight_input,
-                              self.scales_x_, self.weight, self.sample_dims)
-        self.input_coords_ = X.coords
+    def predict(self, x):
+        x = self.prepvars(x)
+        y =  self._model.predict(x)
 
+        coords = (x.samples, self.yfeats)
+        return unstack_cat(xr.DataArray(y, coords), 'features') \
+            .unstack('samples')
+
+    def score(self, x, y):
+        pred = self.predict(x)
+        # need to weight true output
+        weighter = partial(mul_if_dims_subset, self.weight)
+        y = y.apply(weighter)
+
+        return _score_dataset(y, pred, self.sample_dims)
+
+    def set_params(self, **kwargs):
+        return self._model.set_params(**kwargs)
+
+    def prepvars(self, X, y=None):
+        weight = self.weight
+        scales_x_ = self.scales_x_
+        sample_dims = self.sample_dims
+        X = _prepare_variable(X, sample_dims, scales_x_, weight)
         if y is not None:
-            y = _prepare_variable(y, self.scale_input, self.weight_input,
-                                  self.scales_y_, self.weight, self.sample_dims)
+            y = _prepare_variable(y, sample_dims, weight=weight)
+
             return X, y
-
-        return X
-
-    def fit_transform(self, X, y=None):
-        return self.fit(X,y).transform(X,y)
-
-    def score(xprep, y_pred, y):
-
-        # turn into Dataset
-        y_true_dataset = _unstack(y, y.coords)
-        y_pred_dataset = _unstack(y_pred, y.coords)
-
-
-        # This might be unnessary
-        # I think this might just be removed in the R2 calculation
-        # also weighting would be removed
-        if xprep.scale_output:
-            y_true_dataset *= xprep.scale_y_
-            y_pred_dataset *= xprep.scale_y_
-
-
-        return _score_dataset(y_true_dataset, y_pred_dataset, xprep.sample_dims)
+        else:
+            return X
 
 
 # Ridge Regression
 MyRidge = make_pipeline(Ridge(1.0, normalize=True))
 MyRidge.prep_kwargs = dict(scale_input=False, scale_output=False,
                            weight_input=True, weight_output=True)
-MyRidge.param_grid = {'ridge__alpha': np.logspace(-10, 3, 15)}
+MyRidge.param_grid = {'ridge__alpha': [.19]}
 
 # MCA
 _MCA = make_pipeline(MCA(), LinearRegression())
