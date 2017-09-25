@@ -1,0 +1,50 @@
+import numpy as np
+from scipy.interpolate import interp1d
+import xarray as xr
+from xnoah.xarray import map_overlap
+import dask.array as da
+from dask.array.core import atop
+from dask import delayed
+
+import lib.models as models
+
+configfile: "config.yaml"
+include: "../sam.rules"
+
+
+@wrap_xarray_calculation
+def source(x, f):
+    dt = float(x.time[1] - x.time[0])
+    return x.shift(time=-1) - dt/2 * (f.shift(time=-1) + f)
+
+def mysel(x):
+    return x.sel(time=slice(20,None)).isel(x=slice(0,100))
+
+rule inputs:
+    input: "3d/QT.nc", "3d/SL.nc", "2d/LHF.nc", "2d/SHF.nc"
+    output: "X.nc"
+    script: "merge.py"
+
+rule outputs:
+    input: '3d/Q1.nc', '3d/Q2.nc'
+    output: "Y.nc"
+    script: "merge.py"
+
+rule test_train_split:
+    input: "{f}.nc"
+    output: train="train/{f}.nc", test="test/{f}.nc"
+    params: t_split=50.0
+    script: "../test_train_split.py"
+
+
+rule cross_validate:
+    input: input_train="train/X.nc", output_train="train/Y.nc",
+           input_test="test/X.nc", output_test="test/Y.nc",
+           weight="w.nc"
+    output: model="cv/{model}/model.pkl",
+            cv="cv/{model}/cv.json",
+            prediction="cv/{model}/pred.nc",
+            residual="cv/{model}/resid.nc"
+    params: model=lambda wildcards: models.model_dict[wildcards.model]
+    script: "../cross_validate.py"
+
