@@ -86,7 +86,11 @@ def _score_dataset(y_true, y, sample_dims, return_scalar=True):
     sse_ = sse.to_array().sum()
     ss_ = ss.to_array().sum()
 
-    return float(1- sse_/ss_), float(r2.q1), float(r2.q2)
+    scores = {'total': float(1.0- sse_/ss_)}
+    for key in r2:
+        scores[key] = float(r2[key])
+
+    return scores
 
 
 class XarrayPreparer(TransformerMixin):
@@ -151,6 +155,7 @@ MyRidge = make_pipeline(Ridge(1.0, normalize=True))
 MyRidge.prep_kwargs = dict(scale_input=False, scale_output=False,
                            weight_input=True, weight_output=True)
 MyRidge.param_grid = {'ridge__alpha': np.logspace(-10, 3, 15)}
+# MyRidge.param_grid = {'ridge__alpha': [.19]}
 
 # MCA
 _MCA = make_pipeline(MCA(), LinearRegression())

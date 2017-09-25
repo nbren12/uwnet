@@ -38,9 +38,7 @@ def get_best_params(cv_results, score_key=0):
 
 def main(snakemake):
 
-    inputs = ['LHF', 'SHF', 'qt', 'sl']
-    outputs = ['q1', 'q2']
-    sample_dims = ['x', 'time']
+    sample_dims = snakemake.params.sample_dims
     is_mca_model = snakemake.wildcards.model ==  'mca'
 
     mod = snakemake.params.model
@@ -77,6 +75,13 @@ def main(snakemake):
 
     # xarray preparation transformer
     xprep = XarrayPreparer(sample_dims=sample_dims, weight=weight, **prep_kwargs)
+
+    inputs = list(X_train.data_vars)
+    outputs = list(Y_train.data_vars)
+
+    print("Input variables", inputs)
+    print("Output variables", outputs)
+    print("Sample dims", sample_dims)
 
     x_train, y_train = xprep.fit_transform(D_train[inputs], D_train[outputs])
     x_test, y_test = xprep.transform(D_test[inputs], D_test[outputs])
@@ -120,7 +125,7 @@ def main(snakemake):
         json.dump(cv_results, f)
 
     # find the best parameter set
-    best_params, best_scores = get_best_params(cv_results)
+    best_params, best_scores = get_best_params(cv_results, score_key='total')
     print("Best scores are", best_scores)
     print("Best params are", best_params)
 

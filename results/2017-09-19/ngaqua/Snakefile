@@ -42,9 +42,9 @@ rule cross_validate:
            input_test="test/X.nc", output_test="test/Y.nc",
            weight="w.nc"
     output: model="cv/{model}/model.pkl",
-            cv="cv/{model}/cv.json",
-            prediction="cv/{model}/pred.nc",
-            residual="cv/{model}/resid.nc"
-    params: model=lambda wildcards: models.model_dict[wildcards.model]
+            cv="cv/{model}/cv.json"
+            # prediction="cv/{model}/pred.nc",
+            # residual="cv/{model}/resid.nc"
+    params: model=lambda wildcards: models.model_dict[wildcards.model], sample_dims=['time', 'y', 'x']
     script: "../cross_validate.py"
 
