@@ -36,3 +36,12 @@ rule cross_validate:
     params: model=lambda wildcards: models.model_dict[wildcards.model], sample_dims=['time', 'y', 'x']
     script: "../cross_validate.py"
 
+
+rule fit:
+    input: input="X.nc", output="Y.nc",
+            weight="w.nc"
+    output: model="ml/{model}/model.pkl"
+            # prediction="cv/{model}/pred.nc",
+            # residual="cv/{model}/resid.nc"
+    params: model=lambda wildcards: models.model_dict[wildcards.model], sample_dims=['time', 'y', 'x']
+    script: "fit.py"

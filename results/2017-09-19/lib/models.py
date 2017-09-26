@@ -24,7 +24,7 @@ class NullFeatureRemover(TransformerMixin, BaseEstimator):
         if self.mask_.shape[0] != x.shape[1]:
             raise ValueError("X is not the same shape as the stored mask")
         x = np.asarray(x)
-        xt = x[:,-self.mask_]
+        xt = x[:,~self.mask_]
 
         if y is None:
             return xt
@@ -151,8 +151,8 @@ class XarrayPreparer(TransformerMixin):
 
 
 # Ridge Regression
-MyRidge = make_pipeline(Ridge(1.0, normalize=True))
-MyRidge.prep_kwargs = dict(scale_input=False, scale_output=False,
+MyRidge = make_pipeline(Ridge(100.0, normalize=False))
+MyRidge.prep_kwargs = dict(scale_input=True, scale_output=False,
                            weight_input=True, weight_output=True)
 MyRidge.param_grid = {'ridge__alpha': np.logspace(-10, 3, 15)}
 # MyRidge.param_grid = {'ridge__alpha': [.19]}
