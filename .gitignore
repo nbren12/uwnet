@@ -1,2 +1,7 @@
 *.nc
 *.done
+.snakemake
+__pycache__
+.idea
+.cache
+.ipynb_checkpoints
