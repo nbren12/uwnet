@@ -59,3 +59,14 @@ rule cross_validate:
     params: model=lambda wildcards: models.model_dict[wildcards.model],
             sample_dims=['x', 'time']
     script: "cross_validate.py"
+
+
+from sklearn.linear_model import Ridge
+rule fit:
+    input: input="ml/X.nc", output="ml/Y.nc",
+            weight="w.nc"
+    output: model="ml/model.pkl"
+            # prediction="ml/pred.nc",
+            # residual="ml/resid.nc"
+    params: model=Ridge(.19), sample_dims=['x', 'time']
+    script: "fit.py"
