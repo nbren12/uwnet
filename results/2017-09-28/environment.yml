@@ -1,0 +1,24 @@
+name: uw-machine-learning_2017-09-19
+channels:
+  - ioam
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.6
+  - numpy
+  - dask
+  - xarray=0.9
+  - scikit-learn=0.19
+  - matplotlib
+  - geoviews
+  - seaborn
+  - holoviews
+  - ipython
+  - jupyter
+  - cython
+  - jq
+  - pip
+  - pip:
+      - git+https://github.com/nbren12/gnl@cc05a72f8a0de6e19a2cc312717c1737d99e8f36#subdirectory=packages/gnl
+      - git+https://github.com/nbren12/gnl@cc05a72f8a0de6e19a2cc312717c1737d99e8f36#subdirectory=packages/xnoah
+      - snakemake

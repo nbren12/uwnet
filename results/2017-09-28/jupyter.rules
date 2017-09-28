@@ -1,0 +1,19 @@
+def get_jupyter_inputs(wildcards):
+    import json
+    ipynb = wildcards.f + ".ipynb"
+    with open(ipynb) as f:
+        notebook = json.load(f)
+
+    inputs = []
+    for cell in  notebook["cells"]:
+        inputs += cell.get("metadata", {})\
+                      .get("inputs", [])
+
+    inputs += notebook['metadata'].get('snakemake_inputs', [])
+
+    return list(set(inputs))
+
+rule reports:
+    input:  get_jupyter_inputs
+    output: touch("{f}.done")
+    shell: "jupyter nbconvert --ExecutePreprocessor.timeout=600 --execute --to notebook --inplace {wildcards.f}.ipynb"

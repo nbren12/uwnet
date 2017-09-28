@@ -1,0 +1,185 @@
+import glob
+import os
+from pathlib import Path
+
+import numpy as np
+import xarray as xr
+
+import xnoah.xcalc
+from xnoah.xarray import coarsen
+from xnoah.xarray import map_overlap
+import dask.array as da
+from dask.array.core import atop
+from dask import delayed
+
+from util import wrap_xarray_calculation, xopen, xopena
+
+grav = 9.81
+cp = 1004
+Lc = 2.5104e6
+rho0 = 1.19
+
+data_root = config['data_root']
+
+@wrap_xarray_calculation
+def liquid_water_temperature(t, qn, qp):
+    """This is an approximate calculation neglecting ice and snow
+    """
+
+    sl = t + grav/cp * t.z - Lc/cp * (qp + qn)/1000.0
+    sl.attrs['units'] = 'K'
+    return sl
+
+@wrap_xarray_calculation
+def total_water(qv, qn):
+    qt =  qv + qn
+    qt.attrs['units'] = 'g/kg'
+    return qt
+
+
+def get_dz(z):
+    zext = np.hstack((0,  z,  2.0*z[-1] - 1.0*z[-2]))
+    zw = .5 * (zext[1:] + zext[:-1])
+    dz = zw[1:] - zw[:-1]
+
+    return xr.DataArray(dz, z.coords)
+
+def layer_mass(rho):
+    dz = get_dz(rho.z)
+    return rho*dz
+
+
+# Rules for Linking data
+def data_files():
+    for file in glob.glob(f"{data_root}/**/*.nc", recursive=True):
+        yield file[len(data_root)+1:]
+
+
+def link_files(files):
+    for file in files:
+        path = Path(file)
+        path.parent.mkdir(exist_ok=True)
+        os.system(f"ln -s {data_root}/{file} {path}")
+
+
+rule link_data:
+    output: *data_files()
+    run:
+        link_files(output)
+
+rule coarse_grain:
+    input: "{f}.nc"
+    output: "A{m,[0-9]+}/{f}.nc"
+    threads: 8
+    run:
+        m = int(wildcards.m)
+
+        xr.open_dataarray(input[0], chunks={'time': 50})\
+            .pipe(lambda x: coarsen(x, x=m))\
+            .to_netcdf(output[0])
+
+rule liquid_water:
+    input: T="A64/3d/TABS.nc",
+           qn="A64/3d/QN.nc",
+           qp="A64/3d/QP.nc",
+           qv="A64/3d/QV.nc",
+           u="A64/3d/U.nc",
+           w="A64/3d/W.nc"
+    output: sl="calc/sl.nc", qt="calc/qt.nc", u="calc/U.nc", w="calc/W.nc"
+    run:
+        sl = liquid_water_temperature(input.T, input.qn, input.qp)
+        sl.to_dataset(name="sl").to_netcdf(output.sl)
+
+        qt = total_water(input.qv, input.qn)\
+               .to_dataset(name="qt")\
+               .to_netcdf(output.qt)
+
+        # need to link files for computing total derivatives
+        shell("ln -s  ../{input.u} {output.u}")
+        shell("ln -s  ../{input.w} {output.w}")
+
+rule apparent_heating:
+    input: sl="calc/sl.nc", stat="stat.nc"
+    output: "calc/q1.nc"
+    run:
+        dsl = xr.open_dataset(input.dsl).sl
+        ttend = xr.open_dataset(input.stat).TTEND.reindex_like(dsl, method='nearest')
+        # need to translate from K/s to K/d
+        q1 = dsl * 86400
+        q1.attrs['units'] = 'K/d'
+        d = q1.to_dataset(name="q1")
+        # include tendency
+        d['tend'] = ttend
+
+        d.to_netcdf(output[0])
+
+rule apparent_drying:
+    input: dqt="M/calc/qt.nc", stat="stat.nc"
+    output: "calc/q2.nc"
+    run:
+        dqt = xr.open_dataset(input.dqt).qt
+        tend = xr.open_dataset(input.stat).QTEND.reindex_like(dqt, method='nearest')
+        scal  = 86400/1000 * Lc/cp
+        # need to translate from g/kg/s to K/day
+        q2 = -(dqt - tend/86400.0)*scal
+        q2.attrs['units'] = 'K/d'
+        q2.attrs['long_name'] = "Apparent drying"
+        q2.to_dataset(name="q2").to_netcdf(output[0])
+
+
+rule weights:
+    input: "stat.nc"
+    output: "w.nc"
+    run:
+        stats = xr.open_dataset(input[0])
+        dz = get_dz(stats.z)
+        rho = stats.RHO[-1]
+        w = layer_mass(rho)
+        w = w/w.sum('z')
+        w.to_netcdf(output[0])
+
+rule weight_ngaqua:
+    input: "/home/disk/eos8/pnaren/ML/codes/forlaptop/data.nc"
+    output: w="ngaqua/w.nc", p="ngaqua/p.nc"
+    run:
+        D  = xr.open_dataset(input[0])
+        D['z'] = D['zkm']
+        w = layer_mass(D.rho)
+        w = np.sqrt(w/w.sum('z'))
+        w.to_netcdf(output.w)
+
+        # output pressure
+        xr.open_dataset(input[0]).p.to_dataset(name="p")\
+          .to_netcdf(output.p)
+
+
+wildcard_constraints:
+    dim="(x|time|z)", # used for arguments to operators
+    field="[^/]+"    # no path seperators
+
+
+rule total_advection:
+    input: u="A64/3d/U.nc", w="A64/3d/W.nc", phi="{f}.nc"
+    output: "adv/{f}.nc"
+    script: "advection.py"
+
+
+@wrap_xarray_calculation
+def budget(f, adv):
+    t = f.time
+    dt = float(t[1]-t[0])
+    out = (f.shift(time=-1) - f)/dt \
+          + (adv.shift(time=-1) + adv)/2*86400
+
+    return out.isel(time=slice(0, -1))
+
+rule material_derivative:
+    input: f="{f}.nc", adv='adv/{f}.nc'
+    output: "budget/{f}.nc"
+    run:
+        budget(input.f, input.adv).to_netcdf(output[0])
+
+rule xtavg:
+    input: "{f}.nc"
+    output: "bar/{f}.nc"
+    shell: "ncwa -O -a time,x {input} {output}"
