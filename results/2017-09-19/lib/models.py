@@ -53,7 +53,7 @@ def compute_weighted_scale(weight, sample_dims, ds):
 
 def mul_if_dims_subset(weight, x):
     if set(weight.dims) <= set(x.dims):
-        return x * np.sqrt(weight)
+        return x * weight
     else:
         return x
 
@@ -62,12 +62,27 @@ def  _prepare_variable(x, sample_dims, scale=None, weight=None):
     if scale is not None:
         x /= scale
 
-    weighter = partial(mul_if_dims_subset, weight)
 
     if weight is not None:
+        weighter = partial(mul_if_dims_subset, np.sqrt(weight))
         x = x.apply(weighter)
 
     return get_mat(x, sample_dims)
+
+
+def  _unprepare_variable(y, sample_dims, scale=None, weight=None):
+
+    y = unstack_cat(y, 'features').unstack('samples')
+
+    if scale is not None:
+        y *= scale
+
+    if weight is not None:
+        weighter = partial(mul_if_dims_subset, 1/np.sqrt(weight))
+        x = x.apply(weighter)
+
+    return get_mat(y, sample_dims)
+
 
 def _unstack(y, coords):
     return unstack_cat(xr.DataArray(y, coords), 'features') \
@@ -124,7 +139,7 @@ class XWrapper(object):
     def score(self, x, y):
         pred = self.predict(x)
         # need to weight true output
-        weighter = partial(mul_if_dims_subset, self.weight)
+        weighter = partial(mul_if_dims_subset, np.sqrt(self.weight))
         y = y.apply(weighter)
 
         return _score_dataset(y, pred, self.sample_dims)
