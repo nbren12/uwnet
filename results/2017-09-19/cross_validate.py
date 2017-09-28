@@ -14,7 +14,6 @@ Parameters
 ----------
 model: sklearn model object
 """
-from functools import partial
 import json
 import numpy as np
 import xarray as xr

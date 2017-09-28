@@ -109,6 +109,7 @@ class XWrapper(object):
                                                 x)
         x, y = self.prepvars(x, y)
         self.yfeats = y.features
+        self.xfeats = x.features
         self._model.fit(x,y)
         return self
 
