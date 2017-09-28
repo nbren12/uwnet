@@ -1,0 +1,47 @@
+import lib.models as models
+
+configfile: "config.yaml"
+include: "../sam.rules"
+include: "../jupyter.rules"
+
+
+rule all:
+    input: "naqua-ridge-regression-performance.done"
+
+rule inputs:
+    input: "3d/QT.nc", "3d/SL.nc", "2d/LHF.nc", "2d/SHF.nc"
+    output: "X.nc"
+    script: "merge.py"
+
+rule outputs:
+    input: '3d/Q1.nc', '3d/Q2.nc'
+    output: "Y.nc"
+    script: "merge.py"
+
+rule test_train_split:
+    input: "{f}.nc"
+    output: train="train/{f}.nc", test="test/{f}.nc"
+    params: t_split=50.0
+    script: "../test_train_split.py"
+
+
+rule cross_validate:
+    input: input_train="train/X.nc", output_train="train/Y.nc",
+           input_test="test/X.nc", output_test="test/Y.nc",
+           weight="w.nc"
+    output: model="cv/{model}/model.pkl",
+            cv="cv/{model}/cv.json"
+            # prediction="cv/{model}/pred.nc",
+            # residual="cv/{model}/resid.nc"
+    params: model=lambda wildcards: models.model_dict[wildcards.model], sample_dims=['time', 'y', 'x']
+    script: "../cross_validate.py"
+
+
+rule fit:
+    input: input="X.nc", output="Y.nc",
+            weight="w.nc"
+    output: model="ml/{model}/model.pkl"
+            # prediction="cv/{model}/pred.nc",
+            # residual="cv/{model}/resid.nc"
+    params: model=lambda wildcards: models.model_dict[wildcards.model], sample_dims=['time', 'y', 'x']
+    script: "fit.py"

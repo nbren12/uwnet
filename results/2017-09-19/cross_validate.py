@@ -21,8 +21,7 @@ import xarray as xr
 from xnoah.data_matrix import unstack_cat, stack_cat, compute_weighted_scale
 from sklearn.externals import joblib
 from sklearn.model_selection import ParameterGrid
-from models import *
-from models import _prepare_variable, _score_dataset
+from lib.models import *
 
 
 def get_best_params(cv_results, score_key=0):
@@ -40,11 +39,7 @@ def get_best_params(cv_results, score_key=0):
 
 def main(snakemake):
 
-    inputs = ['LHF', 'SHF', 'qt', 'sl']
-    outputs = ['q1', 'q2']
-    sample_dims = ['x', 'time']
-
-
+    sample_dims = snakemake.params.sample_dims
 
     # density
     weight = xr.open_dataarray(snakemake.input.weight)
@@ -58,6 +53,9 @@ def main(snakemake):
 
     Y_train = xr.open_dataset(snakemake.input.output_train)
     Y_test = xr.open_dataset(snakemake.input.output_test)
+
+    inputs = list(X_train.data_vars)
+    outputs = list(Y_train.data_vars)
 
     D_train = xr.merge([X_train, Y_train], join='inner')
     D_test = xr.merge([X_test, Y_test], join='inner')
@@ -91,7 +89,7 @@ def main(snakemake):
         json.dump(cv_results, f)
 
     # find the best parameter set
-    best_params, best_scores = get_best_params(cv_results)
+    best_params, best_scores = get_best_params(cv_results, score_key='total')
     print("Best scores are", best_scores)
     print("Best params are", best_params)
 

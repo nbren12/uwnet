@@ -6,35 +6,15 @@ import dask.array as da
 from dask.array.core import atop
 from dask import delayed
 
-import models
+import lib.models as models
 
 configfile: "config.yaml"
 include: "sam.rules"
-
-
-
-def get_jupyter_inputs(wildcards):
-    import json
-    ipynb = wildcards.f + ".ipynb"
-    with open(ipynb) as f:
-        notebook = json.load(f)
-
-    inputs = []
-    for cell in  notebook["cells"]:
-        inputs += cell.get("metadata", {})\
-                      .get("inputs", [])
-
-    inputs += notebook['metadata'].get('snakemake_inputs', [])
-
-    return list(set(inputs))
+include: "jupyter.rules"
 
 
 rule all:
-    input: "01-neural-network-autoencoders.done",
-        "02-ridge-regression-cross-validation.done",
-        "03-arcsinh-q1.done",
-        "04-performance-linear-models.done"
-
+    input: "01-cross-validation-mca-ridge.done"
 
 @wrap_xarray_calculation
 def source(x, f):
@@ -76,11 +56,6 @@ rule cross_validate:
             cv="cv/{model}/cv.json",
             prediction="cv/{model}/pred.nc",
             residual="cv/{model}/resid.nc"
-    params: model=lambda wildcards: models.model_dict[wildcards.model]
+    params: model=lambda wildcards: models.model_dict[wildcards.model],
+            sample_dims=['x', 'time']
     script: "cross_validate.py"
-
-
-rule reports:
-    input:  get_jupyter_inputs
-    output: touch("{f}.done")
-    shell: "jupyter nbconvert --ExecutePreprocessor.timeout=600 --execute --to notebook --inplace {wildcards.f}.ipynb"

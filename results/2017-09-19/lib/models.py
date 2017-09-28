@@ -6,7 +6,7 @@ from sklearn.pipeline import make_pipeline
 from sklearn.linear_model import Ridge, LinearRegression
 from sklearn.decomposition import PCA
 from xnoah.data_matrix import stack_cat, unstack_cat
-from mca import MCA
+from .mca import MCA
 
 class NullFeatureRemover(TransformerMixin, BaseEstimator):
 
@@ -25,7 +25,7 @@ class NullFeatureRemover(TransformerMixin, BaseEstimator):
         if self.mask_.shape[0] != x.shape[1]:
             raise ValueError("X is not the same shape as the stored mask")
         x = np.asarray(x)
-        xt = x[:,-self.mask_]
+        xt = x[:,~self.mask_]
 
         if y is None:
             return xt
@@ -89,7 +89,11 @@ def _score_dataset(y_true, y, sample_dims, return_scalar=True):
     sse_ = sse.to_array().sum()
     ss_ = ss.to_array().sum()
 
-    return float(1- sse_/ss_), float(r2.q1), float(r2.q2)
+    scores = {'total': float(1.0- sse_/ss_)}
+    for key in r2:
+        scores[key] = float(r2[key])
+
+    return scores
 
 
 class XWrapper(object):
@@ -141,10 +145,11 @@ class XWrapper(object):
 
 
 # Ridge Regression
-MyRidge = make_pipeline(Ridge(1.0, normalize=True))
-MyRidge.prep_kwargs = dict(scale_input=False, scale_output=False,
+MyRidge = make_pipeline(Ridge(100.0, normalize=True))
+MyRidge.prep_kwargs = dict(scale_input=True, scale_output=False,
                            weight_input=True, weight_output=True)
-MyRidge.param_grid = {'ridge__alpha': [.19]}
+MyRidge.param_grid = {'ridge__alpha': np.logspace(-10, 3, 15)}
+# MyRidge.param_grid = {'ridge__alpha': [.19]}
 
 # MCA
 _MCA = make_pipeline(MCA(), LinearRegression())

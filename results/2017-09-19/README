@@ -1,1 +1,7 @@
 # Do not normalize the output variables
+
+## Directory Listing
+
+- ./ - analysis of the homo2d dataset
+- ./ngaqua - analysis of the ngaqua dataset
+- ./conv - convolution linear analysis
