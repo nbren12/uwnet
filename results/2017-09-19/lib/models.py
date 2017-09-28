@@ -79,9 +79,9 @@ def  _unprepare_variable(y, sample_dims, scale=None, weight=None):
 
     if weight is not None:
         weighter = partial(mul_if_dims_subset, 1/np.sqrt(weight))
-        x = x.apply(weighter)
+        y = y.apply(weighter)
 
-    return get_mat(y, sample_dims)
+    return y
 
 
 def _unstack(y, coords):
@@ -133,14 +133,16 @@ class XWrapper(object):
         y =  self._model.predict(x)
 
         coords = (x.samples, self.yfeats)
-        return unstack_cat(xr.DataArray(y, coords), 'features') \
-            .unstack('samples')
+
+        return _unprepare_variable(xr.DataArray(y, coords), self.sample_dims,
+                                   weight=self.weight)
 
     def score(self, x, y):
         pred = self.predict(x)
         # need to weight true output
         weighter = partial(mul_if_dims_subset, np.sqrt(self.weight))
         y = y.apply(weighter)
+        pred = pred.apply(weighter)
 
         return _score_dataset(y, pred, self.sample_dims)
 
