@@ -33,7 +33,7 @@ class NullFeatureRemover(TransformerMixin, BaseEstimator):
         else:
             return xt, y
 
-def prepvar(X):
+def prepvar(X, feature_dims=['z'], sample_dims=['time', 'x', 'y']):
    return  stack_cat(X, "features", ['z']).stack(samples=['time', 'x', 'y']).transpose("samples", "features")
 
 
@@ -72,16 +72,19 @@ class WeightedOutput(object):
         return "WeightedOutput(%s)"%repr(self._mod)
 
     @classmethod
-    def quickfit(cls, in_file, out_file, w_file):
+    def quickfit(cls, in_file, out_file, w_file, model=None, **kwargs):
         X = xr.open_dataset(in_file)
         Y = xr.open_dataset(out_file)
         w = xr.open_dataarray(w_file)
-        xmat = prepvar(X)
-        ymat = prepvar(Y)
+        xmat = prepvar(X, **kwargs)
+        ymat = prepvar(Y, **kwargs)
         wmat = weights_to_np(w, ymat.features).data
         n, m = xmat.shape
 
-        mod = WeightedOutput(LinearRegression(), wmat)
+        if model is None:
+            model = LinearRegression()
+
+        mod = WeightedOutput(model, wmat)
         mod.fit(xmat, ymat)
 
         return dict(x=xmat, y=ymat, w=wmat, mod=mod.fit(xmat, ymat))
