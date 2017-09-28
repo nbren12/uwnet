@@ -6,5 +6,6 @@ then
 	echo "test passed"
 else
 	echo "test failed"
+  diff test_log test_log_true
 fi
 echo "************************************************************"
