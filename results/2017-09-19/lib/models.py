@@ -1,5 +1,4 @@
 from functools import partial
-from collections import namedtuple
 import pandas as pd
 import numpy as np
 import xarray as xr
@@ -228,8 +227,8 @@ class XWrapper(object):
 MyRidge = make_pipeline(Ridge(100.0, normalize=True))
 MyRidge.prep_kwargs = dict(scale_input=True, scale_output=False,
                            weight_input=True, weight_output=True)
-MyRidge.param_grid = {'ridge__alpha': np.logspace(-10, 3, 15)}
-# MyRidge.param_grid = {'ridge__alpha': [.19]}
+# MyRidge.param_grid = {'ridge__alpha': np.logspace(-10, 3, 15)}
+MyRidge.param_grid = {'ridge__alpha': [.19]}
 
 # MCA
 _MCA = make_pipeline(MCA(), LinearRegression())
