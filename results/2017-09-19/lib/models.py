@@ -1,4 +1,6 @@
 from functools import partial
+from collections import namedtuple
+import pandas as pd
 import numpy as np
 import xarray as xr
 from sklearn.base import TransformerMixin, BaseEstimator
@@ -31,6 +33,66 @@ class NullFeatureRemover(TransformerMixin, BaseEstimator):
             return xt
         else:
             return xt, y
+
+def prepvar(X):
+   return  stack_cat(X, "features", ['z']).stack(samples=['time', 'x', 'y']).transpose("samples", "features")
+
+
+def weights_to_np(w, feats):
+    idx = feats.indexes['features']
+    def f(i):
+        if i < 0:
+            return 1.0
+        else:
+            return float(w.sel(z=idx.levels[1][i]))
+
+    return xr.DataArray(np.array([f(i) for i in idx.labels[1]]), coords=(feats,))
+
+
+class WeightedOutput(object):
+    """Light weight class for weighting the output of an sklearn function"""
+
+    def __init__(self, model, w, nfit=10000):
+        self._mod = model
+        self.w=w
+        self.nfit = nfit
+
+    def fit(self, x, y):
+        n = x.shape[0]
+        rand = np.random.choice(n, self.nfit)
+        self._mod.fit(x[rand], y[rand]*np.sqrt(self.w))
+        return self
+
+    def predict(self, x):
+        return self._mod.predict(x)/np.sqrt(self.w)
+
+    def score(self, x, y):
+        return self._mod.score(x, y * np.sqrt(self.w))
+
+    def __repr__(self):
+        return "WeightedOutput(%s)"%repr(self._mod)
+
+    @classmethod
+    def quickfit(cls, in_file, out_file, w_file):
+        X = xr.open_dataset(in_file)
+        Y = xr.open_dataset(out_file)
+        w = xr.open_dataarray(w_file)
+        xmat = prepvar(X)
+        ymat = prepvar(Y)
+        wmat = weights_to_np(w, ymat.features).data
+        n, m = xmat.shape
+
+        mod = WeightedOutput(LinearRegression(), wmat)
+        mod.fit(xmat, ymat)
+
+        return dict(x=xmat, y=ymat, w=wmat, mod=mod.fit(xmat, ymat))
+
+
+def get_lrf(mod, xmat, ymat):
+    m = len(xmat.indexes['features'])
+    lrf = mod.predict(np.eye(m)) - mod.predict(0*np.eye(m))
+    row, col = xmat.indexes['features'], ymat.indexes['features']
+    return pd.DataFrame(lrf, index=row, columns=col) 
 
 
 def get_mat(ds, sample_dims=['x', 'time']):
