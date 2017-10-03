@@ -53,7 +53,7 @@ class WeightedOutput(object):
 
     def __init__(self, model, w, nfit=10000):
         self._mod = model
-        self.w=w
+        self.w= np.asarray(w)
         self.nfit = nfit
 
     def fit(self, x, y):

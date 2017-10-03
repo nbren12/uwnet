@@ -9,7 +9,7 @@ include: "../jupyter.rules"
 
 
 rule all:
-    input: "naqua-ridge-regression-performance.done"
+    input: '01-ridge-regression-performance.done 02-ugly-linear-response-functions.done 03-new-normalization-techniques.done plot-linear-response-functions.done'.split(' ')
 
 rule inputs:
     input: "3d/QT.nc", "3d/SL.nc", "2d/LHF.nc", "2d/SHF.nc"

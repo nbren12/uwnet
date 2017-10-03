@@ -1,3 +1,6 @@
+from sklearn.linear_model import LinearRegression
+import sys
+sys.path.insert(0, "../")
 import lib.models as models
 
 configfile: "config.yaml"
@@ -6,7 +9,7 @@ include: "../jupyter.rules"
 
 
 rule all:
-    input: "naqua-ridge-regression-performance.done"
+    input: '01-ridge-regression-performance.done 02-ugly-linear-response-functions.done 03-new-normalization-techniques.done plot-linear-response-functions.done'.split(' ')
 
 rule inputs:
     input: "3d/QT.nc", "3d/SL.nc", "2d/LHF.nc", "2d/SHF.nc"
@@ -43,5 +46,5 @@ rule fit:
     output: model="ml/{model}/model.pkl"
             # prediction="cv/{model}/pred.nc",
             # residual="cv/{model}/resid.nc"
-    params: model=lambda wildcards: models.model_dict[wildcards.model], sample_dims=['time', 'y', 'x']
+    params: model=LinearRegression(), sample_dims=['x', 'y', 'time']
     script: "fit.py"
