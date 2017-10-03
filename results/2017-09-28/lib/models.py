@@ -9,30 +9,6 @@ from sklearn.decomposition import PCA
 from xnoah.data_matrix import stack_cat, unstack_cat
 from .mca import MCA
 
-class NullFeatureRemover(TransformerMixin, BaseEstimator):
-
-    def fit(self, x, y=None):
-        x = np.asarray(x)
-        std = x.std(axis=0)
-        self.mask_ = std < 1e-3
-
-        return self
-
-    @property
-    def nnz(self):
-        return (-self.mask_).sum()
-
-    def transform(self, x, y=None):
-        if self.mask_.shape[0] != x.shape[1]:
-            raise ValueError("X is not the same shape as the stored mask")
-        x = np.asarray(x)
-        xt = x[:,~self.mask_]
-
-        if y is None:
-            return xt
-        else:
-            return xt, y
-
 def prepvar(X, feature_dims=['z'], sample_dims=['time', 'x', 'y']):
    return  stack_cat(X, "features", ['z']).stack(samples=['time', 'x', 'y']).transpose("samples", "features")
 
