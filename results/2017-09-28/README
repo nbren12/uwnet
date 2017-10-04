@@ -6,3 +6,7 @@
 - ./ngaqua - analysis of the ngaqua dataset
 
 Each of the analyses should be recreateable
+
+WARNING 10/3/2017
+
+The analysis in  ngaqua is not rectreatible. The linear fit does not consistently work!
