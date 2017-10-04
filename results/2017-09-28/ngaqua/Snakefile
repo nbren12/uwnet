@@ -4,12 +4,12 @@ sys.path.insert(0, "../")
 import lib.models as models
 
 configfile: "config.yaml"
-include: "../sam.rules"
-include: "../jupyter.rules"
+include: "snakemake/sam.rules"
+include: "snakemake/jupyter.rules"
 
 
 rule all:
-    input: '01-ridge-regression-performance.done 02-ugly-linear-response-functions.done 03-new-normalization-techniques.done plot-linear-response-functions.done'.split(' ')
+    input: '01-ridge-regression-performance.done 02-ugly-linear-response-functions.done 03-new-normalization-techniques.done'.split(' ')
 
 rule inputs:
     input: "3d/QT.nc", "3d/SL.nc", "2d/LHF.nc", "2d/SHF.nc"
@@ -25,7 +25,7 @@ rule test_train_split:
     input: "{f}.nc"
     output: train="train/{f}.nc", test="test/{f}.nc"
     params: t_split=50.0
-    script: "../test_train_split.py"
+    script: "scripts/test_train_split.py"
 
 
 rule cross_validate:
@@ -37,14 +37,14 @@ rule cross_validate:
             # prediction="cv/{model}/pred.nc",
             # residual="cv/{model}/resid.nc"
     params: model=lambda wildcards: models.model_dict[wildcards.model], sample_dims=['time', 'y', 'x']
-    script: "../cross_validate.py"
+    script: "scripts/cross_validate.py"
 
 
 rule fit:
     input: input="X.nc", output="Y.nc",
             weight="w.nc"
-    output: model="ml/{model}/model.pkl"
-            # prediction="cv/{model}/pred.nc",
-            # residual="cv/{model}/resid.nc"
+    output: model="ml/linear/model.pkl"
+            # prediction="cv/linear/pred.nc",
+            # residual="cv/linear/resid.nc"
     params: model=LinearRegression(), sample_dims=['x', 'y', 'time']
-    script: "fit.py"
+    script: "scripts/fit.py"
