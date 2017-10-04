@@ -1,7 +1,8 @@
-# Do not normalize the output variables
+# Directory Listing
 
-## Directory Listing
-
-- ./ - analysis of the homo2d dataset
+- ./homo2d - analysis of the homo2d dataset. this is a replica of the analysis
+  contained in ../2017-09-19, but updated to work with a better version of the
+  scripts.
 - ./ngaqua - analysis of the ngaqua dataset
-- ./conv - convolution linear analysis
+
+Each of the analyses should be recreateable

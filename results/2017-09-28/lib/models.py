@@ -209,23 +209,7 @@ MyRidge.prep_kwargs = dict(scale_input=True, scale_output=False,
 MyRidge.param_grid = {'ridge__alpha': np.logspace(-10, 3, 15)}
 # MyRidge.param_grid = {'ridge__alpha': [.19]}
 
-# MCA
-_MCA = make_pipeline(MCA(), LinearRegression())
-_MCA.prep_kwargs = dict(scale_input=True, scale_output=False,
-                           weight_input=True, weight_output=True)
-_MCA.param_grid = {'mca__n_components': [1, 2, 4, 5, 6, 7, 8, 9,
-                                         10, 20, 30, 40, 50, 100, 120]}
-
-# Principal component regression
-# PCA automatically demeans the data, which is what we want to happen
-_PCR = make_pipeline(PCA(), LinearRegression())
-_PCR.prep_kwargs = dict(scale_input=True, scale_output=False,
-                        weight_input=True, weight_output=True)
-_PCR.param_grid = {'pca__n_components': [1, 2, 4, 5, 6, 7, 8, 9,
-                                         10, 20, 30, 40, 50, 100, 120]}
 # This dictionary is used by the Snakefile
 model_dict = {
-    'ridge': MyRidge,
-    'mca': _MCA,
-    'pcr': _PCR
+    'ridge': MyRidge
 }

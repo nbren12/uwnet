@@ -3,7 +3,7 @@
 import numpy as np
 import xarray as xr
 
-from util import wrap_xarray_calculation
+from lib.util import wrap_xarray_calculation
 
 
 def zadv_numpy(phi, w, dz, axis=-1):

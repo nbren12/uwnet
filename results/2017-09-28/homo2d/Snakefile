@@ -9,12 +9,12 @@ from dask import delayed
 import lib.models as models
 
 configfile: "config.yaml"
-include: "sam.rules"
-include: "jupyter.rules"
+include: "snakemake/sam.rules"
+include: "snakemake/jupyter.rules"
 
 
 rule all:
-    input: "01-cross-validation-mca-ridge.done"
+    input: "01-cross-validation-only-ridge.done"
 
 @wrap_xarray_calculation
 def source(x, f):
@@ -45,7 +45,7 @@ rule test_train_split:
     input: "{f}.nc"
     output: train="train/{f}.nc", test="test/{f}.nc"
     params: t_split=70.0
-    script: "test_train_split.py"
+    script: "scripts/test_train_split.py"
 
 
 rule cross_validate:
@@ -58,7 +58,7 @@ rule cross_validate:
             residual="cv/{model}/resid.nc"
     params: model=lambda wildcards: models.model_dict[wildcards.model],
             sample_dims=['x', 'time']
-    script: "cross_validate.py"
+    script: "scripts/cross_validate.py"
 
 
 from sklearn.linear_model import Ridge
@@ -69,4 +69,4 @@ rule fit:
             # prediction="ml/pred.nc",
             # residual="ml/resid.nc"
     params: model=Ridge(.19), sample_dims=['x', 'time']
-    script: "fit.py"
+    script: "scripts/fit.py"

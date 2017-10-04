@@ -161,7 +161,7 @@ wildcard_constraints:
 rule total_advection:
     input: u="A64/3d/U.nc", w="A64/3d/W.nc", phi="{f}.nc"
     output: "adv/{f}.nc"
-    script: "advection.py"
+    script: "../scripts/advection.py"
 
 
 @wrap_xarray_calculation
