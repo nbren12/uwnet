@@ -11,5 +11,5 @@ subworkflow ngaqua:
 
 
 rule all:
-    input: ngaqua("3d/QT.nc")
+    input: ngaqua("3d/Q1.nc")
 
