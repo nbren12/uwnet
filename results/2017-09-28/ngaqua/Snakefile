@@ -27,7 +27,7 @@ rule test_train_split:
     input: "{f}.nc"
     output: train="train/{f}.nc", test="test/{f}.nc"
     params: t_split=50.0
-    script: "scripts/test_train_split.py"
+    script: "../scripts/test_train_split.py"
 
 
 rule cross_validate:
@@ -39,7 +39,7 @@ rule cross_validate:
             # prediction="cv/{model}/pred.nc",
             # residual="cv/{model}/resid.nc"
     params: model=lambda wildcards: models.model_dict[wildcards.model], sample_dims=['time', 'y', 'x']
-    script: "scripts/cross_validate.py"
+    script: "../scripts/cross_validate.py"
 
 
 rule fit:
@@ -49,4 +49,4 @@ rule fit:
             # prediction="cv/linear/pred.nc",
             # residual="cv/linear/resid.nc"
     params: model=LinearRegression(), sample_dims=['x', 'y', 'time']
-    script: "scripts/fit.py"
+    script: "../scripts/fit.py"

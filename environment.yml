@@ -18,4 +18,4 @@ dependencies:
   - pip:
       - git+https://github.com/nbren12/gnl@master#subdirectory=packages/gnl
       - git+https://github.com/nbren12/gnl@master#subdirectory=packages/xnoah
-      - snakemake
+      - snakemake==4.0
