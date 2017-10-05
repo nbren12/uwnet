@@ -1,0 +1,21 @@
+name: uw-machine-learning
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.6
+  - numpy
+  - dask
+  - xarray=0.9
+  - scikit-learn=0.19
+  - matplotlib
+  - seaborn
+  - ipython
+  - jupyter
+  - cython
+  - jq
+  - pip
+  - pip:
+      - git+https://github.com/nbren12/gnl@master#subdirectory=packages/gnl
+      - git+https://github.com/nbren12/gnl@master#subdirectory=packages/xnoah
+      - snakemake
