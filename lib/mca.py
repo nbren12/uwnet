@@ -7,20 +7,24 @@ from sklearn.base import RegressorMixin, TransformerMixin, BaseEstimator
 
 class MCA(BaseEstimator, TransformerMixin):
 
-    def __init__(self, n_components=4, demean=True):
+    def __init__(self, n_components=4, demean=True,
+                 y_transformer=None):
         self.n_components = n_components
         self.demean = demean
 
-    def fit(self, XY, y=None):
+        if y_transformer is None:
+            self.y_transformer = lambda x: x
+        else:
+            self.y_transformer = y_transformer
+
+    def fit(self, X, y=None):
 
         # This is basically a hack to work around the difficult
         # with using scaled output for MCA but not for the linear regression
-        assert len(XY) == 2
-
-        X, Y = XY
+        y = self.y_transformer.fit_transform(y)
 
         X = np.asarray(X)
-        Y = np.asarray(Y)
+        Y = np.asarray(y)
 
         m, n = X.shape
         self.x_mean_ = X.mean(axis=0)
@@ -29,7 +33,6 @@ class MCA(BaseEstimator, TransformerMixin):
         if self.demean:
             X = X - self.x_mean_
             Y = Y - self.y_mean_
-
 
         self.cov_ = X.T.dot(Y)/(m-1)  # covariance matrix
         U, S, Vt = svd(self.cov_, full_matrices=False)
@@ -43,11 +46,10 @@ class MCA(BaseEstimator, TransformerMixin):
 
         return self
 
-    def transform(self, XY, y=None):
-        assert len(XY) == 2
-        X, Y = XY
+    def transform(self, X, y=None):
+
         X = np.asarray(X)
-        Y = np.asarray(Y)
+        # Y = np.asarray(y)
         x_scores = (X-self.x_mean_).dot(self.x_components_)
         # if y is not None:
         #     y_scores = (Y-self.y_mean_).dot(self.y_components_)
