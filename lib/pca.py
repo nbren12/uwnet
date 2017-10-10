@@ -4,8 +4,9 @@ import xarray as xr
 from sklearn.externals import joblib
 from sklearn.pipeline import make_pipeline, make_union
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 
-from xnoah.sklearn import Normalizer, Select, Stacker, Weighter
+from lib.sklearn import Select, Stacker, Weighter, WeightedNormalizer
 from toolz.curried import map, pipe
 
 mem = joblib.Memory("/tmp/mycache")
@@ -39,23 +40,23 @@ d = D.sel(time=slice(20, None))
 def pipeline_var(name, w):
     return make_pipeline(
         Select(name),
+        WeightedNormalizer(w),
         Weighter(np.sqrt(w)),
-        Normalizer(['x', 'y', 'z', 'time']),
         Stacker(['x', 'y', 'time']))
 
 
 def pipeline_2d_var(name):
     return make_pipeline(
         Select(name),
-        Normalizer(['x', 'y', 'time']),
-        Stacker(['x', 'y', 'time']))
-
+        Stacker(['x', 'y', 'time']),
+        StandardScaler())
 
 union = make_union(
     pipeline_var('QT', w),
     pipeline_var('SL', w),
     pipeline_2d_var('LHF'),
-    pipeline_2d_var('SHF'))
+    pipeline_2d_var('SHF'),
+)
 
 pca = make_pipeline(union, PCA(n_components=20))
 

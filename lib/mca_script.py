@@ -6,7 +6,7 @@ from sklearn.pipeline import make_pipeline, make_union
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 
-from xnoah.sklearn import Select, Stacker, Weighter, WeightedNormalizer
+from lib.sklearn import Select, Stacker, Weighter, WeightedNormalizer
 from toolz.curried import map, pipe
 
 from lib.mca import MCA

@@ -4,7 +4,7 @@ import xarray as xr
 from sklearn.externals import joblib
 from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import make_pipeline, make_union
-from xnoah.sklearn import Normalizer, Select, Stacker, Weighter
+from lib.sklearn import Select, Stacker, Weighter
 
 mem = joblib.Memory("/tmp/mycache")
 
@@ -24,18 +24,10 @@ d_train, d_test = D.sel(time=slice(0, 50)), D.sel(time=slice(50, None))
 
 # union
 union = make_union(
-    make_pipeline(
-        Select('QT', sel={'z': slice(0, 10e3)}),
-        Normalizer(['x', 'y', 'time']), Stacker(['x', 'y', 'time'])),
-    make_pipeline(
-        Select('SL'),
-        Normalizer(['x', 'y', 'time']), Stacker(['x', 'y', 'time'])),
-    make_pipeline(
-        Select('SHF'),
-        Normalizer(['x', 'y', 'time']), Stacker(['x', 'y', 'time'])),
-    make_pipeline(
-        Select('LHF'),
-        Normalizer(['x', 'y', 'time']), Stacker(['x', 'y', 'time'])), )
+    make_pipeline(Select('QT', sel={'z': slice(0, 10e3)}), Stacker(['x', 'y', 'time'])),
+    make_pipeline(Select('SL'), Stacker(['x', 'y', 'time'])),
+    make_pipeline(Select('SHF'), Stacker(['x', 'y', 'time'])),
+    make_pipeline(Select('LHF'), Stacker(['x', 'y', 'time'])))
 
 output_union = make_union(
     make_pipeline(
