@@ -5,29 +5,32 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 
 class Stacker(BaseEstimator, TransformerMixin):
-    def __init__(self, sample_dims):
-        self.sample_dims = sample_dims
+    def __init__(self, feature_dims=()):
+        self.feature_dims = feature_dims
 
     def fit(self, X, y=None):
         return self
 
     def transform(self, X: xr.DataArray):
-        feature_dims = [dim for dim in X.dims if dim not in self.sample_dims]
-
-        if not set(self.sample_dims) <= set(X.dims):
+        if not set(self.feature_dims) <= set(X.dims):
             raise ValueError(
-                f"Sample_dims {self.sample_dims} is not a subset of input"
+                f"dims {self.feature_dims} is not a subset of input"
                 "dimensions")
 
-        data = X.stack(samples=self.sample_dims)
-        if feature_dims:
-            data = data.stack(features=feature_dims)\
-                       .transpose("samples", "features")\
-                       .data
+        dim_dict = {'samples': [dim for dim in X.dims
+                                if dim not in self.feature_dims],
+                    'features': self.feature_dims}
 
-            return data
-        else:
-            return data.data[:, None]
+        data = X
+
+        for new_dim, dims in dim_dict.items():
+            if dims:
+                data = data.stack(**{new_dim: dims})
+
+            else:
+                data = data.assign_coords(**{new_dim: 1}).expand_dims(new_dim)
+
+        return data.transpose("samples", "features")
 
     def inverse_transform(self, X):
         raise NotImplementedError

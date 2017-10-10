@@ -46,13 +46,13 @@ def pipeline_var(name, w):
         Select(name),
         WeightedNormalizer(w),
         Weighter(np.sqrt(w)),
-        Stacker(['x', 'y', 'time']))
+        Stacker(['z']))
 
 
 def pipeline_2d_var(name):
     return make_pipeline(
         Select(name),
-        Stacker(['x', 'y', 'time']),
+        Stacker(),
         StandardScaler())
 
 

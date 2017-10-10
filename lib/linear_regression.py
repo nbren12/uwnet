@@ -24,16 +24,16 @@ d_train, d_test = D.sel(time=slice(0, 50)), D.sel(time=slice(50, None))
 
 # union
 union = make_union(
-    make_pipeline(Select('QT', sel={'z': slice(0, 10e3)}), Stacker(['x', 'y', 'time'])),
-    make_pipeline(Select('SL'), Stacker(['x', 'y', 'time'])),
-    make_pipeline(Select('SHF'), Stacker(['x', 'y', 'time'])),
-    make_pipeline(Select('LHF'), Stacker(['x', 'y', 'time'])))
+    make_pipeline(Select('QT', sel={'z': slice(0, 10e3)}), Stacker(['z'])),
+    make_pipeline(Select('SL'), Stacker(['z'])),
+    make_pipeline(Select('SHF'), Stacker()),
+    make_pipeline(Select('LHF'), Stacker()))
 
 output_union = make_union(
     make_pipeline(
-        Select('Q1c'), Weighter(np.sqrt(w)), Stacker(['x', 'y', 'time'])),
+        Select('Q1c'), Weighter(np.sqrt(w)), Stacker(['z'])),
     make_pipeline(
-        Select('Q2'), Weighter(np.sqrt(w)), Stacker(['x', 'y', 'time'])))
+        Select('Q2'), Weighter(np.sqrt(w)), Stacker(['z'])))
 
 mod = make_pipeline(union, LinearRegression())
 
