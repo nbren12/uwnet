@@ -57,6 +57,10 @@ class MCA(BaseEstimator, TransformerMixin):
         # else:
         return x_scores
 
+
+    def inverse_transform(self, X):
+        return X.dot(self.x_components_.T)
+
     @property
     def x_components_(self):
         return self._u[:, :self.n_components]

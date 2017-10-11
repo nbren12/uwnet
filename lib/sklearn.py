@@ -1,8 +1,8 @@
+import pandas as pd
 import numpy as np
 import xarray as xr
 
 from sklearn.base import BaseEstimator, TransformerMixin
-
 
 class Stacker(BaseEstimator, TransformerMixin):
     def __init__(self, feature_dims=()):
@@ -30,10 +30,29 @@ class Stacker(BaseEstimator, TransformerMixin):
             else:
                 data = data.assign_coords(**{new_dim: 1}).expand_dims(new_dim)
 
+        # store stacked coords for later use by inverse_transform
+        # TODO this should be moved to fit
+        self.coords_ = data.coords
         return data.transpose("samples", "features")
 
     def inverse_transform(self, X):
-        raise NotImplementedError
+        """Inverse transform
+
+        Assume X.shape = (m,nfeats)
+        """
+        m, n = X.shape
+
+        samp_idx= pd.Index(np.arange(m), name='samples')
+        coords = (samp_idx, self.coords_['features'])
+        xarr = xr.DataArray(X, coords=coords)
+
+        if len(self.feature_dims) == 0:
+            raise NotImplementedError
+        elif len(self.feature_dims) == 1:
+            return xarr.rename({'features': self.feature_dims[0]})
+        else:
+            return xarr.unstack("features")
+
 
 
 class Weighter(TransformerMixin):
@@ -87,7 +106,8 @@ class Select(BaseEstimator, TransformerMixin):
             out = out.sel(**self.sel)
         return out
 
-
+    def inverse_transform(self, X):
+        return X.to_dataset(name=self.key)
 
 class XarrayMapper(BaseEstimator, TransformerMixin):
     def __init__(self,
