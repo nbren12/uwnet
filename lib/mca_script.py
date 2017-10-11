@@ -30,15 +30,21 @@ def compute_mat(mca, union, w,
         'shf': union.transformer_list[3][1].named_steps['standardscaler'].scale_,
     }
     scales = {key: float(val) for key, val in scales.items()}
+
+    # weight operator
     w = w.data
     W = np.sqrt(np.diag(np.hstack((w, w, 1, 1))))
+    W_inv = np.sqrt(np.diag(1/np.hstack((w, w, 1, 1))))
 
     lrf = W @ lrf
     lrf_dict = {key: val/scales[key] for  key, val in
                 zip(['qt', 'sl', 'lhf', 'shf'],
                     np.split(lrf, splits))}
 
-    return lrf_dict
+    # compute projection operator
+    P = lrf @ lrf.T @ W_inv
+
+    return lrf_dict, P
 
 
 mem = joblib.Memory("/tmp/mycache")
@@ -100,10 +106,10 @@ output_union = make_union(
 x = union.fit_transform(d)
 y = output_union.fit_transform(d)
 
-mca = make_pipeline(union, MCA(y_transformer=output_union))
+mca = make_pipeline(union, MCA(n_components=2, y_transformer=output_union))
 mca.fit(d, d)
 
 
-mat = compute_mat(mca, union, w)
-joblib.dump({'model': mca, 'mat': mat},
+mat, projection = compute_mat(mca, union, w)
+joblib.dump({'model': mca, 'mat': mat, 'projection': projection},
             model_file)

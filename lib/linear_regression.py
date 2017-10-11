@@ -41,7 +41,6 @@ def compute_mat(mod, w, in_sizes, out_sizes):
     lrf_dict = {(out_key, in_key): in_val
                 for out_key, out_val in zip(['Q1c', 'Q2'], np.split(lrf, out_splits, axis=1))
                 for in_key, in_val in zip(['qt', 'sl', 'lhf', 'shf'], np.split(out_val, in_splits, axis=0))}
-
     return lrf_dict
 
 mem = joblib.Memory("/tmp/mycache")
