@@ -21,9 +21,7 @@ rule weights:
 
 
 rule linear_regression:
-    input: data3d=expand("data/ngaqua/3d/{f}.nc", f='Q1 Q2 QT SL QRAD'.split(' ')),
-           data2d=expand("data/ngaqua/2d/{f}.nc", f='LHF SHF'.split(' ')),
-           weight="data/processed/ngaqua/w.nc"
+    input: "data/ml/ngaqua/data.pkl"
     output: "data/ml/ngaqua/linear_model.pkl"
     script: "lib/linear_regression.py"
 
@@ -36,9 +34,11 @@ rule pca:
     output: "data/ml/ngaqua/pca.pkl"
     script: "lib/pca.py"
 
-rule mca:
+rule prepvars:
     input: data3d=expand("data/ngaqua/3d/{f}.nc", f=['QT', 'SL', 'Q1', 'QRAD', 'Q2']),
             data2d=expand("data/ngaqua/2d/{f}.nc", f=['LHF', 'SHF']),
             weight="data/processed/ngaqua/w.nc"
-    output: "data/ml/ngaqua/mca.pkl"
-    script: "lib/mca_script.py"
+    output: "data/ml/ngaqua/data.pkl"
+    params: input_vars="QT SL LHF SHF".split(' '),
+            output_vars="Q1c Q2".split(' ')
+    script: "lib/prepvars.py"
