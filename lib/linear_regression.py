@@ -21,7 +21,7 @@ def compute_mat(mod, w, in_sizes, out_sizes):
 
     union = mod.named_steps['featureunion']
     in_offsets = np.cumsum(in_sizes)
-    out_offsets = np.cumsum(in_sizes)
+    out_offsets = np.cumsum(out_sizes)
 
     in_splits = in_offsets[:-1]
     out_splits = out_offsets[:-1]
@@ -38,9 +38,9 @@ def compute_mat(mod, w, in_sizes, out_sizes):
 
     lrf = lrf @ W
 
-    lrf_dict = {out_key: {in_key: in_val
+    lrf_dict = {(out_key, in_key): in_val
+                for out_key, out_val in zip(['Q1c', 'Q2'], np.split(lrf, out_splits, axis=1))
                 for in_key, in_val in zip(['qt', 'sl', 'lhf', 'shf'], np.split(out_val, in_splits, axis=0))}
-                for out_key, out_val in zip(['qt', 'sl', 'lhf', 'shf'], np.split(lrf, out_splits, axis=1))}
 
     return lrf_dict
 
