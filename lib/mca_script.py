@@ -11,6 +11,36 @@ from toolz.curried import map, pipe
 
 from lib.mca import MCA
 
+def compute_mat(mca, union, w,
+                splits=[34, 68, 69],
+                n=70):
+    """Compute matrix for mca
+
+    Warning this code is extremely brittle and should not be reused.
+    """
+    # compute LRF
+    I = np.eye(n)
+    lrf = mca.named_steps['mca'].transform(I)
+    lrf -= mca.named_steps['mca'].transform(I*0)
+
+    scales = {
+        'qt': union.transformer_list[0][1].named_steps['weightednormalizer'].x_scale_,
+        'sl': union.transformer_list[1][1].named_steps['weightednormalizer'].x_scale_,
+        'lhf': union.transformer_list[2][1].named_steps['standardscaler'].scale_,
+        'shf': union.transformer_list[3][1].named_steps['standardscaler'].scale_,
+    }
+    scales = {key: float(val) for key, val in scales.items()}
+    w = w.data
+    W = np.sqrt(np.diag(np.hstack((w, w, 1, 1))))
+
+    lrf = W @ lrf
+    lrf_dict = {key: val/scales[key] for  key, val in
+                zip(['qt', 'sl', 'lhf', 'shf'],
+                    np.split(lrf, splits))}
+
+    return lrf_dict
+
+
 mem = joblib.Memory("/tmp/mycache")
 
 # snakemake input and outputs
@@ -67,12 +97,13 @@ output_union = make_union(
     pipeline_var('Q2', w)
 )
 
-
-
 x = union.fit_transform(d)
 y = output_union.fit_transform(d)
 
 mca = make_pipeline(union, MCA(y_transformer=output_union))
 mca.fit(d, d)
-joblib.dump(mca, model_file)
 
+
+mat = compute_mat(mca, union, w)
+joblib.dump({'model': mca, 'mat': mat},
+            model_file)
