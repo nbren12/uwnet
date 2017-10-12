@@ -53,13 +53,13 @@ class MCA(BaseEstimator, TransformerMixin):
     def transform(self, X, y=None):
 
         X = np.asarray(X)
-        # Y = np.asarray(y)
         x_scores = (X-self.x_mean_).dot(self.x_components_)
-        # if y is not None:
-        #     y_scores = (Y-self.y_mean_).dot(self.y_components_)
-        #     return x_scores, y_scores
-        # else:
-        return x_scores
+        if y is not None:
+            Y = np.asarray(y)
+            y_scores = (Y-self.y_mean_).dot(self.y_components_)
+            return x_scores, y_scores
+        else:
+            return x_scores
 
 
     def inverse_transform(self, X):
