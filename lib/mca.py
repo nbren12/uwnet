@@ -66,7 +66,18 @@ class MCA(BaseEstimator, TransformerMixin):
 
 
     def inverse_transform(self, X):
-        return X.dot(self.x_components_.T)
+        return X.dot(self.x_components_.T) + self.x_mean_
+
+    def project_x(self, x):
+        return ((x - self.x_mean_).dot(self.x_components_))\
+                                 .dot(self.x_components_.T)\
+                                 + self.x_mean_
+
+
+    def project_y(self, y):
+        return ((y - self.y_mean_).dot(self.y_components_))\
+                                 .dot(self.y_components_.T)\
+                                 + self.y_mean_
 
     @property
     def x_components_(self):
@@ -75,3 +86,16 @@ class MCA(BaseEstimator, TransformerMixin):
     @property
     def y_components_(self):
         return self._v[:, :self.n_components]
+
+    def x_explained_variance_(self, X):
+        X = np.asarray(X)
+        sse = np.sum((self.project_x(X) - X)**2)
+        ss = np.sum((X-X.mean(axis=0))**2)
+        return 1 - sse/ss
+
+
+    def y_explained_variance_(self, y):
+        y = np.asarray(y)
+        sse = np.sum((self.project_y(y) - y)**2)
+        ss = np.sum((y-y.mean(axis=0))**2)
+        return 1 - sse/ss
