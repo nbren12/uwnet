@@ -4,10 +4,14 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from sklearn.externals import joblib
-from lib.models import prepvar
+from lib.models import prepvar, compute_weighted_scale
 from xnoah.data_matrix import stack_cat
 
+
 def weights_to_np(w, idx):
+    """
+    TODO Replace with pandas merging functionality
+    """
     def f(i):
         if i < 0:
             return 1.0
@@ -15,6 +19,18 @@ def weights_to_np(w, idx):
             return float(w.sel(z=idx.levels[1][i]))
 
     return np.array([f(i) for i in idx.labels[1]])
+
+
+def scales_to_np(sig, idx):
+    """
+
+    TODO replace with pandas merging functionality
+    """
+    def f(i):
+        return float(sig[idx.levels[0][i]])
+
+    return np.array([f(i) for i in idx.labels[0]])
+
 
 def xarray_std_to_df(std):
     input_std = stack_cat(std, "features", ['z'])
@@ -50,6 +66,7 @@ def get_dataset(snakemake):
 # get variables
 input_vars = snakemake.params.input_vars
 output_vars = snakemake.params.output_vars
+sample_dims = ['x', 'y', 'time']
 
 D = get_dataset(snakemake)
 
@@ -63,8 +80,14 @@ w = xr.open_dataarray(snakemake.input.weight)
 w_input = weights_to_np(w, x_train.indexes['features'])
 w_output = weights_to_np(w, y_train.indexes['features'])
 
+# get variable scales
+scales = compute_weighted_scale(w, sample_dims=sample_dims, ds=d_train)
+scales_in = scales_to_np(scales, x_train.indexes['features'])
+scales_out = scales_to_np(scales, y_train.indexes['features'])
+
 output_data = {
-    'w': {'in': w_input, 'out': w_output},
+    'w': (w_input,  w_output),
+    'scale': (scales_in, scales_out),
     'train': (x_train, y_train),
     'test': (x_test, y_test)}
 

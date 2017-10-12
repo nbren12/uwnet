@@ -154,7 +154,7 @@ def compute_weighted_scale(weight, sample_dims, ds):
     def f(data):
         sig = data.std(sample_dims)
         if set(weight.dims) <= set(sig.dims):
-            sig = (sig**2 * weight).sum(weight.dims).pipe(np.sqrt)
+            sig = (sig**2 * weight/weight.sum()).sum(weight.dims).pipe(np.sqrt)
         return sig
 
     return ds.apply(f)

@@ -25,7 +25,10 @@ rule linear_regression:
     output: "data/ml/ngaqua/linear_model.pkl"
     script: "lib/linear_regression.py"
 
-
+rule mca:
+    input: "data/ml/ngaqua/data.pkl"
+    output: "data/ml/ngaqua/mca.pkl"
+    script: "lib/mca_script.py"
 
 rule pca:
     input: data3d=expand("data/ngaqua/3d/{f}.nc", f=['QT', 'SL']),

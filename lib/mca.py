@@ -5,6 +5,10 @@ from scipy.linalg import svd, lstsq
 from sklearn.base import RegressorMixin, TransformerMixin, BaseEstimator
 
 
+class Identity(TransformerMixin):
+    def fit_transform(self, x):
+        return x
+
 class MCA(BaseEstimator, TransformerMixin):
 
     def __init__(self, n_components=4, demean=True,
@@ -13,7 +17,7 @@ class MCA(BaseEstimator, TransformerMixin):
         self.demean = demean
 
         if y_transformer is None:
-            self.y_transformer = lambda x: x
+            self.y_transformer = Identity()
         else:
             self.y_transformer = y_transformer
 
