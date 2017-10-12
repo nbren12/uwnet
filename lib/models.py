@@ -10,10 +10,6 @@ from xnoah.data_matrix import stack_cat, unstack_cat
 from .mca import MCA
 
 
-def prepvar(X, feature_dims=['z'], sample_dims=['time', 'x', 'y']):
-    return stack_cat(X, "features",
-                     ['z']).stack(samples=['time', 'x', 'y']).transpose(
-                         "samples", "features")
 
 
 def weights_to_np(w, feats):

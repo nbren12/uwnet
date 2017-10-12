@@ -6,9 +6,6 @@ from sklearn.linear_model import LinearRegression
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.pipeline import make_pipeline
 
-
-from lib.models import WeightedOutput, prepvar, weights_to_np
-
 data = joblib.load(snakemake.input[0])
 
 x_train, y_train = data['train']

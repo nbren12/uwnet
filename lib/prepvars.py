@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from sklearn.externals import joblib
-from lib.models import prepvar, compute_weighted_scale
+from lib.models import compute_weighted_scale
 from xnoah.data_matrix import stack_cat
 
 
@@ -41,6 +41,12 @@ def weight_lrf(lrf, sig):
     sig = xarray_std_to_df(sig)
     sig_weighted_lrf = lrf.apply(lambda x: x*sig)
     return sig_weighted_lrf
+
+
+def prepvar(X, feature_dims=['z'], sample_dims=['time', 'x', 'y']):
+    return stack_cat(X, "features",
+                     ['z']).stack(samples=['time', 'x', 'y']).transpose(
+                         "samples", "features")
 
 
 def prepvars(d, input_vars, output_vars):
