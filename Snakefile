@@ -28,7 +28,7 @@ rule linear_regression:
 rule mca:
     input: "data/ml/ngaqua/data.pkl"
     output: "data/ml/ngaqua/mca.pkl"
-    params: n_components=8
+    params: n_components=4
     script: "lib/mca_script.py"
 
 rule pca:
