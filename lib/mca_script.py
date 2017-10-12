@@ -4,15 +4,17 @@ from sklearn.externals import joblib
 
 from lib.mca import MCA
 
-
+n_components = snakemake.params.n_components
 data = joblib.load(snakemake.input[0])
 
 x_train, y_train = data['train']
 win, wout = data['w']
 scale_in, scale_out = data['scale']
 
+
 # fit model
-mod = MCA(n_components=4)
+mod = MCA(n_components=n_components)
+print(f"Fitting {mod}")
 mod.fit(x_train*np.sqrt(win)/scale_in, y_train * np.sqrt(wout)/scale_out)
 
 # compute matrix and inverse
