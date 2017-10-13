@@ -21,3 +21,4 @@ dependencies:
       - git+https://github.com/nbren12/gnl@master#subdirectory=packages/xnoah
       - snakemake==4.0
       - tqdm
+      - git+https://github.com/scikit-learn-contrib/py-earth
