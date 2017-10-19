@@ -1,0 +1,113 @@
+\documentclass{report}
+
+\usepackage{tikz}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{palatino}
+
+\usepackage[style=authoryear]{biblatex}
+\addbibresource{references.bib}
+
+\input{macros.tex}
+
+\title{Moist Convection ML}
+\author{Noah D. Brenowitz}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\chapter{Introduction}
+
+\chapter{Training Data}
+
+\section{System for Atmospheric Modeling}
+\label{sec:sam}
+
+The System for Atmospheric Modeling (SAM) uses a different set of prognostic
+equations \autocite{Khairoutdinov2003}. These are given by
+
+\begin{subequations}
+  \label{eq:sam}
+  \begin{align}
+    &\totd{\bu}{t} + ( f  + \beta y) \mathbf{k}\times \bu = - \nabla \phi \\
+    &\totd{w}{t} = -\nabla \phi + g B \label{eq:w-full}\\
+    &\totd{h_L}{t}  = Q_{rad}  - \frac{1}{\rho_0} \pd{}{z} \left( L_c P_r + L_s P_s + L_s P_g \right)\\
+    &\totd{q_T}{t} = -  \dot{q}_p^{\text{micro}} \label{eq:sam-qT}\\
+    &\totd{q_p}{t} = \frac{1}{\rho_0} \pd{}{z} \left(  P_r +  P_s + P_g \right) + \dot{q}_p^{\text{micro}}\\
+    &\nabla \cdot \bu + \frac{1}{\rho_0} \pd{\rho_0 w}{z}  = 0.
+  \end{align}
+\end{subequations}
+I have neglected the sub-grid-scale flux terms in the formulation above since
+they are not relevant to the problem considered in this report. The temperature
+and humidity variables introduced in the previous section have been replaced
+here by
+\begin{description}
+\item[Liquid/ice water static energy] $h_L = c_p T +gz - L_c (q_c + q_r) - L_s
+  (q_i + q_s + q_g)$,
+\item[Total nonprecipitating water] $q_T = q_v + q_c + q_i$, and
+\item[Total precipitating water] $q_p = q_r + q_s + q_g$.
+\end{description}
+Note that $h_L$ is only an appropriate variable when hydrostatic balance or
+anelastic equations are satisfied. Otherwise, potential temperature should be
+used. There are a number of diagnostic equations which can be solved to
+determine the temperature, and all the mixing ratios for the different species
+of precipitating and non-precipitating water. Perhaps most importantly, the
+water vapor is assumed to be at or below an approximate saturation value so that
+\[q_v = \min(q_T, q_{sat}(p_0, T)),\]
+where
+\[ q_{sat} = q_{sw} (1-\omega_i) + \omega_i q_{si}\]
+is a convex combination of the saturation mixing ratios of vapor with respect to
+ice and liquid water. 
+
+A consequence of this diagnostic relation is that the latent
+heating term due to condensation is not explicitly calculated. Instead, SAM
+models the microphysical processes which govern the conversion from condensate
+($\text{cloud water} + \text{cloud ice}$) to precipitation ($\text{rain} +
+\text{snow} + \text{grauppel}$). These processes are given by
+\[
+  \dot{q}_p^{\text{micro}} = \text{accretion} - \text{evaporation} + \text{autoconversion}.
+\]
+A nice paper by \textcite{hernandez-duenas_minimal_2013} contains a more thorough
+discussion of a similar set of microphysical equations, which can be helpful for
+gaining intuition. Additional details about the diagnostic relations linking the
+water species and the prognostic variables $q_T$, $h_L$, and $q_p$ are available
+in Appendix \ref{sec:diag-q} and in the original SAM paper by \textcite{Khairoutdinov2003}.
+
+This formulation is convenient for numerical modeling purposes, but
+moist-convective processes are often understood as a coupling between dry
+dynamics and moist variables because the bouyancy is related primarily to
+temperature, rather than moist static energy.
+For instance, the circulation due to the monsoons and MJO can be understood
+roughly as the response to a imposed heating pattern \autocite{Gill1980}, and
+the multiscale theories of Biello and Majda rely upon asympotic analysis of the
+latent heating.
+
+\section{Near-global Model Configuration}
+\label{sec:model-config}
+
+We configure the model in the same way as \textcite{Bretherton2015}. 
+
+
+\chapter{Methods}
+
+\section{Post-processing}
+\label{sec:post-processing}
+
+The main post processing steps are
+
+\begin{enumerate}
+\item Coarse-graining, and 
+\item computing the apparent heat and moisture source due to convection.
+\end{enumerate}
+
+
+
+\section{Maximum Covariance Analysis}
+\label{sec:mca}
+
+
+\printbibliography
+
+\end{document}
