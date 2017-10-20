@@ -4,7 +4,16 @@
 \usepackage{graphicx}
 \usepackage{amsmath}
 \usepackage{palatino}
+\usepackage{siunitx}
+\usepackage{hyperref}
 
+% begin tikz
+\usepackage{tikz}
+\usetikzlibrary{graphs,graphdrawing,matrix}
+\usegdlibrary{layered}
+% end tikz
+
+% biblio
 \usepackage[style=authoryear]{biblatex}
 \addbibresource{references.bib}
 
@@ -89,6 +98,34 @@ latent heating.
 
 We configure the model in the same way as \textcite{Bretherton2015}. 
 
+\section{Model Outputs}
+
+The model outputs a collection of three dimensional and two dimensional fields
+at a sampling interval of three hours. 
+Because the model uses an Arakawa C-Grid, some of the variables are staggered
+while others are centered. 
+Figure \ref{fig:arakawa-c-grid} provides an illustration of this.
+
+\begin{figure}
+  \centering
+
+  \begin{tikzpicture}[scale=2]
+    \draw[step=2] (-2,-2) grid (4,4);
+    \node at (1,1) {$q_v$, $q_p$, $q_n$, $\phi$, $s_l$};
+    \node[fill=white] at (1,0) {$u_{i}$};
+    \node[fill=white] at (1,2) {$u_{i+1}$};
+    \node[fill=white] at (2,1) {$v_{i+1}$};
+    \node[fill=white] at (0,1) {$v_{i}$};
+  \end{tikzpicture}
+
+  \caption{Arakawa C-Grid. 
+    The velocities are represented on the faces, while the scalar quantities are
+    cell-centered. 
+    This plot only shows the horizontal grid, but the vertical velocity $w$ is
+    staggered in the vertical direction.}
+  \label{fig:arakawa-c-grid}
+\end{figure}
+
 
 \chapter{Methods}
 
@@ -101,6 +138,75 @@ The main post processing steps are
 \item Coarse-graining, and 
 \item computing the apparent heat and moisture source due to convection.
 \end{enumerate}
+
+The coarse graining procedure is relatively straightforward. 
+SAM outputs the data on a grid with a \SI{4}{\km} resolution. 
+We can describe this coarse-graining mathematically. 
+Let $f(x,y,z,t)$ be some three dimensional field outputed by the atmospheric
+model. 
+Then, divide the domain into coarse grained grid boxes $C_{i,j}$ which represent the
+typical GCM grid box. These grid boxes are defined by
+
+\[
+  C_{i,j} = \{(x,y):   j \Delta x \leq x < (j+1) \Delta x
+  \quad \cap\quad j \Delta y \leq y < (j+1) \Delta y \},
+\]
+where $\Delta x$ and $\Delta y$ are the size of the GCM grid box (e.g.
+\SI{160}{\km}). Averaging over these grid boxes gives the coarse-grained field
+\[
+  \overline{f}_{i,j} = \int_{C_{ij}} f dA.
+\]
+
+
+Figure \ref{fig:preprocess} contains a flow chart describing the preprocessing pipeline.
+
+\begin{figure}
+  \centering
+  \begin{tikzpicture}[ every node/.style={draw} ]
+    \graph[layered layout]{
+
+      Input data -> Destagger $u$ and $v$ -> a/ Coarse grain all variables;
+      Input data -> a; a -> w/Destagger coarse grained $\overline{w}$; {a, w} ->
+      Reshape data and fit models!
+
+    };
+  \end{tikzpicture}
+  
+  \caption{Preprocessing pipeline flowchart}
+  \label{fig:preprocess}
+\end{figure}
+\section{Apparent Heating and Moistening}
+\label{sec:q1q2}
+
+In SAM, the conserved variables are the liquid-ice static energy and the total non-precipitating water. The liquid static energy is given in temperature units by 
+\[ s_l = T + \frac{g}{c_p} z - L_c(q_n + q_p),\]
+where $q_n$ is the total cloud condensate, $q_p$ is precipitation, and $L_c$ is the latent heat of condensation. This definition is an approximation which neglects the presence of the frozen phase of water. The total water non-precipitating water is just given by 
+$q_t = q_v + q_n.$
+
+Then, for our purposes, the apparent heat source is given by
+\[Q_1 = \partial_t {s_l} + \mathbf{v}\cdot \nabla s_l, \]
+and the apparent drying is given by
+\[Q_2 = - \frac{L_c}{c_p} \left[\partial_t {q_t} + \mathbf{v} \cdot \nabla q_t\right].\]
+The factor $\frac{L_c}{c_p}$ is used to ensure that this quantity also has units K/day. Comparing to the original prognostic equations for SAM shows that $Q_1$ contains the source term  $Q_r$ to the temperature equation which represents radiative transfer, which is usually a cooling tendency. For the purposes of cumulus parametrization, it might be possible to assume this is known from other sources (e.g. a radiative transfer code such as RRTMG). Therefore, we will also define the convective component of the apparent heating as $Q_{1c} = Q_1 - Q_r$. 
+
+All the differential operators in these two expression represent a finite
+differencing taken on the coarse grid, and we will use centered differences to
+compute these. Specifically, the formulas for the advection terms are given
+by
+\renewcommand{\bf}{\bar{f}_{i,j}}
+
+% \[(A_f)_{i,j} = \left( \bar{f}_{i+1,j,k} - \bar{f}_{i-1,j,k} \right) \frac{\bar{u}_{i,j,k}}{2 \Delta x}
+%               + \left( \bar{f}_{i,j+1,k} - \bar{f}_{i,j-1,k} \right) \frac{\bar{v}_{i,j,k}}{2 \Delta y}
+%               + \left(  \bar{f}_{i,j,k+1} - \bar{f}_{i,j,k-1} \right) \frac{\bar{v}_{i,j,k}}{z_{k+1} - z_{k-1}}
+%             \]
+
+\begin{align}
+  (A_f)_{i,j,k} = &\left( \bar{f}_{i+1,j,k} - \bar{f}_{i-1,j,k} \right) \frac{\bar{u}_{i,j,k}}{2 \Delta x}\\
+              +&\left( \bar{f}_{i,j+1,k} - \bar{f}_{i,j-1,k} \right) \frac{\bar{v}_{i,j,k}}{2 \Delta y}\nonumber\\
+              +& \left(  \bar{f}_{i,j,k+1} - \bar{f}_{i,j,k-1} \right) \frac{\bar{w}_{i,j,k}}{z_{k+1} - z_{k-1}}.\nonumber
+\end{align}
+We have taken advantage of the constant horizontal grid spacing and the
+collocation of all the coarse grained variables.
 
 
 
