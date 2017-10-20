@@ -7,9 +7,13 @@
 \usepackage{siunitx}
 \usepackage{hyperref}
 
+% tables
+\usepackage{booktabs}
+\usepackage{tabularx}
+
 % begin tikz
 \usepackage{tikz}
-\usetikzlibrary{graphs,graphdrawing,matrix}
+\usetikzlibrary{graphs,graphdrawing,matrix,decorations.pathreplacing}
 \usegdlibrary{layered}
 % end tikz
 
@@ -110,7 +114,13 @@ Figure \ref{fig:arakawa-c-grid} provides an illustration of this.
   \centering
 
   \begin{tikzpicture}[scale=2]
-    \draw[step=2] (-2,-2) grid (4,4);
+
+
+    \draw (-1, 0) -- (3,0);
+    \draw (0, -1) -- (0,3);
+    \draw (2, -1) -- (2,3);
+    \draw (-1, 2) -- (3,2);
+    
     \node at (1,1) {$q_v$, $q_p$, $q_n$, $\phi$, $s_l$};
     \node[fill=white] at (1,0) {$u_{i}$};
     \node[fill=white] at (1,2) {$u_{i+1}$};
@@ -157,6 +167,18 @@ where $\Delta x$ and $\Delta y$ are the size of the GCM grid box (e.g.
   \overline{f}_{i,j} = \int_{C_{ij}} f dA.
 \]
 
+\begin{figure}
+  \centering
+  \begin{tikzpicture}
+    \draw (0,0) rectangle (6,6);
+    \draw[step=1.5mm] (0,0) grid (6,6);
+    \draw[decorate,decoration={brace,amplitude=10pt,mirror,raise=4pt}] (0,0) -- (6,0);
+    \node at (3,-.7cm) {$\Delta x = \SI{160}{\km}$};
+  \end{tikzpicture}
+  \caption{Coarse-graining procedure. The coarse-grained grid boxes have a
+    length of \SI{160}{km} and contains $40^2$ fine scale grid boxes.}
+  \label{fig:coarse-grain}
+\end{figure}
 
 Figure \ref{fig:preprocess} contains a flow chart describing the preprocessing pipeline.
 
@@ -208,6 +230,23 @@ by
 We have taken advantage of the constant horizontal grid spacing and the
 collocation of all the coarse grained variables.
 
+The numerical estimates of $Q_1$ and $Q_2$ depend on these simple expressions.
+The apparent heating is given by
+\begin{equation}
+  \label{eq:q1-num}
+  Q_1^{n+1/2} = \frac{\bar{s_l}^{n+1} - \bar{s_l}^{n} }{\Delta t}
+            + \frac{1}{2} \left( A^{n+1}_{s_l}  + A^{n}_{s_l} \right).
+\end{equation}
+where the spatial index $i,j,k$ has been dropped. Similarly, the apparent
+drying is given by
+\begin{equation}
+  \label{eq:q2-num}
+  \frac{c_p}{L_v} Q_2^{n+1/2} = \frac{\bar{q_T}^{n+1} - \bar{q_T}^{n} }{\Delta t}
+            + \frac{1}{2} \left( A^{n+1}_{q_T}  + A^{n}_{q_T} \right).
+\end{equation}
+The factor $\frac{c_p}{L_v}$ ensures that $Q_2$ has units of temperature over
+time, just like $Q_1$. These and other important physical quantities are
+described in \autoref{ch:notation}.
 
 
 \section{Maximum Covariance Analysis}
@@ -215,5 +254,20 @@ collocation of all the coarse grained variables.
 
 
 \printbibliography
+
+\appendix
+
+\chapter{Notation and Physical Constants}
+\label{ch:notation}
+
+\begin{tabularx}{\textwidth}{lcX}
+  \toprule
+  Variable & Value & Description\\
+  \toprule
+  $c_p$ & \SI{1004}{J/K/kg} & Heat capacity of air\\
+  $L_v$ & \SI{2.5e6}{J/kg} & Latent heat of vaporization\\
+  \bottomrule
+\end{tabularx}
+
 
 \end{document}
