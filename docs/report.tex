@@ -31,6 +31,39 @@
 \maketitle
 \tableofcontents
 
+\chapter*{Notation and Physical Constants}
+\label{ch:notation}
+\begin{table}
+  \centering
+  \begin{tabularx}{\textwidth}{lX}
+    \toprule
+    Symbol & Description\\
+    \toprule
+    $n$ & number of samples \\
+    $m$ &  number of features\\
+    $X$ & $s \times m$ data matrix of predictors\\
+    $Y$ & $s \times \cdot $ data matrix of predictands\\
+    \bottomrule
+  \end{tabularx}
+  
+  \caption{List of common notations}
+  \label{tab:constants}
+\end{table}
+
+\begin{table}
+  \centering
+  \begin{tabularx}{\textwidth}{lcX}
+    \toprule
+    Variable & Value & Description\\
+    \toprule
+    $c_p$ & \SI{1004}{J/K/kg} & Heat capacity of air\\
+    $L_v$ & \SI{2.5e6}{J/kg} & Latent heat of vaporization\\
+    \bottomrule
+  \end{tabularx}
+  
+  \caption{List of physical constants}
+  \label{tab:constants}
+\end{table}
 \chapter{Introduction}
 
 \chapter{Training Data}
@@ -136,8 +169,6 @@ Figure \ref{fig:arakawa-c-grid} provides an illustration of this.
   \label{fig:arakawa-c-grid}
 \end{figure}
 
-
-\chapter{Methods}
 
 \section{Post-processing}
 \label{sec:post-processing}
@@ -246,8 +277,10 @@ drying is given by
 \end{equation}
 The factor $\frac{c_p}{L_v}$ ensures that $Q_2$ has units of temperature over
 time, just like $Q_1$. These and other important physical quantities are
-described in \autoref{ch:notation}.
+described in \autoref{tab:constants}.
 
+
+\chapter{Methods}
 
 \section{Maximum Covariance Analysis}
 \label{sec:mca}
@@ -256,18 +289,6 @@ described in \autoref{ch:notation}.
 \printbibliography
 
 \appendix
-
-\chapter{Notation and Physical Constants}
-\label{ch:notation}
-
-\begin{tabularx}{\textwidth}{lcX}
-  \toprule
-  Variable & Value & Description\\
-  \toprule
-  $c_p$ & \SI{1004}{J/K/kg} & Heat capacity of air\\
-  $L_v$ & \SI{2.5e6}{J/kg} & Latent heat of vaporization\\
-  \bottomrule
-\end{tabularx}
 
 
 \end{document}
