@@ -170,7 +170,7 @@ Figure \ref{fig:arakawa-c-grid} provides an illustration of this.
 \end{figure}
 
 
-\section{Post-processing}
+\section{Coarse-graining and Destaggering}
 \label{sec:post-processing}
 
 The main post processing steps are
@@ -279,8 +279,35 @@ The factor $\frac{c_p}{L_v}$ ensures that $Q_2$ has units of temperature over
 time, just like $Q_1$. These and other important physical quantities are
 described in \autoref{tab:constants}.
 
+\section{TODO Reshaping data}
+
+Most machine learning algorithms require two dimensional matrices as inputs, so
+we will have to reshape the training data to achieve this. Because the
+time-scale of deep atmopsheric convection is so fast, the inputs for the
+convection scheme should be non-local in the vertical direction.
 
 \chapter{Methods}
+
+\section{Machine Learning for dynamical systems}
+
+The ultimate goal of this work is to estimate or simulate the unknown source
+terms. Essentially we need an effective way to draw samples
+from
+\[ \rho(x_{t+\Delta t}, t + \Delta t |x_{[s < t]}).\] There are two clear problems here. 
+First, this probability distribution depends on the whole time course of
+$x$ leading up to time $t$. 
+Ideally we want to create a Markov description of the data, a task which is
+known as \emph{embedding}. 
+Supposing $z_t$ is a suitable embedding of $x_t$---Takens' delay embedding is a natural choice---the conditional pdf becomes
+\[\rho(z_{t+\Delta t}, t+ \Delta t| z_t, t),\]
+and we must characterize this conditional density.
+We also might prefer to use the infinitesmimal generator
+\[L_z = \lim_{\Delta t \rightarrow 0} \frac{\rho(z_{t+\Delta t}, t+ \Delta t| z_t,
+    t) - \delta(z_{t+\Delta t} - z_t) }{\Delta t}.\]
+
+
+
+
 
 \section{Maximum Covariance Analysis}
 \label{sec:mca}
