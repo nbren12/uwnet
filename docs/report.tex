@@ -6,6 +6,7 @@
 \usepackage{palatino}
 \usepackage{siunitx}
 \usepackage{hyperref}
+\usepackage{listings}
 
 % tables
 \usepackage{booktabs}
@@ -134,6 +135,11 @@ latent heating.
 \label{sec:model-config}
 
 We configure the model in the same way as \textcite{Bretherton2015}. 
+
+\section{Data Availability}
+
+The coarse-grained NGAqua data is available on the olympus file server in the UW Atmospheric Sciences department as well as in a google cloud storage bucket:
+\verb|nbren12-largedata/data/id/726a6fd3430d51d5a2af277fb1ace0c464b1dc48|
 
 \section{Model Outputs}
 
@@ -305,6 +311,15 @@ We also might prefer to use the infinitesmimal generator
 \[L_z = \lim_{\Delta t \rightarrow 0} \frac{\rho(z_{t+\Delta t}, t+ \Delta t| z_t,
     t) - \delta(z_{t+\Delta t} - z_t) }{\Delta t}.\]
 
+There are also a series of functions $f_i$ which we trust capture some aspect of
+the dynamics. 
+For example, we should trust the dynamical core, turbulence, and radiation
+schemes, and not attempt to \emph{learn} a GCM from scratch.
+But the functions $f_i$ are not specified in the pdf at all, and we might not
+even know them with perfect accuracy. We can include them in the statistical
+model as follows
+\[\rho(z_{t+\Delta t}, t+ \Delta t| z_t, y_i, t) p(y_i|z_t, t) \]
+where $y_i = f_i(z_t) + \epsilon_i$.
 
 
 
@@ -317,5 +332,9 @@ We also might prefer to use the infinitesmimal generator
 
 \appendix
 
+\chapter{Source code}
+\label{sec:source}
+
+% \lstinputlisting[language=python]{../lib/linear_regression.py}
 
 \end{document}
