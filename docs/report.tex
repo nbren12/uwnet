@@ -144,7 +144,7 @@ This is 16 coarse grained grid boxes out of total of 64, which is [24, 40) in
 
 \begin{figure}[ht]
   \centering
-  \includegraphics{figs/cld.png}
+  \includegraphics{images/cld.png}
   \caption{\label{fig:cld}Snapshot of the cloud cover fraction field from the NGAqua simulation.}
 \end{figure}
 
@@ -345,7 +345,19 @@ where $y_i = f_i(z_t) + \epsilon_i$.
 \section{Maximum Covariance Analysis}
 \label{sec:mca}
 
-
+\begin{figure}
+  \centering
+  \includegraphics[height=5in]{images/mca_modes.pdf}
+  \caption{Loadings for first two MCA modes.}
+  \label{fig:mca-loadings}
+\end{figure}
+\begin{figure}
+  \centering
+  \includegraphics[width=\textwidth]{images/mca_ts.png}
+  \caption{Time series of first MCA mode scores for a location at the equator. 
+    Input scores (top) and output scores (bottom).}
+  \label{fig:mca-ts}
+\end{figure}
 \printbibliography
 
 \appendix
@@ -356,3 +368,7 @@ where $y_i = f_i(z_t) + \epsilon_i$.
 % \lstinputlisting[language=python]{../lib/linear_regression.py}
 
 \end{document}
+
+% Local Variables:
+% TeX-master: t
+% End:
