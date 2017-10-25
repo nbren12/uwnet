@@ -21,4 +21,7 @@ def xopen(name, nt=20):
 
 
 def xopena(name, nt=20):
-    return xr.open_dataarray(name, chunks={'time': nt})
+    # find variable which isn't p
+    f = xr.open_dataset(name, chunks={'time': nt})
+    varname = [v for v in f.data_vars if v!='p'][0]
+    return f[varname]

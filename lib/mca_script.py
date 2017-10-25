@@ -31,12 +31,9 @@ print(f"R2 x: {x_explained_var}, R2 y{y_explained_var}")
 
 # compute matrix and inverse
 print("Computing transformation matrix")
-I = np.eye(x_train.shape[1])
-mat = mod.transform(I) - mod.transform(I*0)
-mat = np.diag(np.sqrt(win)/scale_in) @ mat
+mat = np.diag(np.sqrt(win)/scale_in) @ mod.x_components_
 
-imat = mod.inverse_transform(np.eye(mod.n_components))
-imat = imat @ np.diag(scale_in/np.sqrt(win))
+imat = mod.x_components_.T @ np.diag(scale_in/np.sqrt(win))
 
 projection = mat @ imat
 
