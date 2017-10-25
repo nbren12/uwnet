@@ -1,5 +1,6 @@
 name: uw-machine-learning
 channels:
+  - bokeh
   - conda-forge
   - defaults
 dependencies:
@@ -10,6 +11,11 @@ dependencies:
   - scikit-learn=0.19
   - matplotlib
   - holoviews
+# bokeh stuff
+  - bokeh
+  - selenium
+  - phantomjs
+  - datashader
   - seaborn
   - ipython
   - jupyter
@@ -17,8 +23,8 @@ dependencies:
   - jq
   - pip
   - pip:
-      - git+https://github.com/nbren12/gnl@master#subdirectory=packages/gnl
-      - git+https://github.com/nbren12/gnl@master#subdirectory=packages/xnoah
+      - git+https://github.com/nbren12/gnl@master#subdirectory=python/gnl
+      - git+https://github.com/nbren12/gnl@master#subdirectory=python/xnoah
       - snakemake==4.0
       - tqdm
       - git+https://github.com/scikit-learn-contrib/py-earth

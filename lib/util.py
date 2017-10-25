@@ -1,4 +1,23 @@
 import xarray as xr
+import pandas as pd
+
+
+def mat_to_xarray(mat, coord_dict):
+    """Add coordinate information to a numpy array
+
+    Examples
+    --------
+    mat_to_xarray(mat, {1: pd.Index...})
+    """
+
+    coords = []
+    for i in range(mat.ndim):
+        if i in coord_dict:
+            coords.append(coord_dict[i])
+        else:
+            coords.append(pd.Index(range(mat.shape[i]), name="dim_%d" % i))
+
+    return xr.DataArray(mat, coords)
 
 
 def wrap_xarray_calculation(f):
@@ -21,4 +40,7 @@ def xopen(name, nt=20):
 
 
 def xopena(name, nt=20):
-    return xr.open_dataarray(name, chunks={'time': nt})
+    # find variable which isn't p
+    f = xr.open_dataset(name, chunks={'time': nt})
+    varname = [v for v in f.data_vars if v != 'p'][0]
+    return f[varname]

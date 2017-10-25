@@ -56,18 +56,25 @@ def prepvars(d, input_vars, output_vars):
 def get_dataset(snakemake):
     """Load data and split into training data and testing data"""
     data3d = snakemake.input.data3d
-    data2d = snakemake.input.data2d
-
     D = xr.open_mfdataset(data3d)
-    D2 = xr.open_mfdataset(data2d)
+
+    # data2d = snakemake.input.data2d
+    # D2 = xr.open_mfdataset(data2d)
 
     # merge data
-    D = D.merge(D2, join='inner')
+    # D = D.merge(D2, join='inner')
+
+    # compute q1c
     D = D.assign(Q1c=D.Q1 - D.QRAD)
 
     # train test split
 
-    return D
+    D= D.isel(y=slice(24,40))
+
+    # make first time step 0
+    D['time'] -=D.time[0]
+
+    return D.drop('p').load()
 
 # get variables
 input_vars = snakemake.params.input_vars
