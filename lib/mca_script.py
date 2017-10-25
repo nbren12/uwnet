@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.externals import joblib
 
 from lib.mca import MCA
+from lib.util import mat_to_xarray
 
 n_components = snakemake.params.n_components
 data = joblib.load(snakemake.input[0])
@@ -32,10 +33,20 @@ print(f"R2 x: {x_explained_var}, R2 y{y_explained_var}")
 # compute matrix and inverse
 print("Computing transformation matrix")
 mat = np.diag(np.sqrt(win)/scale_in) @ mod.x_components_
-
 imat = mod.x_components_.T @ np.diag(scale_in/np.sqrt(win))
 
 projection = mat @ imat
+
+# input and output modes for plotting
+# these modes should have the original physical units
+# which means that the weights should be normalized in some
+# reasonable way
+print("Computing input and output modes")
+input_modes = imat
+output_modes = mod.y_components_.T @ np.diag(scale_out/np.sqrt(wout))
+# add dimension information
+input_modes = mat_to_xarray(input_modes, {1: x_train['features']})
+output_modes = mat_to_xarray(output_modes, {1: y_train['features']})
 
 output_data ={
     'model': mod,
@@ -43,7 +54,8 @@ output_data ={
     'imat': imat,
     'projection': projection,
     'transformed': (x_transformed, y_transformed),
-    'explained_var': (x_explained_var, y_explained_var)
+    'explained_var': (x_explained_var, y_explained_var),
+    'modes': (input_modes, output_modes)
 }
 
 print("Saving output")
