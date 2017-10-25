@@ -136,6 +136,24 @@ latent heating.
 
 We configure the model in the same way as \textcite{Bretherton2015}. 
 
+The size of the domain is (5120, 2560) grid points with a grid size of
+\SI{4}{\km}, which in physical units is \SI{20480}{\km} by \SI{12800}{\km}.
+We define the central 2560 kilometers in the y-direction as the tropics. 
+This is 16 coarse grained grid boxes out of total of 64, which is [24, 40) in
+0-indexed notation.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics{figs/cld.png}
+  \caption{\label{fig:cld}Snapshot of the cloud cover fraction field from the NGAqua simulation.}
+\end{figure}
+
+% \begin{tikzpicture}[scale=.5]
+%   \draw (0,0) rectangle (20.480, 12.800);
+%   \draw[step=.160] (0,0) grid (20.480, 12.800);
+% \end{tikzpicture}
+
+
 \section{Data Availability}
 
 The coarse-grained NGAqua data is available on the olympus file server in the UW Atmospheric Sciences department as well as in a google cloud storage bucket:
@@ -246,7 +264,7 @@ Then, for our purposes, the apparent heat source is given by
 \[Q_1 = \partial_t {s_l} + \mathbf{v}\cdot \nabla s_l, \]
 and the apparent drying is given by
 \[Q_2 = - \frac{L_c}{c_p} \left[\partial_t {q_t} + \mathbf{v} \cdot \nabla q_t\right].\]
-The factor $\frac{L_c}{c_p}$ is used to ensure that this quantity also has units K/day. Comparing to the original prognostic equations for SAM shows that $Q_1$ contains the source term  $Q_r$ to the temperature equation which represents radiative transfer, which is usually a cooling tendency. For the purposes of cumulus parametrization, it might be possible to assume this is known from other sources (e.g. a radiative transfer code such as RRTMG). Therefore, we will also define the convective component of the apparent heating as $Q_{1c} = Q_1 - Q_r$. 
+The factor $-\frac{L_c}{c_p}$ is used to ensure that this quantity also has units K/day. Comparing to the original prognostic equations for SAM shows that $Q_1$ contains the source term  $Q_r$ to the temperature equation which represents radiative transfer, which is usually a cooling tendency. For the purposes of cumulus parametrization, it might be possible to assume this is known from other sources (e.g. a radiative transfer code such as RRTMG). Therefore, we will also define the convective component of the apparent heating as $Q_{1c} = Q_1 - Q_r$. 
 
 All the differential operators in these two expression represent a finite
 differencing taken on the coarse grid, and we will use centered differences to
@@ -278,7 +296,7 @@ where the spatial index $i,j,k$ has been dropped. Similarly, the apparent
 drying is given by
 \begin{equation}
   \label{eq:q2-num}
-  \frac{c_p}{L_v} Q_2^{n+1/2} = \frac{\bar{q_T}^{n+1} - \bar{q_T}^{n} }{\Delta t}
+  -\frac{c_p}{L_v} Q_2^{n+1/2} = \frac{\bar{q_T}^{n+1} - \bar{q_T}^{n} }{\Delta t}
             + \frac{1}{2} \left( A^{n+1}_{q_T}  + A^{n}_{q_T} \right).
 \end{equation}
 The factor $\frac{c_p}{L_v}$ ensures that $Q_2$ has units of temperature over
