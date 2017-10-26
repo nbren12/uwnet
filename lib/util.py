@@ -1,3 +1,4 @@
+import numpy as np
 import xarray as xr
 import pandas as pd
 
@@ -44,3 +45,19 @@ def xopena(name, nt=20):
     f = xr.open_dataset(name, chunks={'time': nt})
     varname = [v for v in f.data_vars if v != 'p'][0]
     return f[varname]
+
+
+def weighted_r2_score(y_test, y_pred, weight):
+    from sklearn.metrics import r2_score
+    return r2_score(y_test*np.sqrt(weight),
+                    y_pred*np.sqrt(weight),
+                    multioutput="uniform_average")
+
+
+def compute_dp(p):
+    """Compute layer thickness in pressure coordinates"""
+    p_ghosted = np.hstack((2 * p[0] - p[1], p, 0))
+    p_interface = (p_ghosted[1:] + p_ghosted[:-1]) / 2
+    dp = -np.diff(p_interface)
+
+    return dp

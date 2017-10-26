@@ -99,3 +99,31 @@ class MCA(BaseEstimator, TransformerMixin):
         sse = np.sum((self.project_y(y) - y)**2)
         ss = np.sum((y-y.mean(axis=0))**2)
         return 1 - sse/ss
+
+
+class MCARegression(BaseEstimator, RegressorMixin):
+
+    def __init__(self, mod, scale=(1, 1), **kwargs):
+        self.mca = MCA(**kwargs)
+        self.mod = mod
+        self.scale = scale
+
+    @property
+    def _sqrt_scales(self):
+        return [np.sqrt(scale) for scale in self.scale]
+
+    def fit(self, x, y):
+        scale_in, scale_out = self._sqrt_scales
+
+        # fit mca
+        x_scores = self.mca.fit_transform(x*scale_in, y*scale_out)
+
+        # fit other model
+        self.mod.fit(x_scores, y)
+
+        return self
+
+    def predict(self, x):
+        scale_in, scale_out = self._sqrt_scales
+        x_scores = self.mca.transform(x*scale_in)
+        return self.mod.predict(x_scores)

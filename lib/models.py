@@ -80,64 +80,6 @@ def compute_dp(p):
     return dp
 
 
-def plot_lrf(lrf,
-             p,
-             input_vars,
-             output_vars,
-             width_ratios=[1, 1, .3, .3],
-             figsize=(10, 5),
-             image_kwargs={}):
-    import matplotlib.pyplot as plt
-    import matplotlib.gridspec as gridspec
-    p = np.asarray(p)
-    ni, no = len(input_vars), len(output_vars)
-    print("Making figure with", ni, "by", no, "panes")
-
-    fig, axs = plt.subplots(no, ni, figsize=figsize)
-
-    grid = gridspec.GridSpec(2, len(input_vars), width_ratios=width_ratios)
-
-    for j, input_var in enumerate(input_vars):
-        for i, output_var in enumerate(output_vars):
-            ax = plt.subplot(grid[i, j])
-            lrf_pane = np.asarray(lrf.loc[input_var][output_var])
-            #             print(lrf_pane.shape)
-            if lrf_pane.shape[0] == 1:
-                ax.plot(lrf_pane.ravel(), p)
-                ax.invert_yaxis()
-            else:
-                # compute pressure difference
-                dp = compute_dp(p)
-                im = ax.pcolormesh(p, p, (lrf_pane).T / dp, **image_kwargs)
-                # make colorbar
-                cbar = plt.colorbar(im, orientation='vertical', pad=.02)
-                # invert y axis for pressure coordinates
-                ax.invert_yaxis()
-                ax.invert_xaxis()
-
-            # turn off axes ylabels
-            if j > 0:
-                ax.set_yticks([])
-            if i < no - 1:
-                ax.set_xticks([])
-
-            # Add variable names
-            if j == 0:
-                ax.set_ylabel(output_var)
-
-            if i == 0:
-                ax.set_title(input_var)
-
-    return fig, axs
-
-
-def get_lrf(mod, xmat, ymat):
-    m = len(xmat.indexes['features'])
-    lrf = mod.predict(np.eye(m)) - mod.predict(0 * np.eye(m))
-    row, col = xmat.indexes['features'], ymat.indexes['features']
-    return pd.DataFrame(lrf, index=row, columns=col)
-
-
 def get_mat(ds, sample_dims=['x', 'time']):
     feature_dims = [dim for dim in ds.dims if dim not in sample_dims]
 

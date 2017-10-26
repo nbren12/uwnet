@@ -112,6 +112,11 @@ rule linear_regression:
     output: "data/ml/ngaqua/linear_model.pkl"
     script: "lib/linear_regression.py"
 
+rule mca_regression:
+    input: "data/ml/ngaqua/data.pkl"
+    output: "data/ml/ngaqua/mca_regression.pkl"
+    script: "lib/mca_regression.py"
+
 rule mca:
     input: "data/ml/ngaqua/data.pkl"
     output: "data/ml/ngaqua/mca.pkl"
