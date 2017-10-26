@@ -19,7 +19,7 @@ scale_in, scale_out = data['scale']
 weight_in, weight_out = data['w']
 
 
-mod = MCARegression(mod=LinearRegression(),
+mod = MCARegression(mod=make_pipeline(StandardScaler(), LinearRegression()),
                     scale=data['scale'],
                     n_components=4)
 
