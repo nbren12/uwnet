@@ -21,7 +21,7 @@ weight_in, weight_out = data['w']
 
 mod = MCARegression(mod=LinearRegression(),
                     scale=data['scale'],
-                    n_components=2)
+                    n_components=4)
 
 mod.fit(x_train, y_train)
 

@@ -4,3 +4,5 @@ report.pdf: report.tex
 	biber $*
 	lualatex $<
 	
+plots:
+	jupyter nbconvert --execute plots.ipynb

@@ -1,7 +1,11 @@
+"""Module for computing and plotting linear response functions
+"""
 import numpy as np
+import xarray as xr
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from sklearn.externals import joblib
 from .util import compute_dp
 
 
@@ -60,7 +64,7 @@ def plot_lrf(lrf,
     return fig, axs
 
 
-def plot_lrf_from_file(lm_file, stat_file):
+def plot_lrf_from_file(lm_file, stat_file, label=""):
     mca_regression = joblib.load(lm_file)
 
 
@@ -68,3 +72,7 @@ def plot_lrf_from_file(lm_file, stat_file):
     p = xr.open_dataset(stat_file).p
     plot_lrf(lrf, p, input_vars=['qt', 'sl'], width_ratios=[1,1],
              output_vars=['Q1c', 'Q2'])
+
+    score = mca_regression['test_score']
+
+    plt.suptitle('{}; R2 Score: {:.2f}'.format(label, score))
