@@ -5,4 +5,4 @@ report.pdf: report.tex
 	lualatex $<
 	
 plots:
-	jupyter nbconvert --execute plots.ipynb
+	./generate_plots.sh
