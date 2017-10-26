@@ -230,3 +230,4 @@ TSWLatexianTemp*
 # expex forward references with \gathertags
 *-tags.tex
 j
+/docs/_region_.tex
