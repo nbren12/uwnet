@@ -385,6 +385,27 @@ these two modes in Figures \ref{fig:mca-loadings} and \ref{fig:mca-ts}.
 
 \section{Linear models}
 
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\textwidth]{images/lrf_lm.png}
+  \caption{\label{fig:lrf-lm}Linear response matrix for linear regression
+    pipeline. 
+    The full outputs are regressed onto the columns of $X$ with a variance
+    larger than .001. 
+    This thresholding procedure ensures that the uppper atmosphere
+    moistures---which vanishes---does not enter the regression analysis.} 
+\end{figure}
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\textwidth]{images/lrf_mca4.png}
+  \caption{\label{fig:lrf-mca}Linear response matrix for MCA linear regression
+    pipeline. 
+    The first step is to compute the X scores, and then the full Y outputs are
+    regressed onto these scores.}
+\end{figure}
+
+
 
 
 \printbibliography
