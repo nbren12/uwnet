@@ -290,14 +290,14 @@ The apparent heating is given by
 \begin{equation}
   \label{eq:q1-num}
   Q_1^{n+1/2} = \frac{\bar{s_l}^{n+1} - \bar{s_l}^{n} }{\Delta t}
-            + \frac{1}{2} \left( A^{n+1}_{s_l}  + A^{n}_{s_l} \right).
+            +  A^{n}_{s_l} .
 \end{equation}
 where the spatial index $i,j,k$ has been dropped. Similarly, the apparent
 drying is given by
 \begin{equation}
   \label{eq:q2-num}
   -\frac{c_p}{L_v} Q_2^{n+1/2} = \frac{\bar{q_T}^{n+1} - \bar{q_T}^{n} }{\Delta t}
-            + \frac{1}{2} \left( A^{n+1}_{q_T}  + A^{n}_{q_T} \right).
+            +  A^{n}_{q_T} .
 \end{equation}
 The factor $\frac{c_p}{L_v}$ ensures that $Q_2$ has units of temperature over
 time, just like $Q_1$. These and other important physical quantities are
@@ -371,4 +371,6 @@ where $y_i = f_i(z_t) + \epsilon_i$.
 
 % Local Variables:
 % TeX-master: t
+% TeX-PDF-mode: t
+% TeX-engine: luatex
 % End:
