@@ -261,9 +261,9 @@ where $q_n$ is the total cloud condensate, $q_p$ is precipitation, and $L_c$ is 
 $q_t = q_v + q_n.$
 
 Then, for our purposes, the apparent heat source is given by
-\[Q_1 = \partial_t {s_l} + \mathbf{v}\cdot \nabla s_l, \]
+\[Q_1 = \partial_t {\bar{s}_l} + \overline{ \mathbf{v} }\cdot \overline{\nabla} \bar{s}_l, \]
 and the apparent drying is given by
-\[Q_2 = - \frac{L_c}{c_p} \left[\partial_t {q_t} + \mathbf{v} \cdot \nabla q_t\right].\]
+\[Q_2 = - \frac{L_c}{c_p} \left[\partial_t {\bar{q}_t} +\overline{ \mathbf{v} } \cdot \overline{\nabla} \bar{q}_t\right].\]
 The factor $-\frac{L_c}{c_p}$ is used to ensure that this quantity also has units K/day. Comparing to the original prognostic equations for SAM shows that $Q_1$ contains the source term  $Q_r$ to the temperature equation which represents radiative transfer, which is usually a cooling tendency. For the purposes of cumulus parametrization, it might be possible to assume this is known from other sources (e.g. a radiative transfer code such as RRTMG). Therefore, we will also define the convective component of the apparent heating as $Q_{1c} = Q_1 - Q_r$. 
 
 All the differential operators in these two expression represent a finite
@@ -345,6 +345,27 @@ where $y_i = f_i(z_t) + \epsilon_i$.
 \section{Maximum Covariance Analysis}
 \label{sec:mca}
 
+Maximum Covariance Analysis (MCA) finds the modes which maximize the cross
+covariance between an input matrix $X$ and output matrix $Y$. 
+If the mean of $X$ and $Y$ along the columns vanishes, then the covariance
+matrix is given by
+\[C=X'Y.\]
+Then, we take an SVD of this matrix to get
+\[C=U\Sigma V'.\] We will call the columns of $U$ the input \emph{loadings}, and
+the columns of $V$ the output loadings. 
+The loading vectors each orthornmal bases of the input and output features
+spaces. 
+By projecting the data onto these loadings, we obtain the input and output
+\emph{scores}, which are respectively defined by $S_x = X U'$ and $S_y=YV'$. 
+
+For our analysis, we consider the case where $X$ is the matrix of
+horizontal-temporal samples of profiles of $q_T$ and $s_L$, and $Y$ contains
+samples of $Q_{1c}$ and $Q_2$. In other words, there are $2\cdot n_z$ columns of
+$X$ and $Y$ corresponding. Moreover, the columns of $X$ and $Y$ are weighted by
+the square root of the corresponding layer mass. The behavior of the NGAqua
+dataset appears to reduce to a two mode structure, and we show the behavior of
+these two modes in Figures \ref{fig:mca-loadings} and \ref{fig:mca-ts}.
+
 \begin{figure}
   \centering
   \includegraphics[height=5in]{images/mca_modes.pdf}
@@ -354,12 +375,19 @@ where $y_i = f_i(z_t) + \epsilon_i$.
 \begin{figure}
   \centering
   \includegraphics[width=\textwidth]{images/mca_ts.png}
-  \caption{Time series of first MCA mode scores for a location at the equator. 
-    Input scores (top) and output scores (bottom).}
+  \caption{Time series of first MCA mode scores for a single location at the
+    equator. 
+    Input scores (top) and output scores (bottom). 
+    The sign and amplitude of these modes is given by the raw output of the
+    scheme, and does not correspond to the plots in \autoref{fig:mca-loadings}.}
   \label{fig:mca-ts}
 \end{figure}
-\printbibliography
 
+\section{Linear models}
+
+
+
+\printbibliography
 \appendix
 
 \chapter{Source code}
