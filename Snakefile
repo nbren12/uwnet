@@ -16,6 +16,9 @@ print(os.environ['PYTHONPATH'])
 # rule all:
 #     input: ngaqua("3d/Q1.nc")
 
+rule all:
+    input: "data/raw/ngaqua/stat.nc", "data/ml/dmd.pkl"
+
 
 def ngaqua_files():
     return ['coarse/',
