@@ -74,7 +74,8 @@ rule advection_forcing:
     output: "data/calc/forcing/{f}.nc"
     run:
         f = -xopena(input.adv)*86400
-        f.to_netcdf(output[0])
+        f.to_dataset(name=f.name)\
+         .to_netcdf(output[0])
 
 rule adams_bashforth_3:
     input: "data/calc/forcing/{f}.nc"
@@ -139,6 +140,8 @@ input_data = [
     "data/raw/ngaqua/coarse/3d/QRAD.nc",
 ]
 
+# prepare data for linear model fitting these rule reads in Q1 and Q2, computes
+# Q1c, and then outputs the required data in a dict_like object
 rule prepvars:
     input: data3d=input_data,
            # removed 2d variables from the analysis, since they don't seem necessary
@@ -148,3 +151,13 @@ rule prepvars:
     params: input_vars="qt sl".split(' '),
             output_vars="Q1c Q2".split(' ')
     script: "lib/prepvars.py"
+
+
+# prepared data for DMD analysis this rule reads in the data, applies the
+# forcing, and then saves the output
+rule dmd_data:
+    input: forcing= ["data/calc/forcing/ngaqua/sl.nc", "data/calc/forcing/ngaqua/qt.nc"],
+           inputs=["data/calc/ngaqua/sl.nc", "data/calc/ngaqua/qt.nc"],
+           weight= "data/processed/ngaqua/w.nc"
+    output: "data/ml/dmd.pkl"
+    script: "lib/dmd.py"

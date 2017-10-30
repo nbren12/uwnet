@@ -4,42 +4,21 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from sklearn.externals import joblib
-from lib.models import compute_weighted_scale
+from lib.util import compute_weighted_scale, weights_to_np, scales_to_np
 from xnoah.data_matrix import stack_cat
-
-
-def weights_to_np(w, idx):
-    """
-    TODO Replace with pandas merging functionality
-    """
-    def f(i):
-        if i < 0:
-            return 1.0
-        else:
-            return float(w.sel(z=idx.levels[1][i]))
-
-    return np.array([f(i) for i in idx.labels[1]])
-
-
-def scales_to_np(sig, idx):
-    """
-
-    TODO replace with pandas merging functionality
-    """
-    def f(i):
-        return float(sig[idx.levels[0][i]])
-
-    return np.array([f(i) for i in idx.labels[0]])
 
 
 def xarray_std_to_df(std):
     input_std = stack_cat(std, "features", ['z'])
-    return pd.Series(input_std.data, index=input_std.indexes['features'], )
+    return pd.Series(
+        input_std.data,
+        index=input_std.indexes['features'],
+    )
 
 
 def weight_lrf(lrf, sig):
     sig = xarray_std_to_df(sig)
-    sig_weighted_lrf = lrf.apply(lambda x: x*sig)
+    sig_weighted_lrf = lrf.apply(lambda x: x * sig)
     return sig_weighted_lrf
 
 
@@ -69,39 +48,46 @@ def get_dataset(snakemake):
 
     # train test split
 
-    D= D.isel(y=slice(24,40))
+    D = D.isel(y=slice(24, 40))
 
     # make first time step 0
-    D['time'] -=D.time[0]
+    D['time'] -= D.time[0]
 
     return D.drop('p').load()
 
-# get variables
-input_vars = snakemake.params.input_vars
-output_vars = snakemake.params.output_vars
-sample_dims = ['x', 'y', 'time']
 
-D = get_dataset(snakemake)
+def main():
+    # get variables
+    input_vars = snakemake.params.input_vars
+    output_vars = snakemake.params.output_vars
+    sample_dims = ['x', 'y', 'time']
 
-d_train, d_test = D.sel(time=slice(0, 50)), D.sel(time=slice(50, None))
+    D = get_dataset(snakemake)
 
-x_train, y_train = prepvars(d_train, input_vars, output_vars)
-x_test, y_test = prepvars(d_test, input_vars, output_vars)
+    d_train, d_test = D.sel(time=slice(0, 50)), D.sel(time=slice(50, None))
 
-# get input and output weights
-w = xr.open_dataarray(snakemake.input.weight)
-w_input = weights_to_np(w, x_train.indexes['features'])
-w_output = weights_to_np(w, y_train.indexes['features'])
+    x_train, y_train = prepvars(d_train, input_vars, output_vars)
+    x_test, y_test = prepvars(d_test, input_vars, output_vars)
 
-# get variable scales
-scales = compute_weighted_scale(w, sample_dims=sample_dims, ds=d_train)
-scales_in = scales_to_np(scales, x_train.indexes['features'])
-scales_out = scales_to_np(scales, y_train.indexes['features'])
+    # get input and output weights
+    w = xr.open_dataarray(snakemake.input.weight)
+    w_input = weights_to_np(w, x_train.indexes['features'])
+    w_output = weights_to_np(w, y_train.indexes['features'])
 
-output_data = {
-    'w': (w_input,  w_output),
-    'scale': (scales_in, scales_out),
-    'train': (x_train, y_train),
-    'test': (x_test, y_test)}
+    # get variable scales
+    scales = compute_weighted_scale(w, sample_dims=sample_dims, ds=d_train)
+    scales_in = scales_to_np(scales, x_train.indexes['features'])
+    scales_out = scales_to_np(scales, y_train.indexes['features'])
 
-joblib.dump(output_data, snakemake.output[0])
+    output_data = {
+        'w': (w_input, w_output),
+        'scale': (scales_in, scales_out),
+        'train': (x_train, y_train),
+        'test': (x_test, y_test)
+    }
+
+    joblib.dump(output_data, snakemake.output[0])
+
+
+if __name__ == '__main__':
+    main()

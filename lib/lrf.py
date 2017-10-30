@@ -16,13 +16,17 @@ def get_lrf(lm_data):
 
 def plot_lrf(lrf,
              p,
-             input_vars,
-             output_vars,
              width_ratios=[1, 1, .3, .3],
              figsize=(10, 5),
              image_kwargs={}):
     """Plot linear response function"""
     p = np.asarray(p)
+
+    # read input and output variables from lrf
+    input_vars = lrf.index.levels[0]
+    output_vars = lrf.columns.levels[0]
+    width_ratios = width_ratios[:len(input_vars)]
+
     ni, no = len(input_vars), len(output_vars)
     print("Making figure with", ni, "by", no, "panes")
 

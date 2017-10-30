@@ -303,12 +303,70 @@ The factor $\frac{c_p}{L_v}$ ensures that $Q_2$ has units of temperature over
 time, just like $Q_1$. These and other important physical quantities are
 described in \autoref{tab:constants}.
 
-\section{TODO Reshaping data}
+\section{Reshaping data}
 
-Most machine learning algorithms require two dimensional matrices as inputs, so
-we will have to reshape the training data to achieve this. Because the
-time-scale of deep atmopsheric convection is so fast, the inputs for the
-convection scheme should be non-local in the vertical direction.
+Most machine learning algorithms require two dimensional matrices as inputs, but
+the SAM produces four-dimensional datasets of humidity, temperature, and other
+atmopsheric variables. 
+To reshape this multivariate three-dimensional data into a single vector for
+machine learning, we must define which dimensions of data are physically
+relevant. 
+We call these ``feature dimensions'' and the remaining non-relevant dimensions
+``sample dimensions''. The columns of the two-dimnsional data matrix $X$ will
+correspond to samples taken along the sample dimensions, and the rows will
+correspond to data taken from the feature dimensions. 
+
+Because the time-scale of deep atmopsheric convection is so fast, the inputs for
+the convection scheme should be non-local in the vertical direction, so the only
+feature dimension is $z$. 
+The remaining dimensions of the data---$x$, $y$, and time---are the sample
+dimensions. 
+Therefore, given a single field of the data $f[x,y,z,t]$, then a particular sample vector
+\[
+  \mathbf{f}[x,y,t] =
+    \begin{bmatrix}
+      f[x,y,1,t] \\
+      f[x,y,2,t] \\
+      \vdots\\
+      f[x,y,n_z,t]
+    \end{bmatrix}
+\]
+is defined for each horizontal location and time point. Then, we can tabulate
+all these vectors in a two dimensional array given by
+\newcommand{\fb}{\mathbf{f}}
+\[
+  X_f = 
+  \begin{bmatrix}
+    \fb[1,1,1], \fb[2,1,1], \ldots,\fb[x,y+1,t], \fb[x+1,y+1,t],\ldots,\fb[n_x, n_y,
+    n_t]
+  \end{bmatrix}
+\]
+
+In addition to being 4 dimensional, the data are multivariate, and contains
+multiple atmopspheric fields, with different physical units. For most of our
+analysis, we use $q_T$ and $s_L$ to predict the amount of latent heating due to
+convection. To handle the multivariate case, we simply stack the data matrices
+for each variable vertically, so that the full data matrix $X_{\{s_l, q_T\}}$ is given by
+\[
+  X_{\{s_l, q_T\}}=\begin{bmatrix}
+    X_{s_l}\\
+    X_{q_T}
+  \end{bmatrix}.
+\]
+We define data matrices for more than two variables.
+
+Finally, we must introduce the temporal shifting operator, which we will use to
+create models for the dynamics. When time is the only sample dimension, this
+operator is trivial, but having multiple sample dimensions complicates matters.
+In any case, the time shifting  operator $L$ is defined by
+\[
+  LX =
+  \begin{bmatrix}
+    \mathbf{x}[1,1,2],\ldots,\mathbf{x}[x, y, t+1], \ldots, \mathbf{x}[n_x, n_y, t]
+  \end{bmatrix}.
+\]
+Because we use this operator extensively below, we will adopt the notation that $X' =
+LX$, so that $X'$ are the data shifted forward by one time sample.
 
 \chapter{Methods}
 
@@ -322,7 +380,7 @@ First, this probability distribution depends on the whole time course of
 $x$ leading up to time $t$. 
 Ideally we want to create a Markov description of the data, a task which is
 known as \emph{embedding}. 
-Supposing $z_t$ is a suitable embedding of $x_t$---Takens' delay embedding is a natural choice---the conditional pdf becomes
+Supposing $z_t$ is a suitable embedding of $x_t$---Takens''' delay embedding is a natural choice---the conditional pdf becomes
 \[\rho(z_{t+\Delta t}, t+ \Delta t| z_t, t),\]
 and we must characterize this conditional density.
 We also might prefer to use the infinitesmimal generator
@@ -356,7 +414,7 @@ the columns of $V$ the output loadings.
 The loading vectors each orthornmal bases of the input and output features
 spaces. 
 By projecting the data onto these loadings, we obtain the input and output
-\emph{scores}, which are respectively defined by $S_x = X U'$ and $S_y=YV'$. 
+\emph{scores}, which are respectively defined by $S_x = X U''''''$ and $S_y=YV'$. 
 
 For our analysis, we consider the case where $X$ is the matrix of
 horizontal-temporal samples of profiles of $q_T$ and $s_L$, and $Y$ contains

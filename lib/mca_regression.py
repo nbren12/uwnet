@@ -19,8 +19,11 @@ scale_in, scale_out = data['scale']
 weight_in, weight_out = data['w']
 
 
+mca_scale = (np.sqrt(weight_in)/scale_in,
+             np.sqrt(weight_out)/scale_out)
+
 mod = MCARegression(mod=make_pipeline(StandardScaler(), LinearRegression()),
-                    scale=data['scale'],
+                    scale=mca_scale,
                     n_components=4)
 
 mod.fit(x_train, y_train)

@@ -49,9 +49,10 @@ def xopena(name, nt=20):
 
 def weighted_r2_score(y_test, y_pred, weight):
     from sklearn.metrics import r2_score
-    return r2_score(y_test*np.sqrt(weight),
-                    y_pred*np.sqrt(weight),
-                    multioutput="uniform_average")
+    return r2_score(
+        y_test * np.sqrt(weight),
+        y_pred * np.sqrt(weight),
+        multioutput="uniform_average")
 
 
 def compute_dp(p):
@@ -61,3 +62,48 @@ def compute_dp(p):
     dp = -np.diff(p_interface)
 
     return dp
+
+
+def compute_weighted_scale(weight, sample_dims, ds):
+    def f(data):
+        sig = data.std(sample_dims)
+        if set(weight.dims) <= set(sig.dims):
+            sig = (sig**2 * weight / weight.sum()).sum(weight.dims).pipe(
+                np.sqrt)
+        return sig
+
+    return ds.apply(f)
+
+
+def mul_if_dims_subset(weight, x):
+    """If weight.dims are a subset of x then weight"""
+    if set(weight.dims) <= set(x.dims):
+        return x * weight
+    else:
+        return x
+
+
+def weights_to_np(w, idx):
+    """
+    TODO Replace with pandas merging functionality
+    """
+
+    def f(i):
+        if i < 0:
+            return 1.0
+        else:
+            return float(w.sel(z=idx.levels[1][i]))
+
+    return np.array([f(i) for i in idx.labels[1]])
+
+
+def scales_to_np(sig, idx):
+    """
+
+    TODO replace with pandas merging functionality
+    """
+
+    def f(i):
+        return float(sig[idx.levels[0][i]])
+
+    return np.array([f(i) for i in idx.labels[0]])

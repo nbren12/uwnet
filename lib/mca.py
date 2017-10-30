@@ -1,8 +1,9 @@
 """Code for maximum covariance analysis regression
 """
 import numpy as np
-from scipy.linalg import svd, lstsq
-from sklearn.base import RegressorMixin, TransformerMixin, BaseEstimator
+from scipy.linalg import svd
+from sklearn.base import BaseEstimator, RegressorMixin, TransformerMixin
+from sklearn.decomposition import PCA
 
 
 class Identity(TransformerMixin):
@@ -102,18 +103,17 @@ class MCA(BaseEstimator, TransformerMixin):
 
 
 class MCARegression(BaseEstimator, RegressorMixin):
+    """Weighted MCA regression class
+    """
 
     def __init__(self, mod, scale=(1, 1), **kwargs):
         self.mca = MCA(**kwargs)
         self.mod = mod
         self.scale = scale
 
-    @property
-    def _sqrt_scales(self):
-        return [np.sqrt(scale) for scale in self.scale]
 
     def fit(self, x, y):
-        scale_in, scale_out = self._sqrt_scales
+        scale_in, scale_out = self.scale
 
         # fit mca
         x_scores = self.mca.fit_transform(x*scale_in, y*scale_out)
@@ -124,6 +124,32 @@ class MCARegression(BaseEstimator, RegressorMixin):
         return self
 
     def predict(self, x):
-        scale_in, scale_out = self._sqrt_scales
+        scale_in, scale_out = self.scale
         x_scores = self.mca.transform(x*scale_in)
+        return self.mod.predict(x_scores)
+
+
+class PCARegression(BaseEstimator, RegressorMixin):
+    """Weighted principle components regression class.
+    """
+
+    def __init__(self, mod, scale=1, **kwargs):
+        self.pca = PCA(**kwargs)
+        self.mod = mod
+        self.scale = scale
+
+    def fit(self, x, y):
+        # fit pca using outputs (since these don't include the forcing)
+        x = np.asarray(x)
+        y = np.asarray(y)
+        self.pca.fit(y*self.scale)
+        # use the x-scores for the input
+        x_scores = self.pca.transform(x*self.scale)
+        # fit other model
+        self.mod.fit(x_scores, y)
+
+        return self
+
+    def predict(self, x):
+        x_scores = self.pca.transform(x*self.scale)
         return self.mod.predict(x_scores)

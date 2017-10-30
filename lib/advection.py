@@ -23,4 +23,5 @@ df = u * centderiv(f, dim='x', boundary='periodic')\
     + w * centderiv(f, dim='z', boundary='nearest')
 
 # save output
-df.to_netcdf(snakemake.output[0])
+df.to_dataset(name=varname)\
+  .to_netcdf(snakemake.output[0])
