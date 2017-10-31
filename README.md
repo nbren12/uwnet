@@ -13,4 +13,4 @@ TODO
 
 Reports
 -------
-- [results/3.4-ndb-spectra.html](https://storage.googleapis.com/nbren12-data/reports/uw-machine-learning/3.4-ndb-spectra.html)
+- [results/3.4-ndb-spectra.html](https://storage.googleapis.com/nbren12-data/reports/uw-machine-learning/3.4-ndb-DMD-spectra.html)
