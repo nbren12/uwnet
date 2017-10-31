@@ -4,6 +4,7 @@ import xarray as xr
 
 from sklearn.base import BaseEstimator, TransformerMixin
 
+
 class Stacker(BaseEstimator, TransformerMixin):
     def __init__(self, feature_dims=()):
         self.feature_dims = feature_dims
@@ -52,7 +53,6 @@ class Stacker(BaseEstimator, TransformerMixin):
             return xarr.rename({'features': self.feature_dims[0]})
         else:
             return xarr.unstack("features")
-
 
 
 class Weighter(TransformerMixin):
