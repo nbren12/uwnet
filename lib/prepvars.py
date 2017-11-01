@@ -32,9 +32,8 @@ def prepvars(d, input_vars, output_vars):
     return prepvar(d[input_vars]), prepvar(d[output_vars])
 
 
-def get_dataset(snakemake):
+def get_dataset(data3d):
     """Load data and split into training data and testing data"""
-    data3d = snakemake.input.data3d
     D = xr.open_mfdataset(data3d)
 
     # data2d = snakemake.input.data2d
@@ -62,7 +61,7 @@ def main():
     output_vars = snakemake.params.output_vars
     sample_dims = ['x', 'y', 'time']
 
-    D = get_dataset(snakemake)
+    D = get_dataset(snakemake.input.data3d)
 
     d_train, d_test = D.sel(time=slice(0, 50)), D.sel(time=slice(50, None))
 

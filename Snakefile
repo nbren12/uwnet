@@ -114,12 +114,14 @@ rule tropics:
 rule linear_regression:
     input: "data/ml/ngaqua/data.pkl"
     output: "data/ml/ngaqua/linear_model.pkl"
-    script: "lib/linear_regression.py"
+    params: model="linear"
+    script: "scripts/fit_model.py"
 
 rule mca_regression:
     input: "data/ml/ngaqua/data.pkl"
     output: "data/ml/ngaqua/mca_regression.pkl"
-    script: "lib/mca_regression.py"
+    params: model="mcr"
+    script: "scripts/fit_model.py"
 
 rule mca:
     input: "data/ml/ngaqua/data.pkl"
