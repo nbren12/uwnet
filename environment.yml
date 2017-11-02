@@ -1,5 +1,6 @@
 name: uw-machine-learning
 channels:
+  - soumith
   - bokeh
   - conda-forge
   - defaults
@@ -16,15 +17,13 @@ dependencies:
   - selenium
   - phantomjs
   - datashader
-  - seaborn
   - ipython
   - jupyter
   - cython
-  - jq
   - pip
   - pip:
       - git+https://github.com/nbren12/gnl@master#subdirectory=python/gnl
       - git+https://github.com/nbren12/gnl@master#subdirectory=python/xnoah
       - snakemake==4.0
       - tqdm
-      - git+https://github.com/scikit-learn-contrib/py-earth
+      - http://download.pytorch.org/whl/torch-0.2.0.post3-cp36-cp36m-macosx_10_7_x86_64.whl

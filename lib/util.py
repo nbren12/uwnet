@@ -1,6 +1,7 @@
 import numpy as np
 import xarray as xr
 import pandas as pd
+from xnoah.data_matrix import unstack_cat
 
 
 def mat_to_xarray(mat, coord_dict):
@@ -107,3 +108,24 @@ def scales_to_np(sig, idx):
         return float(sig[idx.levels[0][i]])
 
     return np.array([f(i) for i in idx.labels[0]])
+
+
+def output_to_xr(y, coords):
+    """Create xarray from output
+
+    Parameters
+    ----------
+    y : matrix
+         predictions in matrix format
+    coords:
+         coordinates of the stacked array
+    """
+
+    res = xr.DataArray(y, coords)
+    return unstack_cat(res, "features").unstack("samples")
+
+
+def dict_to_xr(data, dim_name="variable"):
+    """Concatenate a dictionary along a new dimensions name
+    """
+    return xr.concat(data.values(), dim=pd.Index(data.keys(), name=dim_name))
