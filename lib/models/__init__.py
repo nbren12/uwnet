@@ -64,7 +64,7 @@ def get_linear_model(data):
     return mod
 
 
-def get_mca_mod(data):
+def get_mca_mod(data, mod=None):
     """Given data dictionary make scale"""
 
     scale_in, scale_out = data['scale']
@@ -72,8 +72,11 @@ def get_mca_mod(data):
     mca_scale = (np.sqrt(weight_in) / scale_in,
                  np.sqrt(weight_out) / scale_out)
 
+    if mod is None:
+        mod = LinearRegression()
+
     return MCARegression(
-        mod=make_pipeline(StandardScaler(), LinearRegression()),
+        mod=make_pipeline(StandardScaler(), mod),
         scale=mca_scale,
         n_components=4)
 

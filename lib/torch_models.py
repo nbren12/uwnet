@@ -97,7 +97,7 @@ class TorchRegressor(BaseEstimator, RegressorMixin):
 
 
 class single_layer_perceptron(nn.Module):
-    def __init__(self, xshape, yshape, num_hidden=20):
+    def __init__(self, xshape, yshape, num_hidden=50):
         super(single_layer_perceptron, self).__init__()
 
         _, nx = xshape
