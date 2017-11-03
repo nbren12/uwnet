@@ -45,6 +45,9 @@ class MCA(BaseEstimator, TransformerMixin):
         self._u = U
         self._v = Vt.T
 
+        # need to add back mean before using transform and other methods
+        self.explained_var_ = self.x_explained_variance_(X+self.x_mean_)
+
         # x_scores = self.transform(X)
         # b = lstsq(x_scores, Y)[0]
         # self.coef_ = self.x_components_ @ b
@@ -70,10 +73,7 @@ class MCA(BaseEstimator, TransformerMixin):
         return X.dot(self.x_components_.T) + self.x_mean_
 
     def project_x(self, x):
-        return ((x - self.x_mean_).dot(self.x_components_))\
-                                 .dot(self.x_components_.T)\
-                                 + self.x_mean_
-
+        return self.inverse_transform(self.transform(x))
 
     def project_y(self, y):
         return ((y - self.y_mean_).dot(self.y_components_))\
