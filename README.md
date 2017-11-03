@@ -15,3 +15,4 @@ Reports
 -------
 - [results/3.4-ndb-spectra.html](https://storage.googleapis.com/nbren12-data/reports/uw-machine-learning/3.4-ndb-LRF-spectra.html)
 - [results/3.6-ndb-spectra.html](https://storage.googleapis.com/nbren12-data/reports/uw-machine-learning/3.6-ndb-pytorch.html)
+- [results/3.7-ndb-mca-regression-versus-linear-regression.html](https://atmos.washington.edu/~nbren12/reports/3.7-ndb-mca-regression-versus-linear-regression.html)
