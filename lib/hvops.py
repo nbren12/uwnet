@@ -1,7 +1,10 @@
 """Holoviews operations
 """
-from holoviews.operation import Operation
 import param
+import holoviews as hv
+from holoviews.operation import Operation
+from holoviews.operation.datashader import (aggregate, datashade, dynspread,
+                                            shade)
 
 
 class percent(Operation):
@@ -32,3 +35,10 @@ class percent(Operation):
         # and new label
         #         print("Scatter")
         return element.clone((x, y))
+
+
+def shade_points(scat):
+    return datashade(percent(scat), cmap="blue")\
+        .redim.range(true=(0,1), lm=(0,1)) \
+        .redim.unit(lm="%", true="%")\
+        * hv.Curve(((0,1),(0,1))).opts(style=dict(color='black'))
