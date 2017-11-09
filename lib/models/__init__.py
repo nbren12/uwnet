@@ -5,8 +5,10 @@ from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from ..mca import MCARegression
+from ..mca import MCARegression, PCARegression
 from ..util import weighted_r2_score
+
+from .scoring import mse
 
 
 def main(get_model, data, output):
@@ -57,20 +59,26 @@ def main(get_model, data, output):
 
 
 def get_linear_model(data):
-    mod = make_pipeline(
-        VarianceThreshold(.001),
-        LinearRegression())
+    mod = make_pipeline(VarianceThreshold(.001), LinearRegression())
 
     return mod
+
+
+def data_to_scale(data):
+    """Return scaling to use for PCA or MCA from dictionary of data
+
+    TODO these could be refactored into a class
+    """
+    scale_in, scale_out = data['scale']
+    weight_in, weight_out = data['w']
+
+    return (np.sqrt(weight_in) / scale_in, np.sqrt(weight_out) / scale_out)
 
 
 def get_mca_mod(data, mod=None):
     """Given data dictionary make scale"""
 
-    scale_in, scale_out = data['scale']
-    weight_in, weight_out = data['w']
-    mca_scale = (np.sqrt(weight_in) / scale_in,
-                 np.sqrt(weight_out) / scale_out)
+    mca_scale = data_to_scale(data)
 
     if mod is None:
         mod = LinearRegression()
@@ -81,5 +89,18 @@ def get_mca_mod(data, mod=None):
         n_components=4)
 
 
-models = {'linear': get_linear_model,
-          'mcr': get_mca_mod}
+def get_pcr_mod(data, mod=None):
+    """Given data dictionary make scale"""
+
+    scale = data_to_scale(data)[0]
+
+    if mod is None:
+        mod = LinearRegression()
+
+    return PCARegression(
+        mod=make_pipeline(StandardScaler(), mod),
+        scale=scale,
+        n_components=4)
+
+
+models = {'linear': get_linear_model, 'mcr': get_mca_mod}
