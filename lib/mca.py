@@ -144,36 +144,19 @@ class PCARegression(BaseEstimator, RegressorMixin):
         x = np.asarray(x)
         y = np.asarray(y)
 
-
-        # demean
-        self.x_mean_ = x.mean(axis=0)
-        self.y_mean_ = y.mean(axis=0)
-
-        x = (x-self.x_mean_) * self.scale
-        y = (y-self.y_mean_)
-
-        # u,s,v
-        _,s,u = svd(x, full_matrices=False)
-        self._components_ = u
-        self.singular_values_ = s
-
-        # use the x-scores for the input
-        x_scores = x.dot(self.components_)
-
+        self.pca = PCA(n_components=self.n_components, whiten=True)
+        x_scores = self.pca.fit_transform(x*self.scale)
         # regress onto outputs
         self.mod.fit(x_scores, y)
-        # self.coef_ = lstsq(x_scores, y)[0]
-
         return self
 
     @property
-    def components_(self):
-        return self._components_[:self.n_components, :].T
+    def explained_variance_ratio_(self):
+        return self.pca.explained_variance_ratio_
 
     def predict(self, x):
         x = np.asarray(x)
 
-        x = (x - self.x_mean_)*self.scale
-        x_scores = x.dot(self.components_)
+        x_scores = self.pca.transform(x*self.scale)
 
-        return self.mod.predict(x_scores) + self.y_mean_
+        return self.mod.predict(x_scores)
