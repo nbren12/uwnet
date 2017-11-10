@@ -1,7 +1,8 @@
 """Code for maximum covariance analysis regression
 """
+import attr
 import numpy as np
-from scipy.linalg import svd
+from scipy.linalg import svd, lstsq
 from sklearn.base import BaseEstimator, RegressorMixin, TransformerMixin
 from sklearn.decomposition import PCA
 
@@ -128,28 +129,48 @@ class MCARegression(BaseEstimator, RegressorMixin):
         x_scores = self.mca.transform(x*scale_in)
         return self.mod.predict(x_scores)
 
-
+@attr.s
 class PCARegression(BaseEstimator, RegressorMixin):
     """Weighted principle components regression class.
     """
 
-    def __init__(self, mod, scale=1, **kwargs):
-        self.pca = PCA(**kwargs)
-        self.mod = mod
-        self.scale = scale
+    scale = attr.ib(default=1.0)
+    n_components = attr.ib(default=2)
 
     def fit(self, x, y):
         # fit pca using outputs (since these don't include the forcing)
         x = np.asarray(x)
         y = np.asarray(y)
-        self.pca.fit(y*self.scale)
+
+
+        # demean
+        self.x_mean_ = x.mean(axis=0)
+        self.y_mean_ = y.mean(axis=0)
+
+        x = (x-self.x_mean_) * self.scale
+        y = (y-self.y_mean_)
+
+        # u,s,v
+        _,s,u = svd(x, full_matrices=False)
+        self._components_ = u
+        self.singular_values_ = s
+
         # use the x-scores for the input
-        x_scores = self.pca.transform(x*self.scale)
-        # fit other model
-        self.mod.fit(x_scores, y)
+        x_scores = x.dot(self.components_)
+
+        # regress onto outputs
+        self.coef_ = lstsq(x_scores, y)[0]
 
         return self
 
+    @property
+    def components_(self):
+        return self._components_[:self.n_components, :].T
+
     def predict(self, x):
-        x_scores = self.pca.transform(x*self.scale)
-        return self.mod.predict(x_scores)
+        x = np.asarray(x)
+
+        x = (x - self.x_mean_)*self.scale
+        x_scores = x.dot(self.components_)
+
+        return x_scores.dot(self.coef_) + self.y_mean_

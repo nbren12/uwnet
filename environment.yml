@@ -20,6 +20,7 @@ dependencies:
   - ipython
   - jupyter
   - cython
+  - attrs
   - pip
   - pip:
       - git+https://github.com/nbren12/gnl@master#subdirectory=python/gnl

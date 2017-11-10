@@ -98,7 +98,6 @@ def get_pcr_mod(data, mod=None):
         mod = LinearRegression()
 
     return PCARegression(
-        mod=make_pipeline(StandardScaler(), mod),
         scale=scale,
         n_components=4)
 
