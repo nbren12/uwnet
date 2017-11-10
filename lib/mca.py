@@ -5,6 +5,7 @@ import numpy as np
 from scipy.linalg import svd, lstsq
 from sklearn.base import BaseEstimator, RegressorMixin, TransformerMixin
 from sklearn.decomposition import PCA
+from sklearn.linear_model import LinearRegression
 
 
 class Identity(TransformerMixin):
@@ -136,6 +137,7 @@ class PCARegression(BaseEstimator, RegressorMixin):
 
     scale = attr.ib(default=1.0)
     n_components = attr.ib(default=2)
+    mod = attr.ib(default=attr.Factory(LinearRegression))
 
     def fit(self, x, y):
         # fit pca using outputs (since these don't include the forcing)
@@ -159,7 +161,8 @@ class PCARegression(BaseEstimator, RegressorMixin):
         x_scores = x.dot(self.components_)
 
         # regress onto outputs
-        self.coef_ = lstsq(x_scores, y)[0]
+        self.mod.fit(x_scores, y)
+        # self.coef_ = lstsq(x_scores, y)[0]
 
         return self
 
@@ -173,4 +176,4 @@ class PCARegression(BaseEstimator, RegressorMixin):
         x = (x - self.x_mean_)*self.scale
         x_scores = x.dot(self.components_)
 
-        return x_scores.dot(self.coef_) + self.y_mean_
+        return self.mod.predict(x_scores) + self.y_mean_
