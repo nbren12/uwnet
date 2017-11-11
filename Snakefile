@@ -46,7 +46,7 @@ rule data:
 rule weights:
     input: "data/raw/ngaqua/stat.nc"
     output: "data/processed/ngaqua/w.nc"
-    script: "lib/weights.py"
+    script: "lib/scripts/weights.py"
 
 
 rule prognostic_variables:
@@ -69,7 +69,7 @@ rule advection_wildcard:
             w="data/raw/ngaqua/coarse/3d/W.destaggered.nc",
             f="data/calc/ngaqua/{f}.nc"
     output: "data/calc/adv/ngaqua/{f}.nc"
-    script: "lib/advection.py"
+    script: "lib/scripts/advection.py"
 
 # sl forcing
 rule advection_forcing:
@@ -83,13 +83,13 @@ rule advection_forcing:
 rule adams_bashforth_3:
     input: "data/calc/forcing/{f}.nc"
     output: "data/calc/ab3/{f}.nc"
-    script: "lib/adams_bashforth.py"
+    script: "lib/scripts/adams_bashforth.py"
 
 rule apparent_source:
     input: forcing="data/calc/forcing/{f}.nc",
            data="data/calc/{f}.nc"
     output: "data/calc/apparent/{f}.nc"
-    script: "lib/apparent_source.py"
+    script: "lib/scripts/apparent_source.py"
 
 rule q1:
     input: "data/calc/apparent/ngaqua/sl.nc",
@@ -115,29 +115,21 @@ rule linear_regression:
     input: "data/ml/ngaqua/data.pkl"
     output: "data/ml/ngaqua/linear_model.pkl"
     params: model="linear"
-    script: "scripts/fit_model.py"
+    script: "lib/scripts/fit_model.py"
 
 rule mca_regression:
     input: "data/ml/ngaqua/data.pkl"
     output: "data/ml/ngaqua/mca_regression.pkl"
     params: model="mcr"
-    script: "scripts/fit_model.py"
+    script: "lib/scripts/fit_model.py"
 
 rule mca:
     input: "data/ml/ngaqua/data.pkl"
     output: "data/ml/ngaqua/mca.pkl"
     params: n_components=4
-    script: "lib/mca_script.py"
-
-rule pca:
-    input: data3d=expand("data/ngaqua/3d/{f}.nc", f=['QT', 'SL']),
-            data2d=expand("data/ngaqua/2d/{f}.nc", f=['LHF', 'SHF']),
-            weight="data/processed/ngaqua/w.nc"
-    output: "data/ml/ngaqua/pca.pkl"
-    script: "lib/pca.py"
+    script: "lib/scripts/mca_script.py"
 
 input_data = [
-
     "data/calc/ngaqua/qt.nc",
     "data/calc/ngaqua/sl.nc",
     "data/calc/ngaqua/q1.nc",
@@ -155,7 +147,7 @@ rule prepvars:
     output: "data/ml/ngaqua/data.pkl"
     params: input_vars="qt sl".split(' '),
             output_vars="Q1c Q2".split(' ')
-    script: "lib/prepvars.py"
+    script: "lib/scripts/prepvars.py"
 
 
 # prepared data for DMD analysis this rule reads in the data, applies the
@@ -165,4 +157,4 @@ rule dmd_data:
            inputs=["data/calc/ngaqua/sl.nc", "data/calc/ngaqua/qt.nc"],
            weight= "data/processed/ngaqua/w.nc"
     output: "data/ml/dmd.pkl"
-    script: "lib/dmd.py"
+    script: "lib/scripts/dmd.py"
