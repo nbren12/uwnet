@@ -6,6 +6,33 @@ using a near-global aquaplanet cloud permitting simulation as a training
 dataset. As with nearly any machine learning task, the first step is to fit a
 simple linear model, which in this case is not so simple.
 
+
+Project Structure
+-----------------
+
+Here is an annotated directory tree of this project::
+
+  ├── data
+  │   ├── cache
+  │   ├── calc
+  │   ├── ml
+  │   ├── processed 
+  │   └── raw       - the raw data (this directory should be immutable)
+  ├── docs
+  │   └── plots.d   - any .py or .ipynb file in here will be run to make a plot
+  ├── lib           - all the source code
+  │   ├── models    - machine learning models
+  │   ├── plots     
+  │   ├── scripts   - snakemake scripts
+  │   └── snakemake - some snakemake workflows (might want to remove)
+  ├── reports       - generated contents
+  ├── results       - mostly has ipython notebooks
+  └── snakemake     - contains snakemake stuff
+
+
+
+
+
 TODO
 ----
 
