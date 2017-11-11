@@ -40,6 +40,11 @@ TODO
 
 Reports
 -------
-- [results/3.4-ndb-spectra.html](https://storage.googleapis.com/nbren12-data/reports/uw-machine-learning/3.4-ndb-LRF-spectra.html)
-- [results/3.6-ndb-spectra.html](https://storage.googleapis.com/nbren12-data/reports/uw-machine-learning/3.6-ndb-pytorch.html)
-- [results/3.7-ndb-mca-regression-versus-linear-regression.html](https://atmos.washington.edu/~nbren12/reports/3.7-ndb-mca-regression-versus-linear-regression.html)
+
+- `3.4-ndb-spectra`_
+- `3.6-ndb-pytorch`_
+- `3.7-ndb-mca-regression-versus-linear-regression`_
+
+.. _3.4-ndb-spectra: https://storage.googleapis.com/nbren12-data/reports/uw-machine-learning/3.4-ndb-LRF-spectra.html
+.. _3.6-ndb-pytorch: https://storage.googleapis.com/nbren12-data/reports/uw-machine-learning/3.6-ndb-pytorch.html
+.. _3.7-ndb-mca-regression-versus-linear-regression: https://atmos.washington.edu/~nbren12/reports/3.7-ndb-mca-regression-versus-linear-regression.html
