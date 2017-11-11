@@ -6,9 +6,8 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from ..mca import MCARegression, PCARegression
-from ..util import weighted_r2_score
 
-from .scoring import mse
+from .scoring import mean_squared_error, weighted_r2_score
 
 
 def main(get_model, data, output):
