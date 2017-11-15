@@ -48,14 +48,6 @@ def xopena(name, nt=20):
     return f[varname]
 
 
-def weighted_r2_score(y_test, y_pred, weight):
-    from sklearn.metrics import r2_score
-    return r2_score(
-        y_test * np.sqrt(weight),
-        y_pred * np.sqrt(weight),
-        multioutput="uniform_average")
-
-
 def compute_dp(p):
     """Compute layer thickness in pressure coordinates"""
     p_ghosted = np.hstack((2 * p[0] - p[1], p, 0))
@@ -69,8 +61,8 @@ def compute_weighted_scale(weight, sample_dims, ds):
     def f(data):
         sig = data.std(sample_dims)
         if set(weight.dims) <= set(sig.dims):
-            sig = (sig**2 * weight / weight.sum()).sum(weight.dims).pipe(
-                np.sqrt)
+            sig = (
+                sig**2 * weight / weight.sum()).sum(weight.dims).pipe(np.sqrt)
         return sig
 
     return ds.apply(f)
@@ -129,3 +121,11 @@ def dict_to_xr(data, dim_name="variable"):
     """Concatenate a dictionary along a new dimensions name
     """
     return xr.concat(data.values(), dim=pd.Index(data.keys(), name=dim_name))
+
+
+def swap_coord(x, **kwargs):
+    for old_dim, (new_coord) in kwargs.items():
+        new_dim = new_coord.name
+        x = x.rename({old_dim: new_dim})\
+             .assign(**{new_dim: new_coord.values})
+    return x

@@ -25,14 +25,15 @@ def batch_generator(x_train, y_train, batch_size=10):
         i += 1
 
 
-def _train(net, loss_fn, x_train, y_train, optimizer=None, num_epochs=2):
+def _train(net, loss_fn, generator, optimizer=None, num_epochs=2):
 
     # optimizer = torch.optim.SGD(net.parameters(), lr=1e-4)
     if optimizer is None:
         optimizer = torch.optim.Adam(net.parameters(), lr=.0001)
 
     for epoch in range(num_epochs):
-        for batch_idx, (x, y) in enumerate(batch_generator(x_train, y_train)):
+        avg_loss = 0
+        for batch_idx, (x, y) in enumerate(generator):
             x, y = Variable(x), Variable(y)
             optimizer.zero_grad()  # this is not done automatically
             pred = net(x)
@@ -40,13 +41,11 @@ def _train(net, loss_fn, x_train, y_train, optimizer=None, num_epochs=2):
             loss.backward()
             optimizer.step()
 
+            avg_loss += loss.data.numpy()
+
             if batch_idx % 4000 == 0:
-                x = Variable(torch.FloatTensor(x_train))
-                y = Variable(torch.FloatTensor(y_train))
-
-                total_loss = loss_fn(net(x), y).data[0]
-
-                print(f"Epoch: {epoch} [{batch_idx}]\tLoss: {total_loss}")
+                print(f"Epoch: {epoch} [{batch_idx}]\tLoss: {avg_loss}")
+                avg_loss = 0
 
 
 class ResidualBlock(nn.Module):
@@ -78,13 +77,13 @@ class TorchRegressor(BaseEstimator, RegressorMixin):
         self.num_epochs = num_epochs
 
     def fit(self, x, y):
+        generator = batch_generator(x, y, batch_size=40)
         net = self.net_fn(x.shape, y.shape)
         optim = self.optim_fn(net.parameters())
         _train(
             net,
             self.loss_fn,
-            x,
-            y,
+            generator,
             optimizer=optim,
             num_epochs=self.num_epochs)
 
