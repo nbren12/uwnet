@@ -28,7 +28,8 @@ def batch_generator(x_train, y_train, batch_size=10):
         i += 1
 
 
-def _train(net, loss_fn, x_train, y_train, optimizer=None, num_epochs=2):
+def _train(net, loss_fn, x_train, y_train, optimizer=None, num_epochs=2,
+           shuffle=True):
 
     # optimizer = torch.optim.SGD(net.parameters(), lr=1e-4)
     if optimizer is None:
@@ -36,7 +37,15 @@ def _train(net, loss_fn, x_train, y_train, optimizer=None, num_epochs=2):
 
     for epoch in range(num_epochs):
         avg_loss = 0
-        generator = batch_generator(x_train, y_train, batch_size=100)
+        if shuffle:
+            inds = np.random.choice(x_train.shape[0],
+                                    x_train.shape[0],
+                                    replace=False)
+        else:
+            inds = np.arange(x_train.shape[0])
+
+        generator = batch_generator(x_train[inds], y_train[inds],
+                                    batch_size=100)
         for batch_idx, (x, y) in tqdm(enumerate(generator), total=10000):
             x, y = Variable(x), Variable(y)
             optimizer.zero_grad()  # this is not done automatically
@@ -82,7 +91,8 @@ class TorchRegressor(BaseEstimator, RegressorMixin):
             self.loss_fn,
             x, y,
             optimizer=optim,
-            num_epochs=self.num_epochs)
+            num_epochs=self.num_epochs,
+            shuffle=True)
 
         self.net_ = net
         return self
