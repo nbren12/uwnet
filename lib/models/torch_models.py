@@ -1,10 +1,13 @@
 from functools import partial
 
+import attr
 import numpy as np
 import torch
 import torch.nn as nn
 from sklearn.base import BaseEstimator, RegressorMixin
 from torch.autograd import Variable
+
+from tqdm import tqdm
 
 
 def batch_generator(x_train, y_train, batch_size=10):
@@ -25,7 +28,7 @@ def batch_generator(x_train, y_train, batch_size=10):
         i += 1
 
 
-def _train(net, loss_fn, generator, optimizer=None, num_epochs=2):
+def _train(net, loss_fn, x_train, y_train, optimizer=None, num_epochs=2):
 
     # optimizer = torch.optim.SGD(net.parameters(), lr=1e-4)
     if optimizer is None:
@@ -33,7 +36,8 @@ def _train(net, loss_fn, generator, optimizer=None, num_epochs=2):
 
     for epoch in range(num_epochs):
         avg_loss = 0
-        for batch_idx, (x, y) in enumerate(generator):
+        generator = batch_generator(x_train, y_train, batch_size=100)
+        for batch_idx, (x, y) in tqdm(enumerate(generator), total=10000):
             x, y = Variable(x), Variable(y)
             optimizer.zero_grad()  # this is not done automatically
             pred = net(x)
@@ -43,9 +47,8 @@ def _train(net, loss_fn, generator, optimizer=None, num_epochs=2):
 
             avg_loss += loss.data.numpy()
 
-            if batch_idx % 4000 == 0:
-                print(f"Epoch: {epoch} [{batch_idx}]\tLoss: {avg_loss}")
-                avg_loss = 0
+        print(f"Epoch: {epoch} [{batch_idx}]\tLoss: {avg_loss}")
+        avg_loss = 0
 
 
 class ResidualBlock(nn.Module):
@@ -62,28 +65,22 @@ class ResidualBlock(nn.Module):
 
         return self.relu(y.add(x))
 
-
+@attr.s
 class TorchRegressor(BaseEstimator, RegressorMixin):
-    def __init__(self,
-                 net_fn=None,
-                 optim_cls=torch.optim.Adam,
-                 optim_kwargs=None,
-                 loss_fn=None,
-                 num_epochs=1):
 
-        self.optim_fn = partial(optim_cls, **optim_kwargs)
-        self.loss_fn = loss_fn
-        self.net_fn = net_fn
-        self.num_epochs = num_epochs
+    net_fn = attr.ib()
+    loss_fn = attr.ib()
+    optim_cls = attr.ib(default=torch.optim.Adam)
+    optim_kwargs = attr.ib(default=attr.Factory(dict))
+    num_epochs = attr.ib(default=3)
 
     def fit(self, x, y):
-        generator = batch_generator(x, y, batch_size=40)
-        net = self.net_fn(x.shape, y.shape)
-        optim = self.optim_fn(net.parameters())
+        net = self.net_fn(x.shape[1], y.shape[1])
+        optim = self.optim_cls(net.parameters(), **self.optim_kwargs)
         _train(
             net,
             self.loss_fn,
-            generator,
+            x, y,
             optimizer=optim,
             num_epochs=self.num_epochs)
 
@@ -96,18 +93,16 @@ class TorchRegressor(BaseEstimator, RegressorMixin):
 
 
 class single_layer_perceptron(nn.Module):
-    def __init__(self, xshape, yshape, num_hidden=50):
+    def __init__(self, n_in, n_out, num_hidden=256):
         super(single_layer_perceptron, self).__init__()
 
-        _, nx = xshape
-        _, ny = yshape
 
-        layers = [nn.Linear(nx, num_hidden), nn.ReLU()] \
-        + [nn.Linear(num_hidden, num_hidden), nn.ReLU()]*0\
-        + [nn.Linear(num_hidden, ny)]
+        self.layers = nn.Sequential(
+            nn.Linear(n_in, num_hidden), nn.ReLU(),
+            nn.Linear(num_hidden, n_out)
+        )
 
-        self.layers = nn.Sequential(*layers)
-        self.lin = nn.Linear(nx, ny)
+        self.lin = nn.Linear(n_in, n_out)
 
     def forward(self, x):
         return self.layers(x) + self.lin(x)
@@ -125,7 +120,7 @@ class residual_net(nn.Module):
             ResidualBlock(num_hidden),
             ResidualBlock(num_hidden), nn.Linear(num_hidden, ny))
 
-        self.lin = nn.Linear(nx, ny)
+        # self.lin = nn.Linear(nx, ny)
 
     def forward(self, x):
-        return self.layers(x) + self.lin(x)
+        return self.layers(x) #+ self.lin(x)
