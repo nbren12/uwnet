@@ -6,6 +6,11 @@ from scipy.linalg import svd, lstsq
 from sklearn.base import BaseEstimator, RegressorMixin, TransformerMixin
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LinearRegression
+from sklearn.neighbors import KDTree
+
+from tqdm import tqdm
+
+import dask.array as da
 
 
 class Identity(TransformerMixin):
@@ -15,7 +20,7 @@ class Identity(TransformerMixin):
 class MCA(BaseEstimator, TransformerMixin):
 
     def __init__(self, n_components=4, demean=True,
-                 y_transformer=None):
+                 y_transformer=None, whiten=False):
         self.n_components = n_components
         self.demean = demean
 
@@ -50,6 +55,7 @@ class MCA(BaseEstimator, TransformerMixin):
         # need to add back mean before using transform and other methods
         self.explained_var_ = self.x_explained_variance_(X+self.x_mean_)
 
+        x_scores = (X-self.x_mean_).dot(self.x_components_)
         # x_scores = self.transform(X)
         # b = lstsq(x_scores, Y)[0]
         # self.coef_ = self.x_components_ @ b
@@ -160,3 +166,73 @@ class PCARegression(BaseEstimator, RegressorMixin):
         x_scores = self.pca.transform(x*self.scale)
 
         return self.mod.predict(x_scores)
+
+
+@attr.s
+class PCABinner(BaseEstimator, RegressorMixin):
+    """Weighted principle components binning class
+
+    The binning capability should probably be moved into a separate class
+    """
+
+    scale = attr.ib(default=1.0)
+    n_components = attr.ib(default=2)
+    n_query = attr.ib(default=100)
+    batch_avg_size = attr.ib(default=1000)
+
+    def fit(self, x, y):
+        # fit pca using outputs (since these don't include the forcing)
+        x = np.asarray(x)
+        y = np.asarray(y)
+
+        self.pca = PCA(n_components=self.n_components, whiten=True)
+        x_scores = self.pca.fit_transform(x*self.scale)
+
+        self.y_library_ = y
+
+        # Generate KDTree
+        self.kdtree_ = KDTree(x_scores)
+
+        return self
+
+    @property
+    def explained_variance_ratio_(self):
+        return self.pca.explained_variance_ratio_
+
+    def neighbor_idx(self, x):
+        x_scores = self.pca.transform(x*self.scale)
+        idx = self.kdtree_.query(x_scores, k=self.n_query,
+                                 return_distance=False)
+
+        return idx
+
+    def avg_over_neighbs(self, x):
+        idx = self.neighbor_idx(x)
+        return self.y_library_[idx].mean(axis=1)
+
+    def predict(self, x):
+        x = np.asarray(x)
+
+        # x_dask = da.from_array(x, chunks=(self.batch_avg_size, -1))
+        # y = x_dask.map_blocks(self.avg_over_neighbs)
+
+        return np.vstack(self.avg_over_neighbs(x[sl])
+                         for sl in tqdm(split_slices(x.shape[0],
+                                                     self.batch_avg_size)))
+
+        # pred = np.concatenate(
+        #     (self.y_library_[idx[sl]]
+        #      for sl in split_slices(x.shape[0], self.batch_avg_size))
+        #     axis=0)
+
+        # take mean of the neighborhood
+
+
+def split_slices(n, k):
+    """python generator for splitting an array into chunks of size k"""
+
+    starts = range(0, n, k)
+
+    for start in starts:
+        end = min(start + k, n)
+        yield slice(start, end)
