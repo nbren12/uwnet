@@ -22,6 +22,11 @@ df = u * centderiv(f, dim='x', boundary='periodic')\
     + v * centderiv(f, dim='y', boundary='nearest')\
     + w * centderiv(f, dim='z', boundary='nearest')
 
+try:
+    df.attrs['units'] = f.units + '/s'
+except AttributeError:
+    pass
+
 # save output
 df.to_dataset(name=varname)\
   .to_netcdf(snakemake.output[0])
