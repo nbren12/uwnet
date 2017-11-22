@@ -186,3 +186,12 @@ class TorchRegressor(BaseEstimator, RegressorMixin):
     def predict(self, x):
         preds_np = self.net_(Variable(torch.FloatTensor(x))).data.numpy()
         return preds_np
+
+
+def numpy_to_variable(x):
+    return Variable(torch.DoubleTensor(x))
+
+
+def predict(net, x):
+    return net(numpy_to_variable(x.astype(float))).data.numpy()
+
