@@ -131,6 +131,28 @@ class residual_net(nn.Module):
         return self.layers(x)  #+ self.lin(x)
 
 
+class EulerStepper(nn.Module):
+    """Module for performing n forward euler time steps of a neural network
+    """
+    def __init__(self, net, nsteps, h):
+        super(EulerStepper, self).__init__()
+        self.net = net
+        self.nsteps = nsteps
+        self.h = h
+
+    def forward(self, x, g):
+        nsteps = self.nsteps
+        h = self.h
+        net = self.net
+
+        reduction = 1e4
+
+        for i in range(nsteps):
+            x = x.float() + h/nsteps * (g.float() + net(x.double())/reduction)
+
+        return x
+
+
 class ConcatDataset(torch.utils.data.Dataset):
     def __init__(self, *datasets):
         self.datasets = datasets
@@ -185,6 +207,9 @@ def numpy_to_variable(x):
     return Variable(torch.DoubleTensor(x))
 
 
-def predict(net, x):
-    return net(numpy_to_variable(x.astype(float))).data.numpy()
+def predict(net, *args):
+
+    torch_args = [numpy_to_variable(x.astype(float))
+                  for x in args]
+    return net(*torch_args).data.numpy()
 
