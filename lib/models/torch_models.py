@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 
-def train(data_loader, net, loss_fn, optimizer=None, num_epochs=1):
+def train(data_loader, loss_fn, optimizer=None, num_epochs=1):
     """Train a torch model"""
 
     if optimizer is None:
@@ -36,12 +36,9 @@ def train(data_loader, net, loss_fn, optimizer=None, num_epochs=1):
             # cast all variables to Variable
             data_args = [Variable(x) for x in data]
 
-            # use first variable for prediction
-            x = data_args[0]
-            pred = net(x)
-
             # pass all data args to loss_function
-            loss = loss_fn(pred, *data_args)
+            loss = loss_fn(*data_args)
+
             loss.backward()
             optimizer.step()
 
@@ -134,19 +131,15 @@ class residual_net(nn.Module):
         return self.layers(x)  #+ self.lin(x)
 
 
-class SupervisedProblem(Dataset):
-    """"""
+class ConcatDataset(torch.utils.data.Dataset):
+    def __init__(self, *datasets):
+        self.datasets = datasets
 
-    def __init__(self, x, y):
-        super(SupervisedProblem, self).__init__()
-        self.x = x
-        self.y = y
+    def __getitem__(self, i):
+        return tuple(d[i] for d in self.datasets)
 
     def __len__(self):
-        return len(self.x)
-
-    def __getitem__(self, idx):
-        return self.x[idx], self.y[idx]
+        return min(len(d) for d in self.datasets)
 
 
 @attr.s
@@ -170,12 +163,12 @@ class TorchRegressor(BaseEstimator, RegressorMixin):
 
         # needed to add an argument for passing to
         # train
-        def loss_function(pred, x, y):
+        def loss_function(x, y):
+            pred = net(x)
             return self.loss_fn(pred.float(), y.float())
 
         train(
             data_loader,
-            net,
             loss_function,
             optimizer=optim,
             num_epochs=self.num_epochs)

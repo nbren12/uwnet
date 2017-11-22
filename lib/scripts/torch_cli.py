@@ -14,14 +14,7 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader, Dataset
 
 from lib.models.torch_models import (Scaler, TorchRegressor,
-                                     single_layer_perceptron, train, SupervisedProblem)
-
-def numpy_to_variable(x):
-    return Variable(torch.DoubleTensor(x))
-
-
-def predict(net, x):
-    return net(numpy_to_variable(x.astype(float))).data.numpy()
+                                     single_layer_perceptron, train, ConcatDataset, numpy_to_variable, predict)
 
 
 def main(input, output, n):
@@ -39,7 +32,8 @@ def main(input, output, n):
     # define the loss function
     scale_weight = numpy_to_variable(w / scale**2)
 
-    def loss_function(pred, x, y):
+    def loss_function(x, y):
+        pred = net(x)
         return torch.mean(
             torch.pow(pred - y.float(), 2).mul(scale_weight.float()))
 
@@ -54,7 +48,7 @@ def main(input, output, n):
     y = (xp - x) / dt - g
 
     # make a data loader
-    dataset = SupervisedProblem(x, y)
+    dataset = ConcatDataset(x, y)
     data_loader = DataLoader(dataset, batch_size=100, shuffle=True)
 
     net = nn.Sequential(Scaler(mu, sig), single_layer_perceptron(68, 68))
@@ -63,7 +57,6 @@ def main(input, output, n):
     # train the model
     train(
         data_loader,
-        net,
         loss_function,
         optimizer=optimizer,
         num_epochs=num_epochs)
