@@ -27,7 +27,12 @@ from lib.models.torch_models import (
 @click.option("-n", default=1)
 @click.option("--learning-rate", default=.001)
 @click.option("--nsteps", default=1)
-def main(input, output, n, nsteps=1, learning_rate=.001):
+@click.option("--nhidden", default=256)
+def main(*args, **kwargs):
+    train_euler_network(*args, **kwargs)
+
+def train_euler_network(input, output, n, nsteps=1,
+                        learning_rate=.001, nhidden=256):
     num_epochs = n
     data = np.load(input)
 
@@ -65,7 +70,10 @@ def main(input, output, n, nsteps=1, learning_rate=.001):
     dataset = ConcatDataset(x, xp, g)
     data_loader = DataLoader(dataset, batch_size=100, shuffle=True)
 
-    net = nn.Sequential(Scaler(mu, sig), single_layer_perceptron(68, 68))
+    net = nn.Sequential(
+        Scaler(mu, sig),
+        single_layer_perceptron(68, 68, num_hidden=nhidden)
+    )
     stepper = EulerStepper(net, nsteps, dt)
     optimizer = torch.optim.Adam(net.parameters())
 
