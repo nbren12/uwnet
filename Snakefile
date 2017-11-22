@@ -158,3 +158,12 @@ rule dmd_data:
            weight= "data/processed/ngaqua/w.nc"
     output: "data/ml/dmd.pkl"
     script: "lib/scripts/dmd.py"
+
+# prepared data for DMD analysis this rule reads in the data, applies the
+# forcing, and then saves the output
+rule time_series_data:
+    input: forcing= ["data/calc/forcing/ngaqua/sl.nc", "data/calc/forcing/ngaqua/qt.nc"],
+            inputs=["data/calc/ngaqua/sl.nc", "data/calc/ngaqua/qt.nc"],
+            weight= "data/processed/ngaqua/w.nc"
+    output: "data/ml/ngaqua/time_series_data.npz"
+    script: "lib/scripts/data_to_numpy.py"
