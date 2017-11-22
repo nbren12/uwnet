@@ -17,7 +17,7 @@ print(os.environ['PYTHONPATH'])
 #     input: ngaqua("3d/Q1.nc")
 
 rule all:
-    input: "data/raw/ngaqua/stat.nc", "data/ml/dmd.pkl"
+    input: "data/raw/ngaqua/stat.nc", "data/ml/ngaqua/time_series_fit.torch"
 
 
 def ngaqua_files():
@@ -167,3 +167,9 @@ rule time_series_data:
             weight= "data/processed/ngaqua/w.nc"
     output: "data/ml/ngaqua/time_series_data.npz"
     script: "lib/scripts/data_to_numpy.py"
+
+rule time_series_slp:
+    input: "data/ml/ngaqua/time_series_data.npz"
+    output: "data/ml/ngaqua/time_series_fit.torch"
+    params: n=3
+    script: "lib/scripts/torch_cli.py"

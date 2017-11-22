@@ -1,3 +1,12 @@
+"""Module with all the torch code
+
+Routine Listings
+-------
+train  : function for training
+Scaler : preprocessing torch module
+SupervisedProblem : torch dataset class for supervised learning problems
+TorchRegressor : Sklearn Torch wrapper
+"""
 from functools import partial
 
 import attr
@@ -7,57 +16,75 @@ import torch.nn as nn
 from sklearn.base import BaseEstimator, RegressorMixin
 from torch.autograd import Variable
 
+from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 
-def batch_generator(x_train, y_train, batch_size=10):
-    """Produce batches of x_train y_train
+def train(data_loader, net, loss_fn, optimizer=None, num_epochs=1):
+    """Train a torch model"""
 
-    This is useful for neural network training
-    """
-    x_train = np.asarray(x_train)
-    y_train = np.asarray(y_train)
-    n = x_train.shape[0]
-    inds = np.arange(x_train.shape[0])
-    np.random.shuffle(inds)
-    i = 0
-    while (i + 1) * batch_size < n:
-        b = i * batch_size
-        e = min(b + batch_size, n)
-        yield torch.FloatTensor(x_train[b:e]), torch.FloatTensor(y_train[b:e])
-        i += 1
-
-
-def _train(net, loss_fn, x_train, y_train, optimizer=None, num_epochs=2,
-           shuffle=True):
-
-    # optimizer = torch.optim.SGD(net.parameters(), lr=1e-4)
     if optimizer is None:
-        optimizer = torch.optim.Adam(net.parameters(), lr=.0001)
+        optimizer = torch.optim.Adam(net.parameters())
 
     for epoch in range(num_epochs):
         avg_loss = 0
-        if shuffle:
-            inds = np.random.choice(x_train.shape[0],
-                                    x_train.shape[0],
-                                    replace=False)
-        else:
-            inds = np.arange(x_train.shape[0])
 
-        generator = batch_generator(x_train[inds], y_train[inds],
-                                    batch_size=100)
-        for batch_idx, (x, y) in tqdm(enumerate(generator), total=10000):
-            x, y = Variable(x), Variable(y)
-            optimizer.zero_grad()  # this is not done automatically
+        for batch_idx, data in tqdm(
+                enumerate(data_loader), total=len(data_loader)):
+            optimizer.zero_grad()  # this is not done automatically in torch
+
+            # cast all variables to Variable
+            data_args = [Variable(x) for x in data]
+
+            # use first variable for prediction
+            x = data_args[0]
             pred = net(x)
-            loss = loss_fn(pred, y)
+
+            # pass all data args to loss_function
+            loss = loss_fn(pred, *data_args)
             loss.backward()
             optimizer.step()
 
             avg_loss += loss.data.numpy()
 
+        avg_loss /= len(data_loader)
         print(f"Epoch: {epoch} [{batch_idx}]\tLoss: {avg_loss}")
-        avg_loss = 0
+
+
+class Scaler(nn.Module):
+    """Scaled single layer preceptron
+
+    Examples
+    --------
+
+    >>> a = torch.rand(1000,10)
+    >>> scaler = Scaler(a.mean(0), a.std(0))
+    >>> b = scaler(a)
+    >>> b.mean(0)
+    >>> b.std(0)
+
+    1.0000
+    1.0000
+    1.0000
+    1.0000
+    1.0000
+    1.0000
+    1.0000
+    1.0000
+    1.0000
+    1.0000
+    [torch.FloatTensor of size 10]
+
+    """
+
+    def __init__(self, mu, sig):
+        "docstring"
+        super(Scaler, self).__init__()
+        self.mu = mu
+        self.sig = sig
+
+    def forward(self, x):
+        return x.sub(self.mu).div(self.sig + 1e-7).float()
 
 
 class ResidualBlock(nn.Module):
@@ -74,43 +101,14 @@ class ResidualBlock(nn.Module):
 
         return self.relu(y.add(x))
 
-@attr.s
-class TorchRegressor(BaseEstimator, RegressorMixin):
-
-    net_fn = attr.ib()
-    loss_fn = attr.ib()
-    optim_cls = attr.ib(default=torch.optim.Adam)
-    optim_kwargs = attr.ib(default=attr.Factory(dict))
-    num_epochs = attr.ib(default=3)
-
-    def fit(self, x, y):
-        net = self.net_fn(x.shape[1], y.shape[1])
-        optim = self.optim_cls(net.parameters(), **self.optim_kwargs)
-        _train(
-            net,
-            self.loss_fn,
-            x, y,
-            optimizer=optim,
-            num_epochs=self.num_epochs,
-            shuffle=True)
-
-        self.net_ = net
-        return self
-
-    def predict(self, x):
-        preds_np = self.net_(Variable(torch.FloatTensor(x))).data.numpy()
-        return preds_np
-
 
 class single_layer_perceptron(nn.Module):
     def __init__(self, n_in, n_out, num_hidden=256):
         super(single_layer_perceptron, self).__init__()
 
-
         self.layers = nn.Sequential(
-            nn.Linear(n_in, num_hidden), nn.ReLU(),
-            nn.Linear(num_hidden, n_out)
-        )
+            nn.Linear(n_in, num_hidden),
+            nn.ReLU(), nn.Linear(num_hidden, n_out))
 
         self.lin = nn.Linear(n_in, n_out)
 
@@ -133,4 +131,58 @@ class residual_net(nn.Module):
         # self.lin = nn.Linear(nx, ny)
 
     def forward(self, x):
-        return self.layers(x) #+ self.lin(x)
+        return self.layers(x)  #+ self.lin(x)
+
+
+class SupervisedProblem(Dataset):
+    """"""
+
+    def __init__(self, x, y):
+        super(SupervisedProblem, self).__init__()
+        self.x = x
+        self.y = y
+
+    def __len__(self):
+        return len(self.x)
+
+    def __getitem__(self, idx):
+        return self.x[idx], self.y[idx]
+
+
+@attr.s
+class TorchRegressor(BaseEstimator, RegressorMixin):
+    """SKLearn Wrapper around torch modules"""
+
+    net_fn = attr.ib()
+    loss_fn = attr.ib()
+    optim_cls = attr.ib(default=torch.optim.Adam)
+    optim_kwargs = attr.ib(default=attr.Factory(dict))
+    num_epochs = attr.ib(default=1)
+    batch_size = attr.ib(default=50)
+
+    def fit(self, x, y):
+        net = self.net_fn(x.shape[1], y.shape[1])
+        optim = self.optim_cls(net.parameters(), **self.optim_kwargs)
+
+        data_loader = DataLoader(SupervisedProblem(x, y),
+                                 batch_size=self.batch_size,
+                                 shuffle=True)
+
+        # needed to add an argument for passing to
+        # train
+        def loss_function(pred, x, y):
+            return self.loss_fn(pred.float(), y.float())
+
+        train(
+            data_loader,
+            net,
+            loss_function,
+            optimizer=optim,
+            num_epochs=self.num_epochs)
+
+        self.net_ = net
+        return self
+
+    def predict(self, x):
+        preds_np = self.net_(Variable(torch.FloatTensor(x))).data.numpy()
+        return preds_np
