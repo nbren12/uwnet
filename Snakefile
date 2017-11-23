@@ -171,5 +171,5 @@ rule time_series_data:
 rule time_series_slp:
     input: "data/ml/ngaqua/time_series_data.npz"
     output: "data/ml/ngaqua/time_series_fit.torch"
-    params: n=3
+    params: n=1
     script: "lib/scripts/torch_cli.py"
