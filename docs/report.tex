@@ -475,7 +475,19 @@ these two modes in Figures \ref{fig:mca-loadings} and \ref{fig:mca-ts}.
     \autoref{fig:mca-loadings}, despite their similarity.}
 \end{figure}
 
+\section{Time stepping with Neural Networks}
 
+The data we are using are only evaulated with a coarse sampling time step of 3 hours. On the other hand, we will probably use 10-20 minute time step for the coarse resolution model. This means that the dynamical model we are trying to fit is 
+$$ x^i_{n+1} = \underbrace{f(f(\ldots f}_{\text{m times}}(x^i_n))) + \int_{t_n}^{t_{n+1}} g(x(t), t) dt$$ 
+where $i$ is the horizontal spatial index, and $n$ is the time step. The number of times the function $f$ is applied is $m=\frac{\Delta t}{h}$ where $h$ is the GCMs time step, and $\Delta t$ is the sampling interval of the stored output. The integral on the right represents the approximately known terms such as advection, and $f$ represents the unknown source terms.
+
+We solve a minimization problem to find $f$. This is given by 
+$$
+\min_{a} \lim_{m \rightarrow \infty} \sum_{i,n} ||x^{i}_{n+1} - F^{(m)} x^i_{n} - g_n^{i}||_W^2 \quad \text{s.t.}\quad F^{(m)}(\cdot) = \underbrace{f(f(\ldots f}_{\text{m times}}(\cdot))),\ f(x) = x +  \frac{ \Delta t}{m} a(x).
+$$
+Intuitively, the forward operator $F^{(m)}$ is the result applying $m$ forward euler steps to the system $a$.
+
+Let's try performing this fit. First, we need to import the appropriate models, and load the data
 
 
 \printbibliography
