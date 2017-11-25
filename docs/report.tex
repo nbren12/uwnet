@@ -489,6 +489,33 @@ Intuitively, the forward operator $F^{(m)}$ is the result applying $m$ forward e
 
 Let's try performing this fit. First, we need to import the appropriate models, and load the data
 
+\subsection{Literature Review}
+\label{sec:blowup-rnn}
+
+
+Unfortunately, applying a function repeatedly like often causes solutions to
+explode. 
+This issue is discussed known in recurrent neural network (RNN) community
+\autocite[See Ch. 
+10.7]{Goodfellow2016}.
+They discuss something known as Echo State Networks (ESN), which must repeatedly
+confront this issue. Apparently, this blow up can be controlled in two ways.
+\begin{enumerate}
+\item Control the spectral radius of the Jacobian. I.e. ensure that
+  \[\rho \left( \frac{\partial x^{n+1}}{\partial x^n} \right) < 1\]
+  
+\item Use squashing nonlinearities like $\tanh$, and allow larger spectral radius.
+\end{enumerate}
+
+I still need to figure out how exactly they control the spectral radius of
+neural network.
+
+The deep learning literature discusses the issue of exploding gradients as more
+an issue with back-propagation of gradients than forward propagation or
+predictions. However, I think the solutions are the same.
+
+
+
 
 \printbibliography
 \appendix
