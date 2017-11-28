@@ -1,5 +1,6 @@
 """Holoviews operations
 """
+import numpy as np
 import param
 import holoviews as hv
 from holoviews.operation import Operation
@@ -70,3 +71,28 @@ def ndoverlay_to_contours(ndoverlay):
         ],
         kdims=ndoverlay.last.dimensions()[:2],
         vdims=ndoverlay.kdims)
+
+
+def extrap_1d(xc):
+    return np.hstack((2 * xc[0] - xc[1], xc, 2 * xc[-1] - xc[-2]))
+
+
+def edges_1d(xc):
+    xc = extrap_1d(xc)
+
+    return .5 * (xc[1:] + xc[:-1])
+
+
+def quadmesh(xc, yc, z, **kwargs):
+    """Quadmesh for non-uniform 1D cell centered coordinates
+
+    The first three arguments for this function are the same as for plt.pcolormesh.
+    """
+    xe = edges_1d(xc)
+    ye = edges_1d(yc)
+
+    return hv.QuadMesh((xe, ye, z), **kwargs)
+
+
+# Useful Options 
+# invert_opts = dict(plot=dict(invert_yaxis=True, invert_xaxis=True, colorbar=True))

@@ -22,7 +22,8 @@ from lib.models.torch_models import train_euler_network
 @click.option("--nsteps", default=1)
 @click.option("--nhidden", default=256)
 def main(input, output, **kwargs):
-    stepper = train_euler_network(input, **kwargs)
+    data = np.load(input)
+    stepper = train_euler_network(data, **kwargs)
     torch.save(stepper, output)
 
 

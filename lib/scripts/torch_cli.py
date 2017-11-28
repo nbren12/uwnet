@@ -17,7 +17,7 @@ from lib.models.torch_models import (Scaler, TorchRegressor,
                                      single_layer_perceptron, train, ConcatDataset, numpy_to_variable, predict)
 
 
-def main(input, output, n):
+def main(input, output, n=1, weight_decay=.1):
     num_epochs = n
     data = np.load(input)
 
@@ -29,6 +29,17 @@ def main(input, output, n):
     # the sampling interval of the data
     dt = 3 / 24
 
+
+    # do not use the moisture field above 200 hPA
+    # this is the top 14 grid points for NGAqua
+    ntop = -14
+    X = X[..., :ntop]
+    G = G[..., :ntop]
+    scale = scale[:ntop]
+    w = w[:ntop]
+
+    m = X.shape[-1]
+
     # define the loss function
     scale_weight = numpy_to_variable(w / scale**2)
 
@@ -37,10 +48,11 @@ def main(input, output, n):
         return torch.mean(
             torch.pow(pred - y.float(), 2).mul(scale_weight.float()))
 
+
     # cast to double for numerical stability purposes
-    x = X[:-1].reshape((-1, 68)).astype(float)
-    xp = X[1:].reshape((-1, 68)).astype(float)
-    g = G[:-1].reshape((-1, 68)).astype(float)
+    x = X[:-1].reshape((-1, m)).astype(float)
+    xp = X[1:].reshape((-1, m)).astype(float)
+    g = G[:-1].reshape((-1, m)).astype(float)
 
     sig = numpy_to_variable(x.std(axis=0))
     mu = numpy_to_variable(x.mean(axis=0))
@@ -51,8 +63,8 @@ def main(input, output, n):
     dataset = ConcatDataset(x, y)
     data_loader = DataLoader(dataset, batch_size=100, shuffle=True)
 
-    net = nn.Sequential(Scaler(mu, sig), single_layer_perceptron(68, 68))
-    optimizer = torch.optim.Adam(net.parameters())
+    net = nn.Sequential(Scaler(mu, sig), single_layer_perceptron(m, m))
+    optimizer = torch.optim.Adam(net.parameters(), weight_decay=weight_decay)
 
     # train the model
     train(
@@ -60,10 +72,6 @@ def main(input, output, n):
         loss_function,
         optimizer=optimizer,
         num_epochs=num_epochs)
-
-    # plot output for one location
-    x = X[:, 8, 0, :]
-    pred = predict(net, x)
 
     torch.save(net, output)
 
@@ -77,4 +85,4 @@ if __name__ == '__main__':
         main()
     else:
         main(snakemake.input[0], snakemake.output[0],
-             snakemake.params.n)
+             **snakemake.params)
