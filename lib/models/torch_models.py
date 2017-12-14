@@ -17,8 +17,10 @@ import torch.nn as nn
 from sklearn.base import BaseEstimator, RegressorMixin
 from torch.autograd import Variable
 
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from tqdm import tqdm
+
+from .torch_datasets import ConcatDataset
 
 
 def train(data_loader, loss_fn, optimizer=None, num_epochs=1):
@@ -179,18 +181,6 @@ class EulerStepper(nn.Module):
         jac = jacobian(self.rhs, x)
         return logm(I + h * jac)/h
 
-
-
-
-class ConcatDataset(torch.utils.data.Dataset):
-    def __init__(self, *datasets):
-        self.datasets = datasets
-
-    def __getitem__(self, i):
-        return tuple(d[i] for d in self.datasets)
-
-    def __len__(self):
-        return min(len(d) for d in self.datasets)
 
 
 @attr.s
