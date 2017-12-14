@@ -12,3 +12,19 @@
    done in [[orgit-log:./::multiple-step-objective][this branch]].
    
    I mainly need to make a new train_euler_step function in [[file:lib/models/torch_models.py][torch_models.py]].
+
+** TODO Streamline the codes
+
+   the processing flow occurs in the following steps
+
+   1. Load the data from netcdf
+   2. Preprocessing
+      1. subsetting (e.g. removing stratospheric humidity)
+      2. normalization (e.g. subtract mean and divide by standard deviation).
+      3. Reshaping. the data comes in a 4d format and needs to be reshaped.
+   3. Neural network
+   4. Loss function
+   
+
+   Right now, I am using a lot of boiler plate for loading the data, and it
+   should be easy to wrap this boiler plate in a usable fashion.
