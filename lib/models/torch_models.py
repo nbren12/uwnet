@@ -8,6 +8,7 @@ SupervisedProblem : torch dataset class for supervised learning problems
 TorchRegressor : Sklearn Torch wrapper
 """
 from functools import partial
+from itertools import islice
 
 import attr
 import numpy as np
@@ -23,24 +24,33 @@ from tqdm import tqdm
 from .torch_datasets import ConcatDataset
 
 
-def train(data_loader, loss_fn, optimizer=None, num_epochs=1):
-    """Train a torch model"""
+def train(data_loader, loss_fn, optimizer, num_epochs=1,
+          num_steps=-1):
+    """Train a torch model
 
-    if optimizer is None:
-        optimizer = torch.optim.Adam(net.parameters())
+    Parameters
+    ----------
+    num_epochs : int
+        number of epochs of training
+    num_steps : int or None
+        maximum number of batches per epoch. If None, then the full dataset is used.
+
+    """
+
+    if num_steps == -1:
+        num_steps = len(data_loader)
 
     for epoch in range(num_epochs):
         avg_loss = 0
 
-        for batch_idx, data in tqdm(
-                enumerate(data_loader), total=len(data_loader)):
+        data_generator = islice(data_loader, num_steps)
+
+        for batch_idx, data in tqdm(enumerate(data_generator),
+                                    total=num_steps):
             optimizer.zero_grad()  # this is not done automatically in torch
 
-            # cast all variables to Variable
-            data_args = [Variable(x) for x in data]
-
             # pass all data args to loss_function
-            loss = loss_fn(*data_args)
+            loss = loss_fn(*data)
 
             loss.backward()
             optimizer.step()
@@ -84,7 +94,13 @@ class Scaler(nn.Module):
         self.sig = sig
 
     def forward(self, x):
-        return x.sub(self.mu).div(self.sig + 1e-7).float()
+        # need to cast to double to avoid large floating point errors when
+        # subtracting the mean
+        x = x.double()
+        mu = self.mu.double()
+        sig = self.sig.double()
+
+        return x.sub(mu).div(sig + 1e-7).float()
 
 
 class Subset(nn.Module):
@@ -162,7 +178,7 @@ class EulerStepper(nn.Module):
         rhs = self.rhs
 
         for i in range(nsteps):
-            x = x.float() + h / nsteps * (rhs(x.double()))
+            x = x + h / nsteps * rhs(x)
 
         return x
 
@@ -222,7 +238,7 @@ class TorchRegressor(BaseEstimator, RegressorMixin):
 
 
 def numpy_to_variable(x):
-    return Variable(torch.DoubleTensor(x))
+    return Variable(torch.FloatTensor(x))
 
 
 def predict(net, *args):
@@ -262,9 +278,9 @@ def train_euler_network(data, n=1, nsteps=1, learning_rate=.001, nhidden=256,
 
 
     # cast to double for numerical stability purposes
-    x = X[:-1].reshape((-1, m)).astype(float)
-    xp = X[1:].reshape((-1, m)).astype(float)
-    g = G[:-1].reshape((-1, m)).astype(float)
+    x = X[:-1].reshape((-1, m))
+    xp = X[1:].reshape((-1, m))
+    g = G[:-1].reshape((-1, m))
 
     # the sampling interval of the data
     dt = Variable(torch.FloatTensor([3 / 24]))
@@ -276,6 +292,9 @@ def train_euler_network(data, n=1, nsteps=1, learning_rate=.001, nhidden=256,
         return stepper(x)
 
     def loss_function(x, xp, g):
+
+        x, xp, g = [Variable(x) for x in [x, xp, g]]
+
         pred = forward(x, xp, g)
         g = g.float()
         return torch.mean(

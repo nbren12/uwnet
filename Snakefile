@@ -1,3 +1,4 @@
+import sys
 import xarray as xr
 import os
 from lib.thermo import liquid_water_temperature, total_water, q1, q2
@@ -17,7 +18,7 @@ print(os.environ['PYTHONPATH'])
 #     input: ngaqua("3d/Q1.nc")
 
 rule all:
-    input: "data/raw/ngaqua/stat.nc", "data/ml/ngaqua/time_series_fit.torch"
+    input: "data/raw/ngaqua/stat.nc", "data/ml/ngaqua/time_series_fit.torch", "data/ml/ngaqua/multistep_objective.torch"
 
 
 def ngaqua_files():
@@ -173,3 +174,15 @@ rule time_series_slp:
     output: "data/ml/ngaqua/time_series_fit.torch"
     params: n=4, weight_decay=0.5
     script: "lib/scripts/torch_cli.py"
+
+
+rule multiple_step_obj:
+    input: "data/ml/ngaqua/time_series_data.npz"
+    output: "data/ml/ngaqua/multistep_objective.torch"
+    shell:
+        """
+        {sys.executable} lib/scripts/torch_time_series.py multi \
+                   --num_epochs 2 --window_size 10 --batch_size 500 \
+        --weight_decay 0.00 \
+        {input} {output}
+        """
