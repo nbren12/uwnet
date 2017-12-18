@@ -20,19 +20,27 @@ def _init_linear_weights(net, std):
         if isinstance(mod, nn.Linear):
             mod.weight.data.normal_(std=std)
 
-def train_multistep_objective(data, num_epochs=1, num_steps=None, nsteps=1, learning_rate=.001,
-                              nhidden=10, weight_decay=.0, ntrain=None, batch_size=100,
-                              window_size=2):
-    """Train a single layer perceptron euler time stepping model
 
-    For one time step this torch models performs the following math
+def  _data_to_torch_dataset(data, window_size):
 
-    .. math::
+    X = data['X']
+    G = data['G']
+    scale = data['scales']
+    w = data['w']
 
-        x^n+1 = x^n + dt * (f(x^n) + g)
+    # do not use the moisture field above 200 hPA
+    # this is the top 14 grid points for NGAqua
+    ntop = -14
+    X = X[..., :ntop].astype(float)
+    G = G[..., :ntop].astype(float)
+    dataset = ConcatDataset(WindowedData(X, chunk_size=window_size),
+                            WindowedData(G, chunk_size=window_size))
+
+    return dataset
 
 
-    """
+def _data_to_stats(data):
+
     X = data['X']
     G = data['G']
     scale = data['scales']
@@ -46,27 +54,44 @@ def train_multistep_objective(data, num_epochs=1, num_steps=None, nsteps=1, lear
     scale = scale[:ntop].astype(float)
     w = w[:ntop].astype(float)
 
-
-    # the sampling interval of the data
-    dt = Variable(torch.FloatTensor([3 / 24]))
-
     # scaling and other code
     scale_weight = w / scale**2
 
-
     # compute mean and stddev
+    # this is an error, std does not work like this
     sig = np.apply_over_axes(np.std, X, axes=(0, 1, 2))
     mu = np.apply_over_axes(np.mean, X, axes=(0, 1, 2))
 
     mu, sig, scale_weight = [Variable(torch.FloatTensor((np.squeeze(x))))
                              for x in [mu, sig, scale_weight]]
 
-    dataset = ConcatDataset(WindowedData(X, chunk_size=window_size),
-                            WindowedData(G, chunk_size=window_size))
+    return mu, sig, scale_weight
+
+
+def train_multistep_objective(data, num_epochs=1, num_steps=None, nsteps=1, learning_rate=.001,
+                              nhidden=10, weight_decay=.0, ntrain=None, batch_size=100,
+                              window_size=2):
+    """Train a single layer perceptron euler time stepping model
+
+    For one time step this torch models performs the following math
+
+    .. math::
+
+        x^n+1 = x^n + dt * (f(x^n) + g)
+
+
+    """
+
+    # the sampling interval of the data
+    dt = Variable(torch.FloatTensor([3 / 24]))
+
+    dataset = _data_to_torch_dataset(data, window_size)
+    mu, sig, scale_weight = _data_to_stats(data)
+
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     # define the neural network
-    m = X.shape[-1]
+    m = mu.size(0)
     net = nn.Sequential(
         Scaler(mu, sig), single_layer_perceptron(m, m, num_hidden=nhidden))
     stepper = EulerStepper(net, nsteps=nsteps, h=dt)
