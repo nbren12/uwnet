@@ -182,7 +182,7 @@ rule multiple_step_obj:
     shell:
         """
         {sys.executable} lib/scripts/torch_time_series.py multi \
-                   --num_epochs 2 --window_size 10 --batch_size 500 \
+                   --num_epochs 1 --window_size 10 --num_steps 1000 --batch_size 500 \
         --weight_decay 0.00 \
         {input} {output}
         """
