@@ -127,10 +127,12 @@ def train_multistep_objective(data, num_epochs=1, num_steps=None, nsteps=1, lear
     # define the neural network
     m = mu.size(0)
     net = nn.Sequential(
-        Scaler(mu, sig), single_layer_perceptron(m, m, num_hidden=nhidden))
+        Scaler(mu, sig),
+        single_layer_perceptron(m, m, num_hidden=nhidden),
+        )
     stepper = EulerStepper(net, nsteps=nsteps, h=dt)
 
-    _init_linear_weights(net, .01/nsteps)
+    # _init_linear_weights(net, .01/nsteps)
     loss_function = partial(multiple_step_mse, stepper, scale_weight)
     optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
