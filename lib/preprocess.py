@@ -15,6 +15,8 @@ def prepvar(X, feature_dims=['z'], sample_dims=['time', 'x', 'y']):
 
 def prepare_data(input_files, forcing_files, weight_file):
 
+    fields = ('sl', 'qt')
+
     # load the data
     inputs = xr.open_mfdataset(input_files)
     forcings = xr.open_mfdataset(forcing_files)
@@ -38,9 +40,15 @@ def prepare_data(input_files, forcing_files, weight_file):
     scales_np = scales_to_np(scales, X.indexes['features'])
     w_np = weights_to_np(w, X.indexes['features'])
 
+
+    output_dims = ['time', 'y', 'x', 'z']
+    X = {key: inputs[key].transpose(*output_dims).values for key in fields}
+    G = {key: forcings[key].transpose(*output_dims).values for key in fields}
+
     return {
-        'X': np.asarray(X),
-        'G': np.asarray(G),
+        'X': X,
+        'G': G,
+        'fields': fields,
         'scales': scales_np,
         'w': w_np
     }

@@ -166,7 +166,7 @@ rule time_series_data:
     input: forcing= ["data/calc/forcing/ngaqua/sl.nc", "data/calc/forcing/ngaqua/qt.nc"],
             inputs=["data/calc/ngaqua/sl.nc", "data/calc/ngaqua/qt.nc"],
             weight= "data/processed/ngaqua/w.nc"
-    output: "data/ml/ngaqua/time_series_data.npz"
+    output: "data/ml/ngaqua/time_series_data.pkl"
     script: "lib/scripts/data_to_numpy.py"
 
 rule time_series_slp:
@@ -177,7 +177,7 @@ rule time_series_slp:
 
 
 rule multiple_step_obj:
-    input: "data/ml/ngaqua/time_series_data.npz"
+    input: "data/ml/ngaqua/time_series_data.pkl"
     output: "data/ml/ngaqua/multistep_objective.torch"
     shell:
         """

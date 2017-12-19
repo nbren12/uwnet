@@ -1,5 +1,5 @@
-import numpy as np
 from lib.preprocess import prepare_data
+from sklearn.externals import joblib
 
 def main():
     input_files = snakemake.input.inputs
@@ -8,7 +8,7 @@ def main():
 
     output_data = prepare_data(input_files, forcing_files, weight_file)
 
-    np.savez(snakemake.output[0], **output_data)
+    joblib.dump(output_data, snakemake.output[0])
 
 if __name__ == '__main__':
     main()

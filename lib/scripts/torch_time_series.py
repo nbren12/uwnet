@@ -8,6 +8,7 @@
 """
 import click
 import numpy as np
+from sklearn.externals import joblib
 import torch
 from lib.models.torch_models import train_euler_network
 from lib.models.multiple_step_objective import train_multistep_objective
@@ -43,7 +44,7 @@ def single(input, output, **kwargs):
 @click.option("--weight_decay", default=.1)
 @click.option("--batch_size", default=100)
 def multi(input, output, **kwargs):
-    data = np.load(input)
+    data = joblib.load(input)
     stepper = train_multistep_objective(data, **kwargs)
     torch.save(stepper, output)
 

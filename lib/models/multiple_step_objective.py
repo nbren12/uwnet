@@ -22,18 +22,20 @@ def _init_linear_weights(net, std):
             mod.weight.data.normal_(std=std)
 
 
-def  _data_to_torch_dataset(data, window_size):
+def _stack_dict_arrs(d, keys, axis=-1):
+    return np.concatenate([d[key] for key in keys], axis=-1)
 
-    X = data['X']
-    G = data['G']
-    scale = data['scales']
-    w = data['w']
+def _data_to_torch_dataset(data, window_size):
+
+    X = _stack_dict_arrs(data['X'], data['fields'])
+    G = _stack_dict_arrs(data['G'], data['fields'])
 
     # do not use the moisture field above 200 hPA
     # this is the top 14 grid points for NGAqua
     ntop = -14
     X = X[..., :ntop].astype(float)
     G = G[..., :ntop].astype(float)
+
     dataset = ConcatDataset(WindowedData(X, chunk_size=window_size),
                             WindowedData(G, chunk_size=window_size))
 
@@ -42,8 +44,9 @@ def  _data_to_torch_dataset(data, window_size):
 
 def _data_to_stats(data):
 
-    X = data['X']
-    G = data['G']
+    X = _stack_dict_arrs(data['X'], data['fields'])
+    G = _stack_dict_arrs(data['G'], data['fields'])
+
     scale = data['scales']
     w = data['w']
 
