@@ -45,6 +45,7 @@ def train(data_loader, loss_fn, optimizer, num_epochs=1,
 
         data_generator = islice(data_loader, num_steps)
 
+        counter = 0
         for batch_idx, data in tqdm(enumerate(data_generator),
                                     total=num_steps):
             optimizer.zero_grad()  # this is not done automatically in torch
@@ -56,8 +57,9 @@ def train(data_loader, loss_fn, optimizer, num_epochs=1,
             optimizer.step()
 
             avg_loss += loss.data.numpy()
+            counter += 1
 
-        avg_loss /= len(data_loader)
+        avg_loss /= counter
         print(f"Epoch: {epoch} [{batch_idx}]\tLoss: {avg_loss}")
 
 
