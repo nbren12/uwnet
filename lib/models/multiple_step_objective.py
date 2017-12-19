@@ -77,8 +77,17 @@ def weighted_loss(x, y, scale_weight):
     return torch.mean(torch.pow(x-y, 2).mul(scale_weight.float()))
 
 
-def multiple_step_mse(stepper, scale_weight, x, g):
-    """Weighte MSE loss accumulated over multiple time steps
+def multiple_step_mse(stepper, scale_weight, loss_weight, x, g):
+    """Weighted MSE loss accumulated over multiple time steps
+
+    Parameters
+    ----------
+    stepper : nn.Module
+        torch stepper
+    scale_weight :
+        weights for loss function
+    loss_weight : torch.Tensor
+        loss_weight[i] gives the weight at step i
     """
     x = Variable(x.float())
     g = Variable(g.float())
@@ -94,7 +103,7 @@ def multiple_step_mse(stepper, scale_weight, x, g):
         # use trapezoid rule for the forcing
         xiter = stepper(xiter) + (g[:, i-1, :] + g[:, i, :]).mul(dt/2)
         xactual = x[:, i, :]
-        loss += weighted_loss(xiter, xactual, scale_weight)
+        loss += weighted_loss(xiter, xactual, scale_weight) * loss_weight[i-1]
 
     if np.isnan(loss.data.numpy()):
         raise FloatingPointError
@@ -124,6 +133,14 @@ def train_multistep_objective(data, num_epochs=1, num_steps=None, nsteps=1, lear
 
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
+    # compute weights for loss function
+    # exponential decay in loss
+    # loss_weight = torch.exp(-torch.arange(0, window_size-1) * dt.data/2)
+    # equally weighted
+    loss_weight = torch.ones(window_size-1)
+    loss_weight /= torch.sum(loss_weight)
+    loss_weight = Variable(loss_weight)
+
     # define the neural network
     m = mu.size(0)
     net = nn.Sequential(
@@ -133,7 +150,8 @@ def train_multistep_objective(data, num_epochs=1, num_steps=None, nsteps=1, lear
     stepper = EulerStepper(net, nsteps=nsteps, h=dt)
 
     # _init_linear_weights(net, .01/nsteps)
-    loss_function = partial(multiple_step_mse, stepper, scale_weight)
+    loss_function = partial(multiple_step_mse, stepper, scale_weight,
+                            loss_weight)
     optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     # train the model
