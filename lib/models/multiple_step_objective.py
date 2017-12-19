@@ -63,8 +63,9 @@ def _data_to_stats(data):
 
     # compute mean and stddev
     # this is an error, std does not work like this
-    sig = np.apply_over_axes(np.std, X, axes=(0, 1, 2))
-    mu = np.apply_over_axes(np.mean, X, axes=(0, 1, 2))
+    m = X.shape[-1]
+    mu = X.reshape((-1, m)).mean(axis=0)
+    sig = X.reshape((-1, m)).std(axis=0)
 
     mu, sig, scale_weight = [Variable(torch.FloatTensor((np.squeeze(x))))
                              for x in [mu, sig, scale_weight]]
@@ -94,6 +95,9 @@ def multiple_step_mse(stepper, scale_weight, x, g):
         xiter = stepper(xiter) + (g[:, i-1, :] + g[:, i, :]).mul(dt/2)
         xactual = x[:, i, :]
         loss += weighted_loss(xiter, xactual, scale_weight)
+
+    if np.isnan(loss.data.numpy()):
+        raise FloatingPointError
 
     return loss
 
@@ -126,9 +130,9 @@ def train_multistep_objective(data, num_epochs=1, num_steps=None, nsteps=1, lear
         Scaler(mu, sig), single_layer_perceptron(m, m, num_hidden=nhidden))
     stepper = EulerStepper(net, nsteps=nsteps, h=dt)
 
-    _init_linear_weights(net, .001/nsteps)
+    _init_linear_weights(net, .01/nsteps)
     loss_function = partial(multiple_step_mse, stepper, scale_weight)
-    optimizer = torch.optim.Adam(net.parameters(), weight_decay=weight_decay)
+    optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     # train the model
     train(data_loader, loss_function, optimizer=optimizer,
