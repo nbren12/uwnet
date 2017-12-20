@@ -5,7 +5,7 @@ from .models.torch_models import predict
 
 def runsteps(step, x, n):
     """Perform n steps using"""
-    out = np.zeros((n+1, x.shape[0]), dtype=x.dtype)
+    out = np.zeros((n, x.shape[0]), dtype=x.dtype)
     out[0] = x
 
     for i in range(n):
