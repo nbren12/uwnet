@@ -15,11 +15,8 @@ from .torch_datasets import ConcatDataset, WindowedData
 from .torch_models import (numpy_to_variable, single_layer_perceptron, Scaler,
                            EulerStepper, train)
 
-
-def _init_linear_weights(net, std):
-    for mod in net.modules():
-        if isinstance(mod, nn.Linear):
-            mod.weight.data.normal_(std=std)
+def _numpy_to_variable(x):
+    return Variable(torch.FloatTensor(x))
 
 
 def _data_to_torch_dataset(data, window_size):
@@ -30,42 +27,36 @@ def _data_to_torch_dataset(data, window_size):
     return dataset
 
 
-def _data_to_stats(data):
-
-    scale = data['scales']
-    w = data['w']
-
-    # scaling and other code
-    scale_weight = w / scale**2
-
+def _data_to_scaler(data):
     # compute mean and stddev
     # this is an error, std does not work like this
     X = data['X']
     m = X.shape[-1]
     mu = X.reshape((-1, m)).mean(axis=0)
     sig = X.reshape((-1, m)).std(axis=0)
+    mu, sig = [_numpy_to_variable(np.squeeze(x)) for x in [mu, sig]]
+    return Scaler(mu, sig)
 
-    mu, sig, scale_weight = [Variable(torch.FloatTensor((np.squeeze(x))))
-                             for x in [mu, sig, scale_weight]]
 
-    return mu, sig, scale_weight
+def _data_to_loss_feature_weights(data):
+    return _numpy_to_variable(data['w']/data['scales']**2)
 
 
 def weighted_loss(x, y, scale_weight):
     return torch.mean(torch.pow(x-y, 2).mul(scale_weight.float()))
 
 
-def multiple_step_mse(stepper, scale_weight, loss_weight, x, g):
+def multiple_step_mse(stepper, feature_weight, time_weight, x, g):
     """Weighted MSE loss accumulated over multiple time steps
 
     Parameters
     ----------
     stepper : nn.Module
         torch stepper
-    scale_weight :
+    feature_weight :
         weights for loss function
-    loss_weight : torch.Tensor
-        loss_weight[i] gives the weight at step i
+    time_weight : torch.Tensor
+        time_weight[i] gives the weight at step i
     """
     x = Variable(x.float())
     g = Variable(g.float())
@@ -81,7 +72,7 @@ def multiple_step_mse(stepper, scale_weight, loss_weight, x, g):
         # use trapezoid rule for the forcing
         xiter = stepper(xiter) + (g[:, i-1, :] + g[:, i, :]).mul(dt/2)
         xactual = x[:, i, :]
-        loss += weighted_loss(xiter, xactual, scale_weight) * loss_weight[i-1]
+        loss += weighted_loss(xiter, xactual, feature_weight) * time_weight[i-1]
 
     if np.isnan(loss.data.numpy()):
         raise FloatingPointError
@@ -107,7 +98,8 @@ def train_multistep_objective(data, num_epochs=1, num_steps=None, nsteps=1, lear
     dt = Variable(torch.FloatTensor([3 / 24]))
 
     dataset = _data_to_torch_dataset(data, window_size)
-    mu, sig, scale_weight = _data_to_stats(data)
+    scaler = _data_to_scaler(data)
+    feature_weight = _data_to_loss_feature_weights(data)
 
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
@@ -115,21 +107,23 @@ def train_multistep_objective(data, num_epochs=1, num_steps=None, nsteps=1, lear
     # exponential decay in loss
     # loss_weight = torch.exp(-torch.arange(0, window_size-1) * dt.data/2)
     # equally weighted
-    loss_weight = torch.ones(window_size-1)
-    loss_weight /= torch.sum(loss_weight)
-    loss_weight = Variable(loss_weight)
+    time_weight = torch.ones(window_size-1)
+    time_weight /= torch.sum(time_weight)
+    time_weight = Variable(time_weight)
 
     # define the neural network
-    m = mu.size(0)
+    m = feature_weight.size(0)
     net = nn.Sequential(
-        Scaler(mu, sig),
+        scaler,
         single_layer_perceptron(m, m, num_hidden=nhidden),
         )
     stepper = EulerStepper(net, nsteps=nsteps, h=dt)
 
     # _init_linear_weights(net, .01/nsteps)
-    loss_function = partial(multiple_step_mse, stepper, scale_weight,
-                            loss_weight)
+    loss_function = partial(multiple_step_mse, stepper,
+                            _data_to_loss_feature_weights(data),
+                            time_weight)
+
     optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     # train the model
