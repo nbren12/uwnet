@@ -22,6 +22,12 @@ def stacked_data(X):
     return X
 
 
+def pad_along_axis(x, pad_width, mode, axis):
+    pad_widths = [(0, 0)]*x.ndim
+    pad_widths[axis] = pad_width
+    return np.pad(x, pad_widths, mode)
+
+
 def unstacked_data(X):
     """Inverse operation of stacked_data """
 
@@ -31,6 +37,8 @@ def unstacked_data(X):
 
     sl = X[...,:nz]
     qt = X[...,nz:]
+
+    qt = pad_along_axis(qt, (0,14), 'constant', -1)
 
     return {'sl': sl, 'qt': qt}
 
