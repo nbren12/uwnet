@@ -28,21 +28,19 @@ def stacked_data(X, fields):
     return X
 
 
-def prepare_data(input_files, forcing_files, weight_file,
+def prepare_data(inputs, forcings, w,
                  subset_fn=lambda x: x.isel(y=slice(24, 40))):
 
     fields = ('sl', 'qt')
 
-    # load the data
-    inputs = xr.open_mfdataset(input_files)
-    forcings = xr.open_mfdataset(forcing_files)
+    # load the data if necesary
+    if not isinstance(inputs, xr.Dataset):
+        inputs = xr.open_mfdataset(inputs, preprocess=subset_fn)
+    if not isinstance(forcings, xr.Dataset):
+        forcings = xr.open_mfdataset(forcings, preprocess=subset_fn)
+    if not isinstance(w, xr.DataArray):
+        w = xr.open_dataarray(w)
 
-    if subset_fn is not None:
-        inputs = inputs.pipe(subset_fn)
-        forcings = forcings.pipe(subset_fn)
-
-    # get weights
-    w = xr.open_dataarray(weight_file)
     weights = {key: w.values for key in fields}
 
     # compute scales
