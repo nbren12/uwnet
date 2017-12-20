@@ -54,8 +54,8 @@ def prepare_data(inputs, forcings, w,
 
     output_dims = [dim for dim in ['time', 'y', 'x', 'z']
                    if dim in inputs.dims]
-    X = {key: inputs[key].transpose(*output_dims).values for key in fields}
-    G = {key: forcings[key].transpose(*output_dims).values for key in fields}
+    X = {key: inputs[key].transpose(*output_dims) for key in fields}
+    G = {key: forcings[key].transpose(*output_dims) for key in fields}
 
     # return stacked data
     X = stacked_data(X, fields)
