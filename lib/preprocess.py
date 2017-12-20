@@ -2,31 +2,37 @@
 """
 import numpy as np
 from sklearn.externals import joblib
-from xnoah.data_matrix import stack_cat
 from lib.util import compute_weighted_scale, weights_to_np, scales_to_np
 
 import xarray as xr
 
 
-def _stack_dict_arrs(d, keys, axis=-1):
-    return np.concatenate([d[key] for key in keys], axis=-1)
+def stacked_data(X):
 
-
-def _prepvar(X, feature_dims=['z'], sample_dims=['time', 'x', 'y']):
-    # select only the tropics
-    return stack_cat(X, "features", ['z'])
-
-
-def stacked_data(X, fields):
-
-    X = _stack_dict_arrs(X, fields)
+    sl = np.asarray(X['sl'])
+    qt = np.asarray(X['qt'])
 
     # do not use the moisture field above 200 hPA
     # this is the top 14 grid points for NGAqua
     ntop = -14
-    X = X[..., :ntop].astype(float)
+    qt = qt[..., :ntop].astype(float)
+
+    return np.concatenate((sl, qt), axis=-1)
+
     return X
 
+
+def unstacked_data(X):
+    """Inverse operation of stacked_data """
+
+    nf = X.shape[-1]
+    # nz + nz - 14 = nf
+    nz = (nf+14)//2
+
+    sl = X[...,:nz]
+    qt = X[...,nz:]
+
+    return {'sl': sl, 'qt': qt}
 
 def prepare_data(inputs, forcings, w,
                  subset_fn=lambda x: x.isel(y=slice(24, 40))):
@@ -58,10 +64,10 @@ def prepare_data(inputs, forcings, w,
     G = {key: forcings[key].transpose(*output_dims) for key in fields}
 
     # return stacked data
-    X = stacked_data(X, fields)
-    G = stacked_data(G, fields)
-    scales = stacked_data(scales, fields)
-    w = stacked_data(weights, fields)
+    X = stacked_data(X)
+    G = stacked_data(G)
+    scales = stacked_data(scales)
+    w = stacked_data(weights)
 
     return {
         'X': X,
