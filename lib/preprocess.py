@@ -44,15 +44,16 @@ def prepare_data(inputs, forcings, w,
     weights = {key: w.values for key in fields}
 
     # compute scales
-    sample_dims = ['x', 'y', 'time']
+    sample_dims = set(['x', 'y', 'time']) & set(inputs.dims)
     scales = compute_weighted_scale(w, sample_dims=sample_dims,
                                     ds=inputs)
-    scales = {key: float(scales[key]) for key in scales}
+    scales = {key: float(scales[key]) for key in fields}
     scales = {key: [scales[key]] * inputs[key].z.shape[0]
-              for key in scales}
+              for key in fields}
 
 
-    output_dims = ['time', 'y', 'x', 'z']
+    output_dims = [dim for dim in ['time', 'y', 'x', 'z']
+                   if dim in inputs.dims]
     X = {key: inputs[key].transpose(*output_dims).values for key in fields}
     G = {key: forcings[key].transpose(*output_dims).values for key in fields}
 
