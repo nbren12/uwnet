@@ -22,20 +22,8 @@ def _init_linear_weights(net, std):
             mod.weight.data.normal_(std=std)
 
 
-def _stack_dict_arrs(d, keys, axis=-1):
-    return np.concatenate([d[key] for key in keys], axis=-1)
-
 def _data_to_torch_dataset(data, window_size):
-
-    X = _stack_dict_arrs(data['X'], data['fields'])
-    G = _stack_dict_arrs(data['G'], data['fields'])
-
-    # do not use the moisture field above 200 hPA
-    # this is the top 14 grid points for NGAqua
-    ntop = -14
-    X = X[..., :ntop].astype(float)
-    G = G[..., :ntop].astype(float)
-
+    X, G = data['X'], data['G']
     dataset = ConcatDataset(WindowedData(X, chunk_size=window_size),
                             WindowedData(G, chunk_size=window_size))
 
@@ -44,25 +32,15 @@ def _data_to_torch_dataset(data, window_size):
 
 def _data_to_stats(data):
 
-    X = _stack_dict_arrs(data['X'], data['fields'])
-    G = _stack_dict_arrs(data['G'], data['fields'])
-
     scale = data['scales']
     w = data['w']
-
-    # do not use the moisture field above 200 hPA
-    # this is the top 14 grid points for NGAqua
-    ntop = -14
-    X = X[..., :ntop].astype(float)
-    G = G[..., :ntop].astype(float)
-    scale = scale[:ntop].astype(float)
-    w = w[:ntop].astype(float)
 
     # scaling and other code
     scale_weight = w / scale**2
 
     # compute mean and stddev
     # this is an error, std does not work like this
+    X = data['X']
     m = X.shape[-1]
     mu = X.reshape((-1, m)).mean(axis=0)
     sig = X.reshape((-1, m)).std(axis=0)
