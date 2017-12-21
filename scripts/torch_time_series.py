@@ -10,8 +10,7 @@ import click
 import numpy as np
 from sklearn.externals import joblib
 import torch
-from lib.models.torch_models import train_euler_network
-from lib.models.multiple_step_objective import train_multistep_objective
+from lib.models.torch import train_euler_network, train_multistep_objective
 
 
 @click.group()

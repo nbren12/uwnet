@@ -81,11 +81,6 @@ rule advection_forcing:
         f.to_dataset(name=f.name)\
          .to_netcdf(output[0])
 
-rule adams_bashforth_3:
-    input: "data/calc/forcing/{f}.nc"
-    output: "data/calc/ab3/{f}.nc"
-    script: "lib/scripts/adams_bashforth.py"
-
 rule apparent_source:
     input: forcing="data/calc/forcing/{f}.nc",
            data="data/calc/{f}.nc"
@@ -107,73 +102,13 @@ rule q2:
         d = xr.open_mfdataset(input)
         q2(d).to_netcdf(output[0])
 
-rule tropics:
-    input: "data/{f}.nc"
-    output: "data/tropics/{f}.nc"
-    shell: "ncks -d y,24,39 {input} {output}"
-
-rule linear_regression:
-    input: "data/ml/ngaqua/data.pkl"
-    output: "data/ml/ngaqua/linear_model.pkl"
-    params: model="linear"
-    script: "lib/scripts/fit_model.py"
-
-rule mca_regression:
-    input: "data/ml/ngaqua/data.pkl"
-    output: "data/ml/ngaqua/mca_regression.pkl"
-    params: model="mcr"
-    script: "lib/scripts/fit_model.py"
-
-rule mca:
-    input: "data/ml/ngaqua/data.pkl"
-    output: "data/ml/ngaqua/mca.pkl"
-    params: n_components=4
-    script: "lib/scripts/mca_script.py"
-
-input_data = [
-    "data/calc/ngaqua/qt.nc",
-    "data/calc/ngaqua/sl.nc",
-    "data/calc/ngaqua/q1.nc",
-    "data/calc/ngaqua/q2.nc",
-    "data/raw/ngaqua/coarse/3d/QRAD.nc",
-]
-
-# prepare data for linear model fitting these rule reads in Q1 and Q2, computes
-# Q1c, and then outputs the required data in a dict_like object
-rule prepvars:
-    input: data3d=input_data,
-           # removed 2d variables from the analysis, since they don't seem necessary
-           # data2d=expand("data/ngaqua/2d/{f}.nc", f=['LHF', 'SHF']),
-            weight="data/processed/ngaqua/w.nc"
-    output: "data/ml/ngaqua/data.pkl"
-    params: input_vars="qt sl".split(' '),
-            output_vars="Q1c Q2".split(' ')
-    script: "lib/scripts/prepvars.py"
-
-
-# prepared data for DMD analysis this rule reads in the data, applies the
-# forcing, and then saves the output
-rule dmd_data:
-    input: forcing= ["data/calc/forcing/ngaqua/sl.nc", "data/calc/forcing/ngaqua/qt.nc"],
-           inputs=["data/calc/ngaqua/sl.nc", "data/calc/ngaqua/qt.nc"],
-           weight= "data/processed/ngaqua/w.nc"
-    output: "data/ml/dmd.pkl"
-    script: "lib/scripts/dmd.py"
-
-# prepared data for DMD analysis this rule reads in the data, applies the
-# forcing, and then saves the output
 rule time_series_data:
     input: forcing= ["data/calc/forcing/ngaqua/sl.nc", "data/calc/forcing/ngaqua/qt.nc"],
             inputs=["data/calc/ngaqua/sl.nc", "data/calc/ngaqua/qt.nc"],
             weight= "data/processed/ngaqua/w.nc"
     output: "data/ml/ngaqua/time_series_data.pkl"
-    script: "lib/scripts/data_to_numpy.py"
+    script: "lib/scripts/torch_preprocess.py"
 
-rule time_series_slp:
-    input: "data/ml/ngaqua/time_series_data.npz"
-    output: "data/ml/ngaqua/time_series_fit.torch"
-    params: n=4, weight_decay=0.5
-    script: "lib/scripts/torch_cli.py"
 
 
 rule multiple_step_obj:
