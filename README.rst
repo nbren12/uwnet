@@ -16,13 +16,13 @@ Here is an annotated directory tree of this project::
   │   ├── cache
   │   ├── calc
   │   ├── ml
-  │   ├── processed 
+  │   ├── processed
   │   └── raw       - the raw data (this directory should be immutable)
   ├── docs
   │   └── plots.d   - any .py or .ipynb file in here will be run to make a plot
   ├── lib           - all the source code
   │   ├── models    - machine learning models
-  │   ├── plots     
+  │   ├── plots
   │   ├── scripts   - snakemake scripts
   │   └── snakemake - some snakemake workflows (might want to remove)
   ├── reports       - generated contents
@@ -45,8 +45,10 @@ Reports
 - `3.6-ndb-pytorch`_
 - `3.7-ndb-mca-regression-versus-linear-regression`_
 - `keras-slp`_
+- `5.4 Single Column Model`_
 
 .. _3.4-ndb-spectra: https://storage.googleapis.com/nbren12-data/reports/uw-machine-learning/3.4-ndb-LRF-spectra.html
 .. _3.6-ndb-pytorch: https://storage.googleapis.com/nbren12-data/reports/uw-machine-learning/3.6-ndb-pytorch.html
 .. _3.7-ndb-mca-regression-versus-linear-regression: https://atmos.washington.edu/~nbren12/reports/3.7-ndb-mca-regression-versus-linear-regression.html
 .. _keras-slp: https://atmos.washington.edu/~nbren12/reports/4.0-ndb-keras.html
+- _`5.4 Single Column Model`: http://nbviewer.jupyter.org/urls/atmos.washington.edu/~nbren12/reports/2017/5.4-ndb-single-column-lagged-performance.ipynb
