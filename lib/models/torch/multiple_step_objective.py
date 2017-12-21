@@ -4,6 +4,7 @@
 from functools import partial
 import attr
 import click
+import toolz
 import numpy as np
 
 import torch
@@ -46,6 +47,7 @@ def weighted_loss(x, y, scale_weight):
     return torch.mean(torch.pow(x-y, 2).mul(scale_weight.float()))
 
 
+@curry
 def multiple_step_mse(stepper, feature_weight, time_weight, x, g):
     """Weighted MSE loss accumulated over multiple time steps
 
@@ -57,6 +59,10 @@ def multiple_step_mse(stepper, feature_weight, time_weight, x, g):
         weights for loss function
     time_weight : torch.Tensor
         time_weight[i] gives the weight at step i
+    x : (batch, time, feat)
+        torch tensor of prognostic variables
+    g : (batch, time, feat)
+        torch tensor of forcings
     """
     x = Variable(x.float())
     g = Variable(g.float())
@@ -120,9 +126,9 @@ def train_multistep_objective(data, num_epochs=1, num_steps=None, nsteps=1, lear
     stepper = EulerStepper(net, nsteps=nsteps, h=dt)
 
     # _init_linear_weights(net, .01/nsteps)
-    loss_function = partial(multiple_step_mse, stepper,
-                            _data_to_loss_feature_weights(data),
-                            time_weight)
+    loss_function = multiple_step_mse(stepper,
+                                      _data_to_loss_feature_weights(data),
+                                      time_weight)
 
     optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
