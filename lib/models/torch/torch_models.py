@@ -243,11 +243,6 @@ def numpy_to_variable(x):
     return Variable(torch.FloatTensor(x))
 
 
-def predict(net, *args):
-
-    torch_args = [numpy_to_variable(x.astype(float)) for x in args]
-    return net(*torch_args).data.numpy()
-
 
 def train_euler_network(data, n=1, nsteps=1, learning_rate=.001, nhidden=256,
                         weight_decay=.5, ntrain=None):

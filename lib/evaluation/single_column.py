@@ -1,8 +1,11 @@
 import numpy as np
 import xarray as xr
 import torch
+from torch.autograd import Variable
 from toolz import curry
-from .models.torch_models import predict
+
+# this is a bad dirty import and should be removed
+from ..models.torch.preprocess import prepare_data, unstacked_data
 
 def runsteps(step, x, n):
     """Perform n steps using"""
@@ -17,29 +20,13 @@ def runsteps(step, x, n):
 
 
 @curry
-def step(net, x, n):
-    return predict(net, x[None,:])[0,:]
-
-
-@curry
-def forced_step(net, g, x, n):
-
-    if n < g.shape[0]-1:
-        f = (g[n] + g[n+1])/2
-    else:
-        f = g[n]
-
-    return predict(net, x[None,:])[0,:] + f * 3/24
-
-
-@curry
-def xr_runsteps(stepper, inputs, forcings, weights,
+def xr_runsteps(step, inputs, forcings, weights,
                 n=None, **kwargs):
     """Run the single column test with xarray input and output
 
     Parameters
     ----------
-    stepper
+    step
         callable that takes data in stacked format
     prepare_data
         callable that processed data into data_dict format
@@ -59,9 +46,6 @@ def xr_runsteps(stepper, inputs, forcings, weights,
     xarray dataset with same length as X
 
     """
-    from lib.preprocess import prepare_data, unstacked_data
-
-
     data = prepare_data(inputs, forcings, weights, **kwargs)
     X = data['X']
     G = data['G']
@@ -93,9 +77,6 @@ def lagged_predictions(stepper, inputs, forcings, weights, n=30, **kwargs):
     lagged_predictions : xr.Dataset
         dataset with dimensions (lag, time, z)
     """
-    from lib.preprocess import prepare_data, unstacked_data
-
-
     data = prepare_data(inputs, forcings, weights, **kwargs)
     X = data['X']
     G = data['G']
@@ -114,3 +95,24 @@ def lagged_predictions(stepper, inputs, forcings, weights, n=30, **kwargs):
     state = unstacked_data(output)
     var_dict = {key: (['lag', 'time', 'z'], state[key]) for key in state}
     return xr.Dataset(var_dict, coords=inputs.coords)
+
+
+def predict(net, *args):
+    torch_args = [Variable(torch.FloatTensor(x)) for x in args]
+    return net(*torch_args).data.numpy()
+
+
+@curry
+def step(net, x, n):
+    return predict(net, x[None,:])[0,:]
+
+
+@curry
+def forced_step(net, g, x, n):
+
+    if n < g.shape[0]-1:
+        f = (g[n] + g[n+1])/2
+    else:
+        f = g[n]
+
+    return predict(net, x[None,:])[0,:] + f * 3/24
