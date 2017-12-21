@@ -26,7 +26,8 @@ Here is an annotated directory tree of this project::
   │   ├── scripts   - snakemake scripts
   │   └── snakemake - some snakemake workflows (might want to remove)
   ├── reports       - generated contents
-  ├── results       - mostly has ipython notebooks
+  ├── results       - mostly has ipython notebooks; these analyses can be broken
+  ├── tests         - these analyses should work for the current version
   └── snakemake     - contains snakemake stuff
 
 
