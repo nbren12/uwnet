@@ -18,7 +18,7 @@ print(os.environ['PYTHONPATH'])
 #     input: ngaqua("3d/Q1.nc")
 
 rule all:
-    input: "data/raw/ngaqua/stat.nc", "data/ml/ngaqua/time_series_fit.torch", "data/ml/ngaqua/multistep_objective.torch"
+    input: "data/raw/ngaqua/stat.nc", "data/ml/ngaqua/multistep_objective.torch"
 
 
 def ngaqua_files():
@@ -47,7 +47,7 @@ rule data:
 rule weights:
     input: "data/raw/ngaqua/stat.nc"
     output: "data/processed/ngaqua/w.nc"
-    script: "lib/scripts/weights.py"
+    script: "scripts/weights.py"
 
 
 rule prognostic_variables:
@@ -70,7 +70,7 @@ rule advection_wildcard:
             w="data/raw/ngaqua/coarse/3d/W.destaggered.nc",
             f="data/calc/ngaqua/{f}.nc"
     output: "data/calc/adv/ngaqua/{f}.nc"
-    script: "lib/scripts/advection.py"
+    script: "scripts/advection.py"
 
 # sl forcing
 rule advection_forcing:
@@ -85,7 +85,7 @@ rule apparent_source:
     input: forcing="data/calc/forcing/{f}.nc",
            data="data/calc/{f}.nc"
     output: "data/calc/apparent/{f}.nc"
-    script: "lib/scripts/apparent_source.py"
+    script: "scripts/apparent_source.py"
 
 rule q1:
     input: "data/calc/apparent/ngaqua/sl.nc",
@@ -107,7 +107,7 @@ rule time_series_data:
             inputs=["data/calc/ngaqua/sl.nc", "data/calc/ngaqua/qt.nc"],
             weight= "data/processed/ngaqua/w.nc"
     output: "data/ml/ngaqua/time_series_data.pkl"
-    script: "lib/scripts/torch_preprocess.py"
+    script: "scripts/torch_preprocess.py"
 
 
 
@@ -116,7 +116,7 @@ rule multiple_step_obj:
     output: "data/ml/ngaqua/multistep_objective.torch"
     shell:
         """
-        {sys.executable} lib/scripts/torch_time_series.py multi \
+        {sys.executable} scripts/torch_time_series.py multi \
                    --num_epochs 4 --window_size 10 --num_steps 500 --batch_size 100 --learning-rate .010\
         --weight_decay 0.00 \
         {input} {output}

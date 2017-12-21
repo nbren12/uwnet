@@ -1,7 +1,7 @@
 """Fit model for the multiple time step objective function. This requires some special dataloaders etc
 
 """
-from functools import partial
+from toolz import curry
 import attr
 import click
 import toolz
