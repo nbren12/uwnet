@@ -25,7 +25,7 @@ from .torch_datasets import ConcatDataset
 
 
 def train(data_loader, loss_fn, optimizer, num_epochs=1,
-          num_steps=-1):
+          num_steps=None):
     """Train a torch model
 
     Parameters
@@ -37,7 +37,7 @@ def train(data_loader, loss_fn, optimizer, num_epochs=1,
 
     """
 
-    if num_steps == -1:
+    if num_steps == None:
         num_steps = len(data_loader)
 
     for epoch in range(num_epochs):
