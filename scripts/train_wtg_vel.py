@@ -1,3 +1,4 @@
+import xarray as xr
 import numpy as np
 
 import torch
@@ -21,31 +22,33 @@ class Prediction(nn.Module):
         super(Prediction, self).__init__()
 
         self.net = nn.Sequential(
-            nn.BatchNorm1d(40),
-            nn.Linear(40, 10),
+            nn.BatchNorm1d(54),
+            nn.Linear(54, 200),
             nn.ReLU(),
-            nn.BatchNorm1d(10),
-            nn.Linear(10, 10),
+            nn.Linear(200, 5),
             nn.ReLU(),
-            nn.BatchNorm1d(10),
-            nn.Linear(10, 10),
+            nn.Linear(5, 200),
             nn.ReLU(),
-            nn.BatchNorm1d(10),
-            nn.Linear(10, 40, bias=False),
+            nn.Linear(200, 34),
         )
 
 
     def forward(self, x):
         return self.net(x)
 
-def _get_data_loader():
-    data = prepare_data("data/prog/*.nc", "data/forcing/*.nc", "data/w.nc",
-                        subset_fn=lambda x: x)
+def _get_data_loader(ds):
+    nz = ds.z.shape[0]
+    dim_order = ['time', 'y', 'x', 'z']
 
-    X = data['X'].reshape((-1, 40))
-    G = data['G'].reshape((-1, 40))
+    data ={key: ds[key].transpose(*dim_order).values.reshape((-1, nz))
+           for key in ds
+           if set(ds[key].dims) == set(dim_order)}
 
-    return DataLoader(ConcatDataset(X, G), batch_size=100), X, G
+    X = np.concatenate((data['qt'][:,:-14],
+                        data['sl']), axis=-1)
+    Y = data['W']
+
+    return DataLoader(ConcatDataset(X, Y), batch_size=100)
 
 def score(net, data_loader):
     x, g = [torch.cat(x, 0) for x in zip(*iter(data_loader))]
@@ -59,9 +62,24 @@ def score(net, data_loader):
 
     return 1 - sse/ss
 
+torch.manual_seed(1)
+
+files = [
+    "data/raw/ngaqua/coarse/3d/W.destaggered.nc",
+    "data/calc/ngaqua/qt.nc",
+    "data/calc/ngaqua/sl.nc"
+]
+
+def preprocess(x):
+    if 'p' in x:
+        x = x.drop('p')
+    return x.isel(y=slice(32,33))
+
+ds = xr.open_mfdataset(files, preprocess=preprocess)
+data_loader = _get_data_loader(ds)
+
 net = Prediction()
-data_loader, X, G = _get_data_loader()
-optimizer = torch.optim.Adam(net.parameters(), lr=.01)
+optimizer = torch.optim.Adam(net.parameters(), lr=.0001)
 mse_loss = nn.MSELoss()
 
 counter = 0
@@ -80,12 +98,16 @@ def loss(x, g):
         loss_run_avg = loss.data[0]
     else:
         loss_run_avg = loss_run_avg * .99 + .01 * loss.data[0]
-    train_loss_logger.log(counter, loss_run_avg)
+
+    # try:
+    #     train_loss_logger.log(counter, loss_run_avg)
+    # except:
+    #     pass
 
     return loss
 
 
-train(data_loader, loss, optimizer, num_epochs=6)
+train(data_loader, loss, optimizer, num_epochs=20)
 
 R2 = score(net, data_loader)
 print(R2)
