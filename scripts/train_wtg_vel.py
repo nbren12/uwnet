@@ -25,11 +25,13 @@ class Prediction(nn.Module):
             nn.BatchNorm1d(54),
             nn.Linear(54, 200),
             nn.ReLU(),
-            nn.Linear(200, 5),
+            nn.Linear(200, 10),
             nn.ReLU(),
-            nn.Linear(5, 200),
+            nn.Linear(10, 50),
             nn.ReLU(),
-            nn.Linear(200, 34),
+            nn.Linear(50, 50),
+            nn.ReLU(),
+            nn.Linear(50, 34),
         )
 
 
@@ -73,7 +75,7 @@ files = [
 def preprocess(x):
     if 'p' in x:
         x = x.drop('p')
-    return x.isel(y=slice(32,33))
+    return x.isel(y=slice(24,40))
 
 ds = xr.open_mfdataset(files, preprocess=preprocess)
 data_loader = _get_data_loader(ds.isel(time=slice(0,-200)))
@@ -108,7 +110,7 @@ def loss(x, g):
     return loss
 
 
-train(data_loader, loss, optimizer, num_epochs=20)
+train(data_loader, loss, optimizer, num_epochs=2)
 
 R2 = score(net, test_loader)
 print(R2)
