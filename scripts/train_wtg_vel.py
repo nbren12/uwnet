@@ -76,7 +76,8 @@ def preprocess(x):
     return x.isel(y=slice(32,33))
 
 ds = xr.open_mfdataset(files, preprocess=preprocess)
-data_loader = _get_data_loader(ds)
+data_loader = _get_data_loader(ds.isel(time=slice(0,-200)))
+test_loader = _get_data_loader(ds.isel(time=slice(-200,None)))
 
 net = Prediction()
 optimizer = torch.optim.Adam(net.parameters(), lr=.0001)
@@ -109,5 +110,5 @@ def loss(x, g):
 
 train(data_loader, loss, optimizer, num_epochs=20)
 
-R2 = score(net, data_loader)
+R2 = score(net, test_loader)
 print(R2)
