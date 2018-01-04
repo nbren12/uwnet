@@ -87,7 +87,7 @@ def multiple_step_mse(stepper, feature_weight, time_weight, x, g):
     return loss
 
 
-def train_multistep_objective(data, num_epochs=1, num_steps=None, nsteps=1, learning_rate=.001,
+def train_multistep_objective(data, num_epochs=1, num_steps=None, nsteps=1, lr=.001,
                               nhidden=10, weight_decay=.0, ntrain=None, batch_size=100,
                               window_size=2):
     """Train a single layer perceptron euler time stepping model
@@ -131,7 +131,7 @@ def train_multistep_objective(data, num_epochs=1, num_steps=None, nsteps=1, lear
                                       _data_to_loss_feature_weights(data),
                                       time_weight)
 
-    optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
 
     # train the model
     train(data_loader, loss_function, optimizer=optimizer,
