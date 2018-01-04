@@ -16,7 +16,7 @@ def stacked_data(X):
     # this is the top 14 grid points for NGAqua
     ntop = -14
     qt = qt[..., :ntop].astype(float)
-    sl = sl[..., :ntop].astype(float)
+    # sl = sl[..., :ntop].astype(float)
 
     return np.concatenate((sl, qt), axis=-1)
 
