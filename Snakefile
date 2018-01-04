@@ -114,6 +114,6 @@ rule time_series_data:
 rule multiple_step_obj:
     input: "data/ml/ngaqua/time_series_data.pkl"
     output: "data/ml/ngaqua/multistep_objective.torch"
-    params:  num_steps=500, weight_decay=.1
+    params: num_epochs=2, num_steps=2000
     script: "scripts/torch_time_series2.py"
 

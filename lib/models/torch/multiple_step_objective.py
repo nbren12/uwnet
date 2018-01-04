@@ -87,9 +87,9 @@ def multiple_step_mse(stepper, feature_weight, time_weight, x, g):
     return loss
 
 
-def train_multistep_objective(data, num_epochs=1, num_steps=None, nsteps=1, lr=.001,
-                              nhidden=10, weight_decay=.0, ntrain=None, batch_size=100,
-                              window_size=2):
+def train_multistep_objective(data, num_epochs=4, window_size=10,
+                              num_steps=500, batch_size=100, lr=0.01,
+                              weight_decay=0.0, nsteps=1, nhidden=256):
     """Train a single layer perceptron euler time stepping model
 
     For one time step this torch models performs the following math
@@ -100,6 +100,7 @@ def train_multistep_objective(data, num_epochs=1, num_steps=None, nsteps=1, lr=.
 
 
     """
+    torch.manual_seed(1)
 
     # the sampling interval of the data
     dt = Variable(torch.FloatTensor([3 / 24]))

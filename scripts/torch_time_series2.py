@@ -10,11 +10,6 @@ from sklearn.externals import joblib
 import torch
 from lib.models.torch import train_multistep_objective
 
-
-kwargs = dict(num_epochs=4, num_steps=None, batch_size=100, lr=.01,
-              window_size=10)
-
-kwargs.update(snakemake.params)
 data = joblib.load(snakemake.input[0])
-stepper = train_multistep_objective(data, **kwargs)
+stepper = train_multistep_objective(data, **snakemake.params)
 torch.save(stepper, snakemake.output[0])
