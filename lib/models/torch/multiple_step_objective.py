@@ -43,48 +43,39 @@ def _data_to_scaler(data):
 def _data_to_loss_feature_weights(data):
     return _numpy_to_variable(data['w']/data['scales']**2)
 
-
-def weighted_loss(x, y, scale_weight):
-    return torch.mean(torch.pow(x-y, 2).mul(scale_weight.float()))
-
-
 @curry
-def multiple_step_mse(stepper, feature_weight, time_weight, x, g):
-    """Weighted MSE loss accumulated over multiple time steps
+def weighted_loss(weight, x, y):
+    return torch.mean(torch.pow(x-y, 2).mul(weight.float()))
 
-    Parameters
-    ----------
-    stepper : nn.Module
-        torch stepper
-    feature_weight :
-        weights for loss function
-    time_weight : torch.Tensor
-        time_weight[i] gives the weight at step i
-    x : (batch, time, feat)
-        torch tensor of prognostic variables
-    g : (batch, time, feat)
-        torch tensor of forcings
-    """
-    x = Variable(x.float())
-    g = Variable(g.float())
 
-    batch_size, window_size, nf = x.size()
+class ForcedStepper(nn.Module):
+    def __init__(self, step, dt):
+        super(ForcedStepper, self).__init__()
+        self.step = step
+        self.dt = dt
 
-    loss = 0
-    xiter = x[:, 0, :]
+    def forward(self, x, g):
+        """
 
-    dt = stepper.h
+        Parameters
+        ----------
+        x : (seq_len, batch, input_size)
+            tensor containing prognostic variables
+        g : (seq_len, batch, input_size)
+            tensor containing forcings
+        """
+        window_size = x.size(0)
 
-    for i in range(1, window_size):
-        # use trapezoid rule for the forcing
-        xiter = stepper(xiter) + (g[:, i-1, :] + g[:, i, :]).mul(dt/2)
-        xactual = x[:, i, :]
-        loss += weighted_loss(xiter, xactual, feature_weight) * time_weight[i-1]
+        xiter = x[0]
+        steps = [xiter]
 
-    if np.isnan(loss.data.numpy()):
-        raise FloatingPointError
+        for i in range(1, window_size):
+            # use trapezoid rule for the forcing
+            xiter = self.step(xiter) + (g[i-1] + g[i]).mul(self.dt/2)
+            steps.append(xiter)
 
-    return loss
+        return torch.stack(steps)
+
 
 
 def train_multistep_objective(data, num_epochs=4, window_size=10,
@@ -103,7 +94,7 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
     torch.manual_seed(1)
 
     # the sampling interval of the data
-    dt = Variable(torch.FloatTensor([3 / 24]))
+    dt = Variable(torch.FloatTensor([3 / 24]), requires_grad=False)
 
     dataset = _data_to_torch_dataset(data, window_size)
     scaler = _data_to_scaler(data)
@@ -126,16 +117,23 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
         single_layer_perceptron(m, m, num_hidden=nhidden),
         )
     stepper = EulerStepper(net, nsteps=nsteps, h=dt)
-
-    # _init_linear_weights(net, .01/nsteps)
-    loss_function = multiple_step_mse(stepper,
-                                      _data_to_loss_feature_weights(data),
-                                      time_weight)
-
+    nstepper = ForcedStepper(stepper, dt)
+    loss = weighted_loss(feature_weight)
     optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
 
+    # _init_linear_weights(net, .01/nsteps)
+    def closure(x, g):
+        x = Variable(x.float())
+        g = Variable(g.float())
+
+        x = x.transpose(0, 1)
+        g = g.transpose(0, 1)
+
+        y = nstepper(x, g)
+        return loss(y, x)
+
     # train the model
-    train(data_loader, loss_function, optimizer=optimizer,
+    train(data_loader, closure, optimizer=optimizer,
           num_epochs=num_epochs, num_steps=num_steps)
 
     return stepper
