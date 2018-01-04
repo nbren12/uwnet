@@ -102,14 +102,6 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
 
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-    # compute weights for loss function
-    # exponential decay in loss
-    # loss_weight = torch.exp(-torch.arange(0, window_size-1) * dt.data/2)
-    # equally weighted
-    time_weight = torch.ones(window_size-1)
-    time_weight /= torch.sum(time_weight)
-    time_weight = Variable(time_weight)
-
     # define the neural network
     m = feature_weight.size(0)
     net = nn.Sequential(
@@ -119,7 +111,8 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
     stepper = EulerStepper(net, nsteps=nsteps, h=dt)
     nstepper = ForcedStepper(stepper, dt)
     loss = weighted_loss(feature_weight)
-    optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
+    optimizer = torch.optim.Adam(net.parameters(), lr=lr,
+                                 weight_decay=weight_decay)
 
     # _init_linear_weights(net, .01/nsteps)
     def closure(x, g):
