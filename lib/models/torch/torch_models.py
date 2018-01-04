@@ -89,11 +89,12 @@ class Scaler(nn.Module):
 
     """
 
-    def __init__(self, mu, sig):
+    def __init__(self, mu, sig, scale=True):
         "docstring"
         super(Scaler, self).__init__()
         self.mu = mu
         self.sig = sig
+        self.scale = scale
 
     def forward(self, x):
         # need to cast to double to avoid large floating point errors when
@@ -102,7 +103,11 @@ class Scaler(nn.Module):
         mu = self.mu.double()
         sig = self.sig.double()
 
-        return x.sub(mu).div(sig + 1e-7).float()
+        x = x.sub(mu)
+        if self.scale:
+            x = x.div(sig + 1e-7)
+
+        return x.float()
 
 
 class Subset(nn.Module):
@@ -198,7 +203,6 @@ class EulerStepper(nn.Module):
 
         jac = jacobian(self.rhs, x)
         return logm(I + h * jac)/h
-
 
 
 @attr.s

@@ -36,6 +36,7 @@ def _data_to_scaler(data):
     mu = X.reshape((-1, m)).mean(axis=0)
     sig = X.reshape((-1, m)).std(axis=0)
     mu, sig = [_numpy_to_variable(np.squeeze(x)) for x in [mu, sig]]
+    sig = torch.mean(sig)
     return Scaler(mu, sig)
 
 

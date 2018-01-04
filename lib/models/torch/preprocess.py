@@ -14,8 +14,8 @@ def stacked_data(X):
 
     # do not use the moisture field above 200 hPA
     # this is the top 14 grid points for NGAqua
-    ntop = -14
-    qt = qt[..., :ntop].astype(float)
+    # ntop = -14
+    # qt = qt[..., :ntop].astype(float)
     # sl = sl[..., :ntop].astype(float)
 
     return np.concatenate((sl, qt), axis=-1)
@@ -34,12 +34,13 @@ def unstacked_data(X):
 
     nf = X.shape[-1]
     # nz + nz - 14 = nf
-    nz = (nf+14)//2
+    # nz = (nf+14)//2
+    nz = nf//2
 
     sl = X[...,:nz]
     qt = X[...,nz:]
 
-    qt = pad_along_axis(qt, (0,14), 'constant', -1)
+    # qt = pad_along_axis(qt, (0,14), 'constant', -1)
 
     return {'sl': sl, 'qt': qt}
 
