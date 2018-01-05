@@ -77,10 +77,29 @@ class ForcedStepper(nn.Module):
         return torch.stack(steps)
 
 
+def mlp(layer_sizes):
+    layers = []
+    n = len(layer_sizes)
+    for k in range(n-1):
+        layers.append(nn.Linear(layer_sizes[k], layer_sizes[k+1]))
+        if k < n - 2:
+            layers.append(nn.ReLU())
+
+    return nn.Sequential(*layers)
+
+
+class RHS(nn.Module):
+    def __init__(self, m, hidden=()):
+        super(RHS, self).__init__()
+        self.mlp = mlp((m,) + hidden + (m,))
+        self.lin = nn.Linear(m, m, bias=False)
+
+    def forward(self, x):
+        return self.mlp(x) + self.lin(x)
 
 def train_multistep_objective(data, num_epochs=4, window_size=10,
                               num_steps=500, batch_size=100, lr=0.01,
-                              weight_decay=0.0, nsteps=1, nhidden=256):
+                              weight_decay=0.0, nsteps=1, nhidden=(10, 10, 10)):
     """Train a single layer perceptron euler time stepping model
 
     For one time step this torch models performs the following math
@@ -104,10 +123,14 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
 
     # define the neural network
     m = feature_weight.size(0)
+
+    modules = [scaler]
+
+    rhs = RHS(m, hidden=nhidden)
     net = nn.Sequential(
         scaler,
-        single_layer_perceptron(m, m, num_hidden=nhidden),
-        )
+        rhs
+    )
     stepper = EulerStepper(net, nsteps=nsteps, h=dt)
     nstepper = ForcedStepper(stepper, dt)
     loss = weighted_loss(feature_weight)
