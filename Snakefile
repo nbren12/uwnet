@@ -21,28 +21,41 @@ rule all:
     input: "data/raw/ngaqua/stat.nc", "data/ml/ngaqua/multistep_objective.torch"
 
 
-def ngaqua_files():
-    return ['coarse/',
-            'coarse/3d',
-            'coarse/3d/TABS.nc',
-            'coarse/3d/QRAD.nc',
-            'coarse/3d/QP.nc',
-            'coarse/3d/QV.nc',
-            'coarse/3d/V.nc',
-            'coarse/3d/W.nc',
-            'coarse/3d/QN.nc',
-            'coarse/3d/U.nc',
-            'coarse/3d/W.destaggered.nc',
-            'stat.nc',
-            'README']
+ngaqua_files =[
+    'coarse/',
+    'coarse/3d',
+    'coarse/3d/TABS.nc',
+    'coarse/3d/QRAD.nc',
+    'coarse/3d/QP.nc',
+    'coarse/3d/QV.nc',
+    'coarse/3d/V.nc',
+    'coarse/3d/W.nc',
+    'coarse/3d/QN.nc',
+    'coarse/3d/U.nc',
+    'coarse/3d/W.destaggered.nc',
+    'coarse/2d/all.nc',
+    'stat.nc',
+    'README'
+]
 
-# download data
-rule ngaqua_file:
-    output: "data/raw/ngaqua/{f}"
-    shell: "scp nbren12@olympus:/home/disk/eos8/nbren12/Data/id/726a6fd3430d51d5a2af277fb1ace0c464b1dc48/{wildcards.f} {output}"
+run_ids = [
+    '726a6fd3430d51d5a2af277fb1ace0c464b1dc48', '2/NG_5120x2560x34_4km_10s_QOBS_EQX'
+]
 
-rule data:
-    input: expand("data/raw/ngaqua/{f}", f=ngaqua_files())
+# rule download_data_file:
+#     output: "data/raw/{f}"
+#     shell: "scp nbren12@olympus:/home/disk/eos8/nbren12/Data/id/{wildcards.f} {output}"
+
+def _run_output(id):
+    for f in ngaqua_files:
+        yield os.path.join("data/raw", id, f)
+
+rule download_dataset:
+    output: _run_output("{id}")
+    shell: "./scripts/download_data.sh {wildcards.id}"
+
+rule all_data:
+    input: _run_output(run_ids[1])
 
 rule weights:
     input: "data/raw/ngaqua/stat.nc"
