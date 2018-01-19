@@ -44,18 +44,9 @@ def unstacked_data(X):
 
     return {'sl': sl, 'qt': qt}
 
-def prepare_data(inputs, forcings, w,
-                 subset_fn=lambda x: x.isel(y=slice(24, 40))):
+def prepare_data(inputs: xr.Dataset, forcings: xr.Dataset, w: xr.DataArray):
 
     fields = ('sl', 'qt')
-
-    # load the data if necesary
-    if not isinstance(inputs, xr.Dataset):
-        inputs = xr.open_mfdataset(inputs, preprocess=subset_fn)
-    if not isinstance(forcings, xr.Dataset):
-        forcings = xr.open_mfdataset(forcings, preprocess=subset_fn)
-    if not isinstance(w, xr.DataArray):
-        w = xr.open_dataarray(w)
 
     weights = {key: w.values for key in fields}
 
