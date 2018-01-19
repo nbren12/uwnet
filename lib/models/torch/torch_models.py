@@ -46,8 +46,7 @@ def train(data_loader, loss_fn, optimizer, num_epochs=1,
         data_generator = islice(data_loader, num_steps)
 
         counter = 0
-        for batch_idx, data in tqdm(enumerate(data_generator),
-                                    total=num_steps):
+        for batch_idx, data in enumerate(data_generator):
             optimizer.zero_grad()  # this is not done automatically in torch
 
             # pass all data args to loss_function

@@ -145,7 +145,8 @@ rule time_series_data:
 
 rule multiple_step_obj:
     input: "data/ml/ngaqua/time_series_data.pkl"
-    output: "data/ml/ngaqua/multistep_objective.torch"
-    params: num_epochs=4, num_steps=2000, nsteps=1, nhidden=(256, ), lr=.01
+    output: expand("data/ml/ngaqua/{k}.multistep_objective.torch", k=range(4))
+    params: num_epochs=2, num_steps=None, nsteps=1, nhidden=(256, ), lr=.002,
+            window_size=100
     script: "scripts/torch_time_series2.py"
 
