@@ -141,11 +141,13 @@ rule time_series_data:
     output: "data/ml/ngaqua/time_series_data.pkl"
     script: "scripts/torch_preprocess.py"
 
-
-
-rule multiple_step_obj:
+rule fit_model:
     input: "data/ml/ngaqua/time_series_data.pkl"
-    output: "data/ml/ngaqua/multistep_objective.torch"
-    params: num_epochs=4, num_steps=2000, nsteps=1, nhidden=(256, ), lr=.01
+    output: "data/ml/ngaqua/model.{k}.torch"
+    params: num_epochs=4, num_steps=10000, nsteps=1, nhidden=(256, ), lr=.004,
+            window_size=100
     script: "scripts/torch_time_series2.py"
+
+rule fit_models:
+    input: expand("data/ml/ngaqua/model.{k}.torch", k=range(4))
 
