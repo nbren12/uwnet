@@ -8,10 +8,10 @@ dependencies:
   - python=3.6
   - numpy
   - dask
-  - xarray=0.9
-  - scikit-learn=0.19
+  - xarray
+  - scikit-learn
   - matplotlib
-  - holoviews=1.9.0
+  - holoviews
 # bokeh stuff
   - bokeh
   - selenium
@@ -29,4 +29,4 @@ dependencies:
       - tqdm
       - http://download.pytorch.org/whl/torch-0.2.0.post3-cp36-cp36m-macosx_10_7_x86_64.whl
       - pyro-ppl
-      - skorch
+      - pytest-regtest
