@@ -28,7 +28,7 @@ def _data_to_torch_dataset(data, window_size):
     return dataset
 
 
-def _data_to_scaler(data):
+def _data_to_scaler(data, cuda=False):
     # compute mean and stddev
     # this is an error, std does not work like this
     X = data['X']
@@ -37,11 +37,20 @@ def _data_to_scaler(data):
     sig = X.reshape((-1, m)).std(axis=0)
     mu, sig = [_numpy_to_variable(np.squeeze(x)) for x in [mu, sig]]
     sig = torch.mean(sig)
+
+    if cuda:
+        mu = mu.cuda()
+        sig = sig.cuda()
+
     return Scaler(mu, sig)
 
 
-def _data_to_loss_feature_weights(data):
-    return _numpy_to_variable(data['w']/data['scales']**2)
+def _data_to_loss_feature_weights(data, cuda=True):
+    w = _numpy_to_variable(data['w']/data['scales']**2)
+    if cuda:
+        w = w.cuda()
+
+    return w
 
 @curry
 def weighted_loss(weight, x, y):
@@ -99,7 +108,8 @@ class RHS(nn.Module):
 
 def train_multistep_objective(data, num_epochs=4, window_size=10,
                               num_steps=500, batch_size=100, lr=0.01,
-                              weight_decay=0.0, nsteps=1, nhidden=(10, 10, 10)):
+                              weight_decay=0.0, nsteps=1, nhidden=(10, 10, 10),
+                              cuda=False):
     """Train a single layer perceptron euler time stepping model
 
     For one time step this torch models performs the following math
@@ -114,10 +124,12 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
 
     # the sampling interval of the data
     dt = Variable(torch.FloatTensor([3 / 24]), requires_grad=False)
+    if cuda:
+        dt = dt.cuda()
 
     dataset = _data_to_torch_dataset(data, window_size)
-    scaler = _data_to_scaler(data)
-    feature_weight = _data_to_loss_feature_weights(data)
+    scaler = _data_to_scaler(data, cuda=cuda)
+    feature_weight = _data_to_loss_feature_weights(data, cuda=cuda)
 
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
@@ -137,10 +149,16 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
     optimizer = torch.optim.Adam(net.parameters(), lr=lr,
                                  weight_decay=weight_decay)
 
+    if cuda:
+        nstepper.cuda()
+
     # _init_linear_weights(net, .01/nsteps)
     def closure(x, g):
         x = Variable(x.float())
         g = Variable(g.float())
+
+        if cuda:
+            x, g = x.cuda(), g.cuda()
 
         x = x.transpose(0, 1)
         g = g.transpose(0, 1)

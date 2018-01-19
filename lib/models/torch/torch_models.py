@@ -56,7 +56,7 @@ def train(data_loader, loss_fn, optimizer, num_epochs=1,
             loss.backward()
             optimizer.step()
 
-            avg_loss += loss.data.numpy()
+            avg_loss += loss.data.cpu().numpy()
             counter += 1
 
         avg_loss /= counter
