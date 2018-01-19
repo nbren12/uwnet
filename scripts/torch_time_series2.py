@@ -10,16 +10,6 @@ from sklearn.externals import joblib
 import torch
 from lib.models.torch import train_multistep_objective
 
-import dask.bag as db
-
-def train(output):
-    print(f"Fitting model {output}")
-    data = joblib.load(snakemake.input[0])
-    stepper = train_multistep_objective(data, **snakemake.params)
-    torch.save(stepper, output)
-
-
-db.from_sequence(snakemake.output)\
-  .map(train)\
-  .compute()
-
+data = joblib.load(snakemake.input[0])
+stepper = train_multistep_objective(data, **snakemake.params)
+torch.save(stepper, snakemake.output[0])

@@ -110,7 +110,7 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
 
 
     """
-    # torch.manual_seed(1)
+    torch.manual_seed(1)
 
     # the sampling interval of the data
     dt = Variable(torch.FloatTensor([3 / 24]), requires_grad=False)
