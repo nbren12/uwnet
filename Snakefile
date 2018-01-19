@@ -42,17 +42,29 @@ run_ids = [
     '726a6fd3430d51d5a2af277fb1ace0c464b1dc48', '2/NG_5120x2560x34_4km_10s_QOBS_EQX'
 ]
 
-# rule download_data_file:
-#     output: "data/raw/{f}"
-#     shell: "scp nbren12@olympus:/home/disk/eos8/nbren12/Data/id/{wildcards.f} {output}"
+manifest = {
+    '2/NG_5120x2560x34_4km_10s_QOBS_EQX': [
+        'coarse/3d/TABS.nc',
+        'coarse/3d/QRAD.nc',
+        'coarse/3d/QP.nc',
+        'coarse/3d/QV.nc',
+        'coarse/3d/V.nc',
+        'coarse/3d/W.nc',
+        'coarse/3d/QN.nc',
+        'coarse/3d/U.nc',
+        'coarse/2d/all.nc',
+        'stat.nc',
+    ]
+}
+
+
+rule download_data_file:
+    output: "data/raw/{f}"
+    shell: "rsync --progress -z nbren12@olympus:/home/disk/eos8/nbren12/Data/id/{wildcards.f} {output}"
 
 def _run_output(id):
-    for f in ngaqua_files:
+    for f in manifest.get(id, ngaqua_files):
         yield os.path.join("data/raw", id, f)
-
-rule download_dataset:
-    output: _run_output("{id}")
-    shell: "./scripts/download_data.sh {wildcards.id}"
 
 rule all_data:
     input: _run_output(run_ids[1])
@@ -115,10 +127,17 @@ rule q2:
         d = xr.open_mfdataset(input)
         q2(d).to_netcdf(output[0])
 
+# rule time_series_data:
+#     input: forcing= ["data/calc/forcing/ngaqua/sl.nc", "data/calc/forcing/ngaqua/qt.nc"],
+#             inputs=["data/calc/ngaqua/sl.nc", "data/calc/ngaqua/qt.nc"],
+#             weight= "data/processed/ngaqua/w.nc"
+#     output: "data/ml/ngaqua/time_series_data.pkl"
+#     script: "scripts/torch_preprocess.py"
+
+
 rule time_series_data:
-    input: forcing= ["data/calc/forcing/ngaqua/sl.nc", "data/calc/forcing/ngaqua/qt.nc"],
-            inputs=["data/calc/ngaqua/sl.nc", "data/calc/ngaqua/qt.nc"],
-            weight= "data/processed/ngaqua/w.nc"
+    input: expand("data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/{f}.nc",\
+                  f="U V W QV QN TABS QP".split(" "))
     output: "data/ml/ngaqua/time_series_data.pkl"
     script: "scripts/torch_preprocess.py"
 
