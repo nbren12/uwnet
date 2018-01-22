@@ -233,3 +233,6 @@ j
 /docs/_region_.tex
 docs/summary.pdf
 docs/summary.tex
+*.o .giti
+*.o
+*.mod
