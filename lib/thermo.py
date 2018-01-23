@@ -123,3 +123,12 @@ def column_rh(QV, TABS, p):
     return mass_integrate(p, rh/1000, average=True)
 
 
+def precip_from_ds(dsl, qrad, shf, p):
+    return (cp*mass_integrate(p, dsl) - cp*mass_integrate(p, qrad)
+            - shf*86400)/Lc
+
+def precip_from_dq(dq, lhf, p):
+    return -mass_integrate(p, dq/1000) + lhf/Lc*86400
+
+def mse(sl, qt):
+    return cp * sl + qt/1000 * Lc
