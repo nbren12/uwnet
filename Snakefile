@@ -138,8 +138,11 @@ rule q2:
 rule time_series_data:
     input: expand("data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/{f}.nc",\
                   f="U V W QV QN TABS QP".split(" "))
-    output: "data/ml/ngaqua/time_series_data.pkl"
+    output: "data/ml/ngaqua/time_series_data.pkl",
+            inputs="data/processed/inputs.nc",
+            forcings="data/processed/forcings.nc"
     script: "scripts/torch_preprocess.py"
+
 
 rule fit_model:
     input: "data/ml/ngaqua/time_series_data.pkl"
