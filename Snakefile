@@ -135,12 +135,18 @@ rule q2:
 #     script: "scripts/torch_preprocess.py"
 
 
-rule time_series_data:
+rule inputs_and_forcings:
     input: expand("data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/{f}.nc",\
                   f="U V W QV QN TABS QP".split(" "))
-    output: "data/ml/ngaqua/time_series_data.pkl",
-            inputs="data/processed/inputs.nc",
+    output: inputs="data/processed/inputs.nc",
             forcings="data/processed/forcings.nc"
+    script: "scripts/inputs_and_forcings.py"
+
+
+rule time_series_data:
+    input: inputs="data/processed/inputs.nc",
+            forcings="data/processed/forcings.nc"
+    output: "data/ml/ngaqua/time_series_data.pkl",
     script: "scripts/torch_preprocess.py"
 
 
@@ -160,8 +166,9 @@ rule fit_model_bigwindow:
 
 
 rule plot_model:
-    input: "data/ml/ngaqua/time_series_data.pkl",
-           "data/ml/ngaqua/model.1.torch"
+    input: x="data/processed/inputs.nc",
+           f="data/processed/forcings.nc",
+           mod="data/ml/ngaqua/model.1.torch"
     output: "data/ml/ngaqua/plots.html"
     script: "scripts/model_report.py"
 
