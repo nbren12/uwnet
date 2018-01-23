@@ -1,14 +1,22 @@
+from glob import glob
 import xarray as xr
 from lib.advection import material_derivative
 from lib.thermo import liquid_water_temperature, total_water, layer_mass_from_p
 
 
-def inputs_and_forcings(files):
+def defaultsel(x):
+    return x.isel(y=slice(24, 40))
+
+
+def inputs_and_forcings(files, sel=defaultsel):
+    if isinstance(files, str):
+        files = glob(files)
+
     D = xr.open_mfdataset(
         files, chunks={'time': 100}, preprocess=lambda x: x.drop('p'))
 
     # limit to tropics
-    D = D.isel(y=slice(24, 40))
+    D = sel(D)
 
     p = xr.open_mfdataset(files[0], chunks={'time': 1}).p.isel(time=0)
     w = layer_mass_from_p(p)

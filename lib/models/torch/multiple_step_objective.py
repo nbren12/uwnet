@@ -170,7 +170,7 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
     train(data_loader, closure, optimizer=optimizer,
           num_epochs=num_epochs, num_steps=num_steps)
 
-    return stepper
+    return nstepper
 
 
 

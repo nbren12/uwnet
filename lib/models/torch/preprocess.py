@@ -1,10 +1,14 @@
 """Data loading and preprocessing routines
 """
 import numpy as np
-from sklearn.externals import joblib
-from lib.util import compute_weighted_scale, weights_to_np, scales_to_np
-
+import torch
 import xarray as xr
+from sklearn.externals import joblib
+from torch.autograd import Variable
+
+from lib.util import compute_weighted_scale, scales_to_np, weights_to_np
+
+from toolz import pipe
 
 
 def stacked_data(X):
@@ -29,7 +33,7 @@ def pad_along_axis(x, pad_width, mode, axis):
     return np.pad(x, pad_widths, mode)
 
 
-def unstacked_data(X):
+def _stacked_to_dict(X):
     """Inverse operation of stacked_data """
 
     nf = X.shape[-1]
@@ -44,7 +48,27 @@ def unstacked_data(X):
 
     return {'sl': sl, 'qt': qt}
 
-def prepare_data(inputs: xr.Dataset, forcings: xr.Dataset, w: xr.DataArray):
+
+def stacked_to_xr(X, **kwargs):
+    d = _stacked_to_dict(X)
+    data_vars = {key: xr.DataArray(val, **kwargs) for key, val in d.items()}
+    return xr.Dataset(data_vars)
+
+
+def wrap(torch_model):
+    def fun(*args):
+        torch_args = [pipe(x, stacked_data, torch.FloatTensor, Variable)
+                      for x in args]
+        y = torch_model(*torch_args).cpu().data.numpy()
+
+        # get coords from inputs
+        x = args[0]
+
+        return stacked_to_xr(y, dims=x.dims, coords=x.coords)
+    return fun
+
+
+def prepare_data(inputs: xr.Dataset, forcings: xr.Dataset, w: xr.DataArray, p: xr.DataArray):
 
     fields = ('sl', 'qt')
 
@@ -74,5 +98,6 @@ def prepare_data(inputs: xr.Dataset, forcings: xr.Dataset, w: xr.DataArray):
         'X': X,
         'G': G,
         'scales': scales,
-        'w': w
+        'w': w,
+        'p': p.values,
     }
