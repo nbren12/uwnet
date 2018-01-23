@@ -18,7 +18,7 @@ def inputs_and_forcings(files, sel=defaultsel):
     # limit to tropics
     D = sel(D)
 
-    p = xr.open_mfdataset(files[0], chunks={'time': 1}).p.isel(time=0)
+    p = xr.open_mfdataset(files[0], chunks={'time': 1}).p.isel(time=0).drop('time')
     w = layer_mass_from_p(p)
 
     inputs = xr.Dataset({
@@ -29,4 +29,7 @@ def inputs_and_forcings(files, sel=defaultsel):
     forcings = inputs.apply(
         lambda f: -material_derivative(D.U, D.V, D.W, f) * 86400)
 
-    return inputs, forcings, w, p
+    inputs['p'] = p
+    inputs['w'] = w
+
+    return inputs, forcings

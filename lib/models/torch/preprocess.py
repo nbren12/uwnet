@@ -68,16 +68,18 @@ def wrap(torch_model):
     return fun
 
 
-def prepare_data(inputs: xr.Dataset, forcings: xr.Dataset, w: xr.DataArray, p: xr.DataArray):
+def prepare_data(inputs: xr.Dataset, forcings: xr.Dataset):
 
-    fields = ('sl', 'qt')
+    w = inputs.w
+
+    fields = ['sl', 'qt']
 
     weights = {key: w.values for key in fields}
 
     # compute scales
     sample_dims = set(['x', 'y', 'time']) & set(inputs.dims)
     scales = compute_weighted_scale(w, sample_dims=sample_dims,
-                                    ds=inputs)
+                                    ds=inputs[fields])
     scales = {key: float(scales[key]) for key in fields}
     scales = {key: [scales[key]] * inputs[key].z.shape[0]
               for key in fields}
@@ -99,5 +101,5 @@ def prepare_data(inputs: xr.Dataset, forcings: xr.Dataset, w: xr.DataArray, p: x
         'G': G,
         'scales': scales,
         'w': w,
-        'p': p.values,
+        'p': inputs.p.values,
     }
