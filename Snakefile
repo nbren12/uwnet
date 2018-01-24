@@ -139,8 +139,17 @@ rule inputs_and_forcings:
     input: expand("data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/{f}.nc",\
                   f="U V W QV QN TABS QP".split(" "))
     output: inputs="data/processed/inputs.nc",
-            forcings="data/processed/forcings.nc"
+            forcings="data/interim/forcings.nc"
     script: "scripts/inputs_and_forcings.py"
+
+rule denoise:
+    input: "data/interim/forcings.nc"
+    output: "data/processed/forcings.nc"
+    run:
+        from lib.denoise import denoise
+        xr.open_dataset(input[0])\
+          .apply(denoise)\
+         .to_netcdf(output[0])
 
 
 rule time_series_data:
@@ -163,7 +172,6 @@ rule fit_model_bigwindow:
     params: num_epochs=4, num_steps=1000, nsteps=1, nhidden=(256, ), lr=.01,
             window_size=100, cuda=True, batch_size=1000
     script: "scripts/torch_time_series2.py"
-
 
 rule plot_model:
     input: x="data/processed/inputs.nc",
