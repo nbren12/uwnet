@@ -96,9 +96,12 @@ class Scaler(nn.Module):
         self.sig = sig
         self.scale = scale
 
-    def forward(self, x):
+    def forward(self, args):
         # need to cast to double to avoid large floating point errors when
         # subtracting the mean
+
+        x = args[0]
+
         x = x.double()
         mu = self.mu.double()
         sig = self.sig.double()
@@ -107,7 +110,7 @@ class Scaler(nn.Module):
         if self.scale:
             x = x.div(sig + 1e-7)
 
-        return x.float()
+        return (x.float(), args[1])
 
 
 class Subset(nn.Module):
@@ -179,13 +182,14 @@ class EulerStepper(nn.Module):
         self.nsteps = nsteps
         self.h = h
 
-    def forward(self, x):
+    def forward(self, args):
+        x = args[0]
         nsteps = self.nsteps
         h = self.h
         rhs = self.rhs
 
         for i in range(nsteps):
-            x = x + h / nsteps * rhs(x)
+            x = x + h / nsteps * rhs(args)
 
         return x
 

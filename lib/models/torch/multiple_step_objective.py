@@ -80,7 +80,7 @@ class ForcedStepper(nn.Module):
 
         for i in range(1, window_size):
             # use trapezoid rule for the forcing
-            xiter = self.step(xiter) + (g[i-1] + g[i]).mul(self.dt/2)
+            xiter = self.step((xiter, (g[i-1] + g[i]).mul(1/2)))
             steps.append(xiter)
 
         return torch.stack(steps)
@@ -103,8 +103,19 @@ class RHS(nn.Module):
         self.mlp = mlp((m,) + hidden + (m,))
         self.lin = nn.Linear(m, m, bias=False)
 
-    def forward(self, x):
-        return self.mlp(x) + self.lin(x)
+        mask = torch.ones(m)
+        mask[-14:] = 0
+        self.mask = Variable(mask, requires_grad=False)
+
+    def forward(self, args):
+        x = args[0]
+        y = self.mlp(x) + self.lin(x)
+
+        if len(args) == 2:
+            g = args[1]
+            y = y + g
+
+        return y
 
 def train_multistep_objective(data, num_epochs=4, window_size=10,
                               num_steps=500, batch_size=100, lr=0.01,
