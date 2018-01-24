@@ -48,7 +48,7 @@ def total_water(qv, qn):
 
 
 def get_dz(z):
-    zext = np.hstack((0,  z,  2.0*z[-1] - 1.0*z[-2]))
+    zext = np.hstack((-z[0],  z,  2.0*z[-1] - 1.0*z[-2]))
     zw = .5 * (zext[1:] + zext[:-1])
     dz = zw[1:] - zw[:-1]
 
@@ -132,3 +132,13 @@ def precip_from_dq(dq, lhf, p):
 
 def mse(sl, qt):
     return cp * sl + qt/1000 * Lc
+
+
+def shf_to_tendency(shf, rho0):
+    rhodz = float(rho0.z * 2 * rho0)
+    return shf/cp*86400/rhodz
+
+
+def lhf_to_tendency(lhf, rho0):
+    rhodz = float(rho0.z * 2 * rho0)
+    return lhf/Lc*86400/rhodz
