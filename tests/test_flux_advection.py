@@ -1,44 +1,12 @@
 import numpy as np
 import xarray as xr
-from lib.advection import advection_forcing, vertical_advection_upwind
+from lib.flux_advection import vertical_advection_upwind
 
-plot = True
+plot = False
 
 def assert_broadcast_eq(x, y):
     x, y = xr.broadcast(x, y)
     np.testing.assert_array_almost_equal(x.values, y.values)
-
-
-def test_advection_surface_forcing():
-
-    dims = ['x', 'y', 'z', 'time']
-    coords = {dim: np.arange(10) for dim in dims}
-    shape = [coords[dim].shape[0] for dim in coords]
-
-    f = xr.Dataset({'f': (dims, np.ones(shape))}, coords=coords)
-    f = f.f
-
-    one = 0 *f +1
-    zero = 0*f
-
-    rho = f.z*0 + 1
-
-
-
-    md = advection_forcing(zero, one, zero, f.x + 0 * f, rho)
-    np.testing.assert_array_almost_equal(md.values, 0)
-
-    md = advection_forcing(one, zero, zero, f.x + 0 * f, rho)
-    assert_broadcast_eq(md.isel(x=slice(1,-1)),
-                        -one.isel(x=slice(1,-1)))
-
-    md = advection_forcing(zero, one, zero, f.y + 0 * f, rho)
-    assert_broadcast_eq(md.isel(y=slice(1,-1)),
-                        -one.isel(y=slice(1,-1)))
-
-    md = advection_forcing(zero, zero, one, f.z + 0 * f, rho)
-    assert_broadcast_eq(md.isel(z=slice(1,-1)),
-                        -one.isel(z=slice(1,-1)))
 
 
 def test_vertical_advection_upwind():
