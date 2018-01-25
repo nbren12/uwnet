@@ -20,17 +20,27 @@ def _numpy_to_variable(x):
 
 
 def _data_to_torch_dataset(data, window_size):
-    X, G = data['X'], data['G']
-    dataset = ConcatDataset(WindowedData(X, chunk_size=window_size),
-                            WindowedData(G, chunk_size=window_size))
 
+    X, G = data['X'], data['G']
+    X = {key: WindowedData(val, window_size)
+         for key, val in X.items()}
+    G = {key: WindowedData(val, window_size)
+         for key, val in G.items()}
+
+    dataset = ConcatDataset(X['sl'], X['qt'], G['sl'], G['qt'])
     return dataset
+
+
+def _stack_qtsl(X):
+    return np.concatenate((X['sl'], X['qt']), axis=-1)
 
 
 def _data_to_scaler(data, cuda=False):
     # compute mean and stddev
     # this is an error, std does not work like this
     X = data['X']
+    X = _stack_qtsl(X)
+
     m = X.shape[-1]
     mu = X.reshape((-1, m)).mean(axis=0)
     sig = X.reshape((-1, m)).std(axis=0)
@@ -45,7 +55,9 @@ def _data_to_scaler(data, cuda=False):
 
 
 def _data_to_loss_feature_weights(data, cuda=True):
-    w = _numpy_to_variable(data['w']/data['scales']**2)
+    w = _stack_qtsl(data['w'])
+    scales = _stack_qtsl(data['scales'])
+    w = _numpy_to_variable(w/scales**2)
     if cuda:
         w = w.cuda()
 
@@ -139,6 +151,7 @@ class RHS(nn.Module):
 
         return y
 
+
 def train_multistep_objective(data, num_epochs=4, window_size=10,
                               num_steps=500, batch_size=100, lr=0.01,
                               weight_decay=0.0, nsteps=1, nhidden=(10, 10, 10),
@@ -153,6 +166,11 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
 
 
     """
+
+    from lib.models.torch.preprocess import _stacked_to_dict
+    data = {key: _stacked_to_dict(val) for key, val in data.items()
+            if key != 'p'}
+
     torch.manual_seed(1)
 
     # the sampling interval of the data
@@ -161,10 +179,11 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
         dt = dt.cuda()
 
     dataset = _data_to_torch_dataset(data, window_size)
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
     scaler = _data_to_scaler(data, cuda=cuda)
     feature_weight = _data_to_loss_feature_weights(data, cuda=cuda)
 
-    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     # define the neural network
     m = feature_weight.size(0)
@@ -186,12 +205,17 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
         nstepper.cuda()
 
     # _init_linear_weights(net, .01/nsteps)
-    def closure(x, g):
-        x = Variable(x.float())
-        g = Variable(g.float())
+    def closure(*args):
+        args = [Variable(x.float()) for x in args]
+
 
         if cuda:
-            x, g = x.cuda(), g.cuda()
+            args = [arg.cuda() for arg in args]
+
+        qt, sl, fqt, fsl = args
+
+        x = torch.cat((sl, qt), -1)
+        g = torch.cat((fsl, fqt), -1)
 
         x = x.transpose(0, 1)
         g = g.transpose(0, 1)

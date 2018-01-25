@@ -8,6 +8,7 @@ import xarray as xr
 from sklearn.externals import joblib
 import torch
 from lib.models.torch import train_multistep_objective, wrap
+from lib.models.torch.preprocess import _stacked_to_dict
 import pytest
 
 @pytest.fixture()
@@ -28,15 +29,20 @@ def train_data():
     return joblib.load("data/ml/ngaqua/time_series_data.pkl")
 
 
-def test_train_multistep_objective(train_data, test_data, regtest):
+# def test_train_multistep_objective(train_data, test_data, regtest):
+def test_train_multistep_objective(train_data, test_data):
+
+
+    train_data = {key: _stacked_to_dict(val) for key, val in train_data.items()
+                  if key != 'p'}
+    model = train_multistep_objective(train_data)
+    wrapped = wrap(model)
 
 
     inputs, forcings = test_data
-    model = train_multistep_objective(train_data)
-    wrapped = wrap(model)
     output = wrapped(inputs, forcings)
 
-    print(output.isel(time=-1), file=regtest)
+    # print(output.isel(time=-1), file=regtest)
 
 
 
