@@ -96,11 +96,9 @@ class Scaler(nn.Module):
         self.sig = sig
         self.scale = scale
 
-    def forward(self, args):
+    def forward(self, x):
         # need to cast to double to avoid large floating point errors when
         # subtracting the mean
-
-        x = args[0]
 
         x = x.double()
         mu = self.mu.double()
@@ -110,7 +108,7 @@ class Scaler(nn.Module):
         if self.scale:
             x = x.div(sig + 1e-7)
 
-        return (x.float(), args[1])
+        return x.float()
 
 
 class Subset(nn.Module):

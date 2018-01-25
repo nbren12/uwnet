@@ -1,10 +1,7 @@
 """Fit model for the multiple time step objective function. This requires some special dataloaders etc
 
 """
-from toolz import curry
-import attr
-import click
-import toolz
+from toolz import curry, first, valmap, merge_with
 import numpy as np
 
 import torch
@@ -54,12 +51,24 @@ def _data_to_scaler(data, cuda=False):
     return Scaler(mu, sig)
 
 
+def _to_dict(x):
+    return {'sl': x[...,:34], 'qt': x[...,34:]}
+
+
+def _from_dict(d):
+    return torch.cat((d['sl'], d['qt']), -1)
+
+
 def _data_to_loss_feature_weights(data, cuda=True):
-    w = _stack_qtsl(data['w'])
-    scales = _stack_qtsl(data['scales'])
-    w = _numpy_to_variable(w/scales**2)
+
+    def _f(args):
+        w, scale = args
+        return w/scale**2
+    w = merge_with(_f, data['w'], data['scales'])
+    w = valmap(_numpy_to_variable, w)
+
     if cuda:
-        w = w.cuda()
+        w = valmap(lambda x: x.cuda(), w)
 
     return w
 
@@ -91,10 +100,11 @@ class EulerStepper(nn.Module):
 
 
 class ForcedStepper(nn.Module):
-    def __init__(self, step, dt):
+    def __init__(self, rhs, h, nsteps):
         super(ForcedStepper, self).__init__()
-        self.step = step
-        self.dt = dt
+        self.nsteps = nsteps
+        self.h = h
+        self.rhs = rhs
 
     def forward(self, x, g):
         """
@@ -106,17 +116,30 @@ class ForcedStepper(nn.Module):
         g : (seq_len, batch, input_size)
             tensor containing forcings
         """
-        window_size = x.size(0)
+        window_size = first(x.values()).size(0)
+        d = valmap(lambda x: x[0], x)
+        g_dict = valmap(lambda x: (x[1:] + x[:-1])/2,  g)
 
-        xiter = x[0]
-        steps = [xiter]
+        h = self.h
+        nsteps = self.nsteps
+
+        # output array
+        steps = {key: [d[key]] for key in d}
 
         for i in range(1, window_size):
-            # use trapezoid rule for the forcing
-            xiter = self.step((xiter, (g[i-1] + g[i]).mul(1/2)))
-            steps.append(xiter)
+            for j in range(nsteps):
+                src = self.rhs(d)
+                for key in src:
+                    x = d[key]
+                    f = src[key]
+                    g = g_dict[key][i-1]
+                    d[key] = x + h/nsteps*(f+g)
 
-        return torch.stack(steps)
+            # store data
+            for key in d:
+                steps[key].append(d[key])
+
+        return valmap(torch.stack, steps)
 
 
 def mlp(layer_sizes):
@@ -132,7 +155,7 @@ def mlp(layer_sizes):
 
 
 class RHS(nn.Module):
-    def __init__(self, m, hidden=()):
+    def __init__(self, m, hidden=(), scaler=None):
         super(RHS, self).__init__()
         self.mlp = mlp((m,) + hidden + (m,))
         self.lin = nn.Linear(m, m, bias=False)
@@ -140,16 +163,15 @@ class RHS(nn.Module):
         mask = torch.ones(m)
         mask[-14:] = 0
         self.mask = Variable(mask, requires_grad=False)
+        self.scaler = scaler
 
-    def forward(self, args):
-        x = args[0]
+    def forward(self, x):
+        x = _from_dict(x)
+        x = self.scaler(x)
+
         y = self.mlp(x) + self.lin(x)
 
-        if len(args) == 2:
-            g = args[1]
-            y = y + g
-
-        return y
+        return _to_dict(y)
 
 
 def train_multistep_objective(data, num_epochs=4, window_size=10,
@@ -182,43 +204,38 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     scaler = _data_to_scaler(data, cuda=cuda)
-    feature_weight = _data_to_loss_feature_weights(data, cuda=cuda)
+    weights = _data_to_loss_feature_weights(data, cuda=cuda)
 
 
     # define the neural network
-    m = feature_weight.size(0)
+    m = sum(valmap(lambda x: x.size(-1), weights).values())
 
-    modules = [scaler]
 
-    rhs = RHS(m, hidden=nhidden)
-    net = nn.Sequential(
-        scaler,
-        rhs
-    )
-    stepper = EulerStepper(net, nsteps=nsteps, h=dt)
-    nstepper = ForcedStepper(stepper, dt)
-    loss = weighted_loss(feature_weight)
-    optimizer = torch.optim.Adam(net.parameters(), lr=lr,
+    rhs = RHS(m, hidden=nhidden, scaler=scaler)
+    nstepper = ForcedStepper(rhs, h=dt, nsteps=nsteps)
+    optimizer = torch.optim.Adam(rhs.parameters(), lr=lr,
                                  weight_decay=weight_decay)
 
     if cuda:
         nstepper.cuda()
 
+    def loss(y, x):
+        total_loss = 0
+        for key in y:
+            total_loss += weighted_loss(weights[key], x[key], y[key])/len(y)
+        return total_loss
+
     # _init_linear_weights(net, .01/nsteps)
     def closure(*args):
-        args = [Variable(x.float()) for x in args]
-
+        args = [Variable(x.float()).transpose(0, 1)
+                for x in args]
 
         if cuda:
             args = [arg.cuda() for arg in args]
 
-        qt, sl, fqt, fsl = args
-
-        x = torch.cat((sl, qt), -1)
-        g = torch.cat((fsl, fqt), -1)
-
-        x = x.transpose(0, 1)
-        g = g.transpose(0, 1)
+        sl, qt, fsl, fqt = args
+        x = {'sl': sl, 'qt': qt}
+        g = {'sl': fsl, 'qt': fqt}
 
         y = nstepper(x, g)
         return loss(y, x)
@@ -227,7 +244,11 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
     # train(data_loader, closure, optimizer=optimizer,
     #       num_epochs=num_epochs, num_steps=num_steps)
 
-    return nstepper
+    # run the closure on data from the data_loader
+    args = next(iter(data_loader))
+    loss = closure(*args)
+
+    return nstepper, loss
 
 
 

@@ -9,6 +9,7 @@ from torch.autograd import Variable
 from lib.util import compute_weighted_scale, scales_to_np, weights_to_np
 
 from toolz import pipe
+from toolz.curried import valmap
 
 
 def stacked_data(X):
@@ -55,16 +56,27 @@ def stacked_to_xr(X, **kwargs):
     return xr.Dataset(data_vars)
 
 
+def _dataset_to_dict(ds: xr.Dataset):
+    return {key: ds[key].values for key in ds.data_vars}
+
+
 def wrap(torch_model):
     def fun(*args):
-        torch_args = [pipe(x, stacked_data, torch.FloatTensor, Variable)
+        torch_args = [pipe(x, _dataset_to_dict,
+                           valmap(torch.FloatTensor),
+                           valmap(Variable))
                       for x in args]
-        y = torch_model(*torch_args).cpu().data.numpy()
+        y = torch_model(*torch_args)
+        y = valmap(lambda x: x.cpu().data.numpy(), y)
 
         # get coords from inputs
         x = args[0]
 
-        return stacked_to_xr(y, dims=x.dims, coords=x.coords)
+        return xr.Dataset(valmap(
+            lambda arr: xr.DataArray(arr, coords=x.coords, dims=x.dims),
+            y
+        ))
+
     return fun
 
 
