@@ -13,8 +13,7 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader, Dataset
 
 from .torch_datasets import ConcatDataset, WindowedData
-from .torch_models import (numpy_to_variable, single_layer_perceptron, Scaler,
-                           EulerStepper, train)
+from .torch_models import (numpy_to_variable, single_layer_perceptron, Scaler, train)
 
 def _numpy_to_variable(x):
     return Variable(torch.FloatTensor(x))
@@ -57,6 +56,28 @@ def weighted_loss(weight, x, y):
     return torch.mean(torch.pow(x-y, 2).mul(weight.float()))
 
 
+class EulerStepper(nn.Module):
+    """Module for performing n forward euler time steps of a neural network
+    """
+
+    def __init__(self, rhs, nsteps, h):
+        super(EulerStepper, self).__init__()
+        self.rhs = rhs
+        self.nsteps = nsteps
+        self.h = h
+
+    def forward(self, args):
+        x = args[0]
+        nsteps = self.nsteps
+        h = self.h
+        rhs = self.rhs
+
+        for i in range(nsteps):
+            x = x + h / nsteps * rhs(args)
+
+        return x
+
+
 class ForcedStepper(nn.Module):
     def __init__(self, step, dt):
         super(ForcedStepper, self).__init__()
@@ -95,6 +116,7 @@ def mlp(layer_sizes):
             layers.append(nn.ReLU())
 
     return nn.Sequential(*layers)
+
 
 
 class RHS(nn.Module):
@@ -178,8 +200,8 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
         return loss(y, x)
 
     # train the model
-    train(data_loader, closure, optimizer=optimizer,
-          num_epochs=num_epochs, num_steps=num_steps)
+    # train(data_loader, closure, optimizer=optimizer,
+    #       num_epochs=num_epochs, num_steps=num_steps)
 
     return nstepper
 
