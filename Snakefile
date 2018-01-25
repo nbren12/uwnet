@@ -18,7 +18,7 @@ print(os.environ['PYTHONPATH'])
 #     input: ngaqua("3d/Q1.nc")
 
 rule all:
-    input: "data/raw/ngaqua/stat.nc", "data/ml/ngaqua/multistep_objective.torch"
+    input: "data/raw/ngaqua/stat.nc", "data/ml/ngaqua/plots.html"
 
 
 ngaqua_files =[
