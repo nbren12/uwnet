@@ -214,11 +214,6 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
 
 
     """
-
-    from lib.models.torch.preprocess import _stacked_to_dict
-    data = {key: _stacked_to_dict(val) for key, val in data.items()
-            if key != 'p'}
-
     torch.manual_seed(1)
 
     # the sampling interval of the data

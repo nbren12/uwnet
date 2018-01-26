@@ -93,25 +93,18 @@ def prepare_data(inputs: xr.Dataset, forcings: xr.Dataset):
     scales = compute_weighted_scale(w, sample_dims=sample_dims,
                                     ds=inputs[fields])
     scales = {key: float(scales[key]) for key in fields}
-    scales = {key: [scales[key]] * inputs[key].z.shape[0]
-              for key in fields}
-
 
     output_dims = [dim for dim in ['time', 'y', 'x', 'z']
                    if dim in inputs.dims]
-    X = {key: inputs[key].transpose(*output_dims) for key in fields}
-    G = {key: forcings[key].transpose(*output_dims) for key in fields}
+    X = {key: inputs[key].transpose(*output_dims).values for key in fields}
+    G = {key: forcings[key].transpose(*output_dims).values for key in fields}
 
     # return stacked data
-    X = stacked_data(X)
-    G = stacked_data(G)
-    scales = stacked_data(scales)
-    w = stacked_data(weights)
 
     return {
         'X': X,
         'G': G,
         'scales': scales,
-        'w': w,
+        'w': weights,
         'p': inputs.p.values,
     }
