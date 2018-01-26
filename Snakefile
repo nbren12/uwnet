@@ -135,9 +135,12 @@ rule q2:
 #     script: "scripts/torch_preprocess.py"
 
 
+files_3d =expand("data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/{f}.nc",
+                 f="U V W QV QN TABS QP".split(" ")),
 rule inputs_and_forcings:
-    input: expand("data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/{f}.nc",\
-                  f="U V W QV QN TABS QP".split(" "))
+    input: d3=files_3d,
+           d2="data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc",
+           stat="data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc",
     output: inputs="data/processed/inputs.nc",
             forcings="data/processed/forcings.nc"
     script: "scripts/inputs_and_forcings.py"
