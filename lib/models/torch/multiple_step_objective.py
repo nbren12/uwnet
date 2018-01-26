@@ -84,28 +84,6 @@ def weighted_loss(weight, x, y):
     return torch.mean(torch.pow(x-y, 2).mul(weight.float()))
 
 
-class EulerStepper(nn.Module):
-    """Module for performing n forward euler time steps of a neural network
-    """
-
-    def __init__(self, rhs, nsteps, h):
-        super(EulerStepper, self).__init__()
-        self.rhs = rhs
-        self.nsteps = nsteps
-        self.h = h
-
-    def forward(self, args):
-        x = args[0]
-        nsteps = self.nsteps
-        h = self.h
-        rhs = self.rhs
-
-        for i in range(nsteps):
-            x = x + h / nsteps * rhs(args)
-
-        return x
-
-
 class ForcedStepper(nn.Module):
     def __init__(self, rhs, h, nsteps):
         super(ForcedStepper, self).__init__()
