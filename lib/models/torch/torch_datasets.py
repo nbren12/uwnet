@@ -46,8 +46,10 @@ class WindowedData(Dataset):
         sh  = self.x.shape
 
         nt = sh[0]
-        nf = sh[-1]
-
+        if self.x.ndim == 4:
+            nf = sh[-1]
+        elif self.x.ndim == 3:
+            nf = 1
         return self.x.reshape((nt, -1, nf))
 
     def __len__(self):
