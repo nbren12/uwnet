@@ -43,10 +43,10 @@ def test_train_multistep_objective(train_data, test_data, regtest):
     output = wrapped(inputs, forcings)
     print(output.isel(time=-1), file=regtest)
 
-@pytest.mark.skip()
+
 def test_train_loss(train_data, regtest):
 
     # train_data = {key: _stacked_to_dict(val) for key, val in train_data.items()
     #               if key != 'p'}
-    _, loss = train_multistep_objective(train_data)
+    _, loss = train_multistep_objective(train_data, test_loss=True)
     print(loss, file=regtest)

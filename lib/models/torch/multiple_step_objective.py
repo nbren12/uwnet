@@ -7,10 +7,11 @@ import numpy as np
 import torch
 from torch import nn
 from torch.autograd import Variable
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
 from .torch_datasets import ConcatDataset, WindowedData
-from .torch_models import (numpy_to_variable, single_layer_perceptron, train)
+from .torch_models import train
+
 
 def _numpy_to_variable(x):
     return Variable(torch.FloatTensor(x))
@@ -203,7 +204,8 @@ class RHS(nn.Module):
 def train_multistep_objective(data, num_epochs=4, window_size=10,
                               num_steps=500, batch_size=100, lr=0.01,
                               weight_decay=0.0, nsteps=1, nhidden=(10, 10, 10),
-                              cuda=False):
+                              cuda=False,
+                              test_loss=False):
     """Train a single layer perceptron euler time stepping model
 
     For one time step this torch models performs the following math
@@ -262,14 +264,14 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
         return loss(y, x)
 
     # train the model
-    train(data_loader, closure, optimizer=optimizer,
-          num_epochs=num_epochs, num_steps=num_steps)
+    if test_loss:
+        args = next(iter(data_loader))
+        return nstepper, closure(*args)
+    else:
+        train(data_loader, closure, optimizer=optimizer,
+              num_epochs=num_epochs, num_steps=num_steps)
+        return nstepper
 
-    # run the closure on data from the data_loader
-    # args = next(iter(data_loader))
-    # loss = closure(*args)
-
-    return nstepper
 
 
 
