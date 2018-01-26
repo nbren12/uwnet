@@ -10,7 +10,7 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader, Dataset
 
 from .torch_datasets import ConcatDataset, WindowedData
-from .torch_models import (numpy_to_variable, single_layer_perceptron, Scaler, train)
+from .torch_models import (numpy_to_variable, single_layer_perceptron, train)
 
 def _numpy_to_variable(x):
     return Variable(torch.FloatTensor(x))
@@ -35,20 +35,26 @@ def _stack_qtsl(X):
 def _data_to_scaler(data, cuda=False):
     # compute mean and stddev
     # this is an error, std does not work like this
-    X = data['X']
-    X = _stack_qtsl(X)
+    means = {}
+    scales = {}
+    for key in data['X']:
+        X = data['X'][key]
+        m = X.shape[-1]
+        mu = X.reshape((-1, m)).mean(axis=0)
+        sig = X.reshape((-1, m)).std(axis=0)
 
-    m = X.shape[-1]
-    mu = X.reshape((-1, m)).mean(axis=0)
-    sig = X.reshape((-1, m)).std(axis=0)
-    mu, sig = [_numpy_to_variable(np.squeeze(x)) for x in [mu, sig]]
-    sig = torch.mean(sig)
+        # convert to torch
+        mu, sig = [_numpy_to_variable(np.squeeze(x)) for x in [mu, sig]]
+        sig = torch.mean(sig)
 
-    if cuda:
-        mu = mu.cuda()
-        sig = sig.cuda()
+        if cuda:
+            mu = mu.cuda()
+            sig = sig.cuda()
 
-    return Scaler(mu, sig)
+        means[key] = mu
+        scales[key] = sig
+
+    return scaler(scales, means)
 
 
 def _to_dict(x):
@@ -153,6 +159,26 @@ def mlp(layer_sizes):
     return nn.Sequential(*layers)
 
 
+def _scale_var(scale, mean, x):
+    x = x.double()
+    mu = mean.double()
+    sig = scale.double()
+
+    x = x.sub(mu)
+    x = x.div(sig + 1e-7)
+
+    return x.float()
+
+
+@curry
+def scaler(scales, means, x):
+    out = {}
+    for key in x:
+        if key in scales and key in means:
+            out[key] = _scale_var(scales[key], means[key], x[key])
+        else:
+            out[key] = x[key]
+    return out
 
 class RHS(nn.Module):
     def __init__(self, m, hidden=(), scaler=None):
@@ -166,8 +192,8 @@ class RHS(nn.Module):
         self.scaler = scaler
 
     def forward(self, x):
-        x = _from_dict(x)
         x = self.scaler(x)
+        x = _from_dict(x)
 
         y = self.mlp(x) + self.lin(x)
 
@@ -241,14 +267,14 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
         return loss(y, x)
 
     # train the model
-    # train(data_loader, closure, optimizer=optimizer,
-    #       num_epochs=num_epochs, num_steps=num_steps)
+    train(data_loader, closure, optimizer=optimizer,
+          num_epochs=num_epochs, num_steps=num_steps)
 
     # run the closure on data from the data_loader
-    args = next(iter(data_loader))
-    loss = closure(*args)
+    # args = next(iter(data_loader))
+    # loss = closure(*args)
 
-    return nstepper, loss
+    return nstepper
 
 
 
