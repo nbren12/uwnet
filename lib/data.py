@@ -2,7 +2,8 @@ import numpy as np
 from glob import glob
 import xarray as xr
 from lib.advection import material_derivative
-from lib.thermo import liquid_water_temperature, total_water, layer_mass
+from lib.thermo import (liquid_water_temperature, total_water, layer_mass,
+                        shf_to_tendency, lhf_to_tendency)
 
 
 def defaultsel(x):
@@ -18,22 +19,27 @@ def inputs_and_forcings(files_3d, file_2d, stat_file, sel=defaultsel):
     data_2d = data_2d.isel(time=np.argsort(data_2d.time.values))
     stat = xr.open_dataset(stat_file)
 
-    D = xr.merge((data_3d, data_2d), join='inner')
+    data = xr.merge((data_3d, data_2d), join='inner')
 
     # limit to tropics
-    D = sel(D)
+    data = sel(data)
 
     p = stat.p
     rho = stat.RHO[0].drop('time')
     w = layer_mass(rho)
 
+    # compute the surface flux tendencies
+
     inputs = xr.Dataset({
-        'sl': liquid_water_temperature(D.TABS, D.QN, D.QP),
-        'qt': total_water(D.QV, D.QN)
+        'sl': liquid_water_temperature(data.TABS, data.QN, data.QP),
+        'qt': total_water(data.QV, data.QN)
     })
 
     forcings = inputs.apply(
-        lambda f: -material_derivative(D.U, D.V, D.W, f) * 86400)
+        lambda f: -material_derivative(data.U, data.V, data.W, f) * 86400)
+
+    forcings['flux_sl'] = shf_to_tendency(data.SHF, rho[0])
+    forcings['flux_qt'] = lhf_to_tendency(data.LHF, rho[0])
 
     inputs['p'] = p
     inputs['w'] = w
