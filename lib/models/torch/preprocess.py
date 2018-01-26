@@ -80,6 +80,11 @@ def wrap(torch_model):
     return fun
 
 
+def prepare_array(x):
+    output_dims = [dim for dim in ['time', 'y', 'x', 'z']
+                   if dim in x.dims]
+    return x.transpose(*output_dims).values
+
 def prepare_data(inputs: xr.Dataset, forcings: xr.Dataset):
 
     w = inputs.w
@@ -94,10 +99,8 @@ def prepare_data(inputs: xr.Dataset, forcings: xr.Dataset):
                                     ds=inputs[fields])
     scales = {key: float(scales[key]) for key in fields}
 
-    output_dims = [dim for dim in ['time', 'y', 'x', 'z']
-                   if dim in inputs.dims]
-    X = {key: inputs[key].transpose(*output_dims).values for key in fields}
-    G = {key: forcings[key].transpose(*output_dims).values for key in fields}
+    X = {key: prepare_array(inputs[key]) for key in inputs.data_vars}
+    G = {key: prepare_array(forcings[key]) for key in forcings.data_vars}
 
     # return stacked data
 
