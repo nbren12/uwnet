@@ -38,8 +38,8 @@ def inputs_and_forcings(files_3d, file_2d, stat_file, sel=defaultsel):
     forcings = inputs.apply(
         lambda f: -material_derivative(data.U, data.V, data.W, f) * 86400)
 
-    forcings['flux_sl'] = shf_to_tendency(data.SHF, rho[0])
-    forcings['flux_qt'] = lhf_to_tendency(data.LHF, rho[0])
+    forcings['SHF'] = data.SHF
+    forcings['LHF'] = data.LHF
 
     inputs['p'] = p
     inputs['w'] = w

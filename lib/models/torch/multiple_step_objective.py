@@ -25,7 +25,8 @@ def _data_to_torch_dataset(data, window_size):
     G = {key: WindowedData(val, window_size)
          for key, val in G.items()}
 
-    dataset = ConcatDataset(X['sl'], X['qt'], G['sl'], G['qt'])
+    dataset = ConcatDataset(X['sl'], X['qt'], G['sl'], G['qt'],
+                            G['LHF'], G['SHF'])
     return dataset
 
 
@@ -234,9 +235,9 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
         if cuda:
             args = [arg.cuda() for arg in args]
 
-        sl, qt, fsl, fqt = args
+        sl, qt, fsl, fqt, lhf, shf = args
         x = {'sl': sl, 'qt': qt}
-        g = {'sl': fsl, 'qt': fqt}
+        g = {'sl': fsl, 'qt': fqt, 'lhf': lhf, 'shf': shf}
 
         y = nstepper(x, g)
         return loss(y, x)
