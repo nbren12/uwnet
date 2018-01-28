@@ -13,6 +13,11 @@ from .torch_datasets import ConcatDataset, WindowedData
 from .torch_models import train
 
 
+# list of variables used
+prognostic_variables = ['sl', 'qt']
+forcing_variables = 'sl qt QRAD LHF SHF Prec'.split(' ')
+
+
 def _numpy_to_variable(x):
     return Variable(torch.FloatTensor(x))
 
@@ -23,9 +28,10 @@ def _data_to_torch_dataset(data, window_size):
     X = {key: WindowedData(val, window_size) for key, val in X.items()}
     G = {key: WindowedData(val, window_size) for key, val in G.items()}
 
-    dataset = ConcatDataset(X['sl'], X['qt'], G['sl'], G['qt'], G['QRAD'], G['LHF'],
-                            G['SHF'], G['Prec'])
-    return dataset
+
+    prognostics = [X[key] for key in prognostic_variables]
+    forcings  = [G[key] for key in forcing_variables]
+    return ConcatDataset(ConcatDataset(*prognostics), ConcatDataset(*forcings))
 
 
 def _data_to_scaler(data, cuda=False):
@@ -186,6 +192,16 @@ class RHS(nn.Module):
         return _to_dict(y)
 
 
+def _prepare_vars_in_nested_dict(data, cuda=False):
+    if isinstance(data, torch.FloatTensor) or isinstance(data, torch.DoubleTensor):
+        x =  Variable(data).float()
+        if cuda:
+            x = x.cuda()
+        return x.transpose(0, 1)
+    elif isinstance(data, dict):
+        return {key: _prepare_vars_in_nested_dict(val, cuda=cuda)
+                for key, val in data.items()}
+
 def train_multistep_objective(data,
                               num_epochs=4,
                               window_size=10,
@@ -242,16 +258,17 @@ def train_multistep_objective(data,
 
     # _init_linear_weights(net, .01/nsteps)
     def closure(*args):
-        args = [Variable(x.float()).transpose(0, 1) for x in args]
+        # args = [Variable(x.float()).transpose(0, 1) for x in args]
 
-        if cuda:
-            args = [arg.cuda() for arg in args]
+        # if cuda:
+        #     args = [arg.cuda() for arg in args]
 
-        sl, qt, fsl, fqt, qrad, lhf, shf, prec = args
-        x = {'sl': sl, 'qt': qt}
-        g = {'sl': fsl, 'qt': fqt, 'SHF': lhf, 'LHF': shf, 'QRAD': qrad, 'Prec': prec}
-
-        data = {'prognostic': x, 'forcing': g}
+        prog, force = args
+        data = {
+            'prognostic': dict(zip(prognostic_variables, prog)),
+            'forcing': dict(zip(forcing_variables, force))
+        }
+        data = _prepare_vars_in_nested_dict(data)
 
         y = nstepper(data)
         return loss(data, y)
