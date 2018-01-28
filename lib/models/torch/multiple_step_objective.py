@@ -26,7 +26,7 @@ def _prepare_vars_in_nested_dict(data, cuda=False):
 
 def prepare_dataset(data, window_size,
                     prognostic_variables=('sl', 'qt'),
-                    forcing_variables=('sl', 'qt', 'QRAD', 'LHF', 'SHF', 'Prec')):
+                    forcing_variables=('sl', 'qt', 'QRAD', 'LHF', 'SHF', 'Prec', 'W')):
 
     X, G = data['X'], data['G']
     X = DictDataset({key: WindowedData(X[key], window_size)
