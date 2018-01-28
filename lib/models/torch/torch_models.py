@@ -51,7 +51,7 @@ def train(data_loader, loss_fn, optimizer, num_epochs=1,
             optimizer.zero_grad()  # this is not done automatically in torch
 
             # pass all data args to loss_function
-            loss = loss_fn(*data)
+            loss = loss_fn(data)
 
             loss.backward()
             optimizer.step()
