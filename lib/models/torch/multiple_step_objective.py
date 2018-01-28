@@ -57,8 +57,8 @@ def _to_dict(x):
     return {'sl': x[..., :34], 'qt': x[..., 34:]}
 
 
-def _from_dict(d):
-    return torch.cat((d['sl'], d['qt']), -1)
+def _from_dict(prog):
+    return torch.cat((prog['sl'], prog['qt']), -1)
 
 
 def _data_to_loss_feature_weights(data, cuda=True):
@@ -136,34 +136,35 @@ class ForcedStepper(nn.Module):
         data : dict
             A dictionary containing the prognostic variables and forcing data.
         """
-        x = data['prognostic']
-        g = data['forcing']
+        prog = data['prognostic']
+        force = data['forcing']
 
-        window_size = first(x.values()).size(0)
+        window_size = first(prog.values()).size(0)
 
 
-        d = valmap(lambda x: x[0], x)
-        g_dict = valmap(lambda x: (x[1:] + x[:-1]) / 2, g)
+        prog = valmap(lambda prog: prog[0], prog)
+        # trapezoid rule
+        force_dict = valmap(lambda prog: (prog[1:] + prog[:-1]) / 2, force)
 
         h = self.h
         nsteps = self.nsteps
 
         # output array
-        steps = {key: [d[key]] for key in d}
+        steps = {key: [prog[key]] for key in prog}
 
         for i in range(1, window_size):
             for j in range(nsteps):
-                src = self.rhs(d)
+                src = self.rhs(prog)
                 large_scale_forcing = {
                     key: val[i - 1]
-                    for key, val in g_dict.items()
+                    for key, val in force_dict.items()
                 }
-                d = _euler_step(d, src, h / nsteps)
-                d = _euler_step(d, large_scale_forcing, h / nsteps)
+                prog = _euler_step(prog, src, h / nsteps)
+                prog = _euler_step(prog, large_scale_forcing, h / nsteps)
 
             # store data
-            for key in d:
-                steps[key].append(d[key])
+            for key in prog:
+                steps[key].append(prog[key])
 
         y = valmap(torch.stack, steps)
         return {'prognostic': y}
