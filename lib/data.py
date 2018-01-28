@@ -40,6 +40,8 @@ def inputs_and_forcings(files_3d, file_2d, stat_file, sel=defaultsel):
 
     forcings['SHF'] = data.SHF
     forcings['LHF'] = data.LHF
+    forcings['QRAD'] = data.QRAD
+    forcings['Prec'] = data.Prec
 
     inputs['p'] = p
     inputs['w'] = w

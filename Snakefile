@@ -136,7 +136,7 @@ rule q2:
 
 
 files_3d =expand("data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/{f}.nc",
-                 f="U V W QV QN TABS QP".split(" ")),
+                 f="U V W QV QN TABS QP QRAD".split(" ")),
 rule inputs_and_forcings:
     input: d3=files_3d,
            d2="data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc",
