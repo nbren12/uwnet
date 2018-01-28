@@ -9,8 +9,8 @@ from torch import nn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
-from .torch_datasets import DictDataset, ConcatDataset, WindowedData
-from .torch_models import train
+from .datasets import DictDataset, ConcatDataset, WindowedData
+from .utils import train
 
 
 def _prepare_vars_in_nested_dict(data, cuda=False):
