@@ -128,17 +128,20 @@ class ForcedStepper(nn.Module):
         self.h = h
         self.rhs = rhs
 
-    def forward(self, x, g):
+    def forward(self, data: dict):
         """
 
         Parameters
         ----------
-        x : (seq_len, batch, input_size)
-            tensor containing prognostic variables
-        g : (seq_len, batch, input_size)
-            tensor containing forcings
+        data : dict
+            A dictionary containing the prognostic variables and forcing data.
         """
+        x = data['prognostic']
+        g = data['forcing']
+
         window_size = first(x.values()).size(0)
+
+
         d = valmap(lambda x: x[0], x)
         g_dict = valmap(lambda x: (x[1:] + x[:-1]) / 2, g)
 
@@ -162,7 +165,8 @@ class ForcedStepper(nn.Module):
             for key in d:
                 steps[key].append(d[key])
 
-        return valmap(torch.stack, steps)
+        y = valmap(torch.stack, steps)
+        return {'prognostic': y}
 
 
 class RHS(nn.Module):
@@ -243,8 +247,10 @@ def train_multistep_objective(data,
         x = {'sl': sl, 'qt': qt}
         g = {'sl': fsl, 'qt': fqt, 'lhf': lhf, 'shf': shf}
 
-        y = nstepper(x, g)
-        return loss(y, x)
+        data = {'prognostic': x, 'forcing': g}
+
+        y = nstepper(data)
+        return loss(y['prognostic'], data['prognostic'])
 
     # train the model
     if test_loss:
