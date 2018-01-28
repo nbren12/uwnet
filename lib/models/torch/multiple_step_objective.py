@@ -9,29 +9,39 @@ from torch import nn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
-from .torch_datasets import ConcatDataset, WindowedData
+from .torch_datasets import DictDataset, ConcatDataset, WindowedData
 from .torch_models import train
 
 
-# list of variables used
-prognostic_variables = ['sl', 'qt']
-forcing_variables = 'sl qt QRAD LHF SHF Prec'.split(' ')
+def _prepare_vars_in_nested_dict(data, cuda=False):
+    if torch.is_tensor(data):
+        x =  Variable(data).float()
+        if cuda:
+            x = x.cuda()
+        return x.transpose(0, 1)
+    elif isinstance(data, dict):
+        return {key: _prepare_vars_in_nested_dict(val, cuda=cuda)
+                for key, val in data.items()}
+
+
+def prepare_dataset(data, window_size,
+                    prognostic_variables=('sl', 'qt'),
+                    forcing_variables=('sl', 'qt', 'QRAD', 'LHF', 'SHF', 'Prec')):
+
+    X, G = data['X'], data['G']
+    X = DictDataset({key: WindowedData(X[key], window_size)
+                        for key in prognostic_variables})
+    G = DictDataset({key: WindowedData(G[key], window_size)
+                        for key in forcing_variables})
+
+    return DictDataset({
+        'prognostic': X,
+        'forcing': G
+    })
 
 
 def _numpy_to_variable(x):
     return Variable(torch.FloatTensor(x))
-
-
-def _data_to_torch_dataset(data, window_size):
-
-    X, G = data['X'], data['G']
-    X = {key: WindowedData(val, window_size) for key, val in X.items()}
-    G = {key: WindowedData(val, window_size) for key, val in G.items()}
-
-
-    prognostics = [X[key] for key in prognostic_variables]
-    forcings  = [G[key] for key in forcing_variables]
-    return ConcatDataset(ConcatDataset(*prognostics), ConcatDataset(*forcings))
 
 
 def _data_to_scaler(data, cuda=False):
@@ -192,15 +202,6 @@ class RHS(nn.Module):
         return _to_dict(y)
 
 
-def _prepare_vars_in_nested_dict(data, cuda=False):
-    if isinstance(data, torch.FloatTensor) or isinstance(data, torch.DoubleTensor):
-        x =  Variable(data).float()
-        if cuda:
-            x = x.cuda()
-        return x.transpose(0, 1)
-    elif isinstance(data, dict):
-        return {key: _prepare_vars_in_nested_dict(val, cuda=cuda)
-                for key, val in data.items()}
 
 def train_multistep_objective(data,
                               num_epochs=4,
@@ -230,7 +231,7 @@ def train_multistep_objective(data,
     if cuda:
         dt = dt.cuda()
 
-    dataset = _data_to_torch_dataset(data, window_size)
+    dataset = prepare_dataset(data, window_size)
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     scaler = _data_to_scaler(data, cuda=cuda)
@@ -257,26 +258,15 @@ def train_multistep_objective(data,
         return total_loss
 
     # _init_linear_weights(net, .01/nsteps)
-    def closure(*args):
-        # args = [Variable(x.float()).transpose(0, 1) for x in args]
-
-        # if cuda:
-        #     args = [arg.cuda() for arg in args]
-
-        prog, force = args
-        data = {
-            'prognostic': dict(zip(prognostic_variables, prog)),
-            'forcing': dict(zip(forcing_variables, force))
-        }
-        data = _prepare_vars_in_nested_dict(data)
-
-        y = nstepper(data)
-        return loss(data, y)
+    def closure(batch):
+        batch = _prepare_vars_in_nested_dict(batch, cuda=cuda)
+        y = nstepper(batch)
+        return loss(batch, y)
 
     # train the model
     if test_loss:
         args = next(iter(data_loader))
-        return nstepper, closure(*args)
+        return nstepper, closure(args)
     else:
         train(
             data_loader,

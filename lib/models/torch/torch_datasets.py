@@ -16,6 +16,17 @@ class ConcatDataset(Dataset):
         return min(len(d) for d in self.datasets)
 
 
+class DictDataset(Dataset):
+    def __init__(self, mapping):
+        self.datasets = mapping
+
+    def __getitem__(self, i):
+        return {key: val[i] for key, val in self.datasets.items()}
+
+    def __len__(self):
+        return min(len(d) for d in self.datasets.values())
+
+
 @attr.s
 class WindowedData(Dataset):
     """Window data along first dimension
@@ -50,6 +61,8 @@ class WindowedData(Dataset):
             nf = sh[-1]
         elif self.x.ndim == 3:
             nf = 1
+        else:
+            raise ValueError("data has dimension less the 3. Maybe it is not a time series variable.")
         return self.x.reshape((nt, -1, nf))
 
     def __len__(self):
@@ -65,3 +78,6 @@ class WindowedData(Dataset):
         j = (ind-i) // self.nwindows
 
         return self.reshaped[i:i+self.chunk_size,j,:]
+
+    def __repr__(self):
+        return "WindowedData()"
