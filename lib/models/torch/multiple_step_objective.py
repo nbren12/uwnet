@@ -1,7 +1,7 @@
 """Fit model for the multiple time step objective function. This requires some special dataloaders etc
 
 """
-from toolz import curry, first, valmap, merge_with
+from toolz import curry, first, valmap, merge_with, assoc
 import numpy as np
 
 import torch
@@ -85,6 +85,14 @@ def weighted_loss(weight, x, y):
     return torch.mean(torch.pow(x-y, 2).mul(weight.float()))
 
 
+def _euler_step(prog, src, h):
+    for key in prog:
+        x = prog[key]
+        f = src[key]
+        prog = assoc(prog, key, x + h*f)
+    return prog
+
+
 class ForcedStepper(nn.Module):
     def __init__(self, rhs, h, nsteps):
         super(ForcedStepper, self).__init__()
@@ -115,11 +123,9 @@ class ForcedStepper(nn.Module):
         for i in range(1, window_size):
             for j in range(nsteps):
                 src = self.rhs(d)
-                for key in src:
-                    x = d[key]
-                    f = src[key]
-                    g = g_dict[key][i-1]
-                    d[key] = x + h/nsteps*(f+g)
+                large_scale_forcing = {key: val[i-1] for key, val in g_dict.items()}
+                d = _euler_step(d, src, h/nsteps)
+                d = _euler_step(d, large_scale_forcing, h/nsteps)
 
             # store data
             for key in d:
