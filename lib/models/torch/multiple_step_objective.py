@@ -231,7 +231,10 @@ def train_multistep_objective(data,
     if cuda:
         nstepper.cuda()
 
-    def loss(y, x):
+    def loss(truth, pred):
+        x = truth['prognostic']
+        y = pred['prognostic']
+
         total_loss = 0
         for key in y:
             total_loss += weighted_loss(weights[key], x[key], y[key]) / len(y)
@@ -251,7 +254,7 @@ def train_multistep_objective(data,
         data = {'prognostic': x, 'forcing': g}
 
         y = nstepper(data)
-        return loss(y['prognostic'], data['prognostic'])
+        return loss(data, y)
 
     # train the model
     if test_loss:
