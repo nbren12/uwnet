@@ -1,6 +1,7 @@
 """Fit model for the multiple time step objective function. This requires some special dataloaders etc
 
 """
+from collections import defaultdict
 from toolz import curry, first, valmap, merge_with, assoc
 import numpy as np
 
@@ -15,29 +16,33 @@ from .utils import train
 
 def _prepare_vars_in_nested_dict(data, cuda=False):
     if torch.is_tensor(data):
-        x =  Variable(data).float()
+        x = Variable(data).float()
         if cuda:
             x = x.cuda()
         return x.transpose(0, 1)
     elif isinstance(data, dict):
-        return {key: _prepare_vars_in_nested_dict(val, cuda=cuda)
-                for key, val in data.items()}
+        return {
+            key: _prepare_vars_in_nested_dict(val, cuda=cuda)
+            for key, val in data.items()
+        }
 
 
-def prepare_dataset(data, window_size,
+def prepare_dataset(data,
+                    window_size,
                     prognostic_variables=('sl', 'qt'),
-                    forcing_variables=('sl', 'qt', 'QRAD', 'LHF', 'SHF', 'Prec', 'W')):
+                    forcing_variables=('sl', 'qt', 'QRAD', 'LHF', 'SHF',
+                                       'Prec', 'W')):
 
     X, G = data['X'], data['G']
-    X = DictDataset({key: WindowedData(X[key], window_size)
-                        for key in prognostic_variables})
-    G = DictDataset({key: WindowedData(G[key], window_size)
-                        for key in forcing_variables})
-
-    return DictDataset({
-        'prognostic': X,
-        'forcing': G
+    X = DictDataset({
+        key: WindowedData(X[key], window_size)
+        for key in prognostic_variables
     })
+    G = DictDataset(
+        {key: WindowedData(G[key], window_size)
+         for key in forcing_variables})
+
+    return DictDataset({'prognostic': X, 'forcing': G})
 
 
 def _numpy_to_variable(x):
@@ -157,7 +162,6 @@ class ForcedStepper(nn.Module):
 
         window_size = first(prog.values()).size(0)
 
-
         prog = valmap(lambda prog: prog[0], prog)
         # trapezoid rule
         force_dict = valmap(lambda prog: (prog[1:] + prog[:-1]) / 2, force)
@@ -167,7 +171,6 @@ class ForcedStepper(nn.Module):
 
         # output array
         steps = {key: [prog[key]] for key in prog}
-
         for i in range(1, window_size):
             for j in range(nsteps):
                 src = self.rhs(prog)
@@ -182,8 +185,24 @@ class ForcedStepper(nn.Module):
             for key in prog:
                 steps[key].append(prog[key])
 
-        y = valmap(torch.stack, steps)
-        return {'prognostic': y}
+        y = data
+        y['prognostic'] = valmap(torch.stack, steps)
+        y['diagnostic'] = self._diagnostics(y, h)
+        return y
+
+    def _diagnostics(self, data, h):
+
+        w = data['constant']['w']
+
+        src = {
+            key: (x[1:] - x[:-1]) / h
+            for key, x in data['prognostic'].items()
+        }
+
+        return {
+            's_src_integral': (src['sl'] * w).sum(-1),
+            'q_src_integral': (src['qt'] * w).sum(-1),
+        }
 
 
 class RHS(nn.Module):
@@ -200,7 +219,6 @@ class RHS(nn.Module):
         y = self.mlp(x) + self.lin(x)
 
         return _to_dict(y)
-
 
 
 def train_multistep_objective(data,
@@ -252,14 +270,17 @@ def train_multistep_objective(data,
         x = truth['prognostic']
         y = pred['prognostic']
 
+        # time series loss
         total_loss = 0
         for key in y:
             total_loss += weighted_loss(weights[key], x[key], y[key]) / len(y)
+
         return total_loss
 
     # _init_linear_weights(net, .01/nsteps)
     def closure(batch):
         batch = _prepare_vars_in_nested_dict(batch, cuda=cuda)
+        batch['constant'] = {'w': Variable(torch.FloatTensor(data['w']['sl']))}
         y = nstepper(batch)
         return loss(batch, y)
 
