@@ -64,7 +64,7 @@ def column_run(model, prognostic, forcing):
     dims = ['time', 'batch', 'z']
 
     return {
-        key: xr.DataArray(y['prognostic']['sl'], coords=coords, dims=dims)
+        key: xr.DataArray(y['prognostic'][key], coords=coords, dims=dims)
         for key in y['prognostic']
     }
 
