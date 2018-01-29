@@ -205,12 +205,18 @@ class ForcedStepper(nn.Module):
         f = valmap(lambda prog: (prog[1:] + prog[:-1]) / 2, data['forcing'])
         shf = f['SHF'][..., 0]
         lhf = f['LHF'][..., 0]
-        prec_t = (
-            (w * (src['sl'] - f['QRAD'])).sum(-1) * constants.cp / constants.Lv
-            - shf * 86400 / constants.Lv)
-        prec_q = -(src['qt'] * w).sum(-1) / 1000. + lhf * 86400 / constants.Lv
+        prec_t = precip_from_s(src['sl'], f['QRAD'], shf, w)
+        prec_q = precip_from_q(src['qt'], lhf, w)
 
         return {'prec_t': prec_t, 'prec_q': prec_q}
+
+
+def precip_from_s(fsl, qrad, shf, w):
+    return (w * (fsl - qrad)).sum(-1) * constants.cp / constants.Lv - shf * 86400 / constants.Lv
+
+
+def precip_from_q(fqt, lhf, w):
+    return -(fqt * w).sum(-1) / 1000. + lhf * 86400 / constants.Lv
 
 
 class RHS(nn.Module):
@@ -226,7 +232,9 @@ class RHS(nn.Module):
 
         y = self.mlp(x) + self.lin(x)
 
-        return _to_dict(y)
+        src = _to_dict(y)
+
+        return src
 
 
 def train_multistep_objective(data,
@@ -288,11 +296,10 @@ def train_multistep_objective(data,
         prect = pred['diagnostic']['prec_t']
         precq = pred['diagnostic']['prec_q']
         prec = truth['forcing']['Prec']
-        prec = (prec[1:,...,0] + prec[:-1,...,0])/2
+        prec = (prec[1:, ..., 0] + prec[:-1, ..., 0]) / 2
 
-        total_loss += torch.mean(torch.pow(prect - prec, 2))/10
-        total_loss += torch.mean(torch.pow(precq - prec, 2))/10
-
+        total_loss += torch.mean(torch.pow(prect - prec, 2)) / 10
+        total_loss += torch.mean(torch.pow(precq - prec, 2)) / 10
 
         return total_loss
 
