@@ -7,6 +7,8 @@ where the approximate time series is defined recursively by $\tilde{x}^0 = x^0$,
 """
 
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
+
 import numpy as np
 import xarray as xr
 from sklearn.externals import joblib
@@ -19,7 +21,12 @@ from torch.autograd import Variable
 
 def plot_soln(x):
 
-    fig, axs = plt.subplots(3, 1, figsize=(8, 5))
+    fig = plt.figure(figsize=(8, 5))
+    gs = GridSpec(3, 2,
+                  width_ratios=(.97, .03),
+                  height_ratios=(1, 1, .5),
+                  wspace=.01)
+
     qt_levs = np.arange(11) * 2.5
 
     t_levs = np.arange(12) * 5 + 275
@@ -28,17 +35,27 @@ def plot_soln(x):
 
     x = x.squeeze()
 
+    ax = plt.subplot(gs[0,0])
+
+    axs = [ ax,
+        plt.subplot(gs[1,0], sharex=ax, sharey=ax),
+        plt.subplot(gs[2,0], sharex=ax)
+    ]
+
+
+
     t_im = axs[0].contourf(*args, x.sl.T, levels=t_levs, extend='both')
     q_im = axs[1].contourf(*args, x.qt.T, levels=qt_levs, extend='both')
 
-    plt.colorbar(t_im, ax=axs[0])
-    plt.colorbar(q_im, ax=axs[1])
+    plt.colorbar(t_im, cax=plt.subplot(gs[0, 1]))
+    plt.colorbar(q_im, cax=plt.subplot(gs[1, 1]))
 
     axs[0].set_ylabel('sl')
     axs[1].set_ylabel('qt')
     axs[2].plot(x.prec.time, x.prec)
 
     axs[0].invert_yaxis()
+    axs[0].set_xlim([100, 180])
 
 
 def dataset_to_dict(dataset):
