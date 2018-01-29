@@ -282,6 +282,17 @@ def train_multistep_objective(data,
         for key in y:
             total_loss += weighted_loss(weights[key], x[key], y[key]) / len(y)
 
+        # column budget losses this compares the predicted precipitation for
+        # each field to reality
+        prect = pred['diagnostic']['prec_t']
+        precq = pred['diagnostic']['prec_q']
+        prec = truth['forcing']['Prec']
+        prec = (prec[1:,...,0] + prec[:-1,...,0])/2
+
+        total_loss += torch.mean(torch.pow(prect - prec, 2))/10
+        total_loss += torch.mean(torch.pow(precq - prec, 2))/10
+
+
         return total_loss
 
     # _init_linear_weights(net, .01/nsteps)
