@@ -1,5 +1,5 @@
 import numpy as np
-from lib.models.torch.torch_datasets import WindowedData
+from lib.models.torch.datasets import WindowedData
 
 
 def test_windowed_dataset():
