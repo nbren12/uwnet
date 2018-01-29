@@ -159,6 +159,7 @@ class ForcedStepper(nn.Module):
         data : dict
             A dictionary containing the prognostic variables and forcing data.
         """
+        data = data.copy()
         prog = data['prognostic']
         force = data['forcing']
 
@@ -187,7 +188,7 @@ class ForcedStepper(nn.Module):
             for key in prog:
                 steps[key].append(prog[key])
 
-        y = data
+        y = data.copy()
         y['prognostic'] = valmap(torch.stack, steps)
         y['diagnostic'] = self._diagnostics(y, h)
         return y
