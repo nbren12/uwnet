@@ -19,7 +19,7 @@ from torch.autograd import Variable
 
 def plot_soln(x):
 
-    fig, axs = plt.subplots(2, 1, figsize=(8, 5), sharey=True)
+    fig, axs = plt.subplots(3, 1, figsize=(8, 5))
     qt_levs = np.arange(11) * 2.5
 
     t_levs = np.arange(12) * 5 + 275
@@ -36,6 +36,7 @@ def plot_soln(x):
 
     axs[0].set_ylabel('sl')
     axs[1].set_ylabel('qt')
+    axs[2].plot(x.prec.time, x.prec)
 
     axs[0].invert_yaxis()
 
@@ -74,14 +75,23 @@ def column_run(model, prognostic, forcing):
     coords = {'z': prognostic['z'], 'time': prognostic['time']}
     dims = ['time', 'batch', 'z']
 
-    return {
+    progs = {
         key: xr.DataArray(y['prognostic'][key].data.numpy(), coords=coords, dims=dims)
         for key in y['prognostic']
     }
 
+    prec = xr.DataArray(y['diagnostic']['prec_q'].data.numpy().ravel(),
+                        coords={'time': prognostic.time[:-1]},
+                        dims=['time'])
+
+    return progs, prec
+
 
 def plot_column_run(p, *args):
-    y = xr.Dataset(column_run(*args)).assign(p=p)
+    y, prec = column_run(*args)
+    y = xr.Dataset(y)
+    y['prec'] = prec
+    y['p'] = p
     plot_soln(y)
 
 
@@ -102,6 +112,7 @@ def main(inputs, forcings, torch_file, output_dir):
     forced_path = os.path.join(output_dir, "forced.png")
     plt.savefig(forced_path)
 
+    inputs['prec'] = forcings.Prec
     plot_soln(inputs)
     path = os.path.join(output_dir, "truth.png")
     plt.savefig(path)
