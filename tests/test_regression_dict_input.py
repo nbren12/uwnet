@@ -29,18 +29,17 @@ def train_data():
     return joblib.load("data/ml/ngaqua/time_series_data.pkl")
 
 
-# @pytest.mark.skip()
+@pytest.mark.skip()
 def test_train_multistep_objective(train_data, test_data, regtest):
 
     # train_data = {key: _stacked_to_dict(val) for key, val in train_data.items()
     #               if key != 'p'}
     model, _ = train_multistep_objective(train_data, test_loss=True)
-    wrapped = wrap(model)
+    wrapped = wrap(model.rhs)
 
     inputs, forcings = test_data
     inputs = inputs.drop('p').drop('w')
-    data = {'prognostic': inputs, 'forcing': forcings}
-    output = wrapped(data)
+    output = wrapped(inputs)
     print(output.isel(time=-1), file=regtest)
 
 

@@ -8,8 +8,10 @@ from torch.autograd import Variable
 
 from lib.util import compute_weighted_scale, scales_to_np, weights_to_np
 
-from toolz import pipe
+from toolz import pipe, merge, reduce, curry
 from toolz.curried import valmap
+
+from collections import Mapping, Iterable
 
 
 def stacked_data(X):
@@ -60,22 +62,36 @@ def _dataset_to_dict(ds: xr.Dataset):
     return {key: ds[key].values for key in ds.data_vars}
 
 
+def _wrap_args(args, cuda=False, to_numpy=False):
+
+    wrap = curry(_wrap_args, cuda=cuda, to_numpy=to_numpy)
+    if isinstance(args, tuple):
+        return tuple(map(wrap, args))
+    elif isinstance(args, Mapping):
+        return valmap(wrap, args)
+    elif isinstance(args, xr.Dataset):
+        return {key: wrap(args[key]) for key in args.data_vars}
+    elif isinstance(args, xr.DataArray):
+        x = args
+        # transpose data into correct order
+        x = x.transpose('time', 'batch', 'z')
+        # turn it into a pytorch variable
+        return Variable(torch.FloatTensor(x.values))
+    elif isinstance(args, Variable):
+        if to_numpy:
+            return args.data.cpu().numpy()
+        else:
+            return args
+
+
 def wrap(torch_model):
     def fun(*args):
-        torch_args = [pipe(x, _dataset_to_dict,
-                           valmap(torch.FloatTensor),
-                           valmap(Variable))
-                      for x in args]
+        torch_args = _wrap_args(args)
+
         y = torch_model(*torch_args)
-        y = valmap(lambda x: x.cpu().data.numpy(), y)
+        y  = _wrap_args(y, to_numpy=True)
 
-        # get coords from inputs
-        x = args[0]
-
-        return xr.Dataset(valmap(
-            lambda arr: xr.DataArray(arr, coords=x.coords, dims=x.dims),
-            y
-        ))
+        return y
 
     return fun
 
