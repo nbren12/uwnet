@@ -13,6 +13,8 @@ from torch.utils.data import DataLoader
 from .datasets import DictDataset, ConcatDataset, WindowedData
 from .utils import train
 
+from ... import constants
+
 
 def _prepare_vars_in_nested_dict(data, cuda=False):
     if torch.is_tensor(data):
@@ -199,10 +201,15 @@ class ForcedStepper(nn.Module):
             for key, x in data['prognostic'].items()
         }
 
-        return {
-            's_src_integral': (src['sl'] * w).sum(-1),
-            'q_src_integral': (src['qt'] * w).sum(-1),
-        }
+        f = valmap(lambda prog: (prog[1:] + prog[:-1]) / 2, data['forcing'])
+        shf = f['SHF'][..., 0]
+        lhf = f['LHF'][..., 0]
+        prec_t = (
+            (w * (src['sl'] - f['QRAD'])).sum(-1) * constants.cp / constants.Lv
+            - shf * 86400 / constants.Lv)
+        prec_q = -(src['qt'] * w).sum(-1) / 1000. + lhf * 86400 / constants.Lv
+
+        return {'prec_t': prec_t, 'prec_q': prec_q}
 
 
 class RHS(nn.Module):
