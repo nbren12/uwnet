@@ -13,8 +13,8 @@ from sklearn.externals import joblib
 import os
 
 import torch
+from torch.autograd import Variable
 # from lib.evaluation.single_column import forced_step, runsteps, step
-from lib.models.torch import wrap
 
 
 def plot_soln(x):
@@ -47,6 +47,11 @@ def dataset_to_dict(dataset):
         if 'z' not in x.dims:
             x = x.expand_dims('z')
         x = x.expand_dims('batch')
+
+        transpose_dims = [dim for dim in ['time', 'batch', 'z']
+                          if dim in x.dims]
+        x = x.transpose(*transpose_dims)
+        x = Variable(torch.FloatTensor(x.values))
         out[key] = x
     return out
 
@@ -56,15 +61,21 @@ def column_run(model, prognostic, forcing):
     forcing = dataset_to_dict(forcing)
 
     prog.pop('p')
-    prog.pop('w')
+    w = prog.pop('w')
 
-    y = wrap(model)({'prognostic': prog, 'forcing': forcing})
+    input_data = {
+        'prognostic': prog,
+        'forcing': forcing,
+        'constant': {'w': w}
+    }
 
-    coords = prog['sl'].coords
+    y = model(input_data)
+
+    coords = {'z': prognostic['z'], 'time': prognostic['time']}
     dims = ['time', 'batch', 'z']
 
     return {
-        key: xr.DataArray(y['prognostic'][key], coords=coords, dims=dims)
+        key: xr.DataArray(y['prognostic'][key].data.numpy(), coords=coords, dims=dims)
         for key in y['prognostic']
     }
 
