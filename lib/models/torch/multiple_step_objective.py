@@ -175,11 +175,13 @@ def large_scale_forcing(i, prog, data):
 
 
 class ForcedStepper(nn.Module):
-    def __init__(self, rhs, h, nsteps):
+    def __init__(self, rhs, h, nsteps,
+                 interactive_vertical_adv=False):
         super(ForcedStepper, self).__init__()
         self.nsteps = nsteps
         self.h = h
         self.rhs = rhs
+        self.interactive_vertical_adv = interactive_vertical_adv
 
     def forward(self, data: dict):
         """
@@ -209,7 +211,14 @@ class ForcedStepper(nn.Module):
 
         for i in range(1, window_size):
             for j in range(nsteps):
-                lsf = large_scale_forcing(i, prog, data)
+
+                if self.interactive_vertical_adv:
+                    lsf = large_scale_forcing(i, prog, data)
+                else:
+                    lsf_prog = valmap(lambda x: (x[i-1] + x[i])/2,
+                                      data['prognostic'])
+                    lsf = large_scale_forcing(i, lsf_prog, data)
+
                 src, diags = self.rhs(prog, lsf, data['constant']['w'])
 
                 for key in diags:
@@ -316,7 +325,7 @@ class Qrad(nn.Module):
 
 class RHS(nn.Module):
     def __init__(self, m, hidden=(), scaler=None, num_2d_inputs=3,
-                 compute_rad=False):
+                 compute_rad=False, precip_positive=True):
         super(RHS, self).__init__()
         self.mlp = mlp((m + num_2d_inputs, ) + hidden + (m, ))
         self.lin = nn.Linear(m+ num_2d_inputs, m, bias=False)
@@ -324,6 +333,7 @@ class RHS(nn.Module):
         self.bn = nn.BatchNorm1d(num_2d_inputs)
         self.qrad = Qrad()
         self.compute_rad = compute_rad
+        self.precip_positive = precip_positive
 
 
     def forward(self, x, force, w):
@@ -354,13 +364,14 @@ class RHS(nn.Module):
         # Compute the precipitation from q
         Prec = precip_from_q(src['qt'], force['LHF'], w)
         diags['Prec'] = Prec
-        # precip must be > 0
-        Prec[Prec < 0] = 0.0
-        # ensure that sl and qt budgets give the same precipitation estimate
-        src =  {
-            'sl': enforce_precip_sl(src['sl'], qrad, force['SHF'], Prec, w),
-            'qt': enforce_precip_qt(src['qt'], force['LHF'], Prec, w)
-        } # yapf: disable
+        if self.precip_positive:
+            # precip must be > 0
+            Prec[Prec < 0] = 0.0
+            # ensure that sl and qt budgets give the same precipitation estimate
+            src =  {
+                'sl': enforce_precip_sl(src['sl'], qrad, force['SHF'], Prec, w),
+                'qt': enforce_precip_qt(src['qt'], force['LHF'], Prec, w)
+            } # yapf: disable
 
         return src, diags
 
@@ -377,7 +388,9 @@ def train_multistep_objective(data,
                               nhidden=(10, 10, 10),
                               cuda=False,
                               test_loss=False,
-                              loss_terms=('prog', 'prec')):
+                              loss_terms=('prog', 'prec'),
+                              precip_positive=True,
+                              interactive_vertical_adv=False):
     """Train a single layer perceptron euler time stepping model
 
     For one time step this torch models performs the following math
@@ -405,8 +418,12 @@ def train_multistep_objective(data,
     m = sum(valmap(lambda x: x.size(-1), weights).values())
 
     rhs = RHS(m, hidden=nhidden, scaler=scaler,
-              compute_rad='rad' in loss_terms)
-    nstepper = ForcedStepper(rhs, h=dt, nsteps=nsteps)
+              compute_rad='rad' in loss_terms,
+              precip_positive=precip_positive)
+
+    nstepper = ForcedStepper(rhs, h=dt, nsteps=nsteps,
+                             interactive_vertical_adv=interactive_vertical_adv)
+
     optimizer = torch.optim.Adam(
         rhs.parameters(), lr=lr, weight_decay=weight_decay)
 
