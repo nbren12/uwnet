@@ -33,7 +33,7 @@ def prepare_dataset(data,
                     window_size,
                     prognostic_variables=('sl', 'qt'),
                     forcing_variables=('sl', 'qt', 'QRAD', 'LHF', 'SHF',
-                                       'Prec', 'W')):
+                                       'Prec', 'W', 'SOLIN')):
 
     X, G = data['X'], data['G']
     X = DictDataset({
@@ -262,16 +262,25 @@ def enforce_precip_qt(fqt, lhf, precip, w):
 
 
 class RHS(nn.Module):
-    def __init__(self, m, hidden=(), scaler=None):
+    def __init__(self, m, hidden=(), scaler=None, num_2d_inputs=3):
         super(RHS, self).__init__()
-        self.mlp = mlp((m, ) + hidden + (m, ))
-        self.lin = nn.Linear(m, m, bias=False)
+        self.mlp = mlp((m + num_2d_inputs, ) + hidden + (m, ))
+        self.lin = nn.Linear(m+ num_2d_inputs, m, bias=False)
         self.scaler = scaler
+        self.bn = nn.BatchNorm1d(num_2d_inputs)
 
 
     def forward(self, x, force, w):
         x = self.scaler(x)
+        f = self.scaler(force)
+
+        data_2d = torch.cat((f['SHF'], f['LHF'], f['SOLIN']), -1)
+        data_2d = self.bn(data_2d)
+
         x = _from_dict(x)
+
+        x = torch.cat((x, data_2d), -1)
+
 
         y = self.mlp(x) + self.lin(x)
 
