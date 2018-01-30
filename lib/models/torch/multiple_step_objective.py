@@ -348,7 +348,8 @@ def train_multistep_objective(data,
                               nsteps=1,
                               nhidden=(10, 10, 10),
                               cuda=False,
-                              test_loss=False):
+                              test_loss=False,
+                              loss_terms=('prog', 'prec')):
     """Train a single layer perceptron euler time stepping model
 
     For one time step this torch models performs the following math
@@ -387,23 +388,25 @@ def train_multistep_objective(data,
         x = truth['prognostic']
         y = pred['prognostic']
 
-        # time series loss
         total_loss = 0
-        for key in y:
-            total_loss += weighted_loss(weights[key], x[key], y[key]) / len(y)
+        # time series loss
+        if 'prog' in loss_terms:
+            for key in y:
+                total_loss += weighted_loss(weights[key], x[key], y[key]) / len(y)
 
-        # column budget losses this compares the predicted precipitation for
-        # each field to reality
-        prec = truth['forcing']['Prec']
-        predicted = pred['diagnostic']['Prec']
-        observed = (prec[1:] + prec[:-1]) / 2
-        total_loss += torch.mean(torch.pow(observed - predicted, 2))/5
+        if 'prec' in  loss_terms:
+            # column budget losses this compares he predicted precipitation for
+            # each field to reality
+            prec = truth['forcing']['Prec']
+            predicted = pred['diagnostic']['Prec']
+            observed = (prec[1:] + prec[:-1]) / 2
+            total_loss += torch.mean(torch.pow(observed - predicted, 2))/5
 
-        # QRAD loss
-        # qrad = truth['forcing']['QRAD']
-        # predicted = pred['diagnostic']['QRAD'][0]
-        # observed = qrad[0]
-        # total_loss += torch.mean(torch.pow(observed-predicted, 2))
+        if 'rad' in loss_terms:
+            qrad = truth['forcing']['QRAD']
+            predicted = pred['diagnostic']['QRAD'][0]
+            observed = qrad[0]
+            total_loss += torch.mean(torch.pow(observed-predicted, 2))
 
         return total_loss
 
