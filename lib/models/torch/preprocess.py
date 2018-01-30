@@ -126,4 +126,5 @@ def prepare_data(inputs: xr.Dataset, forcings: xr.Dataset):
         'scales': scales,
         'w': weights,
         'p': inputs.p.values,
+        'z': inputs.z.values
     }

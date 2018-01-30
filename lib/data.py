@@ -36,7 +36,7 @@ def inputs_and_forcings(files_3d, file_2d, stat_file, sel=defaultsel):
     })
 
     forcings = inputs.apply(
-        lambda f: -material_derivative(data.U, data.V, data.W, f) * 86400)
+        lambda f: -material_derivative(data.U, data.V, 0*data.W, f) * 86400)
 
     forcings['SHF'] = data.SHF
     forcings['LHF'] = data.LHF

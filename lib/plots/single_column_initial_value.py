@@ -87,10 +87,12 @@ def column_run(model, prognostic, forcing):
     prog.pop('p')
     w = prog.pop('w')
 
+    z = Variable(torch.FloatTensor(prognostic.z.values))
+
     input_data = {
         'prognostic': prog,
         'forcing': forcing,
-        'constant': {'w': w}
+        'constant': {'w': w, 'z': z}
     }
 
     y = model(input_data)

@@ -157,7 +157,7 @@ def padded_deriv(f, z):
 
 def vertical_advection(w, f, z):
     df = padded_deriv(f, z)
-    return df * w
+    return df * w * 86400
 
 
 def large_scale_forcing(i, prog, data):
@@ -165,6 +165,11 @@ def large_scale_forcing(i, prog, data):
         key: (val[i - 1] + val[i])/2
         for key, val in data['forcing'].items()
     }
+
+    for key, val in prog.items():
+        z = data['constant']['z']
+        vert_adv = vertical_advection(forcing['W'], val, z)
+        forcing[key] = forcing[key] - vert_adv
 
     return forcing
 
@@ -437,7 +442,11 @@ def train_multistep_objective(data,
     # _init_linear_weights(net, .01/nsteps)
     def closure(batch):
         batch = _prepare_vars_in_nested_dict(batch, cuda=cuda)
-        batch['constant'] = {'w': Variable(torch.FloatTensor(data['w']['sl']))}
+        batch['constant'] = {
+            'w': Variable(torch.FloatTensor(data['w']['sl'])),
+            'z': Variable(torch.FloatTensor(data['z']))
+        }
+
         y = nstepper(batch)
         return loss(batch, y)
 
