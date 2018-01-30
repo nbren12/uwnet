@@ -144,6 +144,22 @@ def mlp(layer_sizes):
     return nn.Sequential(*layers)
 
 
+def padded_deriv(f, z):
+
+    df = Variable(torch.Tensor(*f.size()))
+
+    df[..., 1:-1] = (f[..., 2:]-f[..., :-2])/(z[2:]-z[:-2])
+    df[..., 0] = (f[..., 1]-f[..., 0])/(z[1]-z[0])
+    df[..., -1] = (f[..., -1]-f[..., -2])/(z[-1]-z[-2])
+
+    return df
+
+
+def vertical_advection(w, f, z):
+    df = padded_deriv(f, z)
+    return df * w
+
+
 def large_scale_forcing(i, prog, data):
     forcing = {
         key: (val[i - 1] + val[i])/2

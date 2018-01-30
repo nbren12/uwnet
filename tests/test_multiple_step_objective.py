@@ -1,7 +1,8 @@
 import numpy as np
 import torch
 from lib.models.torch.multiple_step_objective import (
-    enforce_precip_sl, precip_from_s, enforce_precip_qt, precip_from_q)
+    enforce_precip_sl, precip_from_s, enforce_precip_qt, precip_from_q,
+    padded_deriv)
 
 
 def test_enforce_precip_sl():
@@ -29,3 +30,10 @@ def test_enforce_precip_qt():
     prec_calc = precip_from_q(fqt_adj, lhf, w)
 
     np.testing.assert_allclose(prec_calc.numpy(), precip.numpy(), atol=1e-7)
+
+
+def test_vertical_avection():
+    z = torch.arange(0, 10)
+    ones = (z * 3).view(1, -1)
+    df = padded_deriv(ones, z)
+    np.testing.assert_allclose(df.data.numpy(), 3)
