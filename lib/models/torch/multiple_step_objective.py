@@ -144,6 +144,15 @@ def mlp(layer_sizes):
     return nn.Sequential(*layers)
 
 
+def large_scale_forcing(i, prog, data):
+    forcing = {
+        key: (val[i - 1] + val[i])/2
+        for key, val in data['forcing'].items()
+    }
+
+    return forcing
+
+
 class ForcedStepper(nn.Module):
     def __init__(self, rhs, h, nsteps):
         super(ForcedStepper, self).__init__()
@@ -179,17 +188,14 @@ class ForcedStepper(nn.Module):
 
         for i in range(1, window_size):
             for j in range(nsteps):
-                large_scale_forcing = {
-                    key: val[i - 1]
-                    for key, val in force_dict.items()
-                }
-                src, diags = self.rhs(prog, large_scale_forcing, data['constant']['w'])
+                lsf = large_scale_forcing(i, prog, data)
+                src, diags = self.rhs(prog, lsf, data['constant']['w'])
 
                 for key in diags:
                     diagnostics[key].append(diags[key])
 
                 prog = _euler_step(prog, src, h / nsteps)
-                prog = _euler_step(prog, large_scale_forcing, h / nsteps)
+                prog = _euler_step(prog, lsf, h / nsteps)
 
             # store data
             for key in prog:
