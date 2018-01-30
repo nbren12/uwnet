@@ -176,11 +176,11 @@ class ForcedStepper(nn.Module):
         steps = {key: [prog[key]] for key in prog}
         for i in range(1, window_size):
             for j in range(nsteps):
-                src = self.rhs(prog)
                 large_scale_forcing = {
                     key: val[i - 1]
                     for key, val in force_dict.items()
                 }
+                src = self.rhs(prog, large_scale_forcing, data['constant']['w'])
                 prog = _euler_step(prog, src, h / nsteps)
                 prog = _euler_step(prog, large_scale_forcing, h / nsteps)
 
@@ -203,20 +203,55 @@ class ForcedStepper(nn.Module):
         }
 
         f = valmap(lambda prog: (prog[1:] + prog[:-1]) / 2, data['forcing'])
-        shf = f['SHF'][..., 0]
-        lhf = f['LHF'][..., 0]
-        prec_t = precip_from_s(src['sl'], f['QRAD'], shf, w)
-        prec_q = precip_from_q(src['qt'], lhf, w)
+        prec_t = precip_from_s(src['sl'], f['QRAD'], f['SHF'], w)
+        prec_q = precip_from_q(src['qt'], f['LHF'], w)
 
         return {'prec_t': prec_t, 'prec_q': prec_q}
 
 
 def precip_from_s(fsl, qrad, shf, w):
-    return (w * (fsl - qrad)).sum(-1) * constants.cp / constants.Lv - shf * 86400 / constants.Lv
+    return (w * (fsl - qrad)).sum(-1, keepdim=True) * constants.cp / constants.Lv - shf * 86400 / constants.Lv
 
 
 def precip_from_q(fqt, lhf, w):
-    return -(fqt * w).sum(-1) / 1000. + lhf * 86400 / constants.Lv
+    return -(fqt * w).sum(-1, keepdim=True) / 1000. + lhf * 86400 / constants.Lv
+
+
+def mass_integrate(x, w):
+    return (x*w).sum(-1, keepdim=True)
+
+
+def enforce_precip_sl(fsl, qrad, shf, precip, w):
+    """Adjust temperature tendency to match a target precipitation
+
+    .. math::
+
+        cp < f >  = cp <QRAD> + SHF + L P
+
+    Parameters
+    ----------
+    fsl : K/day
+    qrad : K/day
+    shf : W/m^2
+    precip : mm/day
+    w : kg /m^2
+
+    """
+
+    mass = mass_integrate(1.0, w)
+    qrad_col = mass_integrate(qrad, w)
+    f_col = mass_integrate(fsl, w)
+    f_col_target = qrad_col + (shf * 86400 + constants.Lv * precip)/constants.cp
+
+    return fsl - f_col/mass + f_col_target/mass
+
+
+def enforce_precip_qt(fqt, lhf, precip, w):
+    """Adjust moisture tendency to match a target precipitation
+
+    .. math::
+
+    """
 
 
 class RHS(nn.Module):
@@ -226,7 +261,21 @@ class RHS(nn.Module):
         self.lin = nn.Linear(m, m, bias=False)
         self.scaler = scaler
 
-    def forward(self, x):
+        # network precipitation
+        self.precip = nn.Sequential(
+            nn.BatchNorm1d(68),
+            nn.Linear(68, 50),
+            nn.BatchNorm1d(50),
+            nn.ReLU(),
+            nn.BatchNorm1d(50),
+            nn.Linear(50, 50),
+            nn.ReLU(),
+            nn.BatchNorm1d(50),
+            nn.Linear(50, 1),
+            nn.ReLU()
+        )
+
+    def forward(self, x, force, w):
         x = self.scaler(x)
         x = _from_dict(x)
 
@@ -234,6 +283,22 @@ class RHS(nn.Module):
 
         src = _to_dict(y)
 
+        fsl = enforce_precip_sl(src['sl'], force['QRAD'], force['SHF'], 1, w)
+
+
+        from IPython import embed; embed()
+        # P = self.precip(x)
+        # sl_col = (w*src['sl']).sum(-1, keepdim=True)
+        # qt_col = (w*src['qt']).sum(-1, keepdim=True)
+        # rad_col = (w*force['QRAD']).sum(-1, keepdim=True)
+
+        # sl_col_expected = constants.Lv/constants.cp * P - force['SHF'] * 86400/constants.cp - rad_col
+        # qt_col_expected = 1000*(force['LHF'] * 86400/constants.Lv - P)
+
+
+        # src['sl'] = src['sl'] - sl_col + sl_col_expected
+        # src['qt'] = src['qt'] - qt_col + qt_col_expected
+        # psl  = precip_from_s(src['sl'], force['QRAD'], force['SHF'], w)
         return src
 
 
@@ -296,7 +361,7 @@ def train_multistep_objective(data,
         prect = pred['diagnostic']['prec_t']
         precq = pred['diagnostic']['prec_q']
         prec = truth['forcing']['Prec']
-        prec = (prec[1:, ..., 0] + prec[:-1, ..., 0]) / 2
+        prec = (prec[1:] + prec[:-1]) / 2
 
         total_loss += torch.mean(torch.pow(prect - prec, 2)) / 10
         total_loss += torch.mean(torch.pow(precq - prec, 2)) / 10
