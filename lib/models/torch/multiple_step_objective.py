@@ -320,6 +320,7 @@ class RHS(nn.Module):
         if self.compute_rad:
             qrad = self.qrad(x)
             diags['QRAD'] = qrad
+            src['sl'] = src['sl'] + qrad
         else:
             qrad = force['QRAD']
 
@@ -376,7 +377,8 @@ def train_multistep_objective(data,
     # define the neural network
     m = sum(valmap(lambda x: x.size(-1), weights).values())
 
-    rhs = RHS(m, hidden=nhidden, scaler=scaler)
+    rhs = RHS(m, hidden=nhidden, scaler=scaler,
+              compute_rad='rad' in loss_terms)
     nstepper = ForcedStepper(rhs, h=dt, nsteps=nsteps)
     optimizer = torch.optim.Adam(
         rhs.parameters(), lr=lr, weight_decay=weight_decay)
