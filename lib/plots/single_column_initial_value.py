@@ -18,6 +18,7 @@ import torch
 from torch.autograd import Variable
 # from lib.evaluation.single_column import forced_step, runsteps, step
 
+plt.style.use('ggplot')
 
 def plot_soln(x):
 
@@ -50,9 +51,14 @@ def plot_soln(x):
     plt.colorbar(t_im, cax=plt.subplot(gs[0, 1]))
     plt.colorbar(q_im, cax=plt.subplot(gs[1, 1]))
 
-    axs[0].set_ylabel('sl')
-    axs[1].set_ylabel('qt')
+
+    axs[0].set_ylabel('p (mb)')
+    axs[1].set_ylabel('p (mb)')
     axs[2].plot(x.prec.time, x.prec)
+
+    axs[0].text(102, 200, '$s_l$ (K)', bbox=dict(color='white'))
+    axs[1].text(102, 200, '$q_T$ (g/kg)', bbox=dict(color='white'))
+    axs[2].text(102, 100, 'P (mm/day)', bbox=dict(color='white'))
 
     axs[0].invert_yaxis()
     axs[0].set_xlim([100, 180])
