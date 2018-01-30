@@ -261,16 +261,46 @@ def enforce_precip_qt(fqt, lhf, precip, w):
     return fqt - f_col/mass + f_col_target/mass
 
 
+class Qrad(nn.Module):
+    def __init__(self):
+        super(Qrad, self).__init__()
+        n = 71
+        m = 34
+
+        nhid = 128
+
+        self.net = nn.Sequential(
+            nn.BatchNorm1d(n),
+            nn.Linear(n, nhid),
+            nn.ReLU(),
+            nn.BatchNorm1d(nhid),
+            nn.Linear(nhid, nhid),
+            nn.ReLU(),
+            nn.BatchNorm1d(nhid),
+            nn.Linear(nhid, m)
+        )
+        self.n = n
+        self.m = m
+
+    def forward(self, x):
+        return self.net(x)
+
+
+
 class RHS(nn.Module):
-    def __init__(self, m, hidden=(), scaler=None, num_2d_inputs=3):
+    def __init__(self, m, hidden=(), scaler=None, num_2d_inputs=3,
+                 compute_rad=False):
         super(RHS, self).__init__()
         self.mlp = mlp((m + num_2d_inputs, ) + hidden + (m, ))
         self.lin = nn.Linear(m+ num_2d_inputs, m, bias=False)
         self.scaler = scaler
         self.bn = nn.BatchNorm1d(num_2d_inputs)
+        self.qrad = Qrad()
+        self.compute_rad = compute_rad
 
 
     def forward(self, x, force, w):
+        diags = {}
         x = self.scaler(x)
         f = self.scaler(force)
 
@@ -286,19 +316,24 @@ class RHS(nn.Module):
 
         src = _to_dict(y)
 
+        # compute radiation
+        if self.compute_rad:
+            qrad = self.qrad(x)
+            diags['QRAD'] = qrad
+        else:
+            qrad = force['QRAD']
+
         # Compute the precipitation from q
         Prec = precip_from_q(src['qt'], force['LHF'], w)
+        diags['Prec'] = Prec
         # precip must be > 0
         Prec[Prec < 0] = 0.0
         # ensure that sl and qt budgets give the same precipitation estimate
         src =  {
-            'sl': enforce_precip_sl(src['sl'], force['QRAD'], force['SHF'], Prec, w),
+            'sl': enforce_precip_sl(src['sl'], qrad, force['SHF'], Prec, w),
             'qt': enforce_precip_qt(src['qt'], force['LHF'], Prec, w)
         } # yapf: disable
 
-        diags = {
-            'Prec': Prec
-        }
         return src, diags
 
 
@@ -362,8 +397,13 @@ def train_multistep_objective(data,
         prec = truth['forcing']['Prec']
         predicted = pred['diagnostic']['Prec']
         observed = (prec[1:] + prec[:-1]) / 2
-
         total_loss += torch.mean(torch.pow(observed - predicted, 2))/5
+
+        # QRAD loss
+        # qrad = truth['forcing']['QRAD']
+        # predicted = pred['diagnostic']['QRAD'][0]
+        # observed = qrad[0]
+        # total_loss += torch.mean(torch.pow(observed-predicted, 2))
 
         return total_loss
 
