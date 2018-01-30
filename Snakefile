@@ -166,8 +166,9 @@ rule time_series_data:
 rule fit_model:
     input: "data/ml/ngaqua/time_series_data.pkl"
     output: "data/ml/ngaqua/model.{k}.torch"
-    params: num_epochs=5, num_steps=200, nsteps=1, nhidden=(256,), lr=.01,
-            window_size=10, cuda=False, batch_size=100
+    params: num_epochs=4, num_steps=1000, nsteps=1, nhidden=(128, 128, 128), lr=.01,
+            window_size=10, cuda=False, batch_size=100,
+            loss_terms=('prog', )
     script: "scripts/torch_time_series2.py"
 
 rule fit_model_bigwindow:
