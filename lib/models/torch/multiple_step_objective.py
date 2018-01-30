@@ -362,7 +362,9 @@ class RHS(nn.Module):
             qrad = force['QRAD']
 
         # Compute the precipitation from q
-        Prec = precip_from_q(src['qt'], force['LHF'], w)
+        PrecT = precip_from_s(src['sl'], qrad, force['SHF'], w)
+        PrecQ = precip_from_q(src['qt'], force['LHF'], w)
+        Prec = (PrecT + PrecQ)/2.0
         diags['Prec'] = Prec
         if self.precip_positive:
             # precip must be > 0
