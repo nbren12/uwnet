@@ -354,7 +354,7 @@ def train_multistep_objective(data,
         predicted = pred['diagnostic']['Prec']
         observed = (prec[1:] + prec[:-1]) / 2
 
-        # total_loss += torch.mean(torch.pow(observed - predicted, 2))/5
+        total_loss += torch.mean(torch.pow(observed - predicted, 2))/5
 
         return total_loss
 
