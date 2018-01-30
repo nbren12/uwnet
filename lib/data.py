@@ -43,6 +43,7 @@ def inputs_and_forcings(files_3d, file_2d, stat_file, sel=defaultsel):
     forcings['QRAD'] = data.QRAD
     forcings['Prec'] = data.Prec
     forcings['W'] = data.W
+    forcings['SOLIN'] = data.SOLIN
 
     inputs['p'] = p
     inputs['w'] = w

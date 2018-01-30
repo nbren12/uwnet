@@ -268,19 +268,6 @@ class RHS(nn.Module):
         self.lin = nn.Linear(m, m, bias=False)
         self.scaler = scaler
 
-        # network precipitation
-        self.precip = nn.Sequential(
-            nn.BatchNorm1d(68),
-            nn.Linear(68, 50),
-            nn.BatchNorm1d(50),
-            nn.ReLU(),
-            nn.BatchNorm1d(50),
-            nn.Linear(50, 50),
-            nn.ReLU(),
-            nn.BatchNorm1d(50),
-            nn.Linear(50, 1),
-            nn.ReLU()
-        )
 
     def forward(self, x, force, w):
         x = self.scaler(x)
@@ -290,17 +277,19 @@ class RHS(nn.Module):
 
         src = _to_dict(y)
 
-        P = self.precip(x)
+        # Compute the precipitation from q
+        Prec = precip_from_q(src['qt'], force['LHF'], w)
+        # precip must be > 0
+        Prec[Prec < 0] = 0.0
+        # ensure that sl and qt budgets give the same precipitation estimate
+        src =  {
+            'sl': enforce_precip_sl(src['sl'], force['QRAD'], force['SHF'], Prec, w),
+            'qt': enforce_precip_qt(src['qt'], force['LHF'], Prec, w)
+        } # yapf: disable
 
-        src =  dict(
-            sl=enforce_precip_sl(src['sl'], force['QRAD'], force['SHF'], P, w),
-            qt=enforce_precip_qt(src['qt'], force['LHF'], P, w)
-        )
-
-        diags = dict(
-            Prec=P
-        )
-
+        diags = {
+            'Prec': Prec
+        }
         return src, diags
 
 
@@ -365,7 +354,7 @@ def train_multistep_objective(data,
         predicted = pred['diagnostic']['Prec']
         observed = (prec[1:] + prec[:-1]) / 2
 
-        total_loss += torch.mean(torch.pow(observed - predicted, 2)) / 10
+        # total_loss += torch.mean(torch.pow(observed - predicted, 2))/5
 
         return total_loss
 

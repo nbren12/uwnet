@@ -97,10 +97,11 @@ def column_run(model, prognostic, forcing):
         for key in y['prognostic']
     }
 
-    prec = xr.DataArray(y['diagnostic']['prec_q'].data.numpy().ravel(),
+    prec = xr.DataArray(y['diagnostic']['Prec'].data.numpy().ravel(),
                         coords={'time': prognostic.time[:-1]},
                         dims=['time'])
 
+    from IPython import embed; embed()
     return progs, prec
 
 
