@@ -251,7 +251,22 @@ def enforce_precip_qt(fqt, lhf, precip, w):
 
     .. math::
 
+        Lv < f >  = LHF - L P
+
+    Parameters
+    ----------
+    fqt : mm/day
+    lhf : W/m^2
+    precip : mm/day
+    w : kg /m^2
+
     """
+
+    mass = mass_integrate(1.0, w)
+    f_col = mass_integrate(fqt, w)
+    f_col_target = (lhf * 86400 / constants.Lv - precip) * 1000
+
+    return fqt - f_col/mass + f_col_target/mass
 
 
 class RHS(nn.Module):
