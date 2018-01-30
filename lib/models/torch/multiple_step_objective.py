@@ -174,13 +174,20 @@ class ForcedStepper(nn.Module):
 
         # output array
         steps = {key: [prog[key]] for key in prog}
+        # diagnostics
+        diagnostics = defaultdict(list)
+
         for i in range(1, window_size):
             for j in range(nsteps):
                 large_scale_forcing = {
                     key: val[i - 1]
                     for key, val in force_dict.items()
                 }
-                src = self.rhs(prog, large_scale_forcing, data['constant']['w'])
+                src, diags = self.rhs(prog, large_scale_forcing, data['constant']['w'])
+
+                for key in diags:
+                    diagnostics[key].append(diags[key])
+
                 prog = _euler_step(prog, src, h / nsteps)
                 prog = _euler_step(prog, large_scale_forcing, h / nsteps)
 
@@ -190,23 +197,8 @@ class ForcedStepper(nn.Module):
 
         y = data.copy()
         y['prognostic'] = valmap(torch.stack, steps)
-        y['diagnostic'] = self._diagnostics(y, h)
+        y['diagnostic'] = valmap(torch.stack, diagnostics)
         return y
-
-    def _diagnostics(self, data, h):
-
-        w = data['constant']['w']
-
-        src = {
-            key: (x[1:] - x[:-1]) / h
-            for key, x in data['prognostic'].items()
-        }
-
-        f = valmap(lambda prog: (prog[1:] + prog[:-1]) / 2, data['forcing'])
-        prec_t = precip_from_s(src['sl'], f['QRAD'], f['SHF'], w)
-        prec_q = precip_from_q(src['qt'], f['LHF'], w)
-
-        return {'prec_t': prec_t, 'prec_q': prec_q}
 
 
 def precip_from_s(fsl, qrad, shf, w):
@@ -300,10 +292,16 @@ class RHS(nn.Module):
 
         P = self.precip(x)
 
-        return dict(
-            sl = enforce_precip_sl(src['sl'], force['QRAD'], force['SHF'], P, w),
-            qt = enforce_precip_qt(src['qt'], force['LHF'], P, w)
+        src =  dict(
+            sl=enforce_precip_sl(src['sl'], force['QRAD'], force['SHF'], P, w),
+            qt=enforce_precip_qt(src['qt'], force['LHF'], P, w)
         )
+
+        diags = dict(
+            Prec=P
+        )
+
+        return src, diags
 
 
 
@@ -363,13 +361,11 @@ def train_multistep_objective(data,
 
         # column budget losses this compares the predicted precipitation for
         # each field to reality
-        prect = pred['diagnostic']['prec_t']
-        precq = pred['diagnostic']['prec_q']
         prec = truth['forcing']['Prec']
-        prec = (prec[1:] + prec[:-1]) / 2
+        predicted = pred['diagnostic']['Prec']
+        observed = (prec[1:] + prec[:-1]) / 2
 
-        total_loss += torch.mean(torch.pow(prect - prec, 2)) / 10
-        total_loss += torch.mean(torch.pow(precq - prec, 2)) / 10
+        total_loss += torch.mean(torch.pow(observed - predicted, 2)) / 10
 
         return total_loss
 
