@@ -298,23 +298,13 @@ class RHS(nn.Module):
 
         src = _to_dict(y)
 
-        fsl = enforce_precip_sl(src['sl'], force['QRAD'], force['SHF'], 1, w)
+        P = self.precip(x)
 
+        return dict(
+            sl = enforce_precip_sl(src['sl'], force['QRAD'], force['SHF'], P, w),
+            qt = enforce_precip_qt(src['qt'], force['LHF'], P, w)
+        )
 
-        from IPython import embed; embed()
-        # P = self.precip(x)
-        # sl_col = (w*src['sl']).sum(-1, keepdim=True)
-        # qt_col = (w*src['qt']).sum(-1, keepdim=True)
-        # rad_col = (w*force['QRAD']).sum(-1, keepdim=True)
-
-        # sl_col_expected = constants.Lv/constants.cp * P - force['SHF'] * 86400/constants.cp - rad_col
-        # qt_col_expected = 1000*(force['LHF'] * 86400/constants.Lv - P)
-
-
-        # src['sl'] = src['sl'] - sl_col + sl_col_expected
-        # src['qt'] = src['qt'] - qt_col + qt_col_expected
-        # psl  = precip_from_s(src['sl'], force['QRAD'], force['SHF'], w)
-        return src
 
 
 def train_multistep_objective(data,
