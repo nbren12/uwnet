@@ -101,7 +101,6 @@ def column_run(model, prognostic, forcing):
                         coords={'time': prognostic.time[:-1]},
                         dims=['time'])
 
-    from IPython import embed; embed()
     return progs, prec
 
 
