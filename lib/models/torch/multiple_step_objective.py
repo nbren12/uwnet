@@ -332,14 +332,23 @@ class Qrad(nn.Module):
 
 class RHS(nn.Module):
     def __init__(self, m, hidden=(), scaler=None, num_2d_inputs=3,
-                 compute_rad=False, precip_positive=True):
+                 precip_positive=True,
+                 radiation='interactive'):
+        """
+        Parameters
+        ----------
+        radiation : str
+            'interactive', 'prescribed', or 'zero'.
+        precip_positive : bool
+            constrain precip to be positive if True
+        """
         super(RHS, self).__init__()
         self.mlp = mlp((m + num_2d_inputs, ) + hidden + (m, ))
         self.lin = nn.Linear(m+ num_2d_inputs, m, bias=False)
         self.scaler = scaler
         self.bn = nn.BatchNorm1d(num_2d_inputs)
         self.qrad = Qrad()
-        self.compute_rad = compute_rad
+        self.radiation = radiation
         self.precip_positive = precip_positive
 
 
@@ -361,12 +370,15 @@ class RHS(nn.Module):
         src = _to_dict(y)
 
         # compute radiation
-        if self.compute_rad:
+        if self.radiation == 'interactive':
             qrad = self.qrad(x)
             diags['QRAD'] = qrad
-            src['sl'] = src['sl'] + qrad
-        else:
+        elif self.radiation == 'prescribed':
             qrad = force['QRAD']
+        elif self.radiation == 'zero':
+            qrad = 0.0
+
+        src['sl'] = src['sl'] + qrad
 
         # Compute the precipitation from q
         PrecT = precip_from_s(src['sl'], qrad, force['SHF'], w)
@@ -397,8 +409,9 @@ def train_multistep_objective(data,
                               nhidden=(10, 10, 10),
                               cuda=False,
                               test_loss=False,
-                              loss_terms=('prog', 'prec'),
+                              precip_in_loss=False,
                               precip_positive=True,
+                              radiation='zero',
                               interactive_vertical_adv=False):
     """Train a single layer perceptron euler time stepping model
 
@@ -426,8 +439,7 @@ def train_multistep_objective(data,
     # define the neural network
     m = sum(valmap(lambda x: x.size(-1), weights).values())
 
-    rhs = RHS(m, hidden=nhidden, scaler=scaler,
-              compute_rad='rad' in loss_terms,
+    rhs = RHS(m, hidden=nhidden, scaler=scaler, radiation=radiation,
               precip_positive=precip_positive)
 
     nstepper = ForcedStepper(rhs, h=dt, nsteps=nsteps,
@@ -445,11 +457,10 @@ def train_multistep_objective(data,
 
         total_loss = 0
         # time series loss
-        if 'prog' in loss_terms:
-            for key in y:
-                total_loss += weighted_loss(weights[key], x[key], y[key]) / len(y)
+        for key in y:
+            total_loss += weighted_loss(weights[key], x[key], y[key]) / len(y)
 
-        if 'prec' in  loss_terms:
+        if precip_in_loss:
             # column budget losses this compares he predicted precipitation for
             # each field to reality
             prec = truth['forcing']['Prec']
@@ -457,7 +468,7 @@ def train_multistep_objective(data,
             observed = (prec[1:] + prec[:-1]) / 2
             total_loss += torch.mean(torch.pow(observed - predicted, 2))/5
 
-        if 'rad' in loss_terms:
+        if radiation == 'interactive':
             qrad = truth['forcing']['QRAD']
             predicted = pred['diagnostic']['QRAD'][0]
             observed = qrad[0]
