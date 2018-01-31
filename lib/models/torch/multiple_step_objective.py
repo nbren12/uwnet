@@ -146,7 +146,7 @@ def mlp(layer_sizes):
 
 def padded_deriv(f, z):
 
-    df = Variable(torch.Tensor(*f.size()))
+    df = torch.zeros_like(f)
 
     df[..., 1:-1] = (f[..., 2:]-f[..., :-2])/(z[2:]-z[:-2])
     df[..., 0] = (f[..., 1]-f[..., 0])/(z[1]-z[0])
@@ -448,8 +448,14 @@ def train_multistep_objective(data,
     optimizer = torch.optim.Adam(
         rhs.parameters(), lr=lr, weight_decay=weight_decay)
 
+    constants = {
+            'w': Variable(torch.FloatTensor(data['w']['sl'])),
+            'z': Variable(torch.FloatTensor(data['z']))
+    }
     if cuda:
         nstepper.cuda()
+        for key in constants:
+            constants[key] = constants[key].cuda()
 
     def loss(truth, pred):
         x = truth['prognostic']
@@ -479,11 +485,7 @@ def train_multistep_objective(data,
     # _init_linear_weights(net, .01/nsteps)
     def closure(batch):
         batch = _prepare_vars_in_nested_dict(batch, cuda=cuda)
-        batch['constant'] = {
-            'w': Variable(torch.FloatTensor(data['w']['sl'])),
-            'z': Variable(torch.FloatTensor(data['z']))
-        }
-
+        batch['constant'] = constants
         y = nstepper(batch)
         return loss(batch, y)
 
