@@ -387,7 +387,7 @@ class RHS(nn.Module):
         diags['Prec'] = Prec
         if self.precip_positive:
             # precip must be > 0
-            Prec[Prec < 0] = 0.0
+            Prec = Prec.clamp(0.0)
             # ensure that sl and qt budgets give the same precipitation estimate
             src =  {
                 'sl': enforce_precip_sl(src['sl'], qrad, force['SHF'], Prec, w),
