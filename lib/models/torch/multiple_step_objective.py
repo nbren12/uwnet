@@ -210,6 +210,7 @@ class ForcedStepper(nn.Module):
         diagnostics = defaultdict(list)
 
         for i in range(1, window_size):
+            diag_step = defaultdict(lambda : 0)
             for j in range(nsteps):
 
                 if self.interactive_vertical_adv:
@@ -222,10 +223,16 @@ class ForcedStepper(nn.Module):
                 src, diags = self.rhs(prog, lsf, data['constant']['w'])
 
                 for key in diags:
-                    diagnostics[key].append(diags[key])
+                    diag_step[key] = diag_step[key] + diags[key]/nsteps
 
                 prog = _euler_step(prog, src, h / nsteps)
                 prog = _euler_step(prog, lsf, h / nsteps)
+
+
+            # store accumulated diagnostics
+            for key in diag_step:
+                diagnostics[key].append(diag_step[key])
+                
 
             # store data
             for key in prog:
