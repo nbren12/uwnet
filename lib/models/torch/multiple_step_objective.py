@@ -373,12 +373,12 @@ class RHS(nn.Module):
         if self.radiation == 'interactive':
             qrad = self.qrad(x)
             diags['QRAD'] = qrad
+            src['sl'] = src['sl'] + qrad
         elif self.radiation == 'prescribed':
             qrad = force['QRAD']
+            src['sl'] = src['sl'] + qrad
         elif self.radiation == 'zero':
-            qrad = 0.0
-
-        src['sl'] = src['sl'] + qrad
+            qrad = force['QRAD']
 
         # Compute the precipitation from q
         PrecT = precip_from_s(src['sl'], qrad, force['SHF'], w)
