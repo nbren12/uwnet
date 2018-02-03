@@ -170,7 +170,7 @@ rule fit_model:
             window_size=10, cuda=False, batch_size=200,
             radiation='zero',
             precip_in_loss=False,
-            precip_positive=True,
+            precip_positive=False,
             interactive_vertical_adv=False
     script: "scripts/torch_time_series2.py"
 
