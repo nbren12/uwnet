@@ -1,8 +1,5 @@
-import numpy as np
-import xarray as xr
 from xnoah.xcalc import centderiv
 from xnoah.sam.coarsen import destagger
-
 
 
 def material_derivative(u, v, w, f):
@@ -19,6 +16,4 @@ def material_derivative(u, v, w, f):
     except AttributeError:
         pass
 
-
     return df
-

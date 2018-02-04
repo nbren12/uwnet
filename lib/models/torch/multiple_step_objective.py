@@ -1,4 +1,5 @@
-"""Fit model for the multiple time step objective function. This requires some special dataloaders etc
+"""Fit model for the multiple time step objective function. This requires some
+special dataloaders etc
 
 """
 from collections import defaultdict
@@ -10,7 +11,7 @@ from torch import nn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 
-from .datasets import DictDataset, ConcatDataset, WindowedData
+from .datasets import DictDataset, WindowedData
 from .utils import train
 
 from ... import constants
@@ -77,7 +78,10 @@ def _data_to_scaler(data, cuda=False):
 
 
 def _to_dict(x):
-    return {'sl': x[..., :34], 'qt': x[..., 34:]}
+    return {
+        'sl': x[..., :34],
+        'qt': x[..., 34:]
+    }
 
 
 def _from_dict(prog):
@@ -148,9 +152,9 @@ def padded_deriv(f, z):
 
     df = torch.zeros_like(f)
 
-    df[..., 1:-1] = (f[..., 2:]-f[..., :-2])/(z[2:]-z[:-2])
-    df[..., 0] = (f[..., 1]-f[..., 0])/(z[1]-z[0])
-    df[..., -1] = (f[..., -1]-f[..., -2])/(z[-1]-z[-2])
+    df[..., 1:-1] = (f[..., 2:] - f[..., :-2]) / (z[2:] - z[:-2])
+    df[..., 0] = (f[..., 1] - f[..., 0]) / (z[1] - z[0])
+    df[..., -1] = (f[..., -1] - f[..., -2]) / (z[-1] - z[-2])
 
     return df
 
@@ -162,7 +166,7 @@ def vertical_advection(w, f, z):
 
 def large_scale_forcing(i, prog, data):
     forcing = {
-        key: (val[i - 1] + val[i])/2
+        key: (val[i - 1] + val[i]) / 2
         for key, val in data['forcing'].items()
     }
 
@@ -175,8 +179,7 @@ def large_scale_forcing(i, prog, data):
 
 
 class ForcedStepper(nn.Module):
-    def __init__(self, rhs, h, nsteps,
-                 interactive_vertical_adv=False):
+    def __init__(self, rhs, h, nsteps, interactive_vertical_adv=False):
         super(ForcedStepper, self).__init__()
         self.nsteps = nsteps
         self.h = h
@@ -193,14 +196,9 @@ class ForcedStepper(nn.Module):
         """
         data = data.copy()
         prog = data['prognostic']
-        force = data['forcing']
 
         window_size = first(prog.values()).size(0)
-
         prog = valmap(lambda prog: prog[0], prog)
-        # trapezoid rule
-        force_dict = valmap(lambda prog: (prog[1:] + prog[:-1]) / 2, force)
-
         h = self.h
         nsteps = self.nsteps
 
@@ -210,29 +208,27 @@ class ForcedStepper(nn.Module):
         diagnostics = defaultdict(list)
 
         for i in range(1, window_size):
-            diag_step = defaultdict(lambda : 0)
+            diag_step = defaultdict(lambda: 0)
             for j in range(nsteps):
 
                 if self.interactive_vertical_adv:
                     lsf = large_scale_forcing(i, prog, data)
                 else:
-                    lsf_prog = valmap(lambda x: (x[i-1] + x[i])/2,
+                    lsf_prog = valmap(lambda x: (x[i - 1] + x[i]) / 2,
                                       data['prognostic'])
                     lsf = large_scale_forcing(i, lsf_prog, data)
 
                 src, diags = self.rhs(prog, lsf, data['constant']['w'])
 
                 for key in diags:
-                    diag_step[key] = diag_step[key] + diags[key]/nsteps
+                    diag_step[key] = diag_step[key] + diags[key] / nsteps
 
                 prog = _euler_step(prog, src, h / nsteps)
                 prog = _euler_step(prog, lsf, h / nsteps)
 
-
             # store accumulated diagnostics
             for key in diag_step:
                 diagnostics[key].append(diag_step[key])
-                
 
             # store data
             for key in prog:
@@ -245,15 +241,18 @@ class ForcedStepper(nn.Module):
 
 
 def precip_from_s(fsl, qrad, shf, w):
-    return (w * (fsl - qrad)).sum(-1, keepdim=True) * constants.cp / constants.Lv - shf * 86400 / constants.Lv
+    return (w * (fsl - qrad)).sum(
+        -1, keepdim=True
+    ) * constants.cp / constants.Lv - shf * 86400 / constants.Lv
 
 
 def precip_from_q(fqt, lhf, w):
-    return -(fqt * w).sum(-1, keepdim=True) / 1000. + lhf * 86400 / constants.Lv
+    return -(fqt * w).sum(
+        -1, keepdim=True) / 1000. + lhf * 86400 / constants.Lv
 
 
 def mass_integrate(x, w):
-    return (x*w).sum(-1, keepdim=True)
+    return (x * w).sum(-1, keepdim=True)
 
 
 def enforce_precip_sl(fsl, qrad, shf, precip, w):
@@ -276,9 +275,10 @@ def enforce_precip_sl(fsl, qrad, shf, precip, w):
     mass = mass_integrate(1.0, w)
     qrad_col = mass_integrate(qrad, w)
     f_col = mass_integrate(fsl, w)
-    f_col_target = qrad_col + (shf * 86400 + constants.Lv * precip)/constants.cp
+    f_col_target = qrad_col + (
+        shf * 86400 + constants.Lv * precip) / constants.cp
 
-    return fsl - f_col/mass + f_col_target/mass
+    return fsl - f_col / mass + f_col_target / mass
 
 
 def enforce_precip_qt(fqt, lhf, precip, w):
@@ -301,7 +301,7 @@ def enforce_precip_qt(fqt, lhf, precip, w):
     f_col = mass_integrate(fqt, w)
     f_col_target = (lhf * 86400 / constants.Lv - precip) * 1000
 
-    return fqt - f_col/mass + f_col_target/mass
+    return fqt - f_col / mass + f_col_target / mass
 
 
 class Qrad(nn.Module):
@@ -318,10 +318,7 @@ class Qrad(nn.Module):
             nn.ReLU(),
             nn.BatchNorm1d(nhid),
             nn.Linear(nhid, nhid),
-            nn.ReLU(),
-            nn.BatchNorm1d(nhid),
-            nn.Linear(nhid, m)
-        )
+            nn.ReLU(), nn.BatchNorm1d(nhid), nn.Linear(nhid, m))
         self.n = n
         self.m = m
 
@@ -329,9 +326,12 @@ class Qrad(nn.Module):
         return self.net(x)
 
 
-
 class RHS(nn.Module):
-    def __init__(self, m, hidden=(), scaler=None, num_2d_inputs=3,
+    def __init__(self,
+                 m,
+                 hidden=(),
+                 scaler=None,
+                 num_2d_inputs=3,
                  precip_positive=True,
                  radiation='interactive'):
         """
@@ -344,13 +344,12 @@ class RHS(nn.Module):
         """
         super(RHS, self).__init__()
         self.mlp = mlp((m + num_2d_inputs, ) + hidden + (m, ))
-        self.lin = nn.Linear(m+ num_2d_inputs, m, bias=False)
+        self.lin = nn.Linear(m + num_2d_inputs, m, bias=False)
         self.scaler = scaler
         self.bn = nn.BatchNorm1d(num_2d_inputs)
         self.qrad = Qrad()
         self.radiation = radiation
         self.precip_positive = precip_positive
-
 
     def forward(self, x, force, w):
         diags = {}
@@ -363,7 +362,6 @@ class RHS(nn.Module):
         x = _from_dict(x)
 
         x = torch.cat((x, data_2d), -1)
-
 
         y = self.mlp(x) + self.lin(x)
 
@@ -383,19 +381,19 @@ class RHS(nn.Module):
         # Compute the precipitation from q
         PrecT = precip_from_s(src['sl'], qrad, force['SHF'], w)
         PrecQ = precip_from_q(src['qt'], force['LHF'], w)
-        Prec = (PrecT + PrecQ)/2.0
+        Prec = (PrecT + PrecQ) / 2.0
         diags['Prec'] = Prec
         if self.precip_positive:
             # precip must be > 0
             Prec = Prec.clamp(0.0)
-            # ensure that sl and qt budgets give the same precipitation estimate
-            src =  {
-                'sl': enforce_precip_sl(src['sl'], qrad, force['SHF'], Prec, w),
+            # ensure that sl and qt budgets estimate the same precipitation
+            src = {
+                'sl': enforce_precip_sl(src['sl'], qrad, force['SHF'], Prec,
+                                        w),
                 'qt': enforce_precip_qt(src['qt'], force['LHF'], Prec, w)
-            } # yapf: disable
+            }  # yapf: disable
 
         return src, diags
-
 
 
 def train_multistep_objective(data,
@@ -439,18 +437,25 @@ def train_multistep_objective(data,
     # define the neural network
     m = sum(valmap(lambda x: x.size(-1), weights).values())
 
-    rhs = RHS(m, hidden=nhidden, scaler=scaler, radiation=radiation,
-              precip_positive=precip_positive)
+    rhs = RHS(
+        m,
+        hidden=nhidden,
+        scaler=scaler,
+        radiation=radiation,
+        precip_positive=precip_positive)
 
-    nstepper = ForcedStepper(rhs, h=dt, nsteps=nsteps,
-                             interactive_vertical_adv=interactive_vertical_adv)
+    nstepper = ForcedStepper(
+        rhs,
+        h=dt,
+        nsteps=nsteps,
+        interactive_vertical_adv=interactive_vertical_adv)
 
     optimizer = torch.optim.Adam(
         rhs.parameters(), lr=lr, weight_decay=weight_decay)
 
     constants = {
-            'w': Variable(torch.FloatTensor(data['w']['sl'])),
-            'z': Variable(torch.FloatTensor(data['z']))
+        'w': Variable(torch.FloatTensor(data['w']['sl'])),
+        'z': Variable(torch.FloatTensor(data['z']))
     }
     if cuda:
         nstepper.cuda()
@@ -472,13 +477,13 @@ def train_multistep_objective(data,
             prec = truth['forcing']['Prec']
             predicted = pred['diagnostic']['Prec']
             observed = (prec[1:] + prec[:-1]) / 2
-            total_loss += torch.mean(torch.pow(observed - predicted, 2))/5
+            total_loss += torch.mean(torch.pow(observed - predicted, 2)) / 5
 
         if radiation == 'interactive':
             qrad = truth['forcing']['QRAD']
             predicted = pred['diagnostic']['QRAD'][0]
             observed = qrad[0]
-            total_loss += torch.mean(torch.pow(observed-predicted, 2))
+            total_loss += torch.mean(torch.pow(observed - predicted, 2))
 
         return total_loss
 

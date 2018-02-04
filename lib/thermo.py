@@ -1,18 +1,7 @@
-import glob
-import os
-from pathlib import Path
-
 import numpy as np
 import xarray as xr
 
-import xnoah.xcalc
-from xnoah.xarray import coarsen
-from xnoah.xarray import map_overlap
-import dask.array as da
-from dask.array.core import atop
-from dask import delayed
-
-from .util import wrap_xarray_calculation, xopen, xopena
+from .util import wrap_xarray_calculation
 
 grav = 9.81
 cp = 1004
@@ -33,6 +22,7 @@ def q2(d):
     out.attrs['units'] = 'K/d'
     return out.to_dataset(name='Q2')
 
+
 def q1(d):
     out = d.f_sl
     out.attrs['units'] = 'K/d'
@@ -48,9 +38,10 @@ def liquid_water_temperature(t, qn, qp):
     sl.attrs['units'] = 'K'
     return sl
 
+
 @wrap_xarray_calculation
 def total_water(qv, qn):
-    qt =  qv + qn
+    qt = qv + qn
     qt.attrs['units'] = 'g/kg'
     return qt
 
@@ -91,20 +82,6 @@ def mass_integrate(p, x, average=False):
     return ans
 
 
-# Rules for Linking data
-def data_files():
-    root_path = Path(data_root)
-    for file in root_path.glob('**/*.nc'):
-        relfile = file.relative_to(root_path)
-        newfile = Path(os.getcwd()).joinpath(relfile)
-        yield str(file), str(newfile)
-
-def link_files(files):
-    for src, dest in files:
-        path = Path(dest)
-        path.parent.mkdir(exist_ok=True)
-        os.system(f"ln -s {src} {path}")
-
 def metpy_wrapper(fun):
     """Given a metpy function return an xarray compatible version
     """
@@ -135,8 +112,10 @@ def precip_from_ds(dsl, qrad, shf, p):
     return (cp*mass_integrate(p, dsl) - cp*mass_integrate(p, qrad)
             - shf*86400)/Lc
 
+
 def precip_from_dq(dq, lhf, p):
-    return -mass_integrate(p, dq/1000) + lhf/Lc*86400
+    return - mass_integrate(p, dq/1000) + lhf/Lc*86400
+
 
 def mse(sl, qt):
     return cp * sl + qt/1000 * Lc
