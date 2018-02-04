@@ -20,6 +20,14 @@ Lc = 2.5104e6
 rho0 = 1.19
 
 
+def omega_from_w(w, rho):
+    """Presure velocity in anelastic framework
+
+    omega = dp_0/dt = dp_0/dz dz/dt = - rho_0 g w
+    """
+    return - w * rho * grav
+
+
 def q2(d):
     out = -d.f_qt * Lc/cp / 1000.0
     out.attrs['units'] = 'K/d'
