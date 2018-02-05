@@ -4,12 +4,8 @@ from xnoah.sam.coarsen import destagger
 
 def material_derivative(u, v, w, f):
 
-    wc = destagger(w, 'z', mode='clip')
-
-    # compute total derivative
-    df = u * centderiv(f, dim='x', boundary='periodic')\
-        + v * centderiv(f, dim='y', boundary='nearest')\
-        + wc * centderiv(f, dim='z', boundary='nearest')
+    df = vertical_advection(w, f) \
+         + horizontal_advection(u, v, f)
 
     try:
         df.attrs['units'] = f.units.strip() + '/s'
@@ -17,3 +13,13 @@ def material_derivative(u, v, w, f):
         pass
 
     return df
+
+
+def vertical_advection(w, f):
+    wc = destagger(w, 'z', mode='clip')
+    return wc * centderiv(f, dim='z', boundary='nearest')
+
+
+def horizontal_advection(u, v, f):
+    return u * centderiv(f, dim='x', boundary='periodic')\
+        + v * centderiv(f, dim='y', boundary='nearest')
