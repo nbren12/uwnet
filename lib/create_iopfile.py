@@ -328,6 +328,8 @@ def prepare_iop_dataset(data):
         v=data.V,
         omega=xr.DataArray(omega_from_w(data.W, data.RHO[-1]),
                            attrs={'units': 'Pa/s'}),
+        # diagnostics
+        SOLIN=data.SOLIN,
     )
 
     data_vars.update(compute_tendencies(data))
@@ -346,12 +348,13 @@ namelist_template = """
     nhtfrq=-1
     single_column=.true.
     scmlat= {lat:.4f}
-    scmlon= {lon:.4f}
+    scmlon= 0.0
     aqua_planet = .true.
     orb_obliq = 0.0
     orb_eccen = 0.0
-    orb_mvelp = {lon:.4f}
+    orb_mvelp = 0.0
     orb_mode = 'fixed_parameters'
+    perpetual = .true.
 /
 """
 
@@ -371,7 +374,7 @@ def main():
              .transpose('tsec', 'lev', 'lat', 'lon')
     # for some reason SCAM dies when lon = 0
     # something to do with initializing the land vegetation array
-    loc.lon[0] = 80
+    loc.lon[0] = 0.0
 
     print("Saving file to disk")
     loc.to_netcdf("data/processed/iop0x32/iop.nc")
