@@ -233,10 +233,12 @@ def start_stop_params(tsec):
     return valmap(int, val)
 
 
-def main():
-    file_2d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc"
-    files_3d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/*.nc"
-    stat = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc"
+def main(file_2d, files_3d, stat,
+         output_nc="data/processed/iop0x32/iop.nc",
+         output_nml="data/processed/iop0x32/namelist.txt"):
+    # file_2d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc"
+    # files_3d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/*.nc"
+    # stat = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc"
 
     data = open_and_merge(file_2d, files_3d, stat)
     iop = prepare_iop_dataset(data)
@@ -252,11 +254,11 @@ def main():
     loc.lon[0] = 0.0
 
     print("Saving file to disk")
-    loc.to_netcdf("data/processed/iop0x32/iop.nc")
+    loc.to_netcdf(output_nc)
 
     print("Saving namelist to disk")
 
-    with open("data/processed/iop0x32/namelist.txt", "w") as f:
+    with open(output_nml, "w") as f:
         format_params = dict(
             lat=float(loc.lat),
             lon=float(loc.lon))

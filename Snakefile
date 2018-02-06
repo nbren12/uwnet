@@ -3,8 +3,11 @@ import xarray as xr
 import os
 from lib.thermo import liquid_water_temperature, total_water, q1, q2
 from lib.util import xopena, wrap_xarray_calculation
+from lib import create_iopfile
 
+# setup environment
 os.environ['PYTHONPATH'] = os.path.abspath(os.getcwd())
+shell.executable("/bin/bash")
 
 
 print(os.environ['PYTHONPATH'])
@@ -137,10 +140,13 @@ rule q2:
 
 files_3d =expand("data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/{f}.nc",
                  f="U V W QV QN TABS QP QRAD".split(" ")),
+file_2d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc"
+file_stat = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc"
+
 rule inputs_and_forcings:
     input: d3=files_3d,
-           d2="data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc",
-           stat="data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc",
+           d2=file_2d,
+           stat=file_stat,
     output: inputs="data/processed/inputs.nc",
             forcings="data/processed/forcings.nc"
     script: "scripts/inputs_and_forcings.py"
@@ -174,6 +180,25 @@ rule fit_model:
             interactive_vertical_adv=False
     script: "scripts/torch_time_series2.py"
 
+
+rule prepare_iop:
+    input: d3=files_3d, d2=file_2d, stat=file_stat
+    output: nml="data/processed/iop0x32/namelist.txt",
+            nc="data/processed/iop0x32/iop.nc"
+    run:
+        create_iopfile.main(input.d2, input.d3, input.stat,
+                            output_nc=output.nc,
+                            output_nml=output.nml)
+
+rule run_scam:
+    input: nml="data/processed/iop0x32/namelist.txt",
+           nc="data/processed/iop0x32/iop.nc"
+    output: dynamic("data/processed/iop0x32/camrun.cam.h0.{timestamp}.nc")
+    shell:
+        """
+        dir=$(dirname {input.nml})
+        ext/scam/run_docker.sh $dir
+        """
 
 rule plot_model:
     input: x="data/processed/inputs.nc",
