@@ -92,146 +92,10 @@ For the SAM data, I will need to specify
 - divq
 - vertdivq
 
-
-
-This is what a working IOP file looks like
-netcdf epic_renamed {
-dimensions:
-	tsec = 88 ;
-	lev = 23 ;
-	lat = 1 ;
-	lon = 1 ;
-variables:
-	int bdate ;
-		bdate:long_name = "Base Date (year would be 2001 if 4 digit year were permitted)" ;
-		bdate:units = "yymmdd" ;
-	int tsec(tsec) ;
-		tsec:long_name = "time after 00Z on nbdate" ;
-		tsec:units = "s" ;
-	int lev(lev) ;
-		lev:long_name = "time after 00Z on nbdate" ;
-		lev:units = "Pa" ;
-	float lat(lat) ;
-		lat:_FillValue = NaNf ;
-		lat:long_name = "latitude" ;
-		lat:units = "deg N" ;
-	float lon(lon) ;
-		lon:_FillValue = NaNf ;
-		lon:long_name = "longitude" ;
-		lon:units = "deg E" ;
-	int year(tsec) ;
-		year:units = "Year" ;
-	int month(tsec) ;
-		month:units = "Month" ;
-	int day(tsec) ;
-		day:units = "Day (UTC)" ;
-	float hour(tsec) ;
-		hour:_FillValue = NaNf ;
-		hour:units = "Hour (UTC)" ;
-	float calday(tsec) ;
-		calday:_FillValue = NaNf ;
-		calday:units = "Calday" ;
-	float phis(lat, lon) ;
-		phis:_FillValue = NaNf ;
-		phis:long_name = "Surface Geopotential" ;
-		phis:units = "m2/s2" ;
-	float Ps(tsec, lat, lon) ;
-		Ps:_FillValue = NaNf ;
-		Ps:long_name = "Surface pressure (ERA-40)" ;
-		Ps:units = "Pa" ;
-	float Ptend(tsec, lat, lon) ;
-		Ptend:_FillValue = NaNf ;
-		Ptend:long_name = "Surface pressure tendency (ERA-40)" ;
-		Ptend:units = "Pa/s" ;
-	float Tg(tsec, lat, lon) ;
-		Tg:_FillValue = NaNf ;
-		Tg:long_name = "Sea Surface Temperature (ERA-40)" ;
-		Tg:units = "K" ;
-	float Ts(tsec, lat, lon) ;
-		Ts:_FillValue = NaNf ;
-		Ts:long_name = "Surface Air Temperature (ERA-40)" ;
-		Ts:units = "K" ;
-	float shflx(tsec, lat, lon) ;
-		shflx:_FillValue = NaNf ;
-		shflx:long_name = "Surface sensible heat flux (ERA-40)" ;
-		shflx:units = "W/m2" ;
-	float lhflx(tsec, lat, lon) ;
-		lhflx:_FillValue = NaNf ;
-		lhflx:long_name = "Surface sensible heat flux (ERA-40)" ;
-		lhflx:units = "W/m2" ;
-	float prec(tsec, lat, lon) ;
-		prec:_FillValue = NaNf ;
-		prec:long_name = "Total surface precipitation (ERA-40)" ;
-		prec:units = "mm/d" ;
-	float lwds(tsec, lat, lon) ;
-		lwds:_FillValue = NaNf ;
-		lwds:long_name = "surface longwave down (ERA-40)" ;
-		lwds:units = "W/m2" ;
-	float lwnt(tsec, lat, lon) ;
-		lwnt:_FillValue = NaNf ;
-		lwnt:long_name = "TOA net longwave up (ERA-40)" ;
-		lwnt:units = "W/m2" ;
-	float lwntc(tsec, lat, lon) ;
-		lwntc:_FillValue = NaNf ;
-		lwntc:long_name = "TOA clearsky net longwave up (ERA-40)" ;
-		lwntc:units = "W/m2" ;
-	float swds(tsec, lat, lon) ;
-		swds:_FillValue = NaNf ;
-		swds:long_name = "surface shortwave down (ERA-40)" ;
-		swds:units = "W/m2" ;
-	float swnt(tsec, lat, lon) ;
-		swnt:_FillValue = NaNf ;
-		swnt:long_name = "TOA net shortwave up (ERA-40)" ;
-		swnt:units = "W/m2" ;
-	float swntc(tsec, lat, lon) ;
-		swntc:_FillValue = NaNf ;
-		swntc:long_name = "TOA clearsky net shortwave up (ERA-40)" ;
-		swntc:units = "W/m2" ;
-	float u(tsec, lev, lat, lon) ;
-		u:_FillValue = NaNf ;
-		u:long_name = "Zonal wind (ERA-40)" ;
-		u:units = "m/s" ;
-	float v(tsec, lev, lat, lon) ;
-		v:_FillValue = NaNf ;
-		v:long_name = "Meridional wind (ERA-40)" ;
-		v:units = "m/s" ;
-	float omega(tsec, lev, lat, lon) ;
-		omega:_FillValue = NaNf ;
-		omega:long_name = "Vertical pressure velocity (ERA-40)" ;
-		omega:units = "Pa/s" ;
-	float T(tsec, lev, lat, lon) ;
-		T:_FillValue = NaNf ;
-		T:long_name = "Absolute Temperature (ERA-40)" ;
-		T:units = "K" ;
-	float divT(tsec, lev, lat, lon) ;
-		divT:_FillValue = NaNf ;
-		divT:long_name = "Horizontal Advective T tendency (ERA-40)" ;
-		divT:units = "K/s" ;
-	float vertdivT(tsec, lev, lat, lon) ;
-		vertdivT:_FillValue = NaNf ;
-		vertdivT:long_name = "Vertical Advective T tendency (ERA-40)" ;
-		vertdivT:units = "K/s" ;
-	float q(tsec, lev, lat, lon) ;
-		q:_FillValue = NaNf ;
-		q:long_name = "Specific humidity (ERA-40)" ;
-		q:units = "kg/kg" ;
-	float divq(tsec, lev, lat, lon) ;
-		divq:_FillValue = NaNf ;
-		divq:long_name = "Horizontal Advective q tendency (ERA-40)" ;
-		divq:units = "kg/kg/s" ;
-	float vertdivq(tsec, lev, lat, lon) ;
-		vertdivq:_FillValue = NaNf ;
-		vertdivq:long_name = "Vertical Advective q tendency (ERA-40)" ;
-		vertdivq:units = "kg/kg/s" ;
-
-// global attributes:
-		:description = "Forcing dataset for EPIC ITCZ derived from ERA40" ;
-		:author = "Peter Blossey" ;
-		:date = "10-Aug-2006" ;
-
 """
 import numpy as np
 import xarray as xr
+from toolz import valmap
 
 from xnoah import swap_coord
 from .thermo import omega_from_w
@@ -355,8 +219,19 @@ namelist_template = """
     orb_mvelp = 0.0
     orb_mode = 'fixed_parameters'
     perpetual = .true.
+    start_tod = {start_tod}
+    stop_tod = {stop_tod}
+    stop_n = {stop_n}
 /
 """
+
+def start_stop_params(tsec):
+    val = dict(start_tod=tsec[0] % 86400,
+               stop_tod=tsec[-1] % 86400,
+               stop_n=(tsec[-1]-tsec[0])//86400)
+
+    return valmap(int, val)
+
 
 def main():
     file_2d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc"
@@ -380,14 +255,14 @@ def main():
     loc.to_netcdf("data/processed/iop0x32/iop.nc")
 
     print("Saving namelist to disk")
+
     with open("data/processed/iop0x32/namelist.txt", "w") as f:
-        f.write(namelist_template.format(
+        format_params = dict(
             lat=float(loc.lat),
-            lon=float(loc.lon)))
+            lon=float(loc.lon))
 
-
-
-
+        format_params.update(start_stop_params(loc.tsec))
+        f.write(namelist_template.format(**format_params))
 
 
 
