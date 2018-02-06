@@ -1,0 +1,13 @@
+# Dockerized CAM5 Single Column Model (SCAM)
+
+To build the the docker image run the following commands
+
+    cd build
+    docker build -t <user>:cam .
+
+This will create a docker image with CAM configured and compiled in single
+column mode.
+
+To run simply type
+
+    ./run_docker.sh
