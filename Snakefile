@@ -200,6 +200,14 @@ rule run_scam:
         ext/scam/run_docker.sh $dir
         """
 
+rule combine_scam:
+    input: dynamic("data/processed/iop0x32/camrun.cam.h0.{timestamp}.nc")
+    output: "data/processed/iop0x32/cam.nc"
+    run:
+        import lib.cam
+        lib.cam.load_cam(input)\
+            .to_netcdf(output[0])
+
 rule plot_model:
     input: x="data/processed/inputs.nc",
            f="data/processed/forcings.nc",
