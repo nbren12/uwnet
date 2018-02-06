@@ -246,7 +246,18 @@ def open_and_merge(file_2d, files_3d, stat_file):
     data_2d = xr.open_dataset(file_2d)
     data_2d = data_2d.isel(time=np.argsort(data_2d.time.values))
     stat = xr.open_dataset(stat_file)
-    return xr.merge((data_3d, data_2d, stat.p, stat.RHO, stat.Ps),
+
+    # need to upsampel stat
+    stat = stat.sel(time=data_3d.time, method='nearest')\
+               .assign(time=data_3d.time)
+
+    return xr.merge((data_3d,
+                     data_2d.SHF.compute(),
+                     data_2d.LHF.compute(),
+                     data_2d.SOLIN.compute(),
+                     stat.p,
+                     stat.RHO[-1],
+                     stat.Ps),
                     join='inner')
 
 
@@ -341,7 +352,6 @@ namelist_template = """
     orb_eccen = 0.0
     orb_mvelp = {lon:.4f}
     orb_mode = 'fixed_parameters'
-    perpetual = .true.
 /
 """
 
