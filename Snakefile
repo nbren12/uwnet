@@ -201,7 +201,7 @@ rule run_scam:
         """
 
 rule combine_scam:
-    input: dynamic("data/processed/iop0x32/camrun.cam.h0.{timestamp}.nc")
+    input: temp(dynamic("data/processed/iop0x32/camrun.cam.h0.{timestamp}.nc"))
     output: "data/processed/iop0x32/cam.nc"
     run:
         import lib.cam

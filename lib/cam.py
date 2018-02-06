@@ -1,3 +1,4 @@
+import numpy as np
 import glob
 import xarray as xr
 
@@ -10,4 +11,8 @@ def load_cam(files):
                           for f in files[:-1]], concat_dim='time')\
            .sortby('time')
     ds.time.attrs['units'] = 'days since 1999-04-11 15:00:00'
-    return xr.decode_cf(ds)
+    ds = xr.decode_cf(ds)
+    time = ds.time.values - np.datetime64('1999-01-01')
+    time = time.astype(dtype='timedelta64[s]').astype(int)/86400
+    ds.coords['time'] = time
+    return ds
