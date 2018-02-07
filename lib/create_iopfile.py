@@ -125,13 +125,18 @@ def open_and_merge(file_2d, files_3d, stat_file):
                     join='inner')
 
 
+def compute_divq(u, v, qv):
+    tend = -horizontal_advection(u, v, qv)
+    tend = tend * (qv > .001)
+    return tend
+
 def compute_tendencies(data):
     return dict(
         divT=xr.DataArray(
             -horizontal_advection(data.U, data.V, data.TABS),
             attrs={'units': 'K/s'}),
         divq=xr.DataArray(
-            -horizontal_advection(data.U, data.V, data.QV/1000),
+            -compute_divq(data.U, data.V, data.QV/1000),
             attrs={'units': 'kg/kg/s'}),
         vertdivT=xr.DataArray(
             -vertical_advection(data.W, data.TABS),
