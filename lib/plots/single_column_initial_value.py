@@ -20,9 +20,10 @@ from torch.autograd import Variable
 
 plt.style.use('ggplot')
 
-def plot_soln(x):
+def plot_soln(x, fig=None):
 
-    fig = plt.figure(figsize=(8, 5))
+    if fig is None:
+        fig = plt.figure(figsize=(8, 5))
     gs = GridSpec(3, 2,
                   width_ratios=(.97, .03),
                   height_ratios=(1, 1, .5),
@@ -58,7 +59,8 @@ def plot_soln(x):
 
     axs[0].text(102, 200, '$s_l$ (K)', bbox=dict(color='white'))
     axs[1].text(102, 200, '$q_T$ (g/kg)', bbox=dict(color='white'))
-    axs[2].text(102, 100, 'P (mm/day)', bbox=dict(color='white'))
+    axs[2].text(.02, .8, 'P (mm/day)', bbox=dict(color='white'),
+                transform=axs[2].transAxes)
 
     axs[0].invert_yaxis()
     axs[0].set_xlim([100, 180])
