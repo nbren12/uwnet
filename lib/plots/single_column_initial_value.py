@@ -97,6 +97,7 @@ def column_run(model, prognostic, forcing):
         'constant': {'w': w, 'z': z}
     }
 
+    model.eval()
     y = model(input_data)
 
     coords = {'z': prognostic['z'], 'time': prognostic['time']}
