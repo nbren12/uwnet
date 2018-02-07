@@ -10,22 +10,21 @@
 # see if plots was edited in the last commit
 editedfiles=$(git diff-tree --no-commit-id --name-only -r HEAD)
 
-# exit if $notebook was not edited in the previous commit
-notebooks=$(echo $editedfiles | grep .ipynb)
-echo $notebooks
-
 
 project_name=uw-machine-learning
 report_server=olympus
 public_url=https://atmos.washington.edu/~nbren12/reports/$project_name
 report_dir=/home/disk/eos4/nbren12/public_html/reports/$project_name
 
-for notebook in $notebooks
+for notebook in $editedfiles
 do
+    ext=${notebook##*.}
     namenoext=${notebook%.*}
-    jupyter nbconvert $notebook
-    scp $namenoext.html $report_server:$report_dir/
+    if [ $ext == "ipynb" ]; then
+        jupyter nbconvert $notebook
+        scp $namenoext.html $report_server:$report_dir/
 
-    url=$public_url/$(basename $namenoext).html
-    echo "File URL: $url"
+        url=$public_url/$(basename $namenoext).html
+        echo "File URL: $url"
+    fi
 done
