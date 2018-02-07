@@ -93,9 +93,11 @@ For the SAM data, I will need to specify
 - vertdivq
 
 """
+import os
+import itertools
 import numpy as np
 import xarray as xr
-from toolz import valmap
+from toolz import curry, valmap
 
 from xnoah import swap_coord
 from .thermo import omega_from_w
@@ -211,7 +213,8 @@ def prepare_iop_dataset(data):
     return ds.drop('time')
 
 
-namelist_template = """
+def prepare_namelist(loc):
+    namelist_template = """
 &atm
     iopfile='iop.nc'
     nhtfrq=-1
@@ -228,7 +231,15 @@ namelist_template = """
     stop_tod = {stop_tod}
     stop_n = {stop_n}
 /
-"""
+    """
+
+    format_params = dict(
+        lat=float(loc.lat),
+        lon=float(loc.lon))
+
+    format_params.update(start_stop_params(loc.tsec))
+    return namelist_template.format(**format_params)
+
 
 def start_stop_params(tsec):
     val = dict(start_tod=tsec[0] % 86400,
@@ -238,40 +249,41 @@ def start_stop_params(tsec):
     return valmap(int, val)
 
 
-def main(file_2d, files_3d, stat,
-         output_nc="data/processed/iop0x32/iop.nc",
-         output_nml="data/processed/iop0x32/namelist.txt"):
-    # file_2d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc"
-    # files_3d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/*.nc"
-    # stat = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc"
+def save_iop_dir(output_dir, iop, i, j):
+    print(f"Saving {i}-{j}")
+    dirname = os.path.join(output_dir, f"{i}-{j}")
+    if not os.path.exists(dirname):
+        os.mkdir(dirname)
+    output_nc = os.path.join(dirname, "iop.nc")
+    output_nml = os.path.join(dirname, "namelist.txt")
 
-    data = open_and_merge(file_2d, files_3d, stat)
-    iop = prepare_iop_dataset(data)
-
-    # just grab one column
-    # SCAM needs lat and lon to be dimensions
-    # not just coordinates
-    loc = iop.isel(lon=0, lat=32)\
+    loc = iop.isel(lon=i, lat=j)\
              .apply(expand_dims)\
              .transpose('tsec', 'lev', 'lat', 'lon')
     # for some reason SCAM dies when lon = 0
     # something to do with initializing the land vegetation array
     loc.lon[0] = 0.0
-
-    print("Saving file to disk")
     loc.to_netcdf(output_nc)
-
-    print("Saving namelist to disk")
-
     with open(output_nml, "w") as f:
-        format_params = dict(
-            lat=float(loc.lat),
-            lon=float(loc.lon))
+        f.write(prepare_namelist(loc))
 
-        format_params.update(start_stop_params(loc.tsec))
-        f.write(namelist_template.format(**format_params))
+    return dirname
 
 
 
-if __name__ == '__main__':
-    main()
+def main(file_2d, files_3d, stat,
+         output_dir="data/processed/iop/"):
+    # file_2d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc"
+    # files_3d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/*.nc"
+    # stat = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc"
+
+    data = open_and_merge(file_2d, files_3d, stat)
+    print("Preparing IOP dataset...only processing lat_index=[24,40]")
+    iop = prepare_iop_dataset(data).compute().isel(lat=slice(24, 40))
+
+    ij = itertools.product(range(len(iop.lon)), range(len(iop.lat)))
+
+    for i, j in ij:
+        save_iop_dir(output_dir, iop, i, j)
+
+

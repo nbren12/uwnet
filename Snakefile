@@ -180,33 +180,38 @@ rule fit_model:
             interactive_vertical_adv=False
     script: "scripts/torch_time_series2.py"
 
+wildcard_constraints:
+    i="\d+",
+    j="\d+"
 
-rule prepare_iop:
+
+rule prepare_iop_directories:
     input: d3=files_3d, d2=file_2d, stat=file_stat
-    output: nml="data/processed/iop0x32/namelist.txt",
-            nc="data/processed/iop0x32/iop.nc"
+    output: nml="data/processed/iop/{i}-{j}/namelist.txt",
+            nc="data/processed/iop/{i}-{j}/iop.nc"
     run:
         create_iopfile.main(input.d2, input.d3, input.stat,
-                            output_nc=output.nc,
-                            output_nml=output.nml)
+                            output_dir="data/processed/iop")
 
 rule run_scam:
-    input: nml="data/processed/iop0x32/namelist.txt",
-           nc="data/processed/iop0x32/iop.nc"
-    output: dynamic("data/processed/iop0x32/camrun.cam.h0.{timestamp}.nc")
-    shell:
-        """
+    input: nml="data/processed/iop/{i}-{j}/namelist.txt",
+           nc="data/processed/iop/{i}-{j}/iop.nc"
+    output: "data/processed/iop/{i}-{j}/cam.nc"
+    run:
+        shell("""
         dir=$(dirname {input.nml})
-        ext/scam/run_docker.sh $dir
-        """
+        ext/scam/run_docker.sh $dir > /dev/null
+        """)
+
+        import lib.cam
+        dirname = os.path.dirname(input.nml)
+        pattern = os.path.join(dirname, "camrun.cam.h0.*.nc")
+        lib.cam.load_cam(pattern)\
+               .to_netcdf(output[0])
 
 rule combine_scam:
-    input: temp(dynamic("data/processed/iop0x32/camrun.cam.h0.{timestamp}.nc"))
-    output: "data/processed/iop0x32/cam.nc"
-    run:
-        import lib.cam
-        lib.cam.load_cam(input)\
-            .to_netcdf(output[0])
+    input: expand("data/processed/iop/{i}-{j}/cam.nc", i=range(128), j=range(16))
+
 
 rule plot_model:
     input: x="data/processed/inputs.nc",
