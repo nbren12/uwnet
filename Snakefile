@@ -210,7 +210,7 @@ rule run_scam:
                .to_netcdf(output[0])
 
 rule combine_scam:
-    input: expand("data/processed/iop/{i}-{j}/cam.nc", i=range(128), j=range(16))
+    input: expand("data/processed/iop/{i}-{j}/cam.nc", i=range(128), j=7)
 
 
 rule plot_model:
