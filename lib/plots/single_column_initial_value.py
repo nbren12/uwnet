@@ -5,7 +5,7 @@ $$ \sum_{j=1}^{m} | x^j - \tilde{x}^j|^2,$$
 where the approximate time series is defined recursively by $\tilde{x}^0 = x^0$, $\tilde{x}^j=f(\tilde{x}^{j-1}) + (g^i + g^{i+1})\frac{h}{2}$ for $j>1$. Here, $f$ will be approximated using a neural network.
 
 """
-
+from toolz import dissoc
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
@@ -72,7 +72,8 @@ def dataset_to_dict(dataset):
         x = dataset[key]
         if 'z' not in x.dims:
             x = x.expand_dims('z')
-        x = x.expand_dims('batch')
+        if 'batch' not in x.dims:
+            x = x.expand_dims('batch')
 
         transpose_dims = [dim for dim in ['time', 'batch', 'z']
                           if dim in x.dims]
@@ -101,6 +102,9 @@ def column_run(model, prognostic, forcing):
     y = model(input_data)
 
     coords = {'z': prognostic['z'], 'time': prognostic['time']}
+    if 'batch' in prognostic.dims:
+        coords['batch'] = prognostic.batch
+
     dims = ['time', 'batch', 'z']
 
     progs = {
@@ -108,9 +112,10 @@ def column_run(model, prognostic, forcing):
         for key in y['prognostic']
     }
 
-    prec = xr.DataArray(y['diagnostic']['Prec'].data.numpy().ravel(),
-                        coords={'time': prognostic.time[:-1]},
-                        dims=['time'])
+    coords['time'] = coords['time'][1:]
+    prec = xr.DataArray(y['diagnostic']['Prec'].data.numpy()[..., 0],
+                        coords=dissoc(coords, 'z'),
+                        dims=['time', 'batch'])
 
     return progs, prec
 

@@ -180,6 +180,15 @@ rule fit_model:
             interactive_vertical_adv=False
     script: "scripts/torch_time_series2.py"
 
+
+rule forced_column_slp:
+    input: model="data/ml/ngaqua/model.1.torch",
+           inputs="data/processed/inputs.nc",
+           forcings="data/processed/forcings.nc"
+    output: "data/ml/ngaqua/columns.nc"
+    script: "scripts/forced_column_slp.py"
+
+
 wildcard_constraints:
     i="\d+",
     j="\d+"
