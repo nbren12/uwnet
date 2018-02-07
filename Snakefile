@@ -4,6 +4,7 @@ import os
 from lib.thermo import liquid_water_temperature, total_water, q1, q2
 from lib.util import xopena, wrap_xarray_calculation
 from lib import create_iopfile
+from xnoah import swap_coord
 
 # setup environment
 os.environ['PYTHONPATH'] = os.path.abspath(os.getcwd())
@@ -21,7 +22,7 @@ print(os.environ['PYTHONPATH'])
 #     input: ngaqua("3d/Q1.nc")
 
 rule all:
-    input: "data/raw/ngaqua/stat.nc", "data/ml/ngaqua/plots.html"
+    input: "data/processed/iop/cam.nc"
 
 
 ngaqua_files =[
@@ -219,7 +220,10 @@ rule run_scam:
                .to_netcdf(output[0])
 
 rule combine_scam:
-    input: expand("data/processed/iop/{i}-{j}/cam.nc", i=range(128), j=7)
+    input: expand("data/processed/iop/{i}-{j}/{file}", i=range(128), j=7,\
+                  file=['cam.nc', 'iop.nc'])
+    output: "data/processed/iop/cam.nc"
+    script: "scripts/combine_scam.py"
 
 
 rule plot_model:

@@ -20,7 +20,8 @@ from torch.autograd import Variable
 
 plt.style.use('ggplot')
 
-def plot_soln(x, fig=None):
+def plot_soln(x, fig=None,
+              dims=['time', 'p']):
 
     if fig is None:
         fig = plt.figure(figsize=(8, 5))
@@ -33,7 +34,7 @@ def plot_soln(x, fig=None):
 
     t_levs = np.arange(12) * 5 + 275
 
-    args = (x.time.values, x.p.values)
+    args = [x[dim].values for dim in dims]
 
     x = x.squeeze()
 
