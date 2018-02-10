@@ -37,7 +37,7 @@ do
     then
         echo "$folder/$file not present downloading"
         pushd $folder > /dev/null
-        svn export --username guestuser https://svn-ccsm-inputdata.cgd.ucar.edu/trunk/$folder/$file
+        svn export --username guestuser --password $PASS --trust-server-cert https://svn-ccsm-inputdata.cgd.ucar.edu/trunk/$folder/$file
         popd > /dev/null
     else
         echo "$folder/$file already present"
