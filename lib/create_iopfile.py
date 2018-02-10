@@ -270,20 +270,19 @@ def save_iop_dir(output_dir, iop, i, j):
     return dirname
 
 
+def save_all_dirs(iop, output_dir):
+    ij = itertools.product(range(len(iop.lon)), range(len(iop.lat)))
+    for i, j in ij:
+        save_iop_dir(output_dir, iop, i, j)
 
-def main(file_2d, files_3d, stat,
-         output_dir="data/processed/iop/"):
+
+def main(file_2d, files_3d, stat, output):
     # file_2d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc"
     # files_3d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/*.nc"
     # stat = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc"
 
     data = open_and_merge(file_2d, files_3d, stat)
-    print("Preparing IOP dataset...only processing lat_index=[24,40]")
     iop = prepare_iop_dataset(data).compute().isel(lat=slice(24, 40))
-
-    ij = itertools.product(range(len(iop.lon)), range(len(iop.lat)))
-
-    for i, j in ij:
-        save_iop_dir(output_dir, iop, i, j)
+    iop.to_netcdf(output)
 
 
