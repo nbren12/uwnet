@@ -249,16 +249,12 @@ def start_stop_params(tsec):
     return valmap(int, val)
 
 
-def save_iop_dir(output_dir, iop, i, j):
-    print(f"Saving {i}-{j}")
-    dirname = os.path.join(output_dir, f"{i}-{j}")
+def save_iop_dir(dirname, loc):
     if not os.path.exists(dirname):
         os.mkdir(dirname)
     output_nc = os.path.join(dirname, "iop.nc")
     output_nml = os.path.join(dirname, "namelist.txt")
-
-    loc = iop.isel(lon=i, lat=j)\
-             .apply(expand_dims)\
+    loc = loc.apply(expand_dims)\
              .transpose('tsec', 'lev', 'lat', 'lon')
     # for some reason SCAM dies when lon = 0
     # something to do with initializing the land vegetation array
@@ -273,7 +269,10 @@ def save_iop_dir(output_dir, iop, i, j):
 def save_all_dirs(iop, output_dir):
     ij = itertools.product(range(len(iop.lon)), range(len(iop.lat)))
     for i, j in ij:
-        save_iop_dir(output_dir, iop, i, j)
+        print(f"Saving {i}-{j}")
+        dirname = os.path.join(output_dir, f"{i}-{j}")
+        loc = iop.isel(lon=i, lat=j)
+        save_iop_dir(dirname, loc)
 
 
 def main(file_2d, files_3d, stat, output):
