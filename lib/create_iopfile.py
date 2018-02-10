@@ -219,6 +219,7 @@ def prepare_namelist(loc):
     iopfile='iop.nc'
     nhtfrq=-1
     single_column=.true.
+    scm_iop_srf_prop = .true.
     scmlat= {lat:.4f}
     scmlon= 0.0
     aqua_planet = .true.
