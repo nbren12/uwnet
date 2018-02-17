@@ -71,67 +71,6 @@ rule weights:
     output: "data/processed/ngaqua/w.nc"
     script: "scripts/weights.py"
 
-
-rule prognostic_variables:
-    input: T="data/raw/ngaqua/coarse/3d/TABS.nc",
-           qn="data/raw/ngaqua/coarse/3d/QN.nc",
-           qp="data/raw/ngaqua/coarse/3d/QP.nc",
-           qv="data/raw/ngaqua/coarse/3d/QV.nc"
-    output: sl="data/calc/ngaqua/sl.nc",
-            qt="data/calc/ngaqua/qt.nc"
-    run:
-        sl = liquid_water_temperature(input.T, input.qn, input.qp)\
-		.to_dataset(name="sl").to_netcdf(output.sl)
-        qt = total_water(input.qv, input.qn)\
-               .to_dataset(name="qt")\
-               .to_netcdf(output.qt)
-
-rule advection_wildcard:
-    input: u="data/raw/ngaqua/coarse/3d/U.nc",
-            v="data/raw/ngaqua/coarse/3d/V.nc",
-            w="data/raw/ngaqua/coarse/3d/W.destaggered.nc",
-            f="data/calc/ngaqua/{f}.nc"
-    output: "data/calc/adv/ngaqua/{f}.nc"
-    script: "scripts/advection.py"
-
-# sl forcing
-rule advection_forcing:
-    input: adv="data/calc/adv/{f}.nc",
-    output: "data/calc/forcing/{f}.nc"
-    run:
-        f = -xopena(input.adv)*86400
-        f.to_dataset(name=f.name)\
-         .to_netcdf(output[0])
-
-rule apparent_source:
-    input: forcing="data/calc/forcing/{f}.nc",
-           data="data/calc/{f}.nc"
-    output: "data/calc/apparent/{f}.nc"
-    script: "scripts/apparent_source.py"
-
-rule q1:
-    input: "data/calc/apparent/ngaqua/sl.nc",
-           "data/raw/ngaqua/coarse/3d/QRAD.nc"
-    output: "data/calc/ngaqua/q1.nc"
-    run:
-        d = xr.open_mfdataset(input)
-        q1(d).to_netcdf(output[0])
-
-rule q2:
-    input: "data/calc/apparent/ngaqua/qt.nc"
-    output: "data/calc/ngaqua/q2.nc"
-    run:
-        d = xr.open_mfdataset(input)
-        q2(d).to_netcdf(output[0])
-
-# rule time_series_data:
-#     input: forcing= ["data/calc/forcing/ngaqua/sl.nc", "data/calc/forcing/ngaqua/qt.nc"],
-#             inputs=["data/calc/ngaqua/sl.nc", "data/calc/ngaqua/qt.nc"],
-#             weight= "data/processed/ngaqua/w.nc"
-#     output: "data/ml/ngaqua/time_series_data.pkl"
-#     script: "scripts/torch_preprocess.py"
-
-
 files_3d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX_1280/coarse/3d/all.nc"
 file_2d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX_1280/coarse/2d/all.nc"
 file_stat = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX_1280/stat.nc"
