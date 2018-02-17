@@ -10,11 +10,9 @@ def defaultsel(x):
     return x.isel(y=slice(24, 40))
 
 
-def inputs_and_forcings(files_3d, file_2d, stat_file, sel=defaultsel):
-    if isinstance(files_3d, str):
-        files_3d = glob(files_3d)
+def inputs_and_forcings(file_3d, file_2d, stat_file, sel=defaultsel):
 
-    data_3d = xr.open_mfdataset(files_3d, preprocess=lambda x: x.drop('p'))
+    data_3d = xr.open_dataset(file_3d)
     data_2d = xr.open_dataset(file_2d)
     data_2d = data_2d.isel(time=np.argsort(data_2d.time.values))
     stat = xr.open_dataset(stat_file)
