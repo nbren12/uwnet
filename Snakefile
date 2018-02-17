@@ -43,19 +43,12 @@ ngaqua_files =[
 ]
 
 run_ids = [
-    '726a6fd3430d51d5a2af277fb1ace0c464b1dc48', '2/NG_5120x2560x34_4km_10s_QOBS_EQX'
+    '726a6fd3430d51d5a2af277fb1ace0c464b1dc48', '2/NG_5120x2560x34_4km_10s_QOBS_EQX_1280'
 ]
 
 manifest = {
-    '2/NG_5120x2560x34_4km_10s_QOBS_EQX': [
-        'coarse/3d/TABS.nc',
-        'coarse/3d/QRAD.nc',
-        'coarse/3d/QP.nc',
-        'coarse/3d/QV.nc',
-        'coarse/3d/V.nc',
-        'coarse/3d/W.nc',
-        'coarse/3d/QN.nc',
-        'coarse/3d/U.nc',
+    '2/NG_5120x2560x34_4km_10s_QOBS_EQX_1280': [
+        'coarse/3d/all.nc',
         'coarse/2d/all.nc',
         'stat.nc',
     ]
@@ -139,15 +132,12 @@ rule q2:
 #     script: "scripts/torch_preprocess.py"
 
 
-files_3d =expand("data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/{f}.nc",
-                 f="U V W QV QN TABS QP QRAD".split(" ")),
-file_2d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc"
-file_stat = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc"
+files_3d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX_1280/coarse/3d/all.nc"
+file_2d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX_1280/coarse/2d/all.nc"
+file_stat = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX_1280/stat.nc"
 
 rule inputs_and_forcings:
-    input: d3=files_3d,
-           d2=file_2d,
-           stat=file_stat,
+    input: d3=files_3d, d2=file_2d, stat=file_stat
     output: inputs="data/processed/inputs.nc",
             forcings="data/processed/forcings.nc"
     script: "scripts/inputs_and_forcings.py"

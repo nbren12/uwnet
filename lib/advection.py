@@ -1,5 +1,5 @@
 from xnoah.xcalc import centderiv
-from xnoah.sam.coarsen import destagger
+from xnoah.sam.regrid import destagger
 
 
 def material_derivative(u, v, w, f):
