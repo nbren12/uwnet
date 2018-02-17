@@ -39,6 +39,13 @@ def liquid_water_temperature(t, qn, qp):
     return sl
 
 
+def d_liquid_water_temperature(divt, divqn, divqp):
+    sl = divt - Lc/cp * (divqp + divqn)/1000.0
+    sl.attrs['units'] = 'K/s'
+
+    return sl
+
+
 @wrap_xarray_calculation
 def total_water(qv, qn):
     qt = qv + qn

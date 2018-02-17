@@ -2,8 +2,10 @@ import numpy as np
 from glob import glob
 import xarray as xr
 from lib.advection import material_derivative
+from xnoah import centderiv
 from lib.thermo import (liquid_water_temperature, total_water, layer_mass,
-                        shf_to_tendency, lhf_to_tendency)
+                        shf_to_tendency, lhf_to_tendency,
+                        d_liquid_water_temperature)
 
 
 def defaultsel(x):
@@ -33,8 +35,12 @@ def inputs_and_forcings(file_3d, file_2d, stat_file, sel=defaultsel):
         'qt': total_water(data.QV, data.QN)
     })
 
-    forcings = inputs.apply(
-        lambda f: -material_derivative(data.U, data.V, 0*data.W, f) * 86400)
+
+
+    forcings = xr.Dataset({
+        'sl': d_liquid_water_temperature(data.divTABS, data.divQN, data.divQP)*86400,
+        'qt': total_water(data.divQV, data.divQN) * 86400
+    })
 
     forcings['SHF'] = data.SHF
     forcings['LHF'] = data.LHF
