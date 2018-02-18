@@ -20,6 +20,8 @@ inputdata/atm/cam/physprops/ocpho_camrt_c080918.nc
 inputdata/atm/cam/physprops/ocphi_camrt_c080918.nc
 inputdata/atm/cam/physprops/ssam_camrt_c080918.nc
 inputdata/atm/cam/physprops/sscm_camrt_c080918.nc
+inputdata/atm/cam/scam/iop/bomex.nc
+inputdata/atm/cam/scam/iop/TWP06_4scam.nc
 EOF
 
 

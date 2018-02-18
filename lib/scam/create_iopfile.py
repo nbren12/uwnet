@@ -100,15 +100,15 @@ import xarray as xr
 from toolz import curry, valmap
 
 from xnoah import swap_coord
-from .thermo import omega_from_w
-from .advection import vertical_advection, horizontal_advection
+from ..thermo import omega_from_w
+from ..advection import vertical_advection, horizontal_advection
 
 
 circumference_earth = 4.0075e7
 
 
-def open_and_merge(file_2d, files_3d, stat_file):
-    data_3d = xr.open_mfdataset(files_3d, preprocess=lambda x: x.drop('p'))
+def open_and_merge(file_2d, file_3d, stat_file):
+    data_3d = xr.open_dataset(file_3d)
     data_2d = xr.open_dataset(file_2d)
     data_2d = data_2d.isel(time=np.argsort(data_2d.time.values))
     stat = xr.open_dataset(stat_file)
@@ -118,11 +118,9 @@ def open_and_merge(file_2d, files_3d, stat_file):
                .assign(time=data_3d.time)
 
     return xr.merge((data_3d,
-                     data_2d.SHF.compute(),
-                     data_2d.LHF.compute(),
-                     data_2d.SOLIN.compute(),
                      stat.p,
                      stat.RHO[-1],
+                     data_2d.compute(),
                      stat.Ps),
                     join='inner')
 
@@ -133,19 +131,21 @@ def compute_divq(u, v, qv):
     return tend
 
 def compute_tendencies(data):
+
+    # this needs to include the w g/cp term in the temperature budget so use
+    # static energy
+    s  = 9.81/1004 * data.z + data.TABS
+    divT3d = -(vertical_advection(data.W, s) +
+               horizontal_advection(data.U, data.V, s))
+
+    # moisture tendencies
+    # need to use another name for this array
+    Q_dten = -(horizontal_advection(data.U, data.V, data.QV) +
+               vertical_advection(data.W, data.QV))/1000
+
     return dict(
-        divT=xr.DataArray(
-            -horizontal_advection(data.U, data.V, data.TABS),
-            attrs={'units': 'K/s'}),
-        divq=xr.DataArray(
-            -compute_divq(data.U, data.V, data.QV/1000),
-            attrs={'units': 'kg/kg/s'}),
-        vertdivT=xr.DataArray(
-            -vertical_advection(data.W, data.TABS),
-            attrs={'units': 'K/s'}),
-        vertdivq=xr.DataArray(
-            -vertical_advection(data.W, data.QV/1000),
-            attrs={'units': 'kg/kg/s'}),
+        divT3d=divT3d,
+        Q_dten=Q_dten
     )
 
 
@@ -167,7 +167,7 @@ def y_to_lat(y):
                         attrs={'units': 'deg N',
                                'long_name': 'latitude'})
 
-vars_3d = ['q', 'T', 'u', 'v', 'divT', 'divq', 'vertdivT', 'vertdivq']
+vars_3d = ['q', 'T', 'u', 'v', 'divT', 'divq']
 vars_2d = ['shflk', 'lhflx', 'Ptend', 'Ps', 'phis']
 
 def expand_dims(x):
@@ -201,6 +201,9 @@ def prepare_iop_dataset(data):
                            attrs={'units': 'Pa/s'}),
         # diagnostics
         SOLIN=data.SOLIN,
+        QRAD=data.QRAD,
+        PREC=data.Prec,
+        SST=data.SST,
     )
 
     data_vars.update(compute_tendencies(data))
@@ -218,6 +221,7 @@ def prepare_namelist(loc):
 &atm
     iopfile='iop.nc'
     nhtfrq=-1
+    
     single_column=.true.
     scm_iop_srf_prop = .true.
     scmlat= {lat:.4f}
@@ -231,6 +235,7 @@ def prepare_namelist(loc):
     start_tod = {start_tod}
     stop_tod = {stop_tod}
     stop_n = {stop_n}
+    fincl1 = 'DIVQ3D:A'
 /
     """
 

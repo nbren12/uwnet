@@ -3,7 +3,7 @@ import xarray as xr
 import os
 from lib.thermo import liquid_water_temperature, total_water, q1, q2
 from lib.util import xopena, wrap_xarray_calculation
-from lib import create_iopfile
+from lib.scam import create_iopfile
 from xnoah import swap_coord
 
 # setup environment
@@ -140,26 +140,32 @@ rule prepare_iop_directories:
         create_iopfile.save_all_dirs(iop, output_dir)
 
 rule run_scam:
-    input: nml="data/processed/iop/{i}-{j}/namelist.txt",
-           nc="data/processed/iop/{i}-{j}/iop.nc"
+    input: "data/processed/iop.nc"
     output: "data/processed/iop/{i}-{j}/cam.nc"
     run:
-        shell("""
-        dir=$(dirname {input.nml})
-        ext/scam/run_docker.sh $dir > /dev/null
-        """)
+        from lib import scam
+        from lib.cam import load_cam
+        i = int(wildcards.i)
+        j = int(wildcards.j)
+        loc = xr.open_dataset(input[0], chunks={'lon': 1, 'lat':1})\
+                .isel(lon=i, lat=j)
 
-        import lib.cam
-        dirname = os.path.dirname(input.nml)
-        pattern = os.path.join(dirname, "camrun.cam.h0.*.nc")
-        lib.cam.load_cam(pattern)\
-               .to_netcdf(output[0])
+        output_dir = os.path.dirname(output[0])
+        shell(f"rm -rf {output_dir}")
+        shell(f"mkdir -p {output_dir}")
 
-rule combine_scam:
-    input: expand("data/processed/iop/{i}-{j}/{file}", i=range(128), j=7,\
-                  file=['cam.nc', 'iop.nc'])
-    output: "data/processed/iop/cam.nc"
-    script: "scripts/combine_scam.py"
+        scam.save_iop_dir(output_dir, loc)
+
+        shell(f"ext/scam/run_docker.sh data/processed/iop/{i}-{j}/") 
+        load_cam(f"data/processed/iop/{i}-{j}/camrun.cam.h0.*.nc")\
+            .to_netcdf(output[0])
+
+
+# rule combine_scam:
+#     input: expand("data/processed/iop/{i}-{j}/{file}", i=range(128), j=7,\
+#                   file=['cam.nc', 'iop.nc'])
+#     output: "data/processed/iop/cam.nc"
+#     script: "scripts/combine_scam.py"
 
 
 rule plot_model:

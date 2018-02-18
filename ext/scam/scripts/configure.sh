@@ -16,7 +16,7 @@ fi
 echo '************************************************************'
 echo "Editing start time/date"
 echo '************************************************************'
-sed -i.bak 's/\ *start_ymd.*/start_ymd = 990411/' drv_in
+sed -i.bak 's/\ *start_ymd.*/start_ymd = 990521/' drv_in
 
 echo '************************************************************'
 echo "Running CAM"
