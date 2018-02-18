@@ -218,13 +218,13 @@ class ForcedStepper(nn.Module):
                                       data['prognostic'])
                     lsf = large_scale_forcing(i, lsf_prog, data)
 
+                prog = _euler_step(prog, lsf, h / nsteps)
                 src, diags = self.rhs(prog, lsf, data['constant']['w'])
+                prog = _euler_step(prog, src, h / nsteps)
 
                 for key in diags:
                     diag_step[key] = diag_step[key] + diags[key] / nsteps
 
-                prog = _euler_step(prog, src, h / nsteps)
-                prog = _euler_step(prog, lsf, h / nsteps)
 
             # store accumulated diagnostics
             for key in diag_step:
