@@ -35,12 +35,8 @@ def inputs_and_forcings(file_3d, file_2d, stat_file, sel=defaultsel):
         'qt': total_water(data.QV, data.QN)
     })
 
-
-
-    forcings = xr.Dataset({
-        'sl': d_liquid_water_temperature(data.divTABS, data.divQN, data.divQP)*86400,
-        'qt': total_water(data.divQV, data.divQN) * 86400
-    })
+    forcings = inputs.apply(
+        lambda f: -material_derivative(data.U, data.V, data.W, f) * 86400)
 
     forcings['SHF'] = data.SHF
     forcings['LHF'] = data.LHF

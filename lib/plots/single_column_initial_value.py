@@ -64,7 +64,11 @@ def plot_soln(x, fig=None,
                 transform=axs[2].transAxes)
 
     axs[0].invert_yaxis()
-    axs[0].set_xlim([100, 180])
+
+    time = x.time
+    begin = float(time[0])
+    end = float(time[-1])
+    axs[0].set_xlim([begin, end])
 
 
 def dataset_to_dict(dataset):
