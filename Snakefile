@@ -95,13 +95,13 @@ rule time_series_data:
     input: inputs="data/processed/inputs.nc",
             forcings="data/processed/forcings.nc"
             #forcings="data/processed/denoised/forcings.nc"
-    output: "data/ml/ngaqua/time_series_data.pkl",
+    output: "data/output/time_series_data.pkl",
     script: "scripts/torch_preprocess.py"
 
 
 rule fit_model:
-    input: "data/ml/ngaqua/time_series_data.pkl"
-    output: "data/ml/ngaqua/model.{k}.torch"
+    input: "data/output/time_series_data.pkl"
+    output: "data/output/model.{k}.torch"
     params: num_epochs=4, num_steps=2000, nsteps=1, nhidden=(256,), lr=.01,
             window_size=10, cuda=False, batch_size=200,
             radiation='zero',
@@ -112,10 +112,10 @@ rule fit_model:
 
 
 rule forced_column_slp:
-    input: model="data/ml/ngaqua/model.1.torch",
+    input: model="data/output/model.1.torch",
            inputs="data/processed/inputs.nc",
            forcings="data/processed/forcings.nc"
-    output: "data/ml/ngaqua/columns.nc"
+    output: "data/output/columns.nc"
     script: "scripts/forced_column_slp.py"
 
 
@@ -171,10 +171,10 @@ rule run_scam:
 rule plot_model:
     input: x="data/processed/inputs.nc",
            f="data/processed/forcings.nc",
-           mod="data/ml/ngaqua/model.1.torch"
-    output: "data/ml/ngaqua/plots.html"
+           mod="data/output/model.1.torch"
+    output: "data/output/plots.html"
     script: "scripts/model_report.py"
 
 rule fit_models:
-    input: expand("data/ml/ngaqua/model.{k}.torch", k=range(4))
+    input: expand("data/output/model.{k}.torch", k=range(4))
 
