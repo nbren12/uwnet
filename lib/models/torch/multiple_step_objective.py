@@ -182,6 +182,11 @@ def large_scale_forcing(i, prog, data):
     return forcing
 
 
+def compute_total_moisture(prog, data):
+    w = data['constant']['w']
+    return (prog['qt'] * w).sum(-1, keepdim=True)/1000
+
+
 class ForcedStepper(nn.Module):
     def __init__(self, rhs, h, nsteps, interactive_vertical_adv=False):
         super(ForcedStepper, self).__init__()
@@ -223,13 +228,19 @@ class ForcedStepper(nn.Module):
                     lsf = large_scale_forcing(i, lsf_prog, data)
 
                 # apply large scale forcings
-                prog = _euler_step(prog, lsf, h / nsteps)
-                prog = _threshold_negative_moisture(prog)
+                prog = _euler_step(prog, lsf, h / nsteps / 2)
+                # total_moisture_before = compute_total_moisture(prog, data)
 
                 # compute and apply rhs using neural network
+                prog = _threshold_negative_moisture(prog)
                 src, diags = self.rhs(prog, lsf, data['constant']['w'])
+
                 prog = _euler_step(prog, src, h / nsteps)
                 prog = _threshold_negative_moisture(prog)
+                # total_moisture_after = compute_total_moisture(prog, data)
+                # evap = lsf['LHF'] * 86400 / 2.51e6 * h/nsteps
+                # prec = (total_moisture_before - total_moisture_after + evap) / h * nsteps
+                # diags['Prec'] = prec
 
                 # running average of diagnostics
                 for key in diags:
@@ -369,11 +380,8 @@ class RHS(nn.Module):
         data_2d = self.bn(data_2d)
 
         x = _from_dict(x)
-
         x = torch.cat((x, data_2d), -1)
-
         y = self.mlp(x) + self.lin(x)
-
         src = _to_dict(y)
 
         # compute radiation
