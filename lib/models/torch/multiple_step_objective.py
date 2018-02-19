@@ -110,6 +110,10 @@ def _euler_step(prog, src, h):
     return prog
 
 
+def _threshold_negative_moisture(prog):
+    return assoc(prog, 'qt', prog['qt'].clamp(1e-9))
+
+
 def _scale_var(scale, mean, x):
     x = x.double()
     mu = mean.double()
@@ -218,13 +222,18 @@ class ForcedStepper(nn.Module):
                                       data['prognostic'])
                     lsf = large_scale_forcing(i, lsf_prog, data)
 
+                # apply large scale forcings
                 prog = _euler_step(prog, lsf, h / nsteps)
+                prog = _threshold_negative_moisture(prog)
+
+                # compute and apply rhs using neural network
                 src, diags = self.rhs(prog, lsf, data['constant']['w'])
                 prog = _euler_step(prog, src, h / nsteps)
+                prog = _threshold_negative_moisture(prog)
 
+                # running average of diagnostics
                 for key in diags:
                     diag_step[key] = diag_step[key] + diags[key] / nsteps
-
 
             # store accumulated diagnostics
             for key in diag_step:
