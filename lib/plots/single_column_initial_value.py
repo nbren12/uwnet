@@ -58,8 +58,10 @@ def plot_soln(x, fig=None,
     axs[1].set_ylabel('p (mb)')
     axs[2].plot(x.prec.time, x.prec)
 
-    axs[0].text(102, 200, '$s_l$ (K)', bbox=dict(color='white'))
-    axs[1].text(102, 200, '$q_T$ (g/kg)', bbox=dict(color='white'))
+    axs[0].text(.02, .85, '$s_l$ (K)', bbox=dict(color='white'),
+                transform=axs[0].transAxes)
+    axs[1].text(.02, .85, '$q_T$ (g/kg)', bbox=dict(color='white'),
+                transform=axs[1].transAxes)
     axs[2].text(.02, .8, 'P (mm/day)', bbox=dict(color='white'),
                 transform=axs[2].transAxes)
 
@@ -142,7 +144,8 @@ def main(inputs, forcings, torch_file, output_dir):
     forcings = xr.open_dataset(forcings).pipe(mysel)
     p = inputs.p
 
-    plot_column_run(p, model, inputs, 0*forcings)
+    mu = forcings.mean('time') + forcings*0
+    plot_column_run(p, model, inputs, mu)
     unforced_path = os.path.join(output_dir, "unforced.png")
     plt.savefig(unforced_path)
 
