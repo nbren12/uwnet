@@ -43,11 +43,11 @@ ngaqua_files =[
 ]
 
 run_ids = [
-    '726a6fd3430d51d5a2af277fb1ace0c464b1dc48', '2/NG_5120x2560x34_4km_10s_QOBS_EQX_1280'
+    '726a6fd3430d51d5a2af277fb1ace0c464b1dc48', '2/NG_5120x2560x34_4km_10s_QOBS_EQX'
 ]
 
 manifest = {
-    '2/NG_5120x2560x34_4km_10s_QOBS_EQX_1280': [
+    '2/NG_5120x2560x34_4km_10s_QOBS_EQX': [
         'coarse/3d/all.nc',
         'coarse/2d/all.nc',
         'stat.nc',
@@ -71,9 +71,9 @@ rule weights:
     output: "data/processed/ngaqua/w.nc"
     script: "scripts/weights.py"
 
-files_3d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX_1280/coarse/3d/all.nc"
-file_2d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX_1280/coarse/2d/all.nc"
-file_stat = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX_1280/stat.nc"
+files_3d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/all.nc"
+file_2d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc"
+file_stat = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc"
 
 rule inputs_and_forcings:
     input: d3=files_3d, d2=file_2d, stat=file_stat
@@ -102,7 +102,7 @@ rule time_series_data:
 rule fit_model:
     input: "data/output/time_series_data.pkl"
     output: "data/output/model.{k}.torch"
-    params: num_epochs=4, num_steps=2000, nsteps=1, nhidden=(256,), lr=.01,
+    params: num_epochs=4, num_steps=300, nsteps=1, nhidden=(256,), lr=.01,
             window_size=10, cuda=False, batch_size=200,
             radiation='zero',
             precip_in_loss=False,

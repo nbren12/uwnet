@@ -16,10 +16,9 @@ def inputs_and_forcings(file_3d, file_2d, stat_file, sel=defaultsel):
 
     data_3d = xr.open_dataset(file_3d)
     data_2d = xr.open_dataset(file_2d)
-    data_2d = data_2d.isel(time=np.argsort(data_2d.time.values))
     stat = xr.open_dataset(stat_file)
 
-    data = xr.merge((data_3d, data_2d), join='inner')
+    data = xr.merge((data_3d, data_2d), join='inner').sortby('time')
 
     # limit to tropics
     data = sel(data)
