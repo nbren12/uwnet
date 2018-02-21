@@ -110,10 +110,6 @@ def _euler_step(prog, src, h):
     return prog
 
 
-def _threshold_negative_moisture(prog):
-    return assoc(prog, 'qt', prog['qt'].clamp(1e-9))
-
-
 def _scale_var(scale, mean, x):
     x = x.double()
     mu = mean.double()
@@ -178,7 +174,7 @@ def large_scale_forcing(i, prog, data):
         z = data['constant']['z']
         vert_adv = vertical_advection(forcing['W'], val, z)
         forcing[key] = forcing[key] - vert_adv
-
+        
     return forcing
 
 
@@ -228,19 +224,17 @@ class ForcedStepper(nn.Module):
                     lsf = large_scale_forcing(i, lsf_prog, data)
 
                 # apply large scale forcings
-                prog = _euler_step(prog, lsf, h / nsteps / 2)
-                # total_moisture_before = compute_total_moisture(prog, data)
+                prog = _euler_step(prog, lsf, h / nsteps)
+                total_moisture_before = compute_total_moisture(prog, data)
 
                 # compute and apply rhs using neural network
-                prog = _threshold_negative_moisture(prog)
                 src, diags = self.rhs(prog, lsf, data['constant']['w'])
 
                 prog = _euler_step(prog, src, h / nsteps)
-                prog = _threshold_negative_moisture(prog)
-                # total_moisture_after = compute_total_moisture(prog, data)
-                # evap = lsf['LHF'] * 86400 / 2.51e6 * h/nsteps
-                # prec = (total_moisture_before - total_moisture_after + evap) / h * nsteps
-                # diags['Prec'] = prec
+                total_moisture_after = compute_total_moisture(prog, data)
+                evap = lsf['LHF'] * 86400 / 2.51e6 * h/nsteps
+                prec = (total_moisture_before - total_moisture_after + evap) / h * nsteps
+                diags['Prec'] = prec
 
                 # running average of diagnostics
                 for key in diags:
@@ -383,6 +377,7 @@ class RHS(nn.Module):
         x = torch.cat((x, data_2d), -1)
         y = self.mlp(x) + self.lin(x)
         src = _to_dict(y)
+        
 
         # compute radiation
         if self.radiation == 'interactive':

@@ -20,7 +20,7 @@ from torch.autograd import Variable
 
 plt.style.use('ggplot')
 
-def plot_soln(x, fig=None,
+def plot_soln(x, fig=None, q_levs=None,
               dims=['time', 'p']):
 
     if fig is None:
@@ -30,7 +30,8 @@ def plot_soln(x, fig=None,
                   height_ratios=(1, 1, .5),
                   wspace=.01)
 
-    qt_levs = np.arange(11) * 2.5
+    if not q_levs:
+        q_levs = np.arange(11) * 2.5
 
     t_levs = np.arange(12) * 5 + 275
 
@@ -48,7 +49,8 @@ def plot_soln(x, fig=None,
 
 
     t_im = axs[0].contourf(*args, x.sl.T, levels=t_levs, extend='both')
-    q_im = axs[1].contourf(*args, x.qt.T, levels=qt_levs, extend='both')
+    # q_im = axs[1].contourf(*args, x.qt.T, levels=qt_levs, extend='both')
+    q_im = axs[1].contourf(*args, x.qt.T, levels=q_levs, extend='both')
 
     plt.colorbar(t_im, cax=plt.subplot(gs[0, 1]))
     plt.colorbar(q_im, cax=plt.subplot(gs[1, 1]))
