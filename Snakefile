@@ -22,7 +22,7 @@ print(os.environ['PYTHONPATH'])
 #     input: ngaqua("3d/Q1.nc")
 
 rule all:
-    input: "data/output/columns.nc", "data/processed/iop/0-8/cam.nc"
+    input: "data/output/columns.nc", "data/output/scam.nc"
 
 
 ngaqua_files =[
@@ -156,16 +156,15 @@ rule run_scam:
 
         scam.save_iop_dir(output_dir, loc)
 
-        shell(f"ext/scam/run_docker.sh data/processed/iop/{i}-{j}/") 
+        shell(f"ext/scam/run_docker.sh data/processed/iop/{i}-{j}/ > /dev/null") 
         load_cam(f"data/processed/iop/{i}-{j}/camrun.cam.h0.*.nc")\
             .to_netcdf(output[0])
 
 
-# rule combine_scam:
-#     input: expand("data/processed/iop/{i}-{j}/{file}", i=range(128), j=7,\
-#                   file=['cam.nc', 'iop.nc'])
-#     output: "data/processed/iop/cam.nc"
-#     script: "scripts/combine_scam.py"
+rule combine_scam:
+    input: expand("data/processed/iop/{i}-{j}/cam.nc", i=range(128), j=8)
+    output: "data/output/scam.nc"
+    script: "scripts/combine_scam.py"
 
 
 rule plot_model:
