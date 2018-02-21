@@ -22,7 +22,7 @@ print(os.environ['PYTHONPATH'])
 #     input: ngaqua("3d/Q1.nc")
 
 rule all:
-    input: "data/processed/iop/cam.nc"
+    input: "data/output/columns.nc", "data/processed/iop/0-8/cam.nc"
 
 
 ngaqua_files =[
@@ -104,7 +104,7 @@ rule fit_model:
     output: "data/output/model.{k}.torch"
     params: num_epochs=4, num_steps=300, nsteps=1, nhidden=(256,), lr=.01,
             window_size=10, cuda=False, batch_size=200,
-            radiation='zero',
+            radiation='interactive',
             precip_in_loss=False,
             precip_positive=False,
             interactive_vertical_adv=False

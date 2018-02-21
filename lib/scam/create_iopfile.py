@@ -108,7 +108,7 @@ circumference_earth = 4.0075e7
 
 
 def open_and_merge(file_2d, file_3d, stat_file):
-    data_3d = xr.open_dataset(file_3d)
+    data_3d = xr.open_dataset(file_3d).drop('p')
     data_2d = xr.open_dataset(file_2d)
     data_2d = data_2d.isel(time=np.argsort(data_2d.time.values))
     stat = xr.open_dataset(stat_file)
