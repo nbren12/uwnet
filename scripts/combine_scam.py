@@ -1,6 +1,6 @@
 from xnoah import swap_coord
 import xarray as xr
-import glob
+import glob, os
 from tqdm import tqdm
 
 def load_dir(d):
@@ -12,7 +12,11 @@ def load_dir(d):
 
     return swap_coord(cam, {'lon': 'x', 'lat': 'y'})
 
-dirs = glob.glob("data/processed/iop/*-7")
+
+def get_dirnames(files):
+    return set(os.path.dirname(f) for f in files)
+
+dirs = get_dirnames(snakemake.input)
 ds = xr.concat([load_dir(d) for d in tqdm(dirs)], dim='x').sortby('x')
 
 
@@ -22,5 +26,5 @@ ds['qt'] = ds.Q * 1000
 ds['sl'] = ds['T'] + ds.Z3 * 9.81/1004
 ds['prec'] = (ds.PRECC + ds.PRECL) * 86400*1000
 
-ds.to_netcdf("data/processed/iop/cam.nc")
+ds.to_netcdf(snakemake.output[0])
 
