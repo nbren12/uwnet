@@ -102,9 +102,9 @@ rule time_series_data:
 rule fit_model:
     input: "data/output/time_series_data.pkl"
     output: "data/output/model.{k}.torch"
-    params: num_epochs=4, num_steps=300, nsteps=1, nhidden=(256,), lr=.01,
+    params: num_epochs=4, num_steps=300, nsteps=1, nhidden=(128, 128), lr=.01,
             window_size=10, cuda=False, batch_size=200,
-            radiation='interactive',
+            radiation='zero',
             precip_in_loss=False,
             precip_positive=False,
             interactive_vertical_adv=False
