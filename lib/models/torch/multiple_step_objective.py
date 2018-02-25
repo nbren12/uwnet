@@ -134,7 +134,8 @@ def scaler(scales, means, x):
 
 @curry
 def weighted_loss(weight, x, y):
-    return torch.mean(torch.pow(x - y, 2).mul(weight.float()))
+    # return torch.mean(torch.pow(x - y, 2).mul(weight.float()))
+    return torch.mean(torch.abs(x - y).mul(weight.float()))
 
 
 def mlp(layer_sizes):
