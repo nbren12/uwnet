@@ -1,6 +1,6 @@
 import numpy as np
 import xarray as xr
-from lib.models.torch.preprocess import prepare_data
+from lib.data import prepare_data
 
 
 def test_prepare_data(regtest):
