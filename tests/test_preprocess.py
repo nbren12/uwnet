@@ -27,6 +27,6 @@ def test_prepare_data(regtest):
 
     inputs = inputs.assign(w=w, p=w)
 
-    data = prepare_data(inputs, forcings, w)
+    data = prepare_data(inputs, forcings)
 
     print(data, file=regtest)

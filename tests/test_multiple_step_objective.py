@@ -36,4 +36,4 @@ def test_vertical_avection():
     z = torch.arange(0, 10)
     ones = (z * 3).view(1, -1)
     df = padded_deriv(ones, z)
-    np.testing.assert_allclose(df.data.numpy(), 3)
+    np.testing.assert_allclose(df.numpy(), 3)

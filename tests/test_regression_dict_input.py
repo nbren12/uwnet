@@ -8,7 +8,6 @@ import xarray as xr
 from sklearn.externals import joblib
 import torch
 from lib.models.torch import train_multistep_objective, wrap
-from lib.models.torch.preprocess import _stacked_to_dict
 import pytest
 
 @pytest.fixture()
@@ -26,7 +25,7 @@ def test_data():
 
 @pytest.fixture()
 def train_data():
-    return joblib.load("data/ml/ngaqua/time_series_data.pkl")
+    return joblib.load("data/output/time_series_data.pkl")
 
 
 @pytest.mark.skip()
@@ -45,7 +44,5 @@ def test_train_multistep_objective(train_data, test_data, regtest):
 
 def test_train_loss(train_data, regtest):
 
-    # train_data = {key: _stacked_to_dict(val) for key, val in train_data.items()
-    #               if key != 'p'}
     _, loss = train_multistep_objective(train_data, test_loss=True)
     print(loss, file=regtest)

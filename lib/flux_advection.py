@@ -1,7 +1,7 @@
 import numpy as np
 import xarray as xr
 from xnoah.xcalc import centderiv
-from xnoah.sam.coarsen import destagger
+from xnoah.sam import destagger
 from .thermo import get_dz
 
 
