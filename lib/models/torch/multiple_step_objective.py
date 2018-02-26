@@ -10,6 +10,7 @@ import torch
 from torch import nn
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
+from torch.utils.data.sampler import SubsetRandomSampler
 
 from .datasets import DictDataset, WindowedData
 from .utils import train
@@ -32,17 +33,21 @@ def _prepare_vars_in_nested_dict(data, cuda=False):
 
 def prepare_dataset(data,
                     window_size,
+                    time_slice=None,
                     prognostic_variables=('sl', 'qt'),
                     forcing_variables=('sl', 'qt', 'QRAD', 'LHF', 'SHF',
                                        'Prec', 'W', 'SOLIN')):
 
+    if not time_slice:
+        time_slice = slice(None)
+
     X, G = data['X'], data['G']
     X = DictDataset({
-        key: WindowedData(X[key], window_size)
+        key: WindowedData(X[key][time_slice], window_size)
         for key in prognostic_variables
     })
     G = DictDataset(
-        {key: WindowedData(G[key], window_size)
+        {key: WindowedData(G[key][time_slice], window_size)
          for key in forcing_variables})
 
     return DictDataset({'prognostic': X, 'forcing': G})
@@ -175,7 +180,7 @@ def large_scale_forcing(i, prog, data):
         z = data['constant']['z']
         vert_adv = vertical_advection(forcing['W'], val, z)
         forcing[key] = forcing[key] - vert_adv
-        
+
     return forcing
 
 
@@ -378,7 +383,7 @@ class RHS(nn.Module):
         x = torch.cat((x, data_2d), -1)
         y = self.mlp(x) + self.lin(x)
         src = _to_dict(y)
-        
+
 
         # compute radiation
         if self.radiation == 'interactive':
@@ -409,19 +414,11 @@ class RHS(nn.Module):
         return src, diags
 
 
-def train_multistep_objective(data,
-                              num_epochs=4,
-                              window_size=10,
-                              num_steps=500,
-                              batch_size=100,
-                              lr=0.01,
-                              weight_decay=0.0,
-                              nsteps=1,
-                              nhidden=(10, 10, 10),
-                              cuda=False,
-                              test_loss=False,
-                              precip_in_loss=False,
-                              precip_positive=True,
+def train_multistep_objective(data, num_epochs=4, window_size=10,
+                              num_steps=500, batch_size=100, lr=0.01,
+                              weight_decay=0.0, nsteps=1, nhidden=(10, 10, 10),
+                              cuda=False, test_loss=False,
+                              precip_in_loss=False, precip_positive=True,
                               radiation='zero',
                               interactive_vertical_adv=False):
     """Train a single layer perceptron euler time stepping model
@@ -441,8 +438,18 @@ def train_multistep_objective(data,
     if cuda:
         dt = dt.cuda()
 
-    dataset = prepare_dataset(data, window_size)
-    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    train_slice = slice(0, 325)
+    test_slice = slice(325, None)
+
+    train_dataset = prepare_dataset(data, window_size, time_slice=train_slice)
+    test_dataset = prepare_dataset(data, window_size, time_slice=test_slice)
+
+    # train on only a bootstrap sample
+    training_inds = np.random.choice(len(train_dataset),
+                                     num_steps * batch_size, replace=False)
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size,
+                              sampler=SubsetRandomSampler(training_inds))
 
     scaler = _data_to_scaler(data, cuda=cuda)
     weights = _data_to_loss_feature_weights(data, cuda=cuda)
@@ -507,15 +514,15 @@ def train_multistep_objective(data,
         y = nstepper(batch)
         return loss(batch, y)
 
+
     # train the model
     if test_loss:
         args = next(iter(data_loader))
         return nstepper, closure(args)
     else:
         train(
-            data_loader,
+            train_loader,
             closure,
             optimizer=optimizer,
-            num_epochs=num_epochs,
-            num_steps=num_steps)
+            num_epochs=num_epochs)
         return nstepper

@@ -5,8 +5,7 @@ from torch.autograd import Variable
 from tqdm import tqdm
 
 
-def train(data_loader, loss_fn, optimizer, num_epochs=1,
-          num_steps=None):
+def train(data_loader, loss_fn, optimizer, num_epochs=1, monitor=None):
     """Train a torch model
 
     Parameters
@@ -14,21 +13,16 @@ def train(data_loader, loss_fn, optimizer, num_epochs=1,
     num_epochs : int
         number of epochs of training
     num_steps : int or None
-        maximum number of batches per epoch. If None, then the full dataset is used.
-
+        maximum number of batches per epoch. If None, then the full dataset is
+        used.
     """
 
-    if num_steps == None:
-        num_steps = len(data_loader)
+    num_steps = len(data_loader)
 
     for epoch in range(num_epochs):
         avg_loss = 0
-
-        data_generator = islice(data_loader, num_steps)
-
         counter = 0
-        for batch_idx, data in tqdm(enumerate(data_generator),
-                                    total=num_steps):
+        for batch_idx, data in tqdm(enumerate(data_loader), total=num_steps):
             optimizer.zero_grad()  # this is not done automatically in torch
 
             # pass all data args to loss_function
@@ -39,6 +33,9 @@ def train(data_loader, loss_fn, optimizer, num_epochs=1,
 
             avg_loss += loss.data.cpu().numpy()
             counter += 1
+
+            if monitor:
+                monitor({'batch': batch_idx, 'epoch': epoch})
 
         avg_loss /= counter
         print(f"Epoch: {epoch} [{batch_idx}]\tLoss: {avg_loss}")
