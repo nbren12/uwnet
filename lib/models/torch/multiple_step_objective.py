@@ -415,7 +415,8 @@ class RHS(nn.Module):
 
 
 def train_multistep_objective(data, num_epochs=4, window_size=10,
-                              num_steps=500, batch_size=100, lr=0.01,
+                              num_test_examples=10000,
+                              num_batches=500, batch_size=100, lr=0.01,
                               weight_decay=0.0, nsteps=1, nhidden=(10, 10, 10),
                               cuda=False, test_loss=False,
                               precip_in_loss=False, precip_positive=True,
@@ -446,10 +447,15 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
 
     # train on only a bootstrap sample
     training_inds = np.random.choice(len(train_dataset),
-                                     num_steps * batch_size, replace=False)
-
+                                     num_batches * batch_size, replace=False)
     train_loader = DataLoader(train_dataset, batch_size=batch_size,
                               sampler=SubsetRandomSampler(training_inds))
+
+    # make a test_loader object
+    testing_inds = np.random.choice(len(test_dataset), num_test_examples,
+                                    replace=False)
+    test_loader = DataLoader(test_dataset, batch_size=len(testing_inds),
+                             sampler=SubsetRandomSampler(testing_inds))
 
     scaler = _data_to_scaler(data, cuda=cuda)
     weights = _data_to_loss_feature_weights(data, cuda=cuda)
@@ -515,6 +521,16 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
         return loss(batch, y)
 
 
+    epoch_data = []
+    def monitor(state):
+        loss = sum(closure(batch) for batch in test_loader)
+        avg_loss  = loss / len(test_loader)
+        state['test_loss'] = float(avg_loss)
+        epoch_data.append(state)
+
+        print("Epoch: {epoch}; Test Loss [{test_loss}]; Train Loss[{train_loss}]".format(**state))
+
+
     # train the model
     if test_loss:
         args = next(iter(data_loader))
@@ -524,5 +540,6 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
             train_loader,
             closure,
             optimizer=optimizer,
+            monitor=monitor,
             num_epochs=num_epochs)
-        return nstepper
+        return nstepper, epoch_data

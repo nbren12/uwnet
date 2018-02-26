@@ -19,9 +19,12 @@ def train(data_loader, loss_fn, optimizer, num_epochs=1, monitor=None):
 
     num_steps = len(data_loader)
 
+    if monitor:
+        train_loss = sum(loss_fn(batch) for batch in data_loader)/len(data_loader)
+        monitor({'epoch': -1, 'train_loss': float(train_loss)})
+
     for epoch in range(num_epochs):
         avg_loss = 0
-        counter = 0
         for batch_idx, data in tqdm(enumerate(data_loader), total=num_steps):
             optimizer.zero_grad()  # this is not done automatically in torch
 
@@ -32,13 +35,12 @@ def train(data_loader, loss_fn, optimizer, num_epochs=1, monitor=None):
             optimizer.step()
 
             avg_loss += loss.data.cpu().numpy()
-            counter += 1
 
-            if monitor:
-                monitor({'batch': batch_idx, 'epoch': epoch})
+        avg_loss /= num_steps
 
-        avg_loss /= counter
-        print(f"Epoch: {epoch} [{batch_idx}]\tLoss: {avg_loss}")
+        if monitor:
+            monitor({'epoch': epoch, 'train_loss': float(avg_loss)})
+
 
 
 def jacobian(net, x):

@@ -11,10 +11,13 @@ from sklearn.externals import joblib
 import torch
 from lib.models.torch import train_multistep_objective
 from lib.data import prepare_data
+import json
 
 i = snakemake.input
 inputs = xr.open_dataset(i.inputs)
 forcings = xr.open_dataset(i.forcings)
 data = prepare_data(inputs, forcings)
-stepper = train_multistep_objective(data, **snakemake.params)
-torch.save(stepper, snakemake.output[0])
+stepper, epoch_data = train_multistep_objective(data, **snakemake.params)
+
+torch.save(stepper, snakemake.output.model)
+json.dump(epoch_data, open(snakemake.output.json, "w"))
