@@ -100,7 +100,8 @@ rule time_series_data:
 
 
 rule fit_model:
-    input: "data/output/time_series_data.pkl"
+    input: inputs="data/processed/inputs.nc",
+           forcings="data/processed/forcings.nc"
     output: "data/output/model.{k}.torch"
     params: num_epochs=4, num_steps=2000, nsteps=1, nhidden=(128, 128), lr=.01,
             window_size=10, cuda=False, batch_size=200,
