@@ -74,6 +74,8 @@ def plot_soln(x, fig=None, q_levs=None,
     end = float(time[-1])
     axs[0].set_xlim([begin, end])
 
+    return axs
+
 
 def dataset_to_dict(dataset):
     out = {}
