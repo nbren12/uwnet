@@ -416,6 +416,7 @@ class RHS(nn.Module):
 
 def train_multistep_objective(data, num_epochs=4, window_size=10,
                               num_test_examples=10000,
+                              test_window_size=100,
                               num_batches=500, batch_size=100, lr=0.01,
                               weight_decay=0.0, nsteps=1, nhidden=(10, 10, 10),
                               cuda=False, test_loss=False,
@@ -443,7 +444,8 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
     test_slice = slice(325, None)
 
     train_dataset = prepare_dataset(data, window_size, time_slice=train_slice)
-    test_dataset = prepare_dataset(data, window_size, time_slice=test_slice)
+    test_dataset = prepare_dataset(data, test_window_size,
+                                   time_slice=test_slice)
 
     # train on only a bootstrap sample
     training_inds = np.random.choice(len(train_dataset),
