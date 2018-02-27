@@ -2,7 +2,9 @@ from itertools import islice
 
 import torch
 from torch.autograd import Variable
-from tqdm import tqdm
+import logging
+from timeit import default_timer as timer
+
 
 
 def train(data_loader, loss_fn, optimizer, num_epochs=1, monitor=None):
@@ -16,30 +18,36 @@ def train(data_loader, loss_fn, optimizer, num_epochs=1, monitor=None):
         maximum number of batches per epoch. If None, then the full dataset is
         used.
     """
+    logger = logging.getLogger(__name__)
 
     num_steps = len(data_loader)
 
-    if monitor:
-        train_loss = sum(loss_fn(batch) for batch in data_loader)/len(data_loader)
-        monitor({'epoch': -1, 'train_loss': float(train_loss)})
-
     for epoch in range(num_epochs):
         avg_loss = 0
-        for batch_idx, data in tqdm(enumerate(data_loader), total=num_steps):
-            optimizer.zero_grad()  # this is not done automatically in torch
 
+        t_start = timer()
+        for batch_idx, data in enumerate(data_loader):
+            if batch_idx % 500 == 0:
+                avg_loss /= num_steps
+                if monitor:
+                    monitor({'epoch': epoch,
+                        'train_loss': float(avg_loss),
+                        'batch': batch_idx})
+                avg_loss = 0.0
+
+            optimizer.zero_grad()  # this is not done automatically in torch
             # pass all data args to loss_function
             loss = loss_fn(data)
-
             loss.backward()
             optimizer.step()
 
             avg_loss += loss.data.cpu().numpy()
 
-        avg_loss /= num_steps
-
-        if monitor:
-            monitor({'epoch': epoch, 'train_loss': float(avg_loss)})
+            if batch_idx % 200 == 99:
+                t_end = timer()
+                logger.debug(f"{batch_idx}/{len(data_loader)} batches done. "
+                             f"Rate: {200/(t_end-t_start):.2f} batch/sec")
+                t_start = timer()
 
 
 

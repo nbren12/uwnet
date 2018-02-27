@@ -112,11 +112,7 @@ def modeling_experiments():
         key = f'VaryT-{T}'
         model_fit_params[key] = dict(window_size=T)
 
-    for n in [100, 200, 500, 1000, 2000]:
-        key = f'VaryNBatch-{T}'
-        model_fit_params[key] = dict(num_batches=n)
-
-    model_fit_params['1'] = dict()
+    model_fit_params['1'] = dict(nhidden=(256,))
 
     return model_fit_params
 

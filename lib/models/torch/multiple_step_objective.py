@@ -13,11 +13,15 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 
+import logging
+
 from .datasets import DictDataset, WindowedData
 from .utils import train
 
 from ... import constants
 
+
+logger = logging.getLogger(__name__)
 
 def _prepare_vars_in_nested_dict(data, cuda=False):
     if torch.is_tensor(data):
@@ -415,11 +419,11 @@ class RHS(nn.Module):
         return src, diags
 
 
-def train_multistep_objective(data, num_epochs=7,
+def train_multistep_objective(data, num_epochs=5,
                               num_test_examples=10000,
                               window_size=10,
                               test_window_size=64,
-                              num_batches=1000, batch_size=200, lr=0.01,
+                              num_batches=None, batch_size=200, lr=0.01,
                               weight_decay=0.0, nsteps=1, nhidden=(128,),
                               cuda=False, pytest=False,
                               precip_in_loss=False,
@@ -440,8 +444,7 @@ def train_multistep_objective(data, num_epochs=7,
 
     arguments = locals()
     arguments.pop('data')
-    print("Training Model with")
-    pprint.pprint(arguments)
+    logger.info("Called with parameters:\n" + pprint.pformat(arguments))
 
     torch.manual_seed(seed)
 
@@ -454,12 +457,21 @@ def train_multistep_objective(data, num_epochs=7,
     test_slice = slice(325, None)
 
     train_dataset = prepare_dataset(data, window_size, time_slice=train_slice)
+    logging.info(f"Training dataset length: {len(train_dataset)}")
     test_dataset = prepare_dataset(data, test_window_size,
                                    time_slice=test_slice)
 
     # train on only a bootstrap sample
-    training_inds = np.random.choice(len(train_dataset),
-                                     num_batches * batch_size, replace=False)
+    if num_batches:
+        logger.info(f"Using boostrap sample of {num_batches}. Setting "
+                    "number of epochs to 1.")
+        num_epochs = 1
+        training_inds = np.random.choice(len(train_dataset),
+                                         num_batches * batch_size, replace=False)
+    else:
+        logger.info(f"Using full training dataset")
+        training_inds = np.arange(len(train_dataset))
+
     train_loader = DataLoader(train_dataset, batch_size=batch_size,
                               sampler=SubsetRandomSampler(training_inds))
 
@@ -539,8 +551,7 @@ def train_multistep_objective(data, num_epochs=7,
         avg_loss  = loss / len(test_loader)
         state['test_loss'] = float(avg_loss)
         epoch_data.append(state)
-
-        print("Epoch: {epoch}; Test Loss [{test_loss}]; Train Loss[{train_loss}]".format(**state))
+        logger.info("Epoch[batch]: {epoch}[{batch}]; Test Loss: {test_loss}; Train Loss: {train_loss}".format(**state))
 
 
     # train the model
