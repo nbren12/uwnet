@@ -433,6 +433,10 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
 
 
     """
+
+    arguments = locals()
+    arguments.pop('data')
+
     torch.manual_seed(1)
 
     # the sampling interval of the data
@@ -544,4 +548,9 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
             optimizer=optimizer,
             monitor=monitor,
             num_epochs=num_epochs)
-        return nstepper, epoch_data
+
+        training_metadata = {
+            'args': arguments,
+            'training': epoch_data
+        }
+        return nstepper, training_metadata
