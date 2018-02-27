@@ -2,6 +2,7 @@
 special dataloaders etc
 
 """
+import pprint
 from collections import defaultdict
 from toolz import curry, first, valmap, merge_with, assoc
 import numpy as np
@@ -414,13 +415,15 @@ class RHS(nn.Module):
         return src, diags
 
 
-def train_multistep_objective(data, num_epochs=4, window_size=10,
+def train_multistep_objective(data, num_epochs=7,
                               num_test_examples=10000,
-                              test_window_size=100,
-                              num_batches=500, batch_size=100, lr=0.01,
-                              weight_decay=0.0, nsteps=1, nhidden=(10, 10, 10),
-                              cuda=False, test_loss=False,
-                              precip_in_loss=False, precip_positive=True,
+                              window_size=10,
+                              test_window_size=64,
+                              num_batches=1000, batch_size=200, lr=0.01,
+                              weight_decay=0.0, nsteps=1, nhidden=(128,),
+                              cuda=False, pytest=False,
+                              precip_in_loss=False,
+                              precip_positive=False,
                               radiation='zero',
                               interactive_vertical_adv=False):
     """Train a single layer perceptron euler time stepping model
@@ -436,6 +439,8 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
 
     arguments = locals()
     arguments.pop('data')
+    print("Training Model with")
+    pprint.pprint(arguments)
 
     torch.manual_seed(1)
 
@@ -538,7 +543,7 @@ def train_multistep_objective(data, num_epochs=4, window_size=10,
 
 
     # train the model
-    if test_loss:
+    if pytest:
         args = next(iter(data_loader))
         return nstepper, closure(args)
     else:

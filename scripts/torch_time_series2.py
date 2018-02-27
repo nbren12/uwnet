@@ -17,7 +17,7 @@ i = snakemake.input
 inputs = xr.open_dataset(i.inputs)
 forcings = xr.open_dataset(i.forcings)
 data = prepare_data(inputs, forcings)
-stepper, epoch_data = train_multistep_objective(data, **snakemake.params)
+stepper, epoch_data = train_multistep_objective(data, **snakemake.params[0])
 
 torch.save(stepper, snakemake.output.model)
 json.dump(epoch_data, open(snakemake.output.json, "w"))

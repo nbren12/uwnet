@@ -99,17 +99,43 @@ rule time_series_data:
     script: "scripts/torch_preprocess.py"
 
 
+
+def modeling_experiments():
+    """A comprehensive list of the all the modelling experiments to present for the paper.
+    """
+    model_fit_params = {}
+    for n in [5, 64, 128, 256]:
+        key = f'VaryNHid-{n}'
+        model_fit_params[key] = dict(nhidden=(n,))
+
+    for T in [2, 5, 10]:
+        key = f'VaryT-{T}'
+        model_fit_params[key] = dict(window_size=T)
+
+    for n in [100, 200, 500, 1000, 2000]:
+        key = f'VaryNBatch-{T}'
+        model_fit_params[key] = dict(num_batches=n)
+
+    model_fit_params['1'] = dict()
+
+    return model_fit_params
+
+
+def get_fit_params(wildcards):
+    return modeling_experiments()[wildcards.k]
+
+
+rule fit_all_models:
+    input: expand("data/output/model.{k}.torch", k=modeling_experiments())
+
+
 rule fit_model:
     input: inputs="data/processed/inputs.nc",
            forcings="data/processed/forcings.nc"
     output: model="data/output/model.{k}.torch",
             json="data/output/model.{k}.json"
-    params: num_epochs=4, num_batches=200, nsteps=1, nhidden=(128, 128), lr=.01,
-            window_size=10, cuda=False, batch_size=200,
-            radiation='zero',
-            precip_in_loss=False,
-            precip_positive=False,
-            interactive_vertical_adv=False
+    log: "data/output/model.{k}.log"
+    params: get_fit_params
     script: "scripts/torch_time_series2.py"
 
 
