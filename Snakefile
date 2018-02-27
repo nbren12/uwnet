@@ -122,25 +122,27 @@ def modeling_experiments():
 
 
 def get_fit_params(wildcards):
-    return modeling_experiments()[wildcards.k]
+    d =  modeling_experiments()[wildcards.k].copy()
+    d['seed'] = int(wildcards.seed)
+    return d
 
 
 rule fit_all_models:
-    input: expand("data/output/model.{k}.torch", k=modeling_experiments())
+    input: expand("data/output/model.{k}/{seed}.torch", k=modeling_experiments(), seed=range(10))
 
 
 rule fit_model:
     input: inputs="data/processed/inputs.nc",
            forcings="data/processed/forcings.nc"
-    output: model="data/output/model.{k}.torch",
-            json="data/output/model.{k}.json"
-    log: "data/output/model.{k}.log"
+    output: model="data/output/model.{k}/{seed}.torch",
+            json="data/output/model.{k}/{seed}.json"
+    log: "data/output/model.{k}/{seed}.log"
     params: get_fit_params
     script: "scripts/torch_time_series2.py"
 
 
 rule forced_column_slp:
-    input: model="data/output/model.1.torch",
+    input: model="data/output/model.1/1.torch",
            inputs="data/processed/inputs.nc",
            forcings="data/processed/forcings.nc"
     output: "data/output/columns.nc"
@@ -198,7 +200,7 @@ rule combine_scam:
 rule plot_model:
     input: x="data/processed/inputs.nc",
            f="data/processed/forcings.nc",
-           mod="data/output/model.1.torch"
+           mod="data/output/model.1/1.torch"
     output: "data/output/plots.html"
     script: "scripts/model_report.py"
 

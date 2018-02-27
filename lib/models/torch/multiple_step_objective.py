@@ -425,7 +425,8 @@ def train_multistep_objective(data, num_epochs=7,
                               precip_in_loss=False,
                               precip_positive=False,
                               radiation='zero',
-                              interactive_vertical_adv=False):
+                              interactive_vertical_adv=False,
+                              seed=1):
     """Train a single layer perceptron euler time stepping model
 
     For one time step this torch models performs the following math
@@ -442,7 +443,7 @@ def train_multistep_objective(data, num_epochs=7,
     print("Training Model with")
     pprint.pprint(arguments)
 
-    torch.manual_seed(1)
+    torch.manual_seed(seed)
 
     # the sampling interval of the data
     dt = Variable(torch.FloatTensor([3 / 24]), requires_grad=False)
