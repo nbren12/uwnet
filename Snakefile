@@ -22,7 +22,7 @@ print(os.environ['PYTHONPATH'])
 #     input: ngaqua("3d/Q1.nc")
 
 rule all:
-    input: "data/output/columns.nc", "data/output/scam.nc"
+    input: "data/output/model.VaryNHid-256/7.columns.nc", "data/output/scam.nc"
 
 
 ngaqua_files =[
@@ -138,10 +138,11 @@ rule fit_model:
 
 
 rule forced_column_slp:
-    input: model="data/output/model.1/1.torch",
+    input: model="data/output/{model}/{id}.torch",
            inputs="data/processed/inputs.nc",
            forcings="data/processed/forcings.nc"
-    output: "data/output/columns.nc"
+    priority: 10
+    output: "data/output/{model}/{id}.columns.nc"
     script: "scripts/forced_column_slp.py"
 
 
