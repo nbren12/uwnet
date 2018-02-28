@@ -1,5 +1,8 @@
+import glob
+import re
+
 import numpy as np
-import glob, re
+
 import xarray as xr
 
 
@@ -18,7 +21,7 @@ def decode_date(units):
     d = match.group(4)
     time = match.group(5)
 
-    return f"{unit} since {y}-{m}-{d} {time}"
+    return unit, np.datetime64(f"{y}-{m}-{d} {time}")
 
 
 def load_cam(files):
@@ -29,8 +32,13 @@ def load_cam(files):
     ds = xr.auto_combine([xr.open_dataset(f, decode_times=False)
                           for f in files[:-1]], concat_dim='time')\
            .sortby('time')
-    ds.time.attrs['units'] = decode_date(ds.time.units)
-    ds = xr.decode_cf(ds)
+
+    unit, bdate = decode_date(ds.time.units)
+    if unit == 'days':
+        # xarray needs the dtype to be timedelat64[ns]
+        # when saving the netcdf file
+        time = np.timedelta64(int(86400*1e9), 'ns') * ds.time.values + bdate
+    ds = ds.assign_coords(time=time)
     return ds
 
 
@@ -38,5 +46,5 @@ def convert_dates_to_days(x, bdate, dim='time'):
     if isinstance(bdate, str):
         bdate = np.datetime64(bdate, dtype='datetime64[s]')
     time = x[dim].values - bdate
-    time = time.astype('timedelta64[s]').astype(float)/86400
+    time = time.astype('timedelta64[s]').astype(float) / 86400
     return x.assign_coords(**{dim: time})
