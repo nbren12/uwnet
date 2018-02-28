@@ -22,6 +22,7 @@ def train(data_loader, loss_fn, optimizer, num_epochs=1, monitor=None):
 
     num_steps = len(data_loader)
 
+    t_begin_train = timer()
     for epoch in range(num_epochs):
         avg_loss = 0
 
@@ -48,6 +49,8 @@ def train(data_loader, loss_fn, optimizer, num_epochs=1, monitor=None):
                 logger.debug(f"{batch_idx}/{len(data_loader)} batches done. "
                              f"Rate: {200/(t_end-t_start):.2f} batch/sec")
                 t_start = timer()
+
+    logging.info("Done Training. Time elapsed {}".format(timer()-t_begin_train))
 
 
 
