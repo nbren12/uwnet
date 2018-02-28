@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+import sys
 from xnoah import swap_coord
 import xarray as xr
 import os
@@ -17,16 +19,26 @@ def load_dir(d):
 def get_dirnames(files):
     return set(os.path.dirname(f) for f in files)
 
-bdate = '1999-01-01'
 
-dirs = get_dirnames(snakemake.input)
-ds = xr.concat([load_dir(d) for d in tqdm(dirs)], dim='x').sortby('x')
+def main(inputs, output):
+    bdate = '1999-01-01'
 
-# common calculations
-ds = ds.rename({'lev': 'p'})
-ds['qt'] = ds.Q * 1000
-ds['sl'] = ds['T'] + ds.Z3 * 9.81 / 1004
-ds['prec'] = (ds.PRECC + ds.PRECL) * 86400 * 1000
+    dirs = get_dirnames(inputs)
+    ds = xr.concat([load_dir(d) for d in tqdm(dirs)], dim='x').sortby('x')
 
-ds = lc.convert_dates_to_days(ds, bdate)
-ds.to_netcdf(snakemake.output[0])
+    # common calculations
+    ds = ds.rename({'lev': 'p'})
+    ds['qt'] = ds.Q * 1000
+    ds['sl'] = ds['T'] + ds.Z3 * 9.81 / 1004
+    ds['prec'] = (ds.PRECC + ds.PRECL) * 86400 * 1000
+
+    ds = lc.convert_dates_to_days(ds, bdate)
+    ds.to_netcdf(output)
+
+
+try:
+    snakemake
+except NameError:
+    main(sys.argv[1:-1], sys.argv[-1])
+else:
+    main(snakemake.input, snakemake.output)
