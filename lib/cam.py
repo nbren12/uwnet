@@ -32,3 +32,11 @@ def load_cam(files):
     ds.time.attrs['units'] = decode_date(ds.time.units)
     ds = xr.decode_cf(ds)
     return ds
+
+
+def convert_dates_to_days(x, bdate, dim='time'):
+    if isinstance(bdate, str):
+        bdate = np.datetime64(bdate, dtype='datetime64[s]')
+    time = x[dim].values - bdate
+    time = time.astype('timedelta64[s]').astype(float)/86400
+    return x.assign_coords(**{dim: time})
