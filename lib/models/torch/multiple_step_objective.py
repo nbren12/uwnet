@@ -38,21 +38,18 @@ def _prepare_vars_in_nested_dict(data, cuda=False):
 
 def prepare_dataset(data,
                     window_size,
-                    time_slice=None,
                     prognostic_variables=('sl', 'qt'),
                     forcing_variables=('sl', 'qt', 'QRAD', 'LHF', 'SHF',
                                        'Prec', 'W', 'SOLIN')):
 
-    if not time_slice:
-        time_slice = slice(None)
 
     X, G = data['X'], data['G']
     X = DictDataset({
-        key: WindowedData(X[key][time_slice], window_size)
+        key: WindowedData(X[key], window_size)
         for key in prognostic_variables
     })
     G = DictDataset(
-        {key: WindowedData(G[key][time_slice], window_size)
+        {key: WindowedData(G[key], window_size)
          for key in forcing_variables})
 
     return DictDataset({'prognostic': X, 'forcing': G})
@@ -419,7 +416,8 @@ class RHS(nn.Module):
         return src, diags
 
 
-def train_multistep_objective(data, num_epochs=5,
+def train_multistep_objective(train_data, test_data,
+                              num_epochs=5,
                               num_test_examples=10000,
                               window_size=10,
                               test_window_size=64,
@@ -443,7 +441,8 @@ def train_multistep_objective(data, num_epochs=5,
     """
 
     arguments = locals()
-    arguments.pop('data')
+    arguments.pop('test_data')
+    arguments.pop('train_data')
     logger.info("Called with parameters:\n" + pprint.pformat(arguments))
 
     torch.manual_seed(seed)
@@ -453,13 +452,16 @@ def train_multistep_objective(data, num_epochs=5,
     if cuda:
         dt = dt.cuda()
 
-    train_slice = slice(0, 325)
-    test_slice = slice(325, None)
+    train_slice = slice(200, None)
+    test_slice = slice(0, 200)
 
-    train_dataset = prepare_dataset(data, window_size, time_slice=train_slice)
-    logging.info(f"Training dataset length: {len(train_dataset)}")
-    test_dataset = prepare_dataset(data, test_window_size,
-                                   time_slice=test_slice)
+    train_dataset = prepare_dataset(train_data, window_size)
+    test_dataset = prepare_dataset(test_data, test_window_size)
+
+    ntrain = len(train_dataset)
+    ntest = len(test_dataset)
+    logging.info(f"Training dataset length: {ntrain}")
+    logging.info(f"Testing dataset length: {ntest}")
 
     # train on only a bootstrap sample
     if num_batches:
@@ -481,8 +483,8 @@ def train_multistep_objective(data, num_epochs=5,
     test_loader = DataLoader(test_dataset, batch_size=len(testing_inds),
                              sampler=SubsetRandomSampler(testing_inds))
 
-    scaler = _data_to_scaler(data, cuda=cuda)
-    weights = _data_to_loss_feature_weights(data, cuda=cuda)
+    scaler = _data_to_scaler(train_data, cuda=cuda)
+    weights = _data_to_loss_feature_weights(train_data, cuda=cuda)
 
     # define the neural network
     m = sum(valmap(lambda x: x.size(-1), weights).values())
@@ -504,8 +506,8 @@ def train_multistep_objective(data, num_epochs=5,
         rhs.parameters(), lr=lr, weight_decay=weight_decay)
 
     constants = {
-        'w': Variable(torch.FloatTensor(data['w']['sl'])),
-        'z': Variable(torch.FloatTensor(data['z']))
+        'w': Variable(torch.FloatTensor(train_data['w']['sl'])),
+        'z': Variable(torch.FloatTensor(train_data['z']))
     }
     if cuda:
         nstepper.cuda()
@@ -568,6 +570,8 @@ def train_multistep_objective(data, num_epochs=5,
 
         training_metadata = {
             'args': arguments,
-            'training': epoch_data
+            'training': epoch_data,
+            'n_test': ntest,
+            'n_train': ntrain
         }
         return nstepper, training_metadata

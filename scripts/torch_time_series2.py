@@ -15,7 +15,16 @@ from contextlib import redirect_stdout
 
 import logging
 
-logging.basicConfig(level=logging.INFO, filename=snakemake.log[0])
+
+def _train(x):
+    return x.isel(x=slice(64, None))
+
+
+def _test(x):
+    return x.isel(x=slice(0, 64))
+
+
+logging.basicConfig(level=logging.DEBUG, filename=snakemake.log[0])
 
 logging.info("Starting training script")
 
@@ -23,9 +32,10 @@ i = snakemake.input
 inputs = xr.open_dataset(i.inputs)
 forcings = xr.open_dataset(i.forcings)
 
-data = prepare_data(inputs, forcings)
-stepper, epoch_data = train_multistep_objective(data, **snakemake.params[0])
-
+train_data = prepare_data(_train(inputs), _train(forcings))
+test_data = prepare_data(_test(inputs), _test(forcings))
+stepper, epoch_data = train_multistep_objective(train_data, test_data,
+                                                **snakemake.params[0])
 
 torch.save(stepper, snakemake.output.model)
 json.dump(epoch_data, open(snakemake.output.json, "w"))
