@@ -41,4 +41,4 @@ try:
 except NameError:
     main(sys.argv[1:-1], sys.argv[-1])
 else:
-    main(snakemake.input, snakemake.output)
+    main(snakemake.input, snakemake.output[0])
