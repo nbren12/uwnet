@@ -2,6 +2,7 @@ from xnoah import swap_coord
 import xarray as xr
 import os
 from tqdm import tqdm
+import lib.cam as lc
 
 
 def load_dir(d):
@@ -16,6 +17,7 @@ def load_dir(d):
 def get_dirnames(files):
     return set(os.path.dirname(f) for f in files)
 
+bdate = '1999-01-01'
 
 dirs = get_dirnames(snakemake.input)
 ds = xr.concat([load_dir(d) for d in tqdm(dirs)], dim='x').sortby('x')
@@ -26,4 +28,5 @@ ds['qt'] = ds.Q * 1000
 ds['sl'] = ds['T'] + ds.Z3 * 9.81 / 1004
 ds['prec'] = (ds.PRECC + ds.PRECL) * 86400 * 1000
 
+ds = lc.convert_dates_to_days(ds, bdate)
 ds.to_netcdf(snakemake.output[0])
