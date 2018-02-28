@@ -220,8 +220,7 @@ def prepare_namelist(loc):
     namelist_template = """
 &atm
     iopfile='iop.nc'
-    nhtfrq=-1
-    
+    nhtfrq=-3
     single_column=.true.
     scm_iop_srf_prop = .true.
     scmlat= {lat:.4f}
