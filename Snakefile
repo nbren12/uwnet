@@ -115,6 +115,7 @@ def modeling_experiments():
     model_fit_params['1'] = dict(nhidden=(256,))
 
     model_fit_params['best'] = dict(nhidden=(256,), num_epochs=2)
+    model_fit_params['lrs'] = dict(nhidden=(256,), num_epochs=4, lr=.001)
 
     return model_fit_params
 
@@ -126,8 +127,14 @@ def get_fit_params(wildcards):
     return d
 
 
+model_files = expand("data/output/model.{k}/{seed}.torch",
+                     k=modeling_experiments(), seed=range(10))
+
+model_errors = expand("data/output/model.{k}/{seed}.error.nc",
+                      k=modeling_experiments(), seed=range(10))
+
 rule fit_all_models:
-    input: expand("data/output/model.{k}/{seed}.torch", k=modeling_experiments(), seed=range(10))
+    input: model_files
 
 
 rule fit_model:
@@ -138,6 +145,25 @@ rule fit_model:
     log: "data/output/model.{k}/{seed}.log"
     params: get_fit_params
     script: "scripts/torch_time_series2.py"
+
+
+rule test_model:
+    input: inputs="data/processed/inputs.nc",
+           forcings="data/processed/forcings.nc",
+           model="data/output/model.{k}/{seed}.torch"
+    output: "data/output/model.{k}/{seed}.error.nc"
+    script: "scripts/test_error.py"
+
+
+rule combine_errors:
+    input: model_errors
+    output: "data/output/test_error.nc"
+    run:
+        import pandas as pd
+        idx = pd.Index(model_errors, name='model')
+        ds = xr.concat([xr.open_dataset(f) for f in input], dim=idx)
+        ds.to_netcdf(output[0])
+
 
 
 rule forced_column_slp:
