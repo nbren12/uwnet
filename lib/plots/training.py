@@ -58,7 +58,7 @@ def get_plotting_data(path):
     vt = df[df.nhidden == 128]
 
     # remove outliers
-    nhid = nhid[~((nhid.seed == '6') & (nhid.nhidden == 256))]
+    # nhid = nhid[~((nhid.seed == '6') & (nhid.nhidden == 256))]
     vt = vt[vt.window_size != 2]
 
     return vt, nhid
@@ -80,13 +80,14 @@ def plot_parameter_sensitivity(data):
     sns.pointplot(
         x="window_size", y="test_loss", data=vt[vt.epoch > 2], ax=axt, **kws)
 
-    plt.ylim([120, 155])
     axt.set_ylabel('')
     axn.set_ylabel('Error')
 
     axn.set_xlabel("Hidden Nodes")
     axt.set_xlabel("Window Size")
     fig.suptitle("Test error for last 4 epochs")
+
+    return axn, axt
 
 
 def plot_epochs_vs_loss(data):
@@ -135,8 +136,8 @@ def plot_epochs_vs_loss(data):
         loc="lower left",
         bbox_to_anchor=legend_box)
 
-    axtest.set_ylim([120, 160])
-
     # labels
     axtrain.set_title('Training Loss')
     axtest.set_title('Median Test Error')
+
+    return axtrain, axtest
