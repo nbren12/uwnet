@@ -122,6 +122,7 @@ def modeling_experiments():
 def get_fit_params(wildcards):
     d =  modeling_experiments()[wildcards.k].copy()
     d['seed'] = int(wildcards.seed)
+    d['cuda']  = config.get('cuda', False)
     return d
 
 

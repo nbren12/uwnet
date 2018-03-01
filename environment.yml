@@ -1,7 +1,6 @@
-name: uw-machine-learning
+name: nn
 channels:
-  - soumith
-  - bokeh
+  - pytorch
   - conda-forge
   - defaults
 dependencies:
@@ -9,24 +8,19 @@ dependencies:
   - numpy
   - dask
   - xarray
-  - scikit-learn
   - matplotlib
-  - holoviews
-# bokeh stuff
-  - bokeh
-  - selenium
-  - phantomjs
-  - datashader
   - ipython
   - jupyter
   - cython
+  - torchvision 
+  - cuda90 
+  - seaborn
+  - pytorch
   - attrs
   - pip
   - pip:
       - git+https://github.com/nbren12/gnl@master#subdirectory=python/gnl
       - git+https://github.com/nbren12/gnl@master#subdirectory=python/xnoah
-      - snakemake==4.0
+      - snakemake
       - tqdm
-      - http://download.pytorch.org/whl/torch-0.2.0.post3-cp36-cp36m-macosx_10_7_x86_64.whl
-      - pyro-ppl
       - pytest-regtest

@@ -6,7 +6,6 @@
 """
 import xarray as xr
 import numpy as np
-from sklearn.externals import joblib
 import torch
 from lib.models.torch import train_multistep_objective
 from lib.data import prepare_data
