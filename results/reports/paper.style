@@ -1,0 +1,8 @@
+
+image.cmap : viridis
+lines.linewidth : 1.0
+savefig.bbox : tight
+axes.labelsize      : 10
+
+xtick.labelsize : 8
+ytick.labelsize : 8
