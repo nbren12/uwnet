@@ -172,17 +172,11 @@ def vertical_advection(w, f, z):
     return df * w * 86400
 
 
-def large_scale_forcing(i, prog, data):
+def large_scale_forcing(i, data):
     forcing = {
         key: (val[i - 1] + val[i]) / 2
         for key, val in data['forcing'].items()
     }
-
-    for key, val in prog.items():
-        z = data['constant']['z']
-        vert_adv = vertical_advection(forcing['W'], val, z)
-        forcing[key] = forcing[key] - vert_adv
-
     return forcing
 
 
@@ -192,12 +186,11 @@ def compute_total_moisture(prog, data):
 
 
 class ForcedStepper(nn.Module):
-    def __init__(self, rhs, h, nsteps, interactive_vertical_adv=False):
+    def __init__(self, rhs, h, nsteps):
         super(ForcedStepper, self).__init__()
         self.nsteps = nsteps
         self.h = h
         self.rhs = rhs
-        self.interactive_vertical_adv = interactive_vertical_adv
 
     def forward(self, data: dict):
         """
@@ -224,12 +217,7 @@ class ForcedStepper(nn.Module):
             diag_step = defaultdict(lambda: 0)
             for j in range(nsteps):
 
-                if self.interactive_vertical_adv:
-                    lsf = large_scale_forcing(i, prog, data)
-                else:
-                    lsf_prog = valmap(lambda x: (x[i - 1] + x[i]) / 2,
-                                      data['prognostic'])
-                    lsf = large_scale_forcing(i, lsf_prog, data)
+                lsf = large_scale_forcing(i, data)
 
                 # apply large scale forcings
                 prog = _euler_step(prog, lsf, h / nsteps)
@@ -427,7 +415,6 @@ def train_multistep_objective(train_data, test_data,
                               precip_in_loss=False,
                               precip_positive=False,
                               radiation='zero',
-                              interactive_vertical_adv=False,
                               seed=1):
     """Train a single layer perceptron euler time stepping model
 
@@ -499,8 +486,7 @@ def train_multistep_objective(train_data, test_data,
     nstepper = ForcedStepper(
         rhs,
         h=dt,
-        nsteps=nsteps,
-        interactive_vertical_adv=interactive_vertical_adv)
+        nsteps=nsteps)
 
     optimizer = torch.optim.Adam(
         rhs.parameters(), lr=lr, weight_decay=weight_decay)
