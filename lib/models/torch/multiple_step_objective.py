@@ -336,6 +336,17 @@ class Qrad(nn.Module):
         return self.net(x)
 
 
+
+def where(cond, x, y):
+    cond = cond.float()
+    return cond * x + (1.0-cond) * y
+
+
+def _fix_moisture_tend(q, fq, eps=1e-9, h=.125):
+    cond = q + h * fq > eps
+    return where(cond, fq, (eps-q)/h)
+
+
 class RHS(nn.Module):
     def __init__(self,
                  m,
@@ -362,6 +373,8 @@ class RHS(nn.Module):
         self.precip_positive = precip_positive
 
     def forward(self, x, force, w):
+
+        progs = x
         diags = {}
         x = self.scaler(x)
         f = self.scaler(force)
@@ -400,6 +413,9 @@ class RHS(nn.Module):
                                         w),
                 'qt': enforce_precip_qt(src['qt'], force['LHF'], Prec, w)
             }  # yapf: disable
+
+        # assure that q will remain positive after a step
+        src['qt'] = _fix_moisture_tend(progs['qt'], src['qt'])
 
         return src, diags
 
