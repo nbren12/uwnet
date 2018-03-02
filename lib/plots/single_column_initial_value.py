@@ -13,10 +13,9 @@ import xarray as xr
 import os
 
 import torch
-from ..model.torch import column_run
+from ..models.torch import column_run
 # from lib.evaluation.single_column import forced_step, runsteps, step
 
-plt.style.use('ggplot')
 
 def plot_soln(x, fig=None, q_levs=None, dims=['time', 'p'], figsize=None):
 

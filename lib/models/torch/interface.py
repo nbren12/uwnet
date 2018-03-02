@@ -66,8 +66,9 @@ def column_run(model, prognostic, forcing,
                batch_dims=('x', 'y')):
 
     batch_dims = [dim for dim in batch_dims if dim in prognostic.dims]
-    prognostic = prognostic.stack(batch=batch_dims)
-    forcing = forcing.stack(batch=batch_dims)
+    if batch_dims:
+        prognostic = prognostic.stack(batch=batch_dims)
+        forcing = forcing.stack(batch=batch_dims)
 
     prog = _dataset_to_dict(prognostic)
     forcing = _dataset_to_dict(forcing)
@@ -97,7 +98,7 @@ def column_run(model, prognostic, forcing,
 
     progs = {
         key: xr.DataArray(
-            y['prognostic'][key].data.numpy(), coords=coords, dims=dims)
+            y['prognostic'][key].data.numpy(), coords=coords, dims=dims).unstack('batch')
         for key in y['prognostic']
     }
 
@@ -105,9 +106,9 @@ def column_run(model, prognostic, forcing,
     prec = xr.DataArray(
         y['diagnostic']['Prec'].data.numpy()[..., 0],
         coords=dissoc(coords, 'z'),
-        dims=['time', 'batch'])
+        dims=['time', 'batch']).unstack('batch')
 
-    return xr.Dataset(progs).unstack('batch'), prec
+    return xr.Dataset(progs), prec
 
 
 def rhs(model, prognostic, forcing,
