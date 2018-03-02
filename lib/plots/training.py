@@ -69,16 +69,18 @@ def plot_parameter_sensitivity(data):
     fig, (axn, axt) = plt.subplots(
         1,
         2,
-        figsize=(6, 6 / 1.62),
+        figsize=(3, 2),
         sharey=True,
         gridspec_kw=dict(width_ratios=(.67, .33), wspace=0))
 
-    kws = dict(capsize=.2, join=True)
+    kws = dict(capsize=.2, join=True, markers='', linewidth=1.0)
 
     sns.pointplot(
-        x="nhidden", y="test_loss", data=nhid[nhid.epoch > 2], ax=axn, **kws)
+        x="nhidden", y="test_loss", data=nhid[nhid.epoch > 2], ax=axn,
+        color='b', **kws)
     sns.pointplot(
-        x="window_size", y="test_loss", data=vt[vt.epoch > 2], ax=axt, **kws)
+        x="window_size", y="test_loss", data=vt[vt.epoch > 2], ax=axt,
+        color='r', **kws)
 
     axt.set_ylabel('')
     axn.set_ylabel('Error')
@@ -87,19 +89,35 @@ def plot_parameter_sensitivity(data):
     axt.set_xlabel("Window Size")
     fig.suptitle("Test error for last 4 epochs")
 
+    axt.yaxis.set_visible(False)
+    for spine in ['left', 'right', 'top']:
+        axt.spines[spine].set_color('none')
+
+    remove_spines(axn)
+    axt.spines['bottom'].set_position(('outward', 5))
+    plt.tight_layout()
+
     return axn, axt
 
+
+def remove_spines(ax):
+    ax.spines['right'].set_color('none')
+    ax.spines['top'].set_color('none')
+
+    ax.spines['left'].set_position(('outward', 5))
+    ax.spines['bottom'].set_position(('outward', 5))
 
 def plot_epochs_vs_loss(data):
     vt, nhid = data
 
     def plot_train_test(val, axtrain, axtest, **kwargs):
         stats = val.groupby('epoch').median()
+        stats.index += 1
         stats.test_loss.plot(ax=axtest, **kwargs)
         stats.train_loss.plot(ax=axtrain, **kwargs)
 
     legend_box = (1.0, .7)
-    fig, (axtrain, axtest) = plt.subplots(1, 2, figsize=(6, 3))
+    fig, (axtrain, axtest) = plt.subplots(1, 2, figsize=(5, 2.3))
 
     kws = dict(marker='s')
 
@@ -137,7 +155,15 @@ def plot_epochs_vs_loss(data):
         bbox_to_anchor=legend_box)
 
     # labels
-    axtrain.set_title('Training Loss')
-    axtest.set_title('Median Test Error')
+    axtrain.set_title('A) Training Loss', loc="left")
+    axtest.set_title('B) Median Test Error', loc="left")
+
+    for ax in [axtrain, axtest]:
+        remove_spines(ax)
+        ax.set_xticks(np.r_[1:6])
+        ax.set_xlabel("Epoch")
+
+    plt.tight_layout()
+    plt.subplots_adjust(right=.80)
 
     return axtrain, axtest
