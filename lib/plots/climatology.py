@@ -2,6 +2,8 @@ import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
 
+from . import hide_xlabels
+
 
 def _plot_bias_sig(loc, ax=None, colors=('k', 'b', 'g')):
 
@@ -30,10 +32,11 @@ def _plot_bias_sig(loc, ax=None, colors=('k', 'b', 'g')):
     return lines
 
 
-def plot_profiles(loc):
+def plot_profiles(loc, axs=None):
 
-    fig, axs = plt.subplots(1, 2, figsize=(4, 3), dpi=100, sharey=True,
-                            gridspec_kw=dict(wspace=0.04))
+    if axs is None:
+        fig, axs = plt.subplots(1, 2, figsize=(4, 3), dpi=100, sharey=True,
+                                gridspec_kw=dict(wspace=0.04))
 
     lines = _plot_bias_sig(loc.qt, ax=axs[0])
     lines = _plot_bias_sig(loc.sl, ax=axs[1])
@@ -42,11 +45,11 @@ def plot_profiles(loc):
     # labels and legends
     axs[0].set_title(r'$q_T$')
     axs[0].set_xlabel('(g/kg)')
-    axs[0].set_ylabel('p (hPa)')
+    # axs[0].set_ylabel('p (hPa)')
 
     axs[1].set_title(r'$s_L$')
     axs[1].set_xlabel('K')
-    axs[1].legend(lines.values(), lines.keys(), bbox_to_anchor=(1.0, .9))
+    axs[0].legend(lines.values(), lines.keys(), bbox_to_anchor=(1.0, .9))
 
     return axs
 
@@ -68,3 +71,18 @@ def plot_bias_pres_vs_lat(ds_test, axs):
 
     _plot_pres_vs_lat(bias.qt, axs[0], title="Humidity bias (g/kg)")
     _plot_pres_vs_lat(bias.sl, axs[1], title="Temperature bias (K)")
+
+
+def plot(ds_test, width=5.5):
+    gridspec_kw = dict(
+        width_ratios=(.7, .3)
+    )
+
+    fig, axs = plt.subplots(2, 2, figsize=(width, width), sharey=True,
+                            gridspec_kw=gridspec_kw)
+
+    plot_profiles(ds_test.isel(y=8), axs=axs[:, 1])
+    plot_bias_pres_vs_lat(ds_test, axs=axs[:, 0])
+
+    hide_xlabels(axs[0, 0])
+    plt.tight_layout()
