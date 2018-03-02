@@ -19,11 +19,10 @@ from torch.autograd import Variable
 
 plt.style.use('ggplot')
 
-def plot_soln(x, fig=None, q_levs=None,
-              dims=['time', 'p']):
+def plot_soln(x, fig=None, q_levs=None, dims=['time', 'p'], figsize=None):
 
     if fig is None:
-        fig = plt.figure(figsize=(8, 5))
+        fig = plt.figure(figsize=figsize)
     gs = GridSpec(3, 2,
                   width_ratios=(.97, .03),
                   height_ratios=(1, 1, .5),
