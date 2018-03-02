@@ -116,6 +116,7 @@ def modeling_experiments():
 
     model_fit_params['best'] = dict(nhidden=(256,), num_epochs=2)
     model_fit_params['lrs'] = dict(nhidden=(256,), num_epochs=4, lr=.001)
+    model_fit_params['test'] = dict(nhidden=(128,), num_batches=1000)
 
     return model_fit_params
 
