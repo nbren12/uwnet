@@ -1,8 +1,7 @@
 import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
-
-from . import hide_xlabels
+from .common import hide_xlabels
 
 
 def _plot_bias_sig(loc, ax=None, colors=('k', 'b', 'g')):

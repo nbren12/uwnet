@@ -70,3 +70,8 @@ def mean_squared_error(truth, pred, dims=('x', )):
 
 def mean_absolute_dev(truth, pred, dims=('x', )):
     return (truth - pred).fillna(0.0).apply(np.abs).mean(dims)
+
+
+def hide_xlabels(x):
+    x.xaxis.set_ticklabels([])
+    x.set_xlabel('')
