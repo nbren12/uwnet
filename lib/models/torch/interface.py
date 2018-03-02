@@ -62,7 +62,13 @@ def _dataset_to_dict(dataset):
     return out
 
 
-def column_run(model, prognostic, forcing):
+def column_run(model, prognostic, forcing,
+               batch_dims=('x', 'y')):
+
+    batch_dims = [dim for dim in batch_dims if dim in prognostic.dims]
+    prognostic = prognostic.stack(batch=batch_dims)
+    forcing = forcing.stack(batch=batch_dims)
+
     prog = _dataset_to_dict(prognostic)
     forcing = _dataset_to_dict(forcing)
 
@@ -101,7 +107,7 @@ def column_run(model, prognostic, forcing):
         coords=dissoc(coords, 'z'),
         dims=['time', 'batch'])
 
-    return progs, prec
+    return xr.Dataset(progs).unstack('batch'), prec
 
 
 def rhs(model, prognostic, forcing,
