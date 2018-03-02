@@ -5,7 +5,6 @@ $$ \sum_{j=1}^{m} | x^j - \tilde{x}^j|^2,$$
 where the approximate time series is defined recursively by $\tilde{x}^0 = x^0$, $\tilde{x}^j=f(\tilde{x}^{j-1}) + (g^i + g^{i+1})\frac{h}{2}$ for $j>1$. Here, $f$ will be approximated using a neural network.
 
 """
-from toolz import dissoc
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
@@ -14,7 +13,7 @@ import xarray as xr
 import os
 
 import torch
-from torch.autograd import Variable
+from ..model.torch import column_run
 # from lib.evaluation.single_column import forced_step, runsteps, step
 
 plt.style.use('ggplot')
@@ -73,60 +72,6 @@ def plot_soln(x, fig=None, q_levs=None, dims=['time', 'p'], figsize=None):
     axs[0].set_xlim([begin, end])
 
     return axs
-
-
-def dataset_to_dict(dataset):
-    out = {}
-    for key in dataset.data_vars:
-        x = dataset[key]
-        if 'z' not in x.dims:
-            x = x.expand_dims('z')
-        if 'batch' not in x.dims:
-            x = x.expand_dims('batch')
-
-        transpose_dims = [dim for dim in ['time', 'batch', 'z']
-                          if dim in x.dims]
-        x = x.transpose(*transpose_dims)
-        x = Variable(torch.FloatTensor(x.values))
-        out[key] = x
-    return out
-
-
-def column_run(model, prognostic, forcing):
-    prog = dataset_to_dict(prognostic)
-    forcing = dataset_to_dict(forcing)
-
-    prog.pop('p')
-    w = prog.pop('w')
-
-    z = Variable(torch.FloatTensor(prognostic.z.values))
-
-    input_data = {
-        'prognostic': prog,
-        'forcing': forcing,
-        'constant': {'w': w, 'z': z}
-    }
-
-    model.eval()
-    y = model(input_data)
-
-    coords = {'z': prognostic['z'], 'time': prognostic['time']}
-    if 'batch' in prognostic.dims:
-        coords['batch'] = prognostic.batch
-
-    dims = ['time', 'batch', 'z']
-
-    progs = {
-        key: xr.DataArray(y['prognostic'][key].data.numpy(), coords=coords, dims=dims)
-        for key in y['prognostic']
-    }
-
-    coords['time'] = coords['time'][1:]
-    prec = xr.DataArray(y['diagnostic']['Prec'].data.numpy()[..., 0],
-                        coords=dissoc(coords, 'z'),
-                        dims=['time', 'batch'])
-
-    return progs, prec
 
 
 def plot_column_run(p, *args):

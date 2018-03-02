@@ -1,6 +1,6 @@
 import xarray as xr
 import torch
-from lib.plots.single_column_initial_value import column_run
+from lib.models.torch import column_run
 
 i = snakemake.input
 

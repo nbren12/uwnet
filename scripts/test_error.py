@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import xarray as xr
-from lib.plots.single_column_initial_value import column_run
+from lib.models.torch import column_run
 
 
 def sel(x):
