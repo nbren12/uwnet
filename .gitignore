@@ -236,3 +236,4 @@ docs/summary.tex
 *.o .giti
 *.o
 *.mod
+.envrc
