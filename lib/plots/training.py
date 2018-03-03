@@ -55,11 +55,11 @@ def get_plotting_data(path):
 
     # Get vary num hidden experiment
     nhid = df[df.window_size == 10]
-    vt = df[df.nhidden == 128]
+    vt = df[df.nhidden == 128].dropna()
 
     # remove outliers
     # nhid = nhid[~((nhid.seed == '6') & (nhid.nhidden == 256))]
-    vt = vt[vt.window_size != 2]
+    vt = vt[vt.window_size != 2].dropna()
 
     return vt, nhid
 
@@ -107,6 +107,7 @@ def remove_spines(ax):
     ax.spines['left'].set_position(('outward', 5))
     ax.spines['bottom'].set_position(('outward', 5))
 
+
 def plot_epochs_vs_loss(data):
     vt, nhid = data
 
@@ -138,17 +139,16 @@ def plot_epochs_vs_loss(data):
         loc="upper left",
         bbox_to_anchor=legend_box)
 
-    alpha = .5
-    for T, val in vt.groupby('window_size'):
+    alphas = np.linspace(0, 1, 4)[1:]
+    for alpha, (T, val) in zip(alphas, vt.groupby('window_size')):
         plot_train_test(
             val, axtrain, axtest, color='r', label=T, alpha=alpha, **kws)
         lines_vt.append(T)
-        alpha += .5
 
     axtest.add_artist(leg1)
 
     leg2 = plt.legend(
-        axtest.get_lines()[-2:],
+        axtest.get_lines()[-3:],
         lines_vt,
         title='Window Size',
         loc="lower left",
