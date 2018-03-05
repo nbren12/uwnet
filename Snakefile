@@ -90,7 +90,6 @@ rule denoise:
           .apply(denoise)\
          .to_netcdf(output[0])
 
-
 rule time_series_data:
     input: inputs="data/processed/inputs.nc",
             forcings="data/processed/forcings.nc"
@@ -134,6 +133,9 @@ model_files = expand("data/output/model.{k}/{seed}.torch",
 model_errors = expand("data/output/model.{k}/{seed}.error.nc",
                       k=modeling_experiments(), seed=range(10))
 
+model_src_errors = expand("data/output/model.{k}/{seed}.src_error.nc",
+                      k=modeling_experiments(), seed=range(10))
+
 rule fit_all_models:
     input: model_files
 
@@ -156,15 +158,34 @@ rule test_model:
     script: "scripts/test_error.py"
 
 
+rule q1_model:
+    input: inputs="data/processed/inputs.nc",
+           forcings="data/processed/forcings.nc",
+           model="data/output/model.{k}/{seed}.torch"
+    output: "data/output/model.{k}/{seed}.src_error.nc"
+    script: "scripts/compare_q1q2.py"
+
+
 rule combine_errors:
-    input: model_errors
+    input: err=model_errors, src=model_src_errors
     output: "data/output/test_error.nc"
+    run:
+        import pandas as pd
+        idx = pd.Index(model_errors, name='model')
+        ds_err = xr.concat([xr.open_dataset(f) for f in err], dim=idx)
+        ds_src = xr.concat([xr.open_dataset(f) for f in src], dim=idx)
+
+        xr.auto_combine((ds_src, ds_err)).to_netcdf(output[0])
+
+
+rule combine_src_errors:
+    input: model_src_errors
+    output: "data/output/test_src_error.nc"
     run:
         import pandas as pd
         idx = pd.Index(model_errors, name='model')
         ds = xr.concat([xr.open_dataset(f) for f in input], dim=idx)
         ds.to_netcdf(output[0])
-
 
 
 rule forced_column_slp:

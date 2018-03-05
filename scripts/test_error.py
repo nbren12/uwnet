@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import xarray as xr
-from lib.models.torch import column_run
+from lib.models.torch import interface
 
 
 def sel(x):
@@ -14,19 +14,75 @@ def mean_abs_dev(x, y):
 
 def get_test_error(model, inputs, forcings, prognostics=('qt', 'sl')):
     prognostics = list(prognostics)
-    i = inputs.stack(batch=['x', 'y'])
-    f = forcings.stack(batch=['x', 'y'])
-    progs, prec = column_run(model, i, f)
-    data = xr.Dataset(progs)\
-             .unstack("batch")
+    progs, prec = interface.column_run(model, inputs, forcings)
+    data = xr.Dataset(progs)
     return mean_abs_dev(inputs[prognostics], data[prognostics])
+
+
+def _compute_residual(x, f):
+    dt = x.time[1]-x.time[0]
+    favg = (f + f.shift(time=1))/2
+    return (x.shift(time=-1)-x)/dt - favg
+
+
+def compute_residuals(inputs, forcings):
+    """Compute Q1 and Q2"""
+    ds = xr.Dataset({key: _compute_residual(inputs[key], forcings[key])
+                     for key in ['qt', 'sl']})
+    return ds
+
+
+def trapezoid_step(x, g, h=.125):
+    return x + h * (g + g.shift(time=1))/2
+
+
+def mse(x, y, dims=('x', 'y', 'time')):
+    return ((x-y)**2).mean(dims)
+
+
+def estimate_source(model, inputs, forcings):
+    # estimate source terms
+    # need to take a step using the trapezoid rule though
+    # see results/8.4-nbd-Q1-Q20-score.ipynb
+    xst = inputs.apply(lambda x: trapezoid_step(x, forcings[x.name]) if x.name
+                       in ['sl', 'qt'] else x)
+    gavg = (forcings + forcings.shift(time=1))/2
+    src = interface.rhs(model, xst, gavg)
+    return src
+
+
+def get_src_error(model, inputs, forcings):
+    """Compute the errors in the predicted source terms (Q1 and Q2)"""
+    resid = compute_residuals(inputs, forcings)
+    src = estimate_source(model, inputs, forcings)
+
+    dims = ('x', 'time')
+    data_vars = {}
+
+    w = inputs.w
+
+    for f in ['qt', 'sl']:
+        sse = mse(src[f], resid[f], dims)
+        sst = mse(resid[f], resid[f].mean(dims), dims)
+        r2 = 1-(sse * w).sum('z')/(sst*w).sum('z')
+
+        data_vars[f + 'SSE'] = sse
+        data_vars[f + 'SS'] = sst
+        data_vars[f + 'R2'] = r2
+
+    return xr.Dataset(data_vars)
 
 
 def main(torch_file, input_path, forcing_path, output):
     model = torch.load(torch_file)
     inputs = xr.open_dataset(input_path).pipe(sel)
     forcings = xr.open_dataset(forcing_path).pipe(sel)
-    return get_test_error(model, inputs, forcings).to_netcdf(output)
+    test_error = get_test_error(model, inputs, forcings)
+    src_error = get_src_error(model, inputs, forcings)
+
+    return xr.auto_combine((test_error, src_error))\
+             .assign(p=inputs.p, w=inputs.w)\
+             .to_netcdf(output)
 
 
 i = snakemake.input
