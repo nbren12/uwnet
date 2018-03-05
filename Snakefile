@@ -158,9 +158,21 @@ rule combine_errors:
     input: model_errors
     output: "data/output/test_error.nc"
     run:
+        import re
         import pandas as pd
+        import json
         idx = pd.Index(model_errors, name='model')
-        ds = xr.concat([xr.open_dataset(f) for f in err], dim=idx)
+
+        errors = []
+        for f in input:
+            d, filename = os.path.split(f)
+            seed = filename.split('.')[0]
+            params = json.load(open(f"{d}/{seed}.json"))['args']
+            params['nhidden'] = params['nhidden'][0]
+            err = xr.open_dataset(f).assign(**params)
+            errors.append(err)
+
+        ds = xr.concat(errors, dim=idx)
         ds.to_netcdf(output[0])
 
 rule forced_column_slp:
