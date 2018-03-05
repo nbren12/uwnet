@@ -108,7 +108,7 @@ def modeling_experiments():
         key = f'VaryNHid-{n}'
         model_fit_params[key] = dict(nhidden=(n,))
 
-    for T in [2, 5, 10, 20]:
+    for T in [2, 5, 10, 20, 40]:
         key = f'VaryT-{T}'
         model_fit_params[key] = dict(window_size=T)
 
