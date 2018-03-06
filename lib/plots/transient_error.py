@@ -74,9 +74,9 @@ def _adjust_column_error_plots(axQ, axT):
 
     axQ.set_ylim([0, 1.2])
     axQ.set_ylabel(r'MAD (g/kg)')
-    axQ.set_title("a) $q_T$ error", loc="left")
+    axQ.set_title("A) $q_T$ error", loc="left")
 
-    axT.set_title("b) $s_L$ error", loc="left")
+    axT.set_title("B) $s_L$ error", loc="left")
     axT.set_ylim([0, 3.3])
     axT.set_ylabel(r'MAD (K)')
     axT.set_xlim([100, 180])
