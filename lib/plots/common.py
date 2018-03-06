@@ -75,3 +75,8 @@ def mean_absolute_dev(truth, pred, dims=('x', )):
 def hide_xlabels(x):
     x.xaxis.set_ticklabels([])
     x.set_xlabel('')
+
+def despine(ax, visible=('left', 'bottom')):
+    for k in ax.spines:
+        if k not in visible:
+            ax.spines[k].set_color('none')
