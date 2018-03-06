@@ -12,11 +12,30 @@ def mean_abs_dev(x, y):
     return (x-y).apply(np.abs).mean(['x', 'time'])
 
 
-def get_test_error(model, inputs, forcings, prognostics=('qt', 'sl')):
+def _window_errors(model, inputs, forcings, window_size=64, nstarts=10,
+                   prognostics=('qt', 'sl')):
+    """Yield the MAD computed over randomly selected intervals of a given
+    length"""
+
     prognostics = list(prognostics)
-    progs, prec = interface.column_run(model, inputs, forcings)
-    data = xr.Dataset(progs)
-    return mean_abs_dev(inputs[prognostics], data[prognostics])
+
+    n = len(inputs.time)
+    start_idxs = np.random.choice(n-window_size, nstarts)
+
+    for i in start_idxs:
+        times = slice(i, i+window_size)
+        ii = inputs.isel(time=times)
+        ff = forcings.isel(time=times)
+
+        progs, _ = interface.column_run(model, ii, ff)
+
+        # compute the mean_abs_dev
+        data = xr.Dataset(progs)
+        yield mean_abs_dev(ii[prognostics], data[prognostics])
+
+
+def get_test_error(*args, nstarts=10, **kwargs):
+    return sum(_window_errors(*args, nstarts=nstarts, **kwargs))/nstarts
 
 
 def _compute_residual(x, f):
