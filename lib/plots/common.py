@@ -2,7 +2,8 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
-import lib
+import lib.cam as lc
+from lib.interp import interp
 import xarray as xr
 from xnoah import swap_coord
 
@@ -18,21 +19,23 @@ def load_data(best_nn="model.VaryNHid-256/2",
     truth = truth.assign(prec=force.Prec)
     truth = swap_coord(truth, {'z': 'p'})
 
-    # SCAM
-    # cam = xr.open_dataset("../data/processed/iop/0-8/cam.nc").squeeze()\
-    #         .sel(time=truth.time[:-10])
+    # neural network scheme
+    best_path = root / f"output/{best_nn}.columns.nc"
+    nn_cols = xr.open_dataset(best_path)
+    nn_cols = swap_coord(nn_cols.assign(p=truth.p), {'z': 'p'})
 
     # load and interpolate CAM
     cam = xr.open_dataset(root / "output/scam.nc")
-    cam = lib.pressure_interp_ds(cam, truth.p)
+    p = lc.hybrid_to_pres(cam.hyam, cam.hybm, cam.P0, cam.PS)/100
+    cam = xr.Dataset({
+        'T': interp(truth.p, p, cam['T'], old_dim='p'),
+        'qt': interp(truth.p, p, cam['qt'], old_dim='p'),
+        'prec': cam.prec,
+    })
 
     # compute sl in the new coordinates
     cam['sl'] = cam['T'] + 9.81/1004 * truth.z
 
-    # neural network scheme
-    best_path =  root / f"output/{best_nn}.columns.nc"
-    nn_cols = xr.open_dataset(best_path).assign(p=truth.p)
-    nn_cols = swap_coord(nn_cols, {'z': 'p'})
 
     # combine data
     datasets = [truth, nn_cols, cam]
@@ -40,6 +43,8 @@ def load_data(best_nn="model.VaryNHid-256/2",
     time = np.unique(np.intersect1d(cam.time.values, truth.time.values))
     data = [ds[variables].sel(time=time) for ds in datasets]
     model_idx = pd.Index(['Truth', 'Neural Network', 'CAM'], name="model")
+
+
     ds = xr.concat(data, dim=model_idx)
 
     # change y coordinates

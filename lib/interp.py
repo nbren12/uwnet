@@ -1,9 +1,27 @@
 import xarray as xr
+import metpy.calc as mc
 from scipy.interpolate import interp1d
 
 
 def interp_np(x, pold, pnew, axis=-1):
     return interp1d(pold, x, axis=axis, bounds_error=False)(pnew)
+
+
+def interp(z, z3, x, old_dim='p', new_dim=None):
+    if not new_dim:
+        new_dim = old_dim
+
+    z3, x = xr.broadcast_arrays(z3, x)
+
+    val = mc.interp(z.values, z3.values, x.values,
+                    axis=x.get_axis_num(old_dim))
+    coords = {}
+    coords.update(x.coords)
+    coords.pop(old_dim)
+    coords[new_dim] = z.values
+
+    dims = [{old_dim: new_dim}.get(dim, dim) for dim in x.dims]
+    return xr.DataArray(val, coords=coords, dims=dims)
 
 
 def pressure_interp(x, pnew, pressure_name='p'):

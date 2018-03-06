@@ -48,3 +48,7 @@ def convert_dates_to_days(x, bdate, dim='time'):
     time = x[dim].values - bdate
     time = time.astype('timedelta64[s]').astype(float) / 86400
     return x.assign_coords(**{dim: time})
+
+
+def hybrid_to_pres(hya, hyb, p0, ps):
+    return hya * p0 + hyb * ps
