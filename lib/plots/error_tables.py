@@ -3,7 +3,7 @@ import xarray as xr
 import numpy as np
 
 
-def bootstrap(stat, data, n=1000):
+def bootstrap(stat, data, n=200):
     stats = []
     for i in range(n):
         sample = np.random.choice(data, data.shape[0])
@@ -12,10 +12,10 @@ def bootstrap(stat, data, n=1000):
     return stats
 
 
-def get_ci(x, interval=(2.5, 97.5)):
-    samples = bootstrap(np.median, x)
-    a, b = np.percentile(samples, interval)
-    return np.median(x), (b - a) / 2
+def get_ci(x, interval=(2.5, 97.5), f=np.median):
+    samples = bootstrap(f, x)
+    # a, b = np.percentile(samples, interval)
+    return f(x), min(samples), max(samples)
 
 
 def get_cis(x):
@@ -23,10 +23,15 @@ def get_cis(x):
 
 
 def format_uncertain(x):
-    if x[0] > 1000:
-        return r'$\infty$'
-    else:
-        return f"{x[0]:.2f} ({x[1]:.2f})"
+    def fmt(x):
+        if x > 1000:
+            return r'$\infty$'
+        else:
+            return "%.2f" % x
+
+    med = fmt(x[0])
+    sig = fmt((x[2] - x[1])/2)
+    return f"{med} ({sig})"
 
 
 def get_error_tables(err):

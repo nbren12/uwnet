@@ -24,7 +24,8 @@ print(os.environ['PYTHONPATH'])
 #     input: ngaqua("3d/Q1.nc")
 
 rule all:
-    input: "data/output/model.VaryNHid-256/7.columns.nc", "data/output/scam.nc"
+    input: "data/output/model.VaryNHid-256/7.columns.nc", "data/output/scam.nc",
+           "data/output/test_error.nc"
 
 
 ngaqua_files =[

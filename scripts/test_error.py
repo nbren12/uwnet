@@ -12,7 +12,7 @@ def mean_abs_dev(x, y):
     return (x-y).apply(np.abs).mean(['x', 'time'])
 
 
-def _window_errors(model, inputs, forcings, window_size=64, nstarts=10,
+def _window_errors(model, inputs, forcings, window_size=256, nstarts=10,
                    prognostics=('qt', 'sl')):
     """Yield the MAD computed over randomly selected intervals of a given
     length"""
