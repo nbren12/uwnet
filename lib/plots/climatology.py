@@ -93,7 +93,8 @@ def plot(ds_test, width=5.5):
     plot_bias_pres_vs_lat(ds_test, axs=axs[:, 0])
 
     # hide_xlabels(axs[0, 0])
-    axs[0, 1].set_xticks([-.5, 0, .5, 1.0, 1.5])
+    axs[0, 1].set_xticks([ -.5, 0, .5, 1.0, 1.5])
+    axs[1, 1].set_xlim([-3, 4])
 
     for ax in axs[:,0]:
         ax.set_ylabel('p (hPa)')
