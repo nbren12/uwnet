@@ -7,14 +7,19 @@ def interp_np(x, pold, pnew, axis=-1):
     return interp1d(pold, x, axis=axis, bounds_error=False)(pnew)
 
 
-def interp(z, z3, x, old_dim='p', new_dim=None):
+def interp(z, z3, x, old_dim='p', new_dim=None,
+           log=False):
     if not new_dim:
         new_dim = old_dim
 
     z3, x = xr.broadcast_arrays(z3, x)
 
-    val = mc.interp(z.values, z3.values, x.values,
-                    axis=x.get_axis_num(old_dim))
+    if log:
+        _interp = mc.log_interp
+    else:
+        _interp = mc.interp
+
+    val = _interp(z.values, z3.values, x.values, axis=x.get_axis_num(old_dim))
     coords = {}
     coords.update(x.coords)
     coords.pop(old_dim)

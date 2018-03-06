@@ -28,8 +28,8 @@ def load_data(best_nn="model.VaryNHid-256/2",
     cam = xr.open_dataset(root / "output/scam.nc")
     p = lc.hybrid_to_pres(cam.hyam, cam.hybm, cam.P0, cam.PS)/100
     cam = xr.Dataset({
-        'T': interp(truth.p, p, cam['T'], old_dim='p'),
-        'qt': interp(truth.p, p, cam['qt'], old_dim='p'),
+        'T': interp(truth.p, p, cam['T'], old_dim='p', log=True),
+        'qt': interp(truth.p, p, cam['qt'], old_dim='p', log=True),
         'prec': cam.prec,
     })
 
