@@ -72,14 +72,18 @@ def _adjust_column_error_plots(axQ, axT):
         ax.set_xlabel('time (days)')
         ax.set_xlim([99, 180])
 
-    axQ.set_ylim([0, 1.4])
+    axQ.set_ylim([0, 1.2])
     axQ.set_ylabel(r'MAD (g/kg)')
     axQ.set_title("a) $q_T$ error", loc="left")
 
     axT.set_title("b) $s_L$ error", loc="left")
-    axT.set_ylim([0, 4])
+    axT.set_ylim([0, 3.3])
     axT.set_ylabel(r'MAD (K)')
     axT.set_xlim([100, 180])
+
+    # legend
+    axQ.legend(ncol=2, columnspacing=0.30,
+               bbox_to_anchor=(0.0, .80), loc="lower left")
 
 
 def plot_column_error(ds):
@@ -105,7 +109,7 @@ def plot_column_error(ds):
             2, 1, figsize=(3, 5), dpi=100, sharex=True)
 
         mass_mad_sl.plot(ax=axT, legend=False)
-        mass_mad_qt.plot(ax=axQ)
+        mass_mad_qt.plot(ax=axQ, legend=False)
         _adjust_column_error_plots(axQ, axT)
         plt.tight_layout()
 

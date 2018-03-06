@@ -26,6 +26,9 @@ def load_data(best_nn="model.VaryNHid-256/2",
     cam = xr.open_dataset(root / "output/scam.nc")
     cam = lib.pressure_interp_ds(cam, truth.p)
 
+    # compute sl in the new coordinates
+    cam['sl'] = cam['T'] + 9.81/1004 * truth.z
+
     # neural network scheme
     best_path =  root / f"output/{best_nn}.columns.nc"
     nn_cols = xr.open_dataset(best_path).assign(p=truth.p)
