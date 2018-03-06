@@ -26,12 +26,10 @@ def _window_errors(model, inputs, forcings, window_size=64, nstarts=10,
         times = slice(i, i+window_size)
         ii = inputs.isel(time=times)
         ff = forcings.isel(time=times)
-
+        # run the column model
         progs, _ = interface.column_run(model, ii, ff)
-
-        # compute the mean_abs_dev
-        data = xr.Dataset(progs)
-        yield mean_abs_dev(ii[prognostics], data[prognostics])
+        # compute the MAD
+        yield mean_abs_dev(ii[prognostics], progs[prognostics])
 
 
 def get_test_error(*args, nstarts=10, **kwargs):
