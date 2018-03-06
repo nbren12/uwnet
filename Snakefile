@@ -6,6 +6,8 @@ from lib.util import xopena, wrap_xarray_calculation
 from lib.scam import create_iopfile
 from xnoah import swap_coord
 
+configfile: "config.yaml"
+
 # setup environment
 os.environ['PYTHONPATH'] = os.path.abspath(os.getcwd())
 shell.executable("/bin/bash")
@@ -127,11 +129,12 @@ def get_fit_params(wildcards):
     return d
 
 
+nseeds = config.get('nseeds', 10)
 model_files = expand("data/output/model.{k}/{seed}.torch",
-                     k=modeling_experiments(), seed=range(10))
+                     k=modeling_experiments(), seed=range(nseeds))
 
 model_errors = expand("data/output/model.{k}/{seed}.error.nc",
-                      k=modeling_experiments(), seed=range(10))
+                      k=modeling_experiments(), seed=range(nseeds))
 
 rule fit_all_models:
     input: model_files
