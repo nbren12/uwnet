@@ -31,8 +31,10 @@ def format_uncertain(x):
 
 def get_error_tables(err):
     err = xr.open_dataset(err)
+    mass = err.w.sum('z')
     err = err.assign(
-        qt64=(err.qt * err.w).mean('z'), sl64=(err.sl * err.w).mean('z'))
+        qt64=(err.qt * err.w).sum('z')/mass,
+        sl64=(err.sl * err.w).sum('z')/mass)
 
     df = err[['qtR2', 'slR2', 'qt64', 'sl64', 'nhidden',
               'window_size']].to_dataframe()
