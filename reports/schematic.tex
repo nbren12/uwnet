@@ -1,0 +1,41 @@
+\documentclass{standalone}
+
+\usepackage{tikz}
+\usepackage{graphicx}
+
+\begin{document}
+
+\begin{tikzpicture}[scale=2,
+  every node/.style ={inner sep =0, outer sep = 0}
+  ]
+  
+  \node (full) at (0,0) {\includegraphics[width=10cm]{full.png}};
+  
+  \begin{scope}[x={(full.east)}, y={(full.north)}]
+\coordinate(NE) at (0.71875, 0.171875);
+\coordinate(SE) at (0.71875, -0.140625);
+
+\draw[ultra thick, red](0.5625, -0.140625) rectangle (NE);
+        \draw[fill=black, opacity=.4] (-1, .25) rectangle (1, 1.0);
+        \draw[fill=black, opacity=.4] (-1, -1) rectangle (1, -.25);
+    \end{scope}
+
+  \node (hi)  at (5, 1.5) {\includegraphics[width=4cm]{hi.png}};
+
+
+  
+  \node (lo) at (5, -1.5) {\includegraphics[width=4cm]{lo.png}};
+  \node[fill=white, inner sep=.2cm] (info) at (5, 0) {Coarse-graining};
+
+  \draw[red, ultra thick] (NE) -- (hi.north west);
+  \draw[red, ultra thick] (SE) -- (hi.south west);
+  \draw[ultra thick,->] (hi) -- (info) -- (lo);
+
+\end{tikzpicture}
+
+\end{document}
+
+%%% Local Variables:
+%%% mode: latex
+%%% TeX-master: t
+%%% End:
