@@ -96,7 +96,6 @@ rule denoise:
 rule time_series_data:
     input: inputs="data/processed/inputs.nc",
             forcings="data/processed/forcings.nc"
-            #forcings="data/processed/denoised/forcings.nc"
     output: "data/output/time_series_data.pkl",
     script: "scripts/torch_preprocess.py"
 

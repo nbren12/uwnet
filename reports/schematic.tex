@@ -4,9 +4,11 @@
 \usepackage{graphicx}
 
 \begin{document}
+\sffamily
 
 \begin{tikzpicture}[scale=2,
-  every node/.style ={inner sep =0, outer sep = 0}
+  every node/.style ={inner sep =0, outer sep = 0},
+  label/.style = {yshift=.7cm,xshift=-.5cm, scale=2, bold}
   ]
   
   \node (full) at (0,0) {\includegraphics[width=10cm]{full.png}};
@@ -30,6 +32,10 @@
   \draw[red, ultra thick] (NE) -- (hi.north west);
   \draw[red, ultra thick] (SE) -- (hi.south west);
   \draw[ultra thick,->] (hi) -- (info) -- (lo);
+
+  \node[label] at (full.north west) {A};
+  \node[label] at (hi.north west) {B};
+  \node[label] at (lo.north west) {C};
 
 \end{tikzpicture}
 
