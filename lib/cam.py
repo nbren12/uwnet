@@ -56,7 +56,7 @@ def hybrid_to_pres(hya, hyb, p0, ps):
     return hya * p0 + hyb * ps
 
 
-def to_sam_z(cam, p0):
+def to_sam_z(cam, p0, dim='lev'):
     """Interpolate cam onto heights from sam"""
 
     # load and interpolate CAM
@@ -64,11 +64,11 @@ def to_sam_z(cam, p0):
     p = hybrid_to_pres(cam.hyam, cam.hybm, cam.P0, cam.PS)/100
 
     def _interp(x):
-        if 'lev' in x.dims:
-            return interp(p0, p, x, old_dim='lev', log=True)
+        if dim in x.dims:
+            return interp(p0, p, x, old_dim=dim, log=True)
         else:
             return x
     cam = cam.apply(_interp).assign(z=p0.z)
-    cam = swap_coord(cam, {'lev': 'z'})
+    cam = swap_coord(cam, {dim: 'z'})
     cam = cam.assign(p=p0)
     return cam

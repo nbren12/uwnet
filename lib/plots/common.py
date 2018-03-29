@@ -17,25 +17,25 @@ def load_data(best_nn="model.VaryNHid-256/2",
     truth = xr.open_dataset(root / "processed/inputs.nc")
     force = xr.open_dataset(root / "processed/forcings.nc")
     truth = truth.assign(prec=force.Prec)
-    truth = swap_coord(truth, {'z': 'p'})
+    p0 = truth.p
 
     # neural network scheme
     best_path = root / f"output/{best_nn}.columns.nc"
     nn_cols = xr.open_dataset(best_path)
-    nn_cols = swap_coord(nn_cols.assign(p=truth.p), {'z': 'p'})
 
     # load and interpolate CAM
     cam = xr.open_dataset(root / "output/scam.nc")
-    p = lc.hybrid_to_pres(cam.hyam, cam.hybm, cam.P0, cam.PS)/100
-    cam = xr.Dataset({
-        'T': interp(truth.p, p, cam['T'], old_dim='p', log=True),
-        'qt': interp(truth.p, p, cam['qt'], old_dim='p', log=True),
-        'prec': cam.prec,
-    })
+    cam = lc.to_sam_z(cam, p0, dim='p')
+    cam = cam[['T', 'Q', 'prec']]
 
-    # compute sl in the new coordinates
-    cam['sl'] = cam['T'] + 9.81/1004 * truth.z
+    # compute sl and qt
+    cam['sl'] = cam['T'] + 9.81/1004 * p0.z
+    cam['qt'] = cam['Q'] * 1000
 
+    # swap coords
+    truth = swap_coord(truth, {'z': 'p'})
+    nn_cols = swap_coord(nn_cols.assign(p=p0), {'z': 'p'})
+    cam = swap_coord(cam.assign(p=p0), {'z': 'p'})
 
     # combine data
     datasets = [truth, nn_cols, cam]
