@@ -4,6 +4,8 @@ import re
 import numpy as np
 
 import xarray as xr
+from lib.interp import interp
+from xnoah import swap_coord
 
 
 def decode_date(units):
@@ -52,3 +54,21 @@ def convert_dates_to_days(x, bdate, dim='time'):
 
 def hybrid_to_pres(hya, hyb, p0, ps):
     return hya * p0 + hyb * ps
+
+
+def to_sam_z(cam, p0):
+    """Interpolate cam onto heights from sam"""
+
+    # load and interpolate CAM
+    # cam = xr.open_dataset(root / "output/scam.nc")
+    p = hybrid_to_pres(cam.hyam, cam.hybm, cam.P0, cam.PS)/100
+
+    def _interp(x):
+        if 'lev' in x.dims:
+            return interp(p0, p, x, old_dim='lev', log=True)
+        else:
+            return x
+    cam = cam.apply(_interp).assign(z=p0.z)
+    cam = swap_coord(cam, {'lev': 'z'})
+    cam = cam.assign(p=p0)
+    return cam
