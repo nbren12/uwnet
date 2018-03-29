@@ -28,3 +28,10 @@ do
         echo "File URL: $url"
     fi
 done
+
+# fix permissisons of reports dir
+find reports/ -type d | xargs chmod 755
+find reports/ -type f | xargs chmod 644
+
+echo "Uploading to Olympus"
+rsync -avz reports/ $report_server:~/public_html/reports/$project_name
