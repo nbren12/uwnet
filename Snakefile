@@ -23,9 +23,14 @@ print(os.environ['PYTHONPATH'])
 # rule all:
 #     input: ngaqua("3d/Q1.nc")
 
+output_files = [
+    "data/output/model.VaryT-20/3.rce.nc",
+    "data/output/model.VaryT-20/3.columns.nc",
+    "data/output/scam.nc"
+]
+
 rule all:
-    input: "data/output/model.VaryNHid-256/7.columns.nc", "data/output/scam.nc",
-           "data/output/test_error.nc"
+    input: output_files
 
 
 ngaqua_files =[
@@ -186,6 +191,14 @@ rule forced_column_slp:
     output: "data/output/{model}/{id}.columns.nc"
     script: "scripts/forced_column_slp.py"
 
+rule rce_column_slp:
+    input: model="data/output/{model}/{id}.torch",
+            inputs="data/processed/inputs.nc",
+            forcings="data/processed/forcings.nc"
+    priority: 10
+    output: "data/output/{model}/{id}.rce.nc"
+    params: RCE=True
+    script: "scripts/forced_column_slp.py"
 
 wildcard_constraints:
     i="\d+",
