@@ -237,3 +237,4 @@ docs/summary.tex
 *.o
 *.mod
 .envrc
+.snakemake

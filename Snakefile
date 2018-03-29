@@ -26,7 +26,8 @@ print(os.environ['PYTHONPATH'])
 output_files = [
     "data/output/model.VaryT-20/3.rce.nc",
     "data/output/model.VaryT-20/3.columns.nc",
-    "data/output/scam.nc"
+    "data/output/scam.nc",
+    "data/processed/rce/10-8/cam.nc"
 ]
 
 rule all:
@@ -220,27 +221,16 @@ rule prepare_iop_directories:
         output_dir = "data/processed/iop"
         create_iopfile.save_all_dirs(iop, output_dir)
 
-rule run_scam:
+rule run_scam_forced:
     input: "data/processed/iop.nc"
     output: "data/processed/iop/{i}-{j}/cam.nc"
-    run:
-        from lib import scam
-        from lib.cam import load_cam
-        i = int(wildcards.i)
-        j = int(wildcards.j)
-        loc = xr.open_dataset(input[0], chunks={'lon': 1, 'lat':1})\
-                .isel(lon=i, lat=j)
+    script: "scripts/run_scam.py"
 
-        output_dir = os.path.dirname(output[0])
-        shell(f"rm -rf {output_dir}")
-        shell(f"mkdir -p {output_dir}")
-
-        scam.save_iop_dir(output_dir, loc)
-
-        shell(f"ext/scam/run_docker.sh data/processed/iop/{i}-{j}/ > /dev/null") 
-        load_cam(f"data/processed/iop/{i}-{j}/camrun.cam.h0.*.nc")\
-            .to_netcdf(output[0])
-
+rule run_scam_rce:
+    input: "data/processed/iop.nc"
+    output: "data/processed/rce/{i}-{j}/cam.nc"
+    params: RCE=True
+    script: "scripts/run_scam.py"
 
 rule combine_scam:
     input: expand("data/processed/iop/{i}-{j}/cam.nc", i=range(128), j=8)
