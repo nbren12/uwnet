@@ -7,6 +7,8 @@ from lib.scam import create_iopfile
 from xnoah import swap_coord
 
 configfile: "config.yaml"
+nseeds = config.get('nseeds', 10)
+nepoch = config.get('nepochs', 6)
 
 # setup environment
 os.environ['PYTHONPATH'] = os.path.abspath(os.getcwd())
@@ -119,34 +121,33 @@ def modeling_experiments():
         key = f'VaryT-{T}'
         model_fit_params[key] = dict(window_size=T)
 
-    model_fit_params['1'] = dict(nhidden=(256,))
-
+    # model_fit_params['1'] = dict(nhidden=(256,))
     # model_fit_params['best'] = dict(nhidden=(256,), num_epochs=2)
     # model_fit_params['lrs'] = dict(nhidden=(256,), num_epochs=4, lr=.001)
-    model_fit_params['test'] = dict(nhidden=(128,), num_batches=100)
 
     return model_fit_params
 
 
 
-def get_fit_params(wildcards):
-    d =  modeling_experiments()[wildcards.k].copy()
-    d['seed'] = int(wildcards.seed)
-    d['cuda']  = config.get('cuda', False)
-    d['output_dir'] = f"data/output/model.{wildcards.k}/{wildcards.seed}/"
-    return d
 
 
-nseeds = config.get('nseeds', 10)
-nepoch = config.get('nepochs', 6)
 model_files = expand("data/output/model.{k}/{seed}.torch",
                      k=modeling_experiments(), seed=range(nseeds))
 
-model_errors = expand("data/output/model.{k}/{seed}.error.nc",
+model_errors = expand("data/output/model.{k}/{seed}/5/error.nc",
                       k=modeling_experiments(), seed=range(nseeds))
 
 rule fit_all_models:
     input: model_files
+
+
+def fit_model_params(wildcards):
+    d =  modeling_experiments()[wildcards.k].copy()
+    d['seed'] = int(wildcards.seed)
+    d['cuda']  = config.get('cuda', False)
+    d['output_dir'] = f"data/output/model.{wildcards.k}/{wildcards.seed}/"
+    d['num_epochs'] = nepoch
+    return d
 
 
 rule fit_model:
@@ -156,15 +157,15 @@ rule fit_model:
                    f=["model.torch"]),
             "data/output/model.{k}/{seed}/loss.json"
     log: "data/output/model.{k}/{seed}/log.txt"
-    params: get_fit_params
+    params: fit_model_params
     script: "scripts/torch_time_series2.py"
 
 
 rule test_model:
     input: inputs="data/processed/inputs.nc",
            forcings="data/processed/forcings.nc",
-           model="data/output/model.{k}/{seed}.torch"
-    output: "data/output/model.{k}/{seed}.error.nc"
+           model="{d}/model.torch"
+    output: "{d}/error.nc"
     script: "scripts/test_error.py"
 
 rule combine_errors:

@@ -55,7 +55,7 @@ def train(data_loader, loss_fn, optimizer, num_epochs=1, monitor=None,
 
     logging.info("Done Training. Time elapsed {}".format(timer()-t_begin_train))
     if on_finish:
-        on_finish(num_epochs)
+        on_finish()
 
 
 def jacobian(net, x):

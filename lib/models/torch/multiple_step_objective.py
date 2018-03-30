@@ -560,10 +560,9 @@ def train_multistep_objective(train_data, test_data, output_dir,
     def on_epoch_start(epoch):
         torch.save(nstepper, f"{output_dir}/{epoch}/model.torch")
 
-    def on_finish(epoch):
+    def on_finish():
         import json
-        on_epoch_start(epoch)
-        print(f"{output_dir}/loss.json")
+        torch.save(nstepper, f"{output_dir}/{num_epochs}/model.torch")
         json.dump(epoch_data, open(f"{output_dir}/loss.json", "w"))
 
     # train the model
