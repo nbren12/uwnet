@@ -31,10 +31,12 @@ i = snakemake.input
 inputs = xr.open_dataset(i.inputs)
 forcings = xr.open_dataset(i.forcings)
 
+params = snakemake.params[0]
+output_dir = params.pop('output_dir')
+
 train_data = prepare_data(_train(inputs), _train(forcings))
 test_data = prepare_data(_test(inputs), _test(forcings))
-stepper, epoch_data = train_multistep_objective(train_data, test_data,
-                                                **snakemake.params[0])
+train_multistep_objective(train_data, test_data, output_dir, **params)
 
-torch.save(stepper, snakemake.output.model)
-json.dump(epoch_data, open(snakemake.output.json, "w"))
+# torch.save(stepper, snakemake.output.model)
+# json.dump(epoch_data, open(snakemake.output.json, "w"))

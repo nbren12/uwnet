@@ -420,7 +420,7 @@ class RHS(nn.Module):
         return src, diags
 
 
-def train_multistep_objective(train_data, test_data,
+def train_multistep_objective(train_data, test_data, output_dir,
                               num_epochs=5,
                               num_test_examples=10000,
                               window_size=10,
@@ -447,6 +447,7 @@ def train_multistep_objective(train_data, test_data,
     arguments.pop('test_data')
     arguments.pop('train_data')
     logger.info("Called with parameters:\n" + pprint.pformat(arguments))
+    logger.info(f"Saving to {output_dir}")
 
     torch.manual_seed(seed)
 
@@ -548,7 +549,6 @@ def train_multistep_objective(train_data, test_data,
         y = nstepper(batch)
         return loss(batch, y)
 
-
     epoch_data = []
     def monitor(state):
         loss = sum(closure(batch) for batch in test_loader)
@@ -557,6 +557,14 @@ def train_multistep_objective(train_data, test_data,
         epoch_data.append(state)
         logger.info("Epoch[batch]: {epoch}[{batch}]; Test Loss: {test_loss}; Train Loss: {train_loss}".format(**state))
 
+    def on_epoch_start(epoch):
+        torch.save(nstepper, f"{output_dir}/{epoch}/model.torch")
+
+    def on_finish(epoch):
+        import json
+        on_epoch_start(epoch)
+        print(f"{output_dir}/loss.json")
+        json.dump(epoch_data, open(f"{output_dir}/loss.json", "w"))
 
     # train the model
     if pytest:
@@ -568,7 +576,9 @@ def train_multistep_objective(train_data, test_data,
             closure,
             optimizer=optimizer,
             monitor=monitor,
-            num_epochs=num_epochs)
+            num_epochs=num_epochs,
+            on_epoch_start=on_epoch_start,
+            on_finish=on_finish)
 
         training_metadata = {
             'args': arguments,

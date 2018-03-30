@@ -121,21 +121,24 @@ def modeling_experiments():
 
     model_fit_params['1'] = dict(nhidden=(256,))
 
-    model_fit_params['best'] = dict(nhidden=(256,), num_epochs=2)
-    model_fit_params['lrs'] = dict(nhidden=(256,), num_epochs=4, lr=.001)
-    model_fit_params['test'] = dict(nhidden=(128,), num_batches=1000)
+    # model_fit_params['best'] = dict(nhidden=(256,), num_epochs=2)
+    # model_fit_params['lrs'] = dict(nhidden=(256,), num_epochs=4, lr=.001)
+    model_fit_params['test'] = dict(nhidden=(128,), num_batches=100)
 
     return model_fit_params
+
 
 
 def get_fit_params(wildcards):
     d =  modeling_experiments()[wildcards.k].copy()
     d['seed'] = int(wildcards.seed)
     d['cuda']  = config.get('cuda', False)
+    d['output_dir'] = f"data/output/model.{wildcards.k}/{wildcards.seed}/"
     return d
 
 
 nseeds = config.get('nseeds', 10)
+nepoch = config.get('nepochs', 6)
 model_files = expand("data/output/model.{k}/{seed}.torch",
                      k=modeling_experiments(), seed=range(nseeds))
 
@@ -149,9 +152,10 @@ rule fit_all_models:
 rule fit_model:
     input: inputs="data/processed/inputs.nc",
            forcings="data/processed/forcings.nc"
-    output: model="data/output/model.{k}/{seed}.torch",
-            json="data/output/model.{k}/{seed}.json"
-    log: "data/output/model.{k}/{seed}.log"
+    output: expand("data/output/model.{{k}}/{{seed}}/{epoch}/{f}", epoch=range(nepoch+1),\
+                   f=["model.torch"]),
+            "data/output/model.{k}/{seed}/loss.json"
+    log: "data/output/model.{k}/{seed}/log.txt"
     params: get_fit_params
     script: "scripts/torch_time_series2.py"
 
@@ -244,7 +248,3 @@ rule plot_model:
            mod="data/output/model.1/1.torch"
     output: "data/output/plots.html"
     script: "scripts/model_report.py"
-
-rule fit_models:
-    input: expand("data/output/model.{k}.torch", k=range(4))
-
