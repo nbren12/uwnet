@@ -134,8 +134,9 @@ def modeling_experiments():
 model_files = expand("data/output/model.{k}/{seed}.torch",
                      k=modeling_experiments(), seed=range(nseeds))
 
-model_errors = expand("data/output/model.{k}/{seed}/5/error.nc",
-                      k=modeling_experiments(), seed=range(nseeds))
+model_errors = expand("data/output/model.{k}/{seed}/{epoch}/error.nc",
+                      k=modeling_experiments(), seed=range(nseeds),
+                      epoch=range(nepoch+1))
 
 rule fit_all_models:
     input: model_files
