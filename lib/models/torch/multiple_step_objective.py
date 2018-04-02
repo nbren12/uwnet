@@ -3,6 +3,7 @@ special dataloaders etc
 
 """
 import pprint
+import json
 from collections import defaultdict
 from toolz import curry, first, valmap, merge_with, assoc
 import numpy as np
@@ -449,6 +450,8 @@ def train_multistep_objective(train_data, test_data, output_dir,
     logger.info("Called with parameters:\n" + pprint.pformat(arguments))
     logger.info(f"Saving to {output_dir}")
 
+    json.dump(arguments, open(f"{output_dir}/arguments.json", "w"))
+
     torch.manual_seed(seed)
 
     # the sampling interval of the data
@@ -570,14 +573,14 @@ def train_multistep_objective(train_data, test_data, output_dir,
         args = next(iter(data_loader))
         return nstepper, closure(args)
     else:
-        train(
-            train_loader,
-            closure,
-            optimizer=optimizer,
-            monitor=monitor,
-            num_epochs=num_epochs,
-            on_epoch_start=on_epoch_start,
-            on_finish=on_finish)
+        # train(
+        #     train_loader,
+        #     closure,
+        #     optimizer=optimizer,
+        #     monitor=monitor,
+        #     num_epochs=num_epochs,
+        #     on_epoch_start=on_epoch_start,
+        #     on_finish=on_finish)
 
         training_metadata = {
             'args': arguments,

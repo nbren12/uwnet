@@ -138,6 +138,10 @@ model_errors = expand("data/output/model.{k}/{seed}/{epoch}/error.nc",
                       k=modeling_experiments(), seed=range(nseeds),
                       epoch=range(nepoch+1))
 
+model_args = expand("data/output/model.{k}/{seed}/arguments.json",
+                      k=modeling_experiments(), seed=range(nseeds),
+                      epoch=range(nepoch+1))
+
 rule fit_all_models:
     input: model_files
 
@@ -154,9 +158,11 @@ def fit_model_params(wildcards):
 rule fit_model:
     input: inputs="data/processed/inputs.nc",
            forcings="data/processed/forcings.nc"
-    output: expand("data/output/model.{{k}}/{{seed}}/{epoch}/{f}", epoch=range(nepoch+1),\
-                   f=["model.torch"]),
-            "data/output/model.{k}/{seed}/loss.json"
+    output:
+        expand("data/output/model.{{k}}/{{seed}}/{epoch}/{f}",\
+               epoch=range(nepoch+1), f=["model.torch"]),
+        "data/output/model.{k}/{seed}/loss.json",
+        "data/output/model.{k}/{seed}/arguments.json",
     log: "data/output/model.{k}/{seed}/log.txt"
     params: fit_model_params
     script: "scripts/torch_time_series2.py"
@@ -172,23 +178,7 @@ rule test_model:
 rule combine_errors:
     input: model_errors
     output: "data/output/test_error.nc"
-    run:
-        import re
-        import pandas as pd
-        import json
-        idx = pd.Index(model_errors, name='model')
-
-        errors = []
-        for f in input:
-            d, filename = os.path.split(f)
-            seed = filename.split('.')[0]
-            params = json.load(open(f"{d}/{seed}.json"))['args']
-            params['nhidden'] = params['nhidden'][0]
-            err = xr.open_dataset(f).assign(**params)
-            errors.append(err)
-
-        ds = xr.concat(errors, dim=idx)
-        ds.to_netcdf(output[0])
+    script: "scripts/combine_errors.py"
 
 rule forced_column_slp:
     input: model="data/output/{model}/{id}.torch",
