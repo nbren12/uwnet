@@ -1,146 +1,124 @@
-"""Plots of the training process for the neural network"""
-import glob
-import json
-import os
-import re
-
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
-import seaborn as sns
-from toolz import merge
+
+import xarray as xr
 
 
-def open_json(path, **kwargs):
-    d = json.load(open(path))
-
-    metadata = merge(d['args'], kwargs)
-    metadata['path'] = path
-    metadata['nhidden'] = metadata['nhidden'][0]
-
-    df = pd.DataFrame(d['training']).assign(**metadata)
-    return df
+def mass_weight(w, err):
+    mass = w.sum('z')
+    mw = (w * err).sum('z') / mass
+    return mw.median('seed').mean('y')
 
 
-def open_model(path, **kwargs):
-    seeds = glob.glob(path + "/*.json")
-    for seed in seeds:
-        i = os.path.splitext(os.path.basename(seed))[0]
-        yield open_json(seed, seed=i, **kwargs)
+def get_data(path="../data/output/test_error.nc"):
+    errors = xr.open_dataset(path)
+
+    ds = xr.Dataset(
+        dict(
+            mqt=mass_weight(errors.w, errors.qt),
+            msl=mass_weight(errors.w, errors.sl),
+            train=errors.train_loss,
+            nhidden=errors.nhidden.isel(seed=0),
+            window_size=errors.window_size.isel(seed=0), ))
+
+    return ds.to_dataframe().reset_index()
 
 
-def _open_jsons(path):
-    models = glob.glob(path + "/model.*")
-    models = filter(os.path.isdir, models)
-    for model in models:
-        m = re.search(r"model\.(.+)", os.path.basename(model))
-        yield from open_model(model, model=m.group(1))
+def plot_error_series(x, y, hue, data, ax=None, **kwargs):
+
+    if not ax:
+        ax = plt.gca()
+
+    lines = []
+    ns = []
+    for n, val in data.groupby(hue):
+        val = val.groupby(x).min().reset_index()
+        val = val.sort_values(x)
+        line, = ax.plot(val[x], val[y], label=n, **kwargs)
+        lines.append(line)
+        ns.append(n)
+    return ns, lines
 
 
-def open_jsons(path):
-    return pd.concat(_open_jsons(path), axis=0)
+def plot_parameter_experiments(y, df, ax=None):
+    if not ax:
+        ax = plt.gca()
+
+    ax.set_prop_cycle(plt.cycler('alpha', [.2, .4, .6, .8, 1.0]))
+
+    t, wind = plot_error_series(
+        "epoch",
+        y,
+        "nhidden",
+        df[(df.window_size == 10) & (df.epoch >= 1)],
+        marker='s',
+        color='k',
+        ax=ax)
+
+    n, nhid = plot_error_series(
+        "epoch",
+        y,
+        "window_size",
+        df[(df.nhidden == 128) & (df.epoch >= 1) & (df.window_size > 2)],
+        marker='s',
+        color='r',
+        ax=ax)
+
+    return t, wind, n, nhid
 
 
-def plot_parameter_sensitivity(data):
-    vt, nhid = data
-    fig, (axn, axt) = plt.subplots(
-        1,
-        2,
-        figsize=(3, 2),
-        sharey=True,
-        gridspec_kw=dict(width_ratios=(.67, .33), wspace=0))
-
-    kws = dict(capsize=.2, join=True, markers='', linewidth=1.0)
-
-    sns.pointplot(
-        x="nhidden", y="test_loss", data=nhid[nhid.epoch > 2], ax=axn,
-        color='b', **kws)
-    sns.pointplot(
-        x="window_size", y="test_loss", data=vt[vt.epoch > 2], ax=axt,
-        color='r', **kws)
-
-    axt.set_ylabel('')
-    axn.set_ylabel('Error')
-
-    axn.set_xlabel("Hidden Nodes")
-    axt.set_xlabel("Window Size")
-    fig.suptitle("Test error for last 4 epochs")
-
-    axt.yaxis.set_visible(False)
-    for spine in ['left', 'right', 'top']:
-        axt.spines[spine].set_color('none')
-
-    remove_spines(axn)
-    axt.spines['bottom'].set_position(('outward', 5))
-    plt.tight_layout()
-
-    return axn, axt
+def add_legend(args, ax, kw1={}, kw2={}):
+    t, wind, n, nhid = args
+    leg1 = plt.legend(wind, t, title='Number Hidden', **kw1)
+    ax.add_artist(leg1)
+    leg2 = plt.legend(nhid, n, title='Window Size', **kw2)
 
 
-def remove_spines(ax):
-    ax.spines['right'].set_color('none')
-    ax.spines['top'].set_color('none')
-
-    ax.spines['left'].set_position(('outward', 5))
-    ax.spines['bottom'].set_position(('outward', 5))
+def adjust_spines(ax):
+    for spine in ['right', 'top']:
+        ax.spines[spine].set_color('none')
 
 
-def plot_epochs_vs_loss(data):
-    vt, nhid = data
+def combined_plots(df):
 
-    def plot_train_test(val, axtrain, axtest, **kwargs):
-        stats = val.groupby('epoch').median()
-        stats.index += 1
-        stats.test_loss.plot(ax=axtest, **kwargs)
-        stats.train_loss.plot(ax=axtrain, **kwargs)
+    fig, axs = plt.subplots(1, 3, figsize=(6.0, 2.0), constrained_layout=True)
 
-    legend_box = (1.0, .7)
-    fig, (axtrain, axtest) = plt.subplots(1, 2, figsize=(5, 2.3))
+    plot_parameter_experiments("train", df, ax=axs[0])
+    axs[0].set_title("A) Training Loss", loc="left")
 
-    kws = dict(marker='s')
+    plot_parameter_experiments("mqt", df, ax=axs[1])
+    axs[1].set_title("B) Test error ($q_T$)", loc="left")
 
-    lines_nhid = []
-    lines_vt = []
+    args = plot_parameter_experiments("msl", df, ax=axs[2])
+    axs[2].set_title("B) Test error ($s_L$)", loc="left")
 
-    alpha = .2
-    for n, val in nhid.groupby('nhidden'):
-        plot_train_test(
-            val, axtrain, axtest, color='b', alpha=alpha, label=n, **kws)
-        lines_nhid.append(n)
-        alpha += .2
+    for ax in axs:
+        adjust_spines(ax)
 
-    leg1 = plt.legend(
-        axtest.get_lines(),
-        lines_nhid,
-        title='Hidden Nodes',
-        loc="upper left",
-        bbox_to_anchor=legend_box)
+    # x axis styling
+    for ax in axs:
+        ax.set_xticks(np.arange(1, 6))
+        ax.set_xlabel('Epoch')
 
-    alphas = np.linspace(0, 1, 4)[1:]
-    for alpha, (T, val) in zip(alphas, vt.groupby('window_size')):
-        plot_train_test(
-            val, axtrain, axtest, color='r', label=T, alpha=alpha, **kws)
-        lines_vt.append(T)
+    loc = (1.0, .5)
+    add_legend(
+        args,
+        ax=axs[2],
+        kw1=dict(
+            loc="lower left",
+            bbox_to_anchor=loc,
+            frameon=False, ),
+        kw2=dict(loc="upper left", bbox_to_anchor=loc, frameon=False))
 
-    axtest.add_artist(leg1)
 
-    leg2 = plt.legend(
-        axtest.get_lines()[-3:],
-        lines_vt,
-        title='Window Size',
-        loc="lower left",
-        bbox_to_anchor=legend_box)
+def main(path):
+    """main plotting routine
 
-    # labels
-    axtrain.set_title('A) Training Loss', loc="left")
-    axtest.set_title('B) Median Test Error', loc="left")
+    Parameters:
+    -----------
+    path : str
+         path to test_error.nc
 
-    for ax in [axtrain, axtest]:
-        remove_spines(ax)
-        ax.set_xticks(np.r_[1:6])
-        ax.set_xlabel("Epoch")
-
-    plt.tight_layout()
-    plt.subplots_adjust(right=.80)
-
-    return axtrain, axtest
+    """
+    df = get_data(path)
+    combined_plots(df)
