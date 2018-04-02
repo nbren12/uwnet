@@ -41,29 +41,6 @@ def open_jsons(path):
     return pd.concat(_open_jsons(path), axis=0)
 
 
-def get_plotting_data(path):
-    df = open_jsons(path)
-
-    # fill in Na to training loss when batch = 0
-    df.loc[df.batch == 0, 'train_loss'] = np.NaN
-    # only keep a subet of the variables
-    variables = [
-        'nhidden', 'window_size', 'test_loss', 'train_loss', 'epoch', 'batch',
-        'seed'
-    ]
-    df = df[variables]
-
-    # Get vary num hidden experiment
-    nhid = df[df.window_size == 10]
-    vt = df[df.nhidden == 128].dropna()
-
-    # remove outliers
-    # nhid = nhid[~((nhid.seed == '6') & (nhid.nhidden == 256))]
-    vt = vt[vt.window_size != 2].dropna()
-
-    return vt, nhid
-
-
 def plot_parameter_sensitivity(data):
     vt, nhid = data
     fig, (axn, axt) = plt.subplots(
