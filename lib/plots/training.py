@@ -44,23 +44,23 @@ def plot_parameter_experiments(y, df, ax=None):
     if not ax:
         ax = plt.gca()
 
-    ax.set_prop_cycle(plt.cycler('alpha', [.2, .4, .6, .8, 1.0]))
-
+    ax.set_prop_cycle(plt.cycler('alpha', np.linspace(.3, 1, 4)[::-1]))
     t, wind = plot_error_series(
         "epoch",
         y,
         "nhidden",
         df[(df.window_size == 10) & (df.epoch >= 1)],
-        marker='s',
+        marker='s', markersize=4.0,
         color='k',
         ax=ax)
 
+    ax.set_prop_cycle(plt.cycler('alpha', np.linspace(.3, 1, 4)[::-1]))
     n, nhid = plot_error_series(
         "epoch",
         y,
         "window_size",
         df[(df.nhidden == 128) & (df.epoch >= 1) & (df.window_size > 2)],
-        marker='s',
+        marker='s', markersize=4.0,
         color='r',
         ax=ax)
 
@@ -69,7 +69,7 @@ def plot_parameter_experiments(y, df, ax=None):
 
 def add_legend(args, ax, kw1={}, kw2={}):
     t, wind, n, nhid = args
-    leg1 = plt.legend(wind, t, title='Number Hidden', **kw1)
+    leg1 = plt.legend(wind, t, title='Hidden Nodes', **kw1)
     ax.add_artist(leg1)
     leg2 = plt.legend(nhid, n, title='Window Size', **kw2)
 
