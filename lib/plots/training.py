@@ -90,7 +90,7 @@ def combined_plots(df):
     axs[1].set_title("B) Test error ($q_T$)", loc="left")
 
     args = plot_parameter_experiments("msl", df, ax=axs[2])
-    axs[2].set_title("B) Test error ($s_L$)", loc="left")
+    axs[2].set_title("C) Test error ($s_L$)", loc="left")
 
     for ax in axs:
         adjust_spines(ax)
