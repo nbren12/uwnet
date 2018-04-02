@@ -238,3 +238,6 @@ docs/summary.tex
 *.mod
 .envrc
 .snakemake
+archives
+reports
+.snakemake.*
