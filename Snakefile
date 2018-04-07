@@ -165,7 +165,7 @@ rule fit_model:
         "data/output/model.{k}/{seed}/arguments.json",
     log: "data/output/model.{k}/{seed}/log.txt"
     params: fit_model_params
-    script: "scripts/torch_time_series2.py"
+    script: "scripts/train_neural_network.py"
 
 
 rule test_model:
