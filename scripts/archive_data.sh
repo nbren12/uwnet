@@ -1,7 +1,7 @@
 #!/bin/sh
 
 
-find data  -name 'model.torch' -o -name '*.json'\
+find data  -name '*.torch' -o -name '*.json'\
           -o -path 'data/output/columns.nc'\
           -o -path 'data/output/test_error.nc'\
           -o -path 'data/output/scam.nc'\
