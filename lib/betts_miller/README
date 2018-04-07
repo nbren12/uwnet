@@ -1,4 +1,0 @@
-This is the betts miller convection scheme used in Dargan Friersons model. All
-the unnessary dependencies to AM specific modules have been removed. These
-dependencies mainly dealt with things like namelist opening and initialization
-that can easily be recreated.

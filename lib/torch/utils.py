@@ -56,21 +56,3 @@ def train(data_loader, loss_fn, optimizer, num_epochs=1, monitor=None,
     logging.info("Done Training. Time elapsed {}".format(timer()-t_begin_train))
     if on_finish:
         on_finish()
-
-
-def jacobian(net, x):
-    """Compute the Jacobian of a torch module with respect to its inputs"""
-    x0 = torch.FloatTensor(np.squeeze(x)).double()
-    x0 = Variable(x0, requires_grad=True)
-
-    nv = x0.size(0)
-
-    jac = torch.zeros(nv, nv)
-
-    for i in range(nv):
-        outi = net(x0)[i]
-        outi.backward()
-        jac[i, :] = x0.grad.data
-        x0.grad.data.zero_()
-
-    return jac.numpy()

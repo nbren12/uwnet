@@ -7,7 +7,7 @@
 import xarray as xr
 import numpy as np
 import torch
-from lib.models.torch import train_multistep_objective
+from lib.torch import train_multistep_objective
 from lib.data import prepare_data
 import json, sys
 from contextlib import redirect_stdout
