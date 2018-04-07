@@ -1,10 +1,7 @@
 import sys
 import xarray as xr
 import os
-from lib.thermo import liquid_water_temperature, total_water, q1, q2
-from lib.util import xopena, wrap_xarray_calculation
 from lib.scam import create_iopfile
-from xnoah import swap_coord
 
 configfile: "config.yaml"
 nseeds = config.get('nseeds', 10)
