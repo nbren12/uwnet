@@ -13,7 +13,7 @@ import xarray as xr
 import os
 
 import torch
-from ..models.torch import column_run
+from ..torch import column_run
 # from lib.evaluation.single_column import forced_step, runsteps, step
 
 

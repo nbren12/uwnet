@@ -15,7 +15,7 @@ def load_data(root_dir):
               .isel(x=10, y=8).pipe(mean)
     rce_cam = xr.open_dataset(f"{root_dir}/data/processed/rce/10-8/cam.nc")\
                 .squeeze().pipe(mean)
-    rce_nn = xr.open_dataset(f"{root_dir}/data/output/model.VaryT-20/3.rce.nc")\
+    rce_nn = xr.open_dataset(f"{root_dir}/data/output/model.VaryT-20/3/5/rce.nc")\
                .isel(x=10, y=8).pipe(mean)
 
     stat_file = f"{root_dir}/data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc"

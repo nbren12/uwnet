@@ -8,8 +8,7 @@ import xarray as xr
 from xnoah import swap_coord
 
 
-def load_data(best_nn="model.VaryNHid-256/2",
-              datadir="../../data"):
+def load_data(best_nn, datadir="../../data"):
 
     # Truth
 
@@ -20,8 +19,7 @@ def load_data(best_nn="model.VaryNHid-256/2",
     p0 = truth.p
 
     # neural network scheme
-    best_path = root / f"output/{best_nn}.columns.nc"
-    nn_cols = xr.open_dataset(best_path)
+    nn_cols = xr.open_dataset(best_nn)
 
     # load and interpolate CAM
     cam = xr.open_dataset(root / "output/scam.nc")
