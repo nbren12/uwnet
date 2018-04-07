@@ -8,15 +8,13 @@ import pprint
 
 import numpy as np
 import torch
-from toolz import curry, merge_with, valmap
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
 
-from .datasets import DictDataset, WindowedData
 from .utils import train
-from . import model
-from .loss import dynamic_loss
+from . import model, data
+
 
 logger = logging.getLogger(__name__)
 
@@ -32,91 +30,6 @@ def _prepare_vars_in_nested_dict(data, cuda=False):
             key: _prepare_vars_in_nested_dict(val, cuda=cuda)
             for key, val in data.items()
         }
-
-
-def prepare_dataset(data,
-                    window_size,
-                    prognostic_variables=('sl', 'qt'),
-                    forcing_variables=('sl', 'qt', 'QRAD', 'LHF', 'SHF',
-                                       'Prec', 'W', 'SOLIN')):
-
-
-    X, G = data['X'], data['G']
-    X = DictDataset({
-        key: WindowedData(X[key], window_size)
-        for key in prognostic_variables
-    })
-    G = DictDataset(
-        {key: WindowedData(G[key], window_size)
-         for key in forcing_variables})
-
-    return DictDataset({'prognostic': X, 'forcing': G})
-
-
-def _numpy_to_variable(x):
-    return Variable(torch.FloatTensor(x))
-
-
-def _data_to_scaler(data, cuda=False):
-    # compute mean and stddev
-    # this is an error, std does not work like this
-    means = {}
-    scales = {}
-    for key in data['X']:
-        X = data['X'][key]
-        m = X.shape[-1]
-        mu = X.reshape((-1, m)).mean(axis=0)
-        sig = X.reshape((-1, m)).std(axis=0)
-
-        # convert to torch
-        mu, sig = [_numpy_to_variable(np.squeeze(x)) for x in [mu, sig]]
-        sig = torch.mean(sig)
-
-        if cuda:
-            mu = mu.cuda()
-            sig = sig.cuda()
-
-        means[key] = mu
-        scales[key] = sig
-
-    return scaler(scales, means)
-
-
-def _data_to_loss_feature_weights(data, cuda=True):
-    def _f(args):
-        w, scale = args
-        return w / scale**2
-
-    w = merge_with(_f, data['w'], data['scales'])
-    w = valmap(_numpy_to_variable, w)
-
-    if cuda:
-        w = valmap(lambda x: x.cuda(), w)
-
-    return w
-
-
-def _scale_var(scale, mean, x):
-    x = x.double()
-    mu = mean.double()
-    sig = scale.double()
-
-    x = x.sub(mu)
-    x = x.div(sig + 1e-7)
-
-    return x.float()
-
-
-@curry
-def scaler(scales, means, x):
-    out = {}
-    for key in x:
-        if key in scales and key in means:
-            out[key] = _scale_var(scales[key], means[key], x[key])
-        else:
-            out[key] = x[key]
-    return out
-
 
 
 
@@ -159,17 +72,23 @@ def train_multistep_objective(train_data, test_data, output_dir,
         dt = dt.cuda()
 
     # load training and testing datasets
-    train_dataset = prepare_dataset(train_data, window_size)
-    test_dataset = prepare_dataset(test_data, test_window_size)
+    train_dataset = data.to_dataset(train_data, window_size)
+    test_dataset = data.to_dataset(test_data, test_window_size)
     ntrain = len(train_dataset)
     ntest = len(test_dataset)
 
     logging.info(f"Training dataset length: {ntrain}")
     logging.info(f"Testing dataset length: {ntest}")
 
+    # define constants to be used by model
+    constants = data.to_constants(train_data)
+    scaler = data.to_scaler(train_data)
+    loss = data.to_dynamic_loss(train_data,
+                                radiation_in_loss=radiation == 'interactive', precip_in_loss=precip_in_loss,
+                                cuda=cuda)
+
+
     # compute weights and scales for loss functions
-    scaler = _data_to_scaler(train_data, cuda=cuda)
-    weights = _data_to_loss_feature_weights(train_data, cuda=cuda)
 
     # Create training and testing data loaders
     if num_batches:
@@ -185,22 +104,14 @@ def train_multistep_objective(train_data, test_data, output_dir,
     train_loader = DataLoader(train_dataset, batch_size=batch_size,
                               sampler=SubsetRandomSampler(training_inds))
 
-    # make a test_loader object
     testing_inds = np.random.choice(len(test_dataset), num_test_examples,
                                     replace=False)
     test_loader = DataLoader(test_dataset, batch_size=len(testing_inds),
                              sampler=SubsetRandomSampler(testing_inds))
 
 
-    # define constants to be used by model
-    constants = {
-        'w': Variable(torch.FloatTensor(train_data['w']['sl'])),
-        'z': Variable(torch.FloatTensor(train_data['z']))
-    }
-
     # define the neural network
-    m = sum(valmap(lambda x: x.size(-1), weights).values())
-
+    m = data.get_num_features(train_data)
     rhs = model.RHS(
         m,
         hidden=nhidden,
@@ -216,18 +127,15 @@ def train_multistep_objective(train_data, test_data, output_dir,
     optimizer = torch.optim.Adam(
         rhs.parameters(), lr=lr, weight_decay=weight_decay)
 
-
-    # define the loss
-    loss = dynamic_loss(weights=weights,
-                        radiation_in_loss=radiation == 'interactive', precip_in_loss=precip_in_loss)
-
     # move data to gpu if appropriate
     if cuda:
         nstepper.cuda()
         for key in constants:
             constants[key] = constants[key].cuda()
 
-
+    ##
+    # model training code below here
+    ##
     def closure(batch):
         batch = _prepare_vars_in_nested_dict(batch, cuda=cuda)
         batch['constant'] = constants
