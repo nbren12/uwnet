@@ -16,6 +16,7 @@ from torch.utils.data.sampler import SubsetRandomSampler
 from .datasets import DictDataset, WindowedData
 from .utils import train
 from . import model
+from .loss import dynamic_loss
 
 logger = logging.getLogger(__name__)
 
@@ -117,10 +118,6 @@ def scaler(scales, means, x):
     return out
 
 
-@curry
-def weighted_loss(weight, x, y):
-    # return torch.mean(torch.pow(x - y, 2).mul(weight.float()))
-    return torch.mean(torch.abs(x - y).mul(weight.float()))
 
 
 def train_multistep_objective(train_data, test_data, output_dir,
@@ -161,18 +158,20 @@ def train_multistep_objective(train_data, test_data, output_dir,
     if cuda:
         dt = dt.cuda()
 
-    train_slice = slice(200, None)
-    test_slice = slice(0, 200)
-
+    # load training and testing datasets
     train_dataset = prepare_dataset(train_data, window_size)
     test_dataset = prepare_dataset(test_data, test_window_size)
-
     ntrain = len(train_dataset)
     ntest = len(test_dataset)
+
     logging.info(f"Training dataset length: {ntrain}")
     logging.info(f"Testing dataset length: {ntest}")
 
-    # train on only a bootstrap sample
+    # compute weights and scales for loss functions
+    scaler = _data_to_scaler(train_data, cuda=cuda)
+    weights = _data_to_loss_feature_weights(train_data, cuda=cuda)
+
+    # Create training and testing data loaders
     if num_batches:
         logger.info(f"Using boostrap sample of {num_batches}. Setting "
                     "number of epochs to 1.")
@@ -192,8 +191,12 @@ def train_multistep_objective(train_data, test_data, output_dir,
     test_loader = DataLoader(test_dataset, batch_size=len(testing_inds),
                              sampler=SubsetRandomSampler(testing_inds))
 
-    scaler = _data_to_scaler(train_data, cuda=cuda)
-    weights = _data_to_loss_feature_weights(train_data, cuda=cuda)
+
+    # define constants to be used by model
+    constants = {
+        'w': Variable(torch.FloatTensor(train_data['w']['sl'])),
+        'z': Variable(torch.FloatTensor(train_data['z']))
+    }
 
     # define the neural network
     m = sum(valmap(lambda x: x.size(-1), weights).values())
@@ -213,41 +216,18 @@ def train_multistep_objective(train_data, test_data, output_dir,
     optimizer = torch.optim.Adam(
         rhs.parameters(), lr=lr, weight_decay=weight_decay)
 
-    constants = {
-        'w': Variable(torch.FloatTensor(train_data['w']['sl'])),
-        'z': Variable(torch.FloatTensor(train_data['z']))
-    }
+
+    # define the loss
+    loss = dynamic_loss(weights=weights,
+                        radiation_in_loss=radiation == 'interactive', precip_in_loss=precip_in_loss)
+
+    # move data to gpu if appropriate
     if cuda:
         nstepper.cuda()
         for key in constants:
             constants[key] = constants[key].cuda()
 
-    def loss(truth, pred):
-        x = truth['prognostic']
-        y = pred['prognostic']
 
-        total_loss = 0
-        # time series loss
-        for key in y:
-            total_loss += weighted_loss(weights[key], x[key], y[key]) / len(y)
-
-        if precip_in_loss:
-            # column budget losses this compares he predicted precipitation for
-            # each field to reality
-            prec = truth['forcing']['Prec']
-            predicted = pred['diagnostic']['Prec']
-            observed = (prec[1:] + prec[:-1]) / 2
-            total_loss += torch.mean(torch.pow(observed - predicted, 2)) / 5
-
-        if radiation == 'interactive':
-            qrad = truth['forcing']['QRAD']
-            predicted = pred['diagnostic']['QRAD'][0]
-            observed = qrad[0]
-            total_loss += torch.mean(torch.pow(observed - predicted, 2))
-
-        return total_loss
-
-    # _init_linear_weights(net, .01/nsteps)
     def closure(batch):
         batch = _prepare_vars_in_nested_dict(batch, cuda=cuda)
         batch['constant'] = constants
