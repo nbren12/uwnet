@@ -157,6 +157,7 @@ def train_multistep_objective(train_data, test_data, output_dir,
     def on_finish():
         import json
         torch.save(nstepper, f"{output_dir}/{num_epochs}/model.torch")
+        torch.save(nstepper.to_saved(), f"{output_dir}/{num_epochs}/state.torch")
         json.dump(epoch_data, open(f"{output_dir}/loss.json", "w"))
 
     train(

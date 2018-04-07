@@ -157,7 +157,7 @@ rule fit_model:
            forcings="data/processed/forcings.nc"
     output:
         expand("data/output/model.{{k}}/{{seed}}/{epoch}/{f}",\
-               epoch=range(nepoch+1), f=["model.torch"]),
+               epoch=range(nepoch+1), f=["model.torch", "state.torch"]),
         "data/output/model.{k}/{seed}/loss.json",
         "data/output/model.{k}/{seed}/arguments.json",
     log: "data/output/model.{k}/{seed}/log.txt"
