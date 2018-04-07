@@ -308,3 +308,36 @@ class ForcedStepper(nn.Module):
         y['prognostic'] = valmap(torch.stack, steps)
         y['diagnostic'] = valmap(torch.stack, diagnostics)
         return y
+
+
+    @staticmethod
+    def load_from_saved(d):
+        from .data import scaler
+        m, rhs_kw = d.pop('rhs')
+        rhs_kw['scaler'] =  scaler(*rhs_kw.pop('scaler_args'))
+        rhs = RHS(m, **rhs_kw)
+
+
+        stepper_kw = d.pop('stepper')
+        stepper = ForcedStepper(rhs, **stepper_kw)
+        stepper.load_state_dict(d.pop('state'))
+
+        return stepper
+
+
+    def to_saved(self):
+
+        m = self.rhs.lin.out_features
+        nhidden =  self.rhs.mlp[0].out_features
+        rhs_kwargs = dict(num_2d_inputs=self.rhs.lin.in_features - m,
+                        hidden=(nhidden,),
+                        precip_positive=self.rhs.precip_positive,
+                        radiation=self.rhs.radiation,
+                        scaler_args=self.rhs.scaler.args)
+        output_dict = {
+            'rhs': (m, rhs_kwargs),
+            'stepper': dict(h=self.h, nsteps=self.nsteps),
+            'state': self.state_dict()
+        }
+
+        return output_dict

@@ -178,19 +178,19 @@ rule combine_errors:
     script: "scripts/combine_errors.py"
 
 rule forced_column_slp:
-    input: model="data/output/{model}/{id}.torch",
+    input: state="{d}/state.torch",
            inputs="data/processed/inputs.nc",
            forcings="data/processed/forcings.nc"
     priority: 10
-    output: "data/output/{model}/{id}.columns.nc"
+    output: "{d}/columns.nc"
     script: "scripts/forced_column_slp.py"
 
 rule rce_column_slp:
-    input: model="data/output/{model}/{id}.torch",
+    input: model="{d}/model.torch",
             inputs="data/processed/inputs.nc",
             forcings="data/processed/forcings.nc"
     priority: 10
-    output: "data/output/{model}/{id}.rce.nc"
+    output: "{d}/rce.nc"
     params: RCE=True
     script: "scripts/forced_column_slp.py"
 
