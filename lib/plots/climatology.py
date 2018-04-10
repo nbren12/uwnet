@@ -5,9 +5,9 @@ from .common import hide_xlabels
 
 
 def adjust_spines(ax):
-    for d in ['right', 'top']:
+    for d in ['right', 'top', 'left']:
         ax.spines[d].set_color('none')
-    ax.spines['left'].set_position('zero')
+    # ax.spines['left'].set_position('zero')
 
 
 def _plot_bias_sig(loc, ax=None, colors=('k', 'b', 'g')):
@@ -48,9 +48,7 @@ def plot_profiles(loc, axs=None):
     axs[1].set_xlim([-2, 4])
 
     # labels and legends
-    axs[0].set_title(r'C) $q_T $ (g/kg)', loc="left")
-    axs[0].legend(lines.values(), lines.keys(), loc=(0.5, .7))
-    axs[1].set_title(r'D) $s_L$ (K)', loc="left")
+    axs[0].legend(lines.values(), lines.keys(), loc=(0.5, .6))
 
     return axs
 
@@ -73,8 +71,8 @@ def plot_bias_pres_vs_lat(ds_test, axs):
     bias = (ds_test.sel(model='Neural Network').mean(['x', 'time'])
             - ds_test.sel(model='Truth').mean(['x', 'time']))
 
-    _plot_pres_vs_lat(bias.qt, axs[0], title="A) Humidity bias (g/kg)")
-    _plot_pres_vs_lat(bias.sl, axs[1], title="B) Temperature bias (K)")
+    _plot_pres_vs_lat(bias.qt, axs[0], title="B) Humidity bias (g/kg)")
+    _plot_pres_vs_lat(bias.sl, axs[1], title="E) Temperature bias (K)")
 
 
 def plot(ds_test, width=5.5):

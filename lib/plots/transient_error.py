@@ -86,31 +86,28 @@ def _adjust_column_error_plots(axQ, axT):
                bbox_to_anchor=(0.0, .80), loc="lower left")
 
 
-def plot_column_error(ds):
+def plot_column_error(field, ds, ax=None):
     # ds_no_cam = ds.drop('CAM', dim='model').sel(y=slice(-400e3, 400e3))
 
     mad = compute_errors(mean_absolute_dev, ds, dims=['x'])
-    mad_sl = valmap(get('sl'), mad)
-    mad_qt = valmap(get('qt'), mad)
+    mad_sl = valmap(get(field), mad)
 
     mass_mad_sl = xr.Dataset(
         {k: -integrate(v, 'p') / 1015
          for k, v in mad_sl.items()}).to_dataframe()
-    mass_mad_qt = xr.Dataset(
-        {k: -integrate(v, 'p') / 1015
-         for k, v in mad_qt.items()}).to_dataframe()
+
+    if ax:
+        ax.set_prop_cycle(plt.cycler('color', 'kbgy'))
 
     with plt.rc_context({
             'axes.prop_cycle': plt.cycler('color', 'kbgy'),
             'lines.linewidth': 1.0,
     }):
+        if not ax:
+            ax = plt.gca()
 
-        fig, (axQ, axT) = plt.subplots(
-            2, 1, figsize=(3, 5), dpi=100, sharex=True)
+        return mass_mad_sl.plot(ax=ax, legend=False)
+        # _adjust_column_error_plots(axQ, axT)
+        # plt.tight_layout()
 
-        mass_mad_sl.plot(ax=axT, legend=False)
-        mass_mad_qt.plot(ax=axQ, legend=False)
-        _adjust_column_error_plots(axQ, axT)
-        plt.tight_layout()
-
-        return axQ, axT
+        # return ax
