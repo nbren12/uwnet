@@ -32,11 +32,6 @@ rule download_data_file:
     output: "data/raw/{f}"
     shell: "rsync --progress -z nbren12@olympus:/home/disk/eos8/nbren12/Data/id/{wildcards.f} {output}"
 
-rule weights:
-    input: "data/raw/ngaqua/stat.nc"
-    output: "data/processed/ngaqua/w.nc"
-    script: "scripts/weights.py"
-
 rule inputs_and_forcings:
     input: d3=files_3d, d2=file_2d, stat=file_stat
     output: inputs="data/processed/inputs.nc",
