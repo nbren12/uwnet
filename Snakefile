@@ -3,24 +3,20 @@ import xarray as xr
 import os
 from lib.scam import create_iopfile
 
+# configurations
 configfile: "config.yaml"
 nseeds = config.get('nseeds', 10)
 nepoch = config.get('nepochs', 6)
 
 # setup environment
 os.environ['PYTHONPATH'] = os.path.abspath(os.getcwd())
+print("PYTHONPATH", os.environ['PYTHONPATH'])
 shell.executable("/bin/bash")
 
-
-print(os.environ['PYTHONPATH'])
-# subworkflow ngaqua:
-#     snakefile: "snakemake/sam.rules"
-#     workdir: "data/ngaqua"
-#     configfile: "results/2017-09-28/ngaqua/config.yaml"
-
-
-# rule all:
-#     input: ngaqua("3d/Q1.nc")
+# input files
+files_3d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/all.nc"
+file_2d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc"
+file_stat = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc"
 
 output_files = [
     "data/output/model.VaryT-20/3.rce.nc",
@@ -32,56 +28,14 @@ output_files = [
 rule all:
     input: output_files
 
-
-ngaqua_files =[
-    'coarse/',
-    'coarse/3d',
-    'coarse/3d/TABS.nc',
-    'coarse/3d/QRAD.nc',
-    'coarse/3d/QP.nc',
-    'coarse/3d/QV.nc',
-    'coarse/3d/V.nc',
-    'coarse/3d/W.nc',
-    'coarse/3d/QN.nc',
-    'coarse/3d/U.nc',
-    'coarse/3d/W.destaggered.nc',
-    'coarse/2d/all.nc',
-    'stat.nc',
-    'README'
-]
-
-run_ids = [
-    '726a6fd3430d51d5a2af277fb1ace0c464b1dc48', '2/NG_5120x2560x34_4km_10s_QOBS_EQX'
-]
-
-manifest = {
-    '2/NG_5120x2560x34_4km_10s_QOBS_EQX': [
-        'coarse/3d/all.nc',
-        'coarse/2d/all.nc',
-        'stat.nc',
-    ]
-}
-
-
 rule download_data_file:
     output: "data/raw/{f}"
     shell: "rsync --progress -z nbren12@olympus:/home/disk/eos8/nbren12/Data/id/{wildcards.f} {output}"
-
-def _run_output(id):
-    for f in manifest.get(id, ngaqua_files):
-        yield os.path.join("data/raw", id, f)
-
-rule all_data:
-    input: _run_output(run_ids[1])
 
 rule weights:
     input: "data/raw/ngaqua/stat.nc"
     output: "data/processed/ngaqua/w.nc"
     script: "scripts/weights.py"
-
-files_3d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/all.nc"
-file_2d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc"
-file_stat = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc"
 
 rule inputs_and_forcings:
     input: d3=files_3d, d2=file_2d, stat=file_stat
@@ -89,22 +43,11 @@ rule inputs_and_forcings:
             forcings="data/processed/forcings.nc"
     script: "scripts/inputs_and_forcings.py"
 
-rule denoise:
-    input: "data/proccesed/forcings.nc"
-    output: "data/processed/denoised/forcings.nc"
-    run:
-        from lib.denoise import denoise
-        xr.open_dataset(input[0])\
-          .apply(denoise)\
-         .to_netcdf(output[0])
-
 rule time_series_data:
     input: inputs="data/processed/inputs.nc",
             forcings="data/processed/forcings.nc"
     output: "data/output/time_series_data.pkl",
     script: "scripts/torch_preprocess.py"
-
-
 
 def modeling_experiments():
     """A comprehensive list of the all the modelling experiments to present for the paper.
@@ -120,6 +63,7 @@ def modeling_experiments():
 
     # model_fit_params['1'] = dict(nhidden=(256,))
     # model_fit_params['best'] = dict(nhidden=(256,), num_epochs=2)
+    # model_fit_params['lrs'] = dict(nhidden=(256,), num_epochs=4, lr=.001)
     # model_fit_params['lrs'] = dict(nhidden=(256,), num_epochs=4, lr=.001)
 
     return model_fit_params
@@ -156,8 +100,7 @@ rule fit_model:
     input: inputs="data/processed/inputs.nc",
            forcings="data/processed/forcings.nc"
     output:
-        expand("data/output/model.{{k}}/{{seed}}/{epoch}/{f}",\
-               epoch=range(nepoch+1), f=["model.torch", "state.torch"]),
+        expand("data/output/model.{{k}}/{{seed}}/{epoch}/state.torch", epoch=range(nepoch+1)),
         "data/output/model.{k}/{seed}/loss.json",
         "data/output/model.{k}/{seed}/arguments.json",
     log: "data/output/model.{k}/{seed}/log.txt"
@@ -198,7 +141,6 @@ wildcard_constraints:
     i="\d+",
     j="\d+"
 
-
 rule make_iop_file:
     input: d3=files_3d, d2=file_2d, stat=file_stat
     output: "data/processed/iop.nc"
@@ -229,7 +171,6 @@ rule combine_scam:
     input: expand("data/processed/iop/{i}-{j}/cam.nc", i=range(128), j=8)
     output: "data/output/scam.nc"
     script: "scripts/combine_scam.py"
-
 
 rule plot_model:
     input: x="data/processed/inputs.nc",

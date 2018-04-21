@@ -94,7 +94,7 @@ def train_multistep_objective(train_data, test_data, output_dir,
     if num_batches:
         logger.info(f"Using boostrap sample of {num_batches}. Setting "
                     "number of epochs to 1.")
-        num_epochs = 1
+        # num_epochs = 1
         training_inds = np.random.choice(len(train_dataset),
                                          num_batches * batch_size, replace=False)
     else:
@@ -152,11 +152,13 @@ def train_multistep_objective(train_data, test_data, output_dir,
         logger.info("Epoch[batch]: {epoch}[{batch}]; Test Loss: {test_loss}; Train Loss: {train_loss}".format(**state))
 
     def on_epoch_start(epoch):
-        torch.save(nstepper, f"{output_dir}/{epoch}/model.torch")
+        file = f"{output_dir}/{epoch}/state.torch"
+        logger.info(f"Saving state to %s"%file)
+        torch.save(nstepper.to_saved(), file)
 
     def on_finish():
         import json
-        torch.save(nstepper, f"{output_dir}/{num_epochs}/model.torch")
+        # torch.save(nstepper, f"{output_dir}/{num_epochs}/model.torch")
         torch.save(nstepper.to_saved(), f"{output_dir}/{num_epochs}/state.torch")
         json.dump(epoch_data, open(f"{output_dir}/loss.json", "w"))
 
