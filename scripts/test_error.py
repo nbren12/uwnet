@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import xarray as xr
-from lib.models.torch import interface
+from lib.torch import interface
 
 
 def sel(x):
