@@ -19,10 +19,9 @@ file_2d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc"
 file_stat = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc"
 
 output_files = [
-    "data/output/model.VaryT-20/3.rce.nc",
-    "data/output/model.VaryT-20/3.columns.nc",
     "data/output/scam.nc",
     "data/processed/rce/10-8/cam.nc"
+    "data/output/model.VaryT-20/3/5/columns.nc"
 ]
 
 rule all:
