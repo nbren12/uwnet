@@ -1,8 +1,0 @@
-
-subworkflow ngaqua:
-    configfile: "../2017-09-28/ngaqua/config.yaml"
-    workdir: "../2017-09-28/ngaqua"
-    snakefile: "../2017-09-28/ngaqua/Snakefile"
-
-rule all:
-    input: ngaqua("X.nc")

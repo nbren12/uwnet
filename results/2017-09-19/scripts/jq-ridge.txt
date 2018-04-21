@@ -1,9 +1,0 @@
-[["total", "q1", "q2"] as $score_keys |
-    .[] |
-    .params.ridge__alpha as $a | .test_scores as $test | .train_scores as $train|
-    $train | to_entries |
-    map ({"score": $score_keys[.key], "test_error": $test[.key], "train_error": .value,
-          "alpha": $a})|
-    .[]    # now it is a bunch of dicts like this {test_error}
-    ]
-
