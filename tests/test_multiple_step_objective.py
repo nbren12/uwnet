@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from lib.models.torch.multiple_step_objective import (
+from lib.torch.model import (
     enforce_precip_sl, precip_from_s, enforce_precip_qt, precip_from_q,
     padded_deriv)
 
