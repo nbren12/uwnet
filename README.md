@@ -1,5 +1,7 @@
 # Machine learning approaches to convective parametrization
 
+This project contains the code accompanying an article to be submitted.
+
 
 ## Setup
 
