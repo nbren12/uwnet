@@ -60,9 +60,13 @@ def modeling_experiments():
     # model_fit_params['lrs'] = dict(nhidden=(256,), num_epochs=4, lr=.001)
     # model_fit_params['lrs'] = dict(nhidden=(256,), num_epochs=4, lr=.001)
 
+    # positive precipitation
+    model_fit_params['pos-prec'] = dict(precip_positive=True)
+
+    #precip in loss
+    model_fit_params['prec-loss'] = dict(precip_positive=True, precip_in_loss=True)
+
     return model_fit_params
-
-
 
 
 
@@ -105,7 +109,7 @@ rule fit_model:
 rule test_model:
     input: inputs="data/processed/inputs.nc",
            forcings="data/processed/forcings.nc",
-           model="{d}/model.torch"
+           model="{d}/state.torch"
     output: "{d}/error.nc"
     script: "scripts/test_error.py"
 

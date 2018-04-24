@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import xarray as xr
 from lib.torch import interface
+from lib.torch import ForcedStepper
 
 
 def sel(x):
@@ -91,7 +92,7 @@ def get_src_error(model, inputs, forcings):
 
 
 def main(torch_file, input_path, forcing_path, output):
-    model = torch.load(torch_file)
+    model = ForcedStepper.load_from_saved(torch.load(torch_file))
     inputs = xr.open_dataset(input_path).pipe(sel)
     forcings = xr.open_dataset(forcing_path).pipe(sel)
     test_error = get_test_error(model, inputs, forcings)
