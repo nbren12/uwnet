@@ -9,6 +9,7 @@ from collections import defaultdict
 import torch
 from toolz import assoc, first, valmap
 from torch import nn
+from .constraints import apply_linear_constraint
 
 from .. import constants
 
@@ -72,8 +73,7 @@ def precip_from_s(fsl, qrad, shf, w):
 
 
 def precip_from_q(fqt, lhf, w):
-    return -(fqt * w).sum(
-        -1, keepdim=True) / 1000. + lhf * 86400 / constants.Lv
+    return -(fqt * w).sum(-1, keepdim=True) / 1000. + lhf * 86400 / constants.Lv
 
 
 def mass_integrate(x, w):
@@ -106,27 +106,24 @@ def enforce_precip_sl(fsl, qrad, shf, precip, w):
     return fsl - f_col / mass + f_col_target / mass
 
 
-def enforce_precip_qt(fqt, lhf, precip, w):
-    """Adjust moisture tendency to match a target precipitation
+def enforce_precip_qt(fqt, lhf, w, **kwargs):
+    """Adjust moisture tendency to be positive
 
     .. math::
 
-        Lv < f >  = LHF - L P
+        < f >  = LHF/Lv - P
 
     Parameters
     ----------
     fqt : mm/day
     lhf : W/m^2
-    precip : mm/day
     w : kg /m^2
 
     """
-
-    mass = mass_integrate(1.0, w)
-    f_col = mass_integrate(fqt, w)
-    f_col_target = (lhf * 86400 / constants.Lv - precip) * 1000
-
-    return fqt - f_col / mass + f_col_target / mass
+    evap = lhf * 86400 / 2.51e6
+    return apply_linear_constraint(lambda x: -mass_integrate(x, w)/1000.,
+                                   -evap, fqt, inequality=True,
+                                   **kwargs)
 
 
 def where(cond, x, y):
@@ -134,9 +131,14 @@ def where(cond, x, y):
     return cond * x + (1.0-cond) * y
 
 
-def _fix_moisture_tend(q, fq, eps=1e-9, h=.125):
-    cond = q + h * fq > eps
-    return where(cond, fq, (eps-q)/h)
+def _fix_moisture(q, w, eps=1e-9):
+    """Remove negative moisture points while conserving total moisture"""
+    cond = q < eps
+    total_moisture = mass_integrate(q, w)
+    moisture_lack = mass_integrate(cond.float(), w) * eps
+    moisture_valid = mass_integrate((1-cond.float()) * q, w)
+    alpha = (total_moisture - moisture_lack) / moisture_valid
+    return where(cond, eps, q * alpha)
 
 
 def mlp(layer_sizes):
@@ -224,23 +226,8 @@ class RHS(nn.Module):
         elif self.radiation == 'zero':
             qrad = force['QRAD']
 
-        # Compute the precipitation from q
-        PrecT = precip_from_s(src['sl'], qrad, force['SHF'], w)
-        PrecQ = precip_from_q(src['qt'], force['LHF'], w)
-        Prec = (PrecT + PrecQ) / 2.0
-        diags['Prec'] = Prec
         if self.precip_positive:
-            # precip must be > 0
-            Prec = Prec.clamp(0.0)
-            # ensure that sl and qt budgets estimate the same precipitation
-            src = {
-                'sl': enforce_precip_sl(src['sl'], qrad, force['SHF'], Prec,
-                                        w),
-                'qt': enforce_precip_qt(src['qt'], force['LHF'], Prec, w)
-            }  # yapf: disable
-
-        # assure that q will remain positive after a step
-        src['qt'] = _fix_moisture_tend(progs['qt'], src['qt'])
+            src['qt'] = enforce_precip_qt(src['qt'], force['LHF'], w)
 
         return src, diags
 
@@ -262,6 +249,7 @@ class ForcedStepper(nn.Module):
         """
         data = data.copy()
         prog = data['prognostic']
+        w = data['constant']['w']
 
         window_size = first(prog.values()).size(0)
         prog = valmap(lambda prog: prog[0], prog)
@@ -284,9 +272,14 @@ class ForcedStepper(nn.Module):
                 total_moisture_before = compute_total_moisture(prog, data)
 
                 # compute and apply rhs using neural network
-                src, diags = self.rhs(prog, lsf, data['constant']['w'])
+                src, diags = self.rhs(prog, lsf, w)
 
                 prog = _euler_step(prog, src, h / nsteps)
+
+                # fix any negative precip locations
+                prog['qt'] = _fix_moisture(prog['qt'], w)
+
+                # compute precipitation
                 total_moisture_after = compute_total_moisture(prog, data)
                 evap = lsf['LHF'] * 86400 / 2.51e6 * h/nsteps
                 prec = (total_moisture_before - total_moisture_after + evap) / h * nsteps

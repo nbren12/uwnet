@@ -27,7 +27,8 @@
 \title{Moist Convection ML}
 \author{Noah D. Brenowitz}
 \date{\today}
-
+\usepackage{dsfont}
+\newcommand{\1}[1]{\mathds{1}\left[#1\right]}
 \begin{document}
 \maketitle
 \tableofcontents
@@ -515,6 +516,21 @@ an issue with back-propagation of gradients than forward propagation or
 predictions. However, I think the solutions are the same.
 
 
+\section{Enforcing physical constraints}
+
+\subsection{Positive humidity}
+
+We would like to ensure that $q> 0$ in a mass conserving way so that it doesn't alter the precipitation.
+To do this, we first assume that
+\[ Pq =
+  \begin{cases}
+    \alpha q & q >= \epsilon \\
+    \epsilon & q < \epsilon
+  \end{cases}.
+\]
+Then, choosing
+\[\alpha = \frac{\langle q \rangle - \epsilon \langle \1{q < \epsilon} \rangle}{\langle \1{q \geq \epsilon} q \rangle}\]
+ensures mass conservation.
 
 
 \printbibliography
