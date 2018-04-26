@@ -88,7 +88,8 @@ def column_run(model, prognostic, forcing,
     }
 
     model.eval()
-    y = model(input_data)
+    with torch.no_grad():
+        y = model(input_data)
 
     coords = {'z': prognostic['z'], 'time': prognostic['time']}
     if 'batch' in prognostic.dims:
