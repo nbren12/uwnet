@@ -16,8 +16,10 @@ model.eval()
 
 if RCE:
     print("Running in RCE mode (time homogeneous forcings)")
+    inputs = inputs * 0 + inputs.mean('time')
     forcings = forcings * 0 + forcings.mean('time')
 
 progs, prec = column_run(model, inputs, forcings)
 xr.merge((progs, prec.to_dataset(name="prec")))\
+  .assign(p=inputs.p)\
   .to_netcdf(snakemake.output[0])
