@@ -13,6 +13,7 @@ import json, sys
 from contextlib import redirect_stdout
 
 import logging
+handlers = [logging.FileHandler(snakemake.log[0]), logging.StreamHandler()]
 
 
 def _train(x):
@@ -23,7 +24,7 @@ def _test(x):
     return x.isel(x=slice(0, 64))
 
 
-logging.basicConfig(level=logging.DEBUG, filename=snakemake.log[0])
+logging.basicConfig(level=logging.DEBUG, handlers=handlers)
 
 logging.info("Starting training script")
 
