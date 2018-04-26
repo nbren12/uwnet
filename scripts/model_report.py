@@ -1,6 +1,19 @@
 import os
+import xarray as xr
+import matplotlib.pyplot as plt
+from lib.plots import plot_soln
 import jinja2
-from lib.plots.single_column_initial_value import main
+
+
+def savefig(name):
+    plt.savefig(os.path.join(plots_dir, name))
+
+
+def plot_columns(cols):
+    d = xr.open_dataset(cols)
+    d = d.isel(x=8, y=8)
+    plot_soln(d)
+
 
 i = snakemake.input
 o = snakemake.output
@@ -14,8 +27,9 @@ if not os.path.exists(plots_dir):
 
 figures = {}
 
-figures.update(main(i.x, i.f, i.mod, plots_dir))
-
+plot_columns(i[0])
+savefig("cols.png")
+figures['Single Column'] = 'cols.png'
 
 
 template ="""

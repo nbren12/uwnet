@@ -66,6 +66,9 @@ def modeling_experiments():
     #precip in loss
     model_fit_params['prec-loss'] = dict(precip_positive=True, precip_in_loss=True)
 
+    # substepping
+    model_fit_params['20min'] = dict(nsteps=9, window_size=5)
+
     return model_fit_params
 
 
@@ -171,8 +174,6 @@ rule combine_scam:
     script: "scripts/combine_scam.py"
 
 rule plot_model:
-    input: x="data/processed/inputs.nc",
-           f="data/processed/forcings.nc",
-           mod="data/output/model.1/1.torch"
-    output: "data/output/plots.html"
+    input: cols="{d}/columns.nc",
+    output: "{d}/plots.html"
     script: "scripts/model_report.py"
