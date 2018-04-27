@@ -317,6 +317,9 @@ class ForcedStepper(nn.Module):
 
         return stepper
 
+    @staticmethod
+    def from_file(file):
+        return ForcedStepper.load_from_saved(torch.load(file))
 
     def to_saved(self):
 
