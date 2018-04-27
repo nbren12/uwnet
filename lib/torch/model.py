@@ -191,13 +191,14 @@ class RHS(nn.Module):
             constrain precip to be positive if True
         """
         super(RHS, self).__init__()
-        self.mlp = mlp((m + num_2d_inputs, ) + hidden + (m, ))
-        self.lin = nn.Linear(m + num_2d_inputs, m, bias=False)
+        self.mlp = mlp((m + num_2d_inputs + m, ) + hidden + (m, ))
+        self.lin = nn.Linear(m + num_2d_inputs + m, m, bias=False)
         self.scaler = scaler
-        self.bn = nn.BatchNorm1d(num_2d_inputs)
+        self.bn = nn.BatchNorm1d(num_2d_inputs + m)
         self.qrad = Qrad()
         self.radiation = radiation
         self.precip_positive = precip_positive
+        self.num_2d_inputs = num_2d_inputs
 
     def forward(self, x, force, w):
 
@@ -206,7 +207,8 @@ class RHS(nn.Module):
         x = self.scaler(x)
         f = self.scaler(force)
 
-        data_2d = torch.cat((f['SHF'], f['LHF'], f['SOLIN']), -1)
+        data_2d = torch.cat((f['SHF'], f['LHF'], f['SOLIN'],
+                             f['sl'], f['qt']), -1)
         data_2d = self.bn(data_2d)
 
         x = _from_dict(x)
@@ -265,15 +267,16 @@ class ForcedStepper(nn.Module):
             diag_step = defaultdict(lambda: 0)
             for j in range(nsteps):
 
-                lsf = large_scale_forcing(i, data)
+                # store old state
+                prog0 = prog
 
-                # apply large scale forcings
+                # copmute apply large scale forcings
+                lsf = large_scale_forcing(i, data)
                 prog = _euler_step(prog, lsf, h / nsteps)
                 total_moisture_before = compute_total_moisture(prog, data)
 
                 # compute and apply rhs using neural network
-                src, diags = self.rhs(prog, lsf, w)
-
+                src, diags = self.rhs(prog0, lsf, w)
                 prog = _euler_step(prog, src, h / nsteps)
 
                 # fix any negative precip locations
@@ -322,14 +325,12 @@ class ForcedStepper(nn.Module):
         return ForcedStepper.load_from_saved(torch.load(file))
 
     def to_saved(self):
-
         m = self.rhs.lin.out_features
-        nhidden =  self.rhs.mlp[0].out_features
-        rhs_kwargs = dict(num_2d_inputs=self.rhs.lin.in_features - m,
-                        hidden=(nhidden,),
-                        precip_positive=self.rhs.precip_positive,
-                        radiation=self.rhs.radiation,
-                        scaler_args=self.rhs.scaler.args)
+        nhidden = self.rhs.mlp[0].out_features
+        rhs_kwargs = dict(num_2d_inputs=self.rhs.num_2d_inputs, hidden=(nhidden,),
+                          precip_positive=self.rhs.precip_positive,
+                          radiation=self.rhs.radiation,
+                          scaler_args=self.rhs.scaler.args)
         output_dict = {
             'rhs': (m, rhs_kwargs),
             'stepper': dict(h=self.h, nsteps=self.nsteps),

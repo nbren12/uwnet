@@ -516,6 +516,20 @@ an issue with back-propagation of gradients than forward propagation or
 predictions. However, I think the solutions are the same.
 
 
+\section{Time stepping}
+
+Want to formulate a neural network scheme which has inputs that do not depend on the time step. 
+The various physical processes in a climate model update the state sequentially, so that each process sees a state updated by the previous process.
+Unfortunately, these processes can dramatically change the state by up to a few degrees K over a large time step, which makes the inputs for the neural networks scheme depend on the time step.
+This is not much of an issue for physics based parameterizations, but machine learning schemes cannot be extrapolated to different time steps then they were trained on if their inputs depend on the time steps.
+Therefore, we need to make the inputs to an ML scheme invariant to the time step, which we accomplish with the following time-stepper
+\begin{align}
+ x^* &= x + h g(x, t) \\
+ x^{+} &= x^* + h f(x, g(x, t), t; \alpha).
+\end{align}
+
+
+
 \section{Enforcing physical constraints}
 
 \subsection{Positive humidity}
