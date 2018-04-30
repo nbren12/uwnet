@@ -7,13 +7,16 @@ import hug
 
 @hug.cli()
 @hug.local()
-def main(inputs: str, forcings: str, state: str, output: str, RCE: bool =False):
+def main(inputs: str, forcings: str, state: str, output: str, RCE: bool =False,
+         nsteps: int = 1):
 
     inputs = xr.open_dataset(inputs)
     forcings = xr.open_dataset(forcings)
 
     model = ForcedStepper.from_file(state)
     model.eval()
+
+    model.nsteps = nsteps
 
     if RCE:
         print("Running in RCE mode (time homogeneous forcings)")

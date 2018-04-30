@@ -129,6 +129,15 @@ rule forced_column_slp:
     output: "{d}/columns.nc"
     script: "scripts/forced_column_slp.py"
 
+rule forced_column_slp_substep:
+    input: state="{d}/state.torch",
+            inputs="data/processed/inputs.nc",
+            forcings="data/processed/forcings.nc"
+    priority: 10
+    params: nsteps=9
+    output: "{d}/20minsubstep.nc"
+    script: "scripts/forced_column_slp.py"
+
 rule rce_column_slp:
     input: state="{d}/state.torch",
            inputs="data/processed/inputs.nc",
