@@ -4,6 +4,8 @@ from lib.torch import column_run, ForcedStepper
 import logging
 import hug
 
+logger = logging.getLogger(__name__)
+
 
 @hug.cli()
 @hug.local()
@@ -17,6 +19,7 @@ def main(inputs: str, forcings: str, state: str, output: str, RCE: bool =False,
     model.eval()
 
     model.nsteps = nsteps
+    print("nsteps", nsteps)
 
     if RCE:
         print("Running in RCE mode (time homogeneous forcings)")
