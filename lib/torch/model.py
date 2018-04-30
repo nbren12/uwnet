@@ -213,7 +213,7 @@ class RHS(nn.Module):
 
         x = _from_dict(x)
         x = torch.cat((x, data_2d), -1)
-        y = self.mlp(x) + self.lin(x)
+        y = self.mlp(x) #+ self.lin(x)
         src = _to_dict(y)
 
 
