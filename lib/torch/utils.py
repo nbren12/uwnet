@@ -8,7 +8,7 @@ from timeit import default_timer as timer
 
 
 def train(data_loader, loss_fn, optimizer, num_epochs=1, monitor=None,
-          on_epoch_start=None, on_finish=None):
+          on_epoch_start=None, on_finish=None, on_error=None):
     """Train a torch model
 
     Parameters
@@ -42,6 +42,14 @@ def train(data_loader, loss_fn, optimizer, num_epochs=1, monitor=None,
             optimizer.zero_grad()  # this is not done automatically in torch
             # pass all data args to loss_function
             loss = loss_fn(data)
+
+            if torch.isnan(loss):
+                logging.error(f"Loss is nan on batch {batch_idx} and epoch "
+                              f"{epoch}. Raising floating point error")
+                if on_error:
+                    on_error(data)
+                raise FloatingPointError
+
             loss.backward()
             optimizer.step()
 

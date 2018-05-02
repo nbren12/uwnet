@@ -162,6 +162,14 @@ def train_multistep_objective(train_data, test_data, output_dir,
         torch.save(nstepper.to_saved(), f"{output_dir}/{num_epochs}/state.torch")
         json.dump(epoch_data, open(f"{output_dir}/loss.json", "w"))
 
+    def on_error(data):
+        logging.critical("Dumping data to \"dump.pt\"")
+        torch.save({
+            "data": data,
+            "model": nstepper,
+            "constants": constants
+        }, "dump.pt")
+
     train(
         train_loader,
         closure,
@@ -169,7 +177,8 @@ def train_multistep_objective(train_data, test_data, output_dir,
         monitor=monitor,
         num_epochs=num_epochs,
         on_epoch_start=on_epoch_start,
-        on_finish=on_finish)
+        on_finish=on_finish,
+        on_error=on_error)
 
     training_metadata = {
         'args': arguments,
