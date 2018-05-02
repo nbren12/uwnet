@@ -7,7 +7,7 @@ from timeit import default_timer as timer
 
 
 
-def train(data_loader, loss_fn, optimizer, num_epochs=1, monitor=None,
+def train(get_generator, loss_fn, optimizer, num_epochs=1, monitor=None,
           on_epoch_start=None, on_finish=None, on_error=None):
     """Train a torch model
 
@@ -21,13 +21,14 @@ def train(data_loader, loss_fn, optimizer, num_epochs=1, monitor=None,
     """
     logger = logging.getLogger(__name__)
 
-    num_steps = len(data_loader)
-
     t_begin_train = timer()
     for epoch in range(num_epochs):
         avg_loss = 0
         if on_epoch_start:
             on_epoch_start(epoch)
+
+        data_loader = get_generator(epoch)
+        num_steps = len(data_loader)
 
         t_start = timer()
         for batch_idx, data in enumerate(data_loader):
@@ -35,8 +36,8 @@ def train(data_loader, loss_fn, optimizer, num_epochs=1, monitor=None,
                 avg_loss /= num_steps
                 if monitor:
                     monitor({'epoch': epoch,
-                        'train_loss': float(avg_loss),
-                        'batch': batch_idx})
+                             'train_loss': float(avg_loss),
+                             'batch': batch_idx})
                 avg_loss = 0.0
 
             optimizer.zero_grad()  # this is not done automatically in torch

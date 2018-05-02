@@ -53,6 +53,13 @@ def train_multistep_objective(train_data, test_data, output_dir,
 
         x^n+1 = x^n + dt * (f(x^n) + g)
 
+    Parameters
+    ----------
+    window_size : int or callable
+        Size of prediction window for training. If this is a dict then the
+        window_size of the time stepper will be set to window_size(epoch).
+        Default: 10.
+
 
     """
 
@@ -66,18 +73,28 @@ def train_multistep_objective(train_data, test_data, output_dir,
 
     torch.manual_seed(seed)
 
+    # set window size scheduler
+    default_window_size = 20
+    if isinstance(window_size, int):
+        default_window_size = window_size
+        def window_size(epoch):
+            return default_window_size
+    elif isinstance(window_size, dict):
+        window_size_dict = window_size
+        def window_size(epoch):
+            return window_size_dict.get(epoch, default_window_size)
+
     # the sampling interval of the data
     dt = Variable(torch.FloatTensor([3 / 24]), requires_grad=False)
     if cuda:
         dt = dt.cuda()
 
-    # load training and testing datasets
-    train_dataset = data.to_dataset(train_data, window_size)
+
     test_dataset = data.to_dataset(test_data, test_window_size)
-    ntrain = len(train_dataset)
+    # ntrain = len(train_dataset)
     ntest = len(test_dataset)
 
-    logging.info(f"Training dataset length: {ntrain}")
+    # logging.info(f"Training dataset length: {ntrain}")
     logging.info(f"Testing dataset length: {ntest}")
 
     # define constants to be used by model
@@ -88,22 +105,7 @@ def train_multistep_objective(train_data, test_data, output_dir,
                                 cuda=cuda)
 
 
-    # compute weights and scales for loss functions
-
-    # Create training and testing data loaders
-    if num_batches:
-        logger.info(f"Using boostrap sample of {num_batches}. Setting "
-                    "number of epochs to 1.")
-        # num_epochs = 1
-        training_inds = np.random.choice(len(train_dataset),
-                                         num_batches * batch_size, replace=False)
-    else:
-        logger.info(f"Using full training dataset")
-        training_inds = np.arange(len(train_dataset))
-
-    train_loader = DataLoader(train_dataset, batch_size=batch_size,
-                              sampler=SubsetRandomSampler(training_inds))
-
+    # get testing_loader
     testing_inds = np.random.choice(len(test_dataset), num_test_examples,
                                     replace=False)
     test_loader = DataLoader(test_dataset, batch_size=len(testing_inds),
@@ -136,13 +138,30 @@ def train_multistep_objective(train_data, test_data, output_dir,
     ##
     # model training code below here
     ##
+    epoch_data = []
+
+    def get_generator(epoch):
+        T = window_size(epoch)
+        train_dataset = data.to_dataset(train_data, T)
+        training_inds = np.arange(len(train_dataset))
+
+        # Create training data loaders
+        if num_batches:
+            logger.info(f"Using boostrap sample of {num_batches}.")
+            training_inds = np.random.choice(len(train_dataset),
+                                             num_batches * batch_size, replace=False)
+        else:
+            logger.info(f"Using full training dataset")
+
+        train_loader = DataLoader(train_dataset, batch_size=batch_size,
+                                  sampler=SubsetRandomSampler(training_inds))
+        return train_loader
+
     def closure(batch):
         batch = _prepare_vars_in_nested_dict(batch, cuda=cuda)
         batch['constant'] = constants
         y = nstepper(batch)
         return loss(batch, y)
-
-    epoch_data = []
 
     def monitor(state):
         loss = sum(closure(batch) for batch in test_loader)
@@ -153,7 +172,14 @@ def train_multistep_objective(train_data, test_data, output_dir,
 
     def on_epoch_start(epoch):
         file = f"{output_dir}/{epoch}/state.torch"
-        logger.info(f"Saving state to %s"%file)
+
+        logging.info(f"Begin epoch {epoch}")
+
+        T = window_size(epoch)
+        logging.info(f"Setting training window size to {T}")
+        nstepper.window_size = T
+
+        logger.info(f"Saving state to %s" % file)
         torch.save(nstepper.to_saved(), file)
 
     def on_finish():
@@ -171,7 +197,7 @@ def train_multistep_objective(train_data, test_data, output_dir,
         }, "dump.pt")
 
     train(
-        train_loader,
+        get_generator,
         closure,
         optimizer=optimizer,
         monitor=monitor,
@@ -184,6 +210,6 @@ def train_multistep_objective(train_data, test_data, output_dir,
         'args': arguments,
         'training': epoch_data,
         'n_test': ntest,
-        'n_train': ntrain
+        # 'n_train': ntrain
     }
     return nstepper, training_metadata

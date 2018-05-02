@@ -69,6 +69,15 @@ def modeling_experiments():
     # substepping
     model_fit_params['20min'] = dict(nsteps=9, window_size=5)
 
+    # global
+    model_fit_params['global'] = dict(window_size={0: 2, 1:20},
+                                      nhidden=(256,),
+                                      south=0, north=64,
+                                      batch_size=1000)
+
+    model_fit_params['north'] = dict(nhidden=(256,), south=48, north=64,
+                                     window_size={0: 2, 1: 20})
+
     return model_fit_params
 
 
