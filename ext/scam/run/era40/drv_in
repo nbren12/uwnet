@@ -23,7 +23,7 @@
 &seq_timemgr_inparm
  atm_cpl_dt		= 1200
  restart_option		= 'monthly'
- start_ymd		= 990912
+start_ymd = 990411
  stop_n		= 21
  stop_option		= 'ndays'
 /

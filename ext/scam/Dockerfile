@@ -30,10 +30,10 @@ RUN cd /bld && make -j 2 > compile_output 2>&1
 ADD  /scripts /scripts
 
 # Download the input data
-ADD /inputdata /inputdata
+# ADD /inputdata /inputdata
+# VOLUME /inputdata
 ENV CSMDATA /inputdata
 
 
 WORKDIR /rundir
-# CMD /bld/cam | tee run_output 
 CMD /scripts/configure.sh

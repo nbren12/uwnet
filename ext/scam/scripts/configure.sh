@@ -1,7 +1,12 @@
 #!/bin/sh
 
-nml=`cat /rundir/namelist.txt`
+# downloading data
+echo '************************************************************'
+echo "Downloading data"
+echo '************************************************************'
+/scripts/download_inputdata.sh
 
+nml=`cat /rundir/namelist.txt`
 # configure
 echo '************************************************************'
 echo "Configuring SAM"

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 mkdir -p inputdata
 
@@ -30,16 +30,18 @@ do
     file=$(basename $line)
     folder=$(dirname $line)
 
-    if [ ! -e $folder ]
+    if [ ! -e /$folder ]
     then
-        mkdir -p $folder
+        mkdir -p /$folder
     fi
 
-    if [ ! -e $folder/$file ]
+    if [ ! -e /$folder/$file ]
     then
         echo "$folder/$file not present downloading"
-        pushd $folder > /dev/null
-        svn export --username guestuser --password $PASS --trust-server-cert https://svn-ccsm-inputdata.cgd.ucar.edu/trunk/$folder/$file
+        pushd /$folder > /dev/null
+        svn export --username guestuser --password $PASS \
+            --trust-server-cert --non-interactive \
+            https://svn-ccsm-inputdata.cgd.ucar.edu/trunk/$folder/$file
         popd > /dev/null
     else
         echo "$folder/$file already present"
