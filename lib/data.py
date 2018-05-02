@@ -45,26 +45,16 @@ def prepare_data(inputs: xr.Dataset, forcings: xr.Dataset):
     }
 
 
-def defaultsel(x):
-    return x.isel(y=slice(24, 40))
-
-
-def inputs_and_forcings(file_3d, file_2d, stat_file, sel=defaultsel):
+def inputs_and_forcings(file_3d, file_2d, stat_file):
 
     data_3d = xr.open_dataset(file_3d)
     data_2d = xr.open_dataset(file_2d)
     stat = xr.open_dataset(stat_file)
 
     data = xr.merge((data_3d, data_2d), join='inner').sortby('time')
-
-    # limit to tropics
-    data = sel(data)
-
     p = stat.p
     rho = stat.RHO[0].drop('time')
     w = layer_mass(rho)
-
-    # compute the surface flux tendencies
 
     inputs = xr.Dataset({
         'sl':

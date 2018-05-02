@@ -24,15 +24,25 @@ def _test(x):
     return x.isel(x=slice(0, 64))
 
 
+
+
 logging.basicConfig(level=logging.DEBUG, handlers=handlers)
 
 logging.info("Starting training script")
 
-i = snakemake.input
-inputs = xr.open_dataset(i.inputs)
-forcings = xr.open_dataset(i.forcings)
-
 params = snakemake.params[0]
+north = params.pop('north', 40)
+south = params.pop('south', 24)
+
+y_range = slice(south, north)
+
+logging.info(f"Training on data between y-indices {south} and {north}")
+
+i = snakemake.input
+inputs = xr.open_dataset(i.inputs).isel(y=y_range)
+forcings = xr.open_dataset(i.forcings).isel(y=y_range)
+
+
 output_dir = params.pop('output_dir')
 
 train_data = prepare_data(_train(inputs), _train(forcings))
