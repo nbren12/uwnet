@@ -546,6 +546,26 @@ Then, choosing
 \[\alpha = \frac{\langle q \rangle - \epsilon \langle \1{q < \epsilon} \rangle}{\langle \1{q \geq \epsilon} q \rangle}\]
 ensures mass conservation.
 
+\section{Mixture model}
+
+We first train separate models on different regions in parallel, and then switch between the networks using a mixture modeling approach.
+We will divide the data into 5 meridionally overallaping regions, and then train the networks on each region in isolation. These regions are
+\begin{itemize}
+\item Deep tropics
+\item 2 Sub-tropics regions
+\item 2 mid-lat regions
+\end{itemize}
+Because this dataset is so large, each region will still have many sampling points, but we do not join the sub-tropcs and mid-latitude regions for the northern and southern hemisphere because there could be climatological difference between these regions.
+These regions are separated by distinct rainfall regimes.
+
+The coarse-grained indices corresponding to a given latidue is given by $a \phi / \SI{160}{\km}$ which is $\frac{a\pi}{180 \cdot 160} \phi $ if $\phi$ is in degrees. Therefore the indices of the regions above are
+\begin{enumerate}
+\item 0,18 (so midlat)
+\item 16,28 (so sub tropics)
+\item 26,38 (deep tropics)
+\item 36,48 (no sub tropics)
+\item 46,64 (no midlat)
+\end{enumerate} 
 
 \printbibliography
 \appendix

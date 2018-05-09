@@ -25,7 +25,7 @@ output_files = [
 ]
 
 rule all:
-    input: output_files
+    input: expand("data/output/model.{region}/0/3/state.torch", region=range(5))
 
 rule download_data_file:
     output: "data/raw/{f}"
@@ -44,40 +44,13 @@ rule time_series_data:
     script: "scripts/torch_preprocess.py"
 
 def modeling_experiments():
-    """A comprehensive list of the all the modelling experiments to present for the paper.
-    """
     model_fit_params = {}
-    for n in [5, 64, 128, 256]:
-        key = f'VaryNHid-{n}'
-        model_fit_params[key] = dict(nhidden=(n,))
-
-    for T in [2, 5, 10, 20, 40]:
-        key = f'VaryT-{T}'
-        model_fit_params[key] = dict(window_size=T)
-
-    # model_fit_params['1'] = dict(nhidden=(256,))
-    # model_fit_params['best'] = dict(nhidden=(256,), num_epochs=2)
-    # model_fit_params['lrs'] = dict(nhidden=(256,), num_epochs=4, lr=.001)
-    # model_fit_params['lrs'] = dict(nhidden=(256,), num_epochs=4, lr=.001)
-
-    # positive precipitation
-    model_fit_params['pos-prec'] = dict(precip_positive=True)
-
-    #precip in loss
-    model_fit_params['prec-loss'] = dict(precip_positive=True, precip_in_loss=True)
-
-    # substepping
-    model_fit_params['20min'] = dict(nsteps=9, window_size=5)
-
     # global
-    model_fit_params['global'] = dict(window_size={0: 2, 1:20},
-                                      nhidden=(256,),
-                                      south=0, north=64,
-                                      batch_size=1000)
-
-    model_fit_params['north'] = dict(nhidden=(256,), south=48, north=64,
-                                     window_size={0: 2, 1: 20})
-
+    model_fit_params['0'] = dict(south=1, north=18)
+    model_fit_params['1'] = dict(south=16, north=28)
+    model_fit_params['2'] = dict(south=26, north=38)
+    model_fit_params['3'] = dict(south=36, north=48)
+    model_fit_params['4'] = dict(south=46, north=63)
     return model_fit_params
 
 
