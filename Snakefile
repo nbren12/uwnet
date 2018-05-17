@@ -168,3 +168,10 @@ rule plot_model:
     input: cols="{d}/columns.nc",
     output: "{d}/plots.html"
     script: "scripts/model_report.py"
+
+
+rule make_init_cond_netcdf:
+    input: stat="data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc",
+           d3="data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/all.nc"
+    output: "ic.nc", "grd"
+    shell: "scripts/sam_init_cond.py -i {input.d3} -s {input.stat} -t 0 {output}"
