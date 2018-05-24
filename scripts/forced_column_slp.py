@@ -1,43 +1,22 @@
 import xarray as xr
 import torch
 from lib.torch import column_run, ForcedStepper
-import logging
-import hug
-
-logger = logging.getLogger(__name__)
 
 
-@hug.cli()
-@hug.local()
-def main(inputs: str, forcings: str, state: str, output: str, RCE: bool =False,
-         nsteps: int = 1):
 
-    inputs = xr.open_dataset(inputs)
-    forcings = xr.open_dataset(forcings)
+inputs = snakemake.input.inputs
+forcings = snakemake.input.forcings
+state = snakemake.input.state
+nsteps = snakemake.params.get('nsteps', 1)
 
-    model = ForcedStepper.from_file(state)
-    model.eval()
+inputs = xr.open_dataset(inputs)
+forcings = xr.open_dataset(forcings)
 
-    model.nsteps = nsteps
-    print("nsteps", nsteps)
+model = ForcedStepper.from_file(state)
+model.eval()
 
-    if RCE:
-        print("Running in RCE mode (time homogeneous forcings)")
-        inputs = inputs * 0 + inputs.mean('time')
-        forcings = forcings * 0 + forcings.mean('time')
+model.nsteps = nsteps
+print("nsteps", nsteps)
 
-    progs, prec = column_run(model, inputs, forcings)
-    xr.merge((progs, prec.to_dataset(name="prec")))\
-      .assign(p=inputs.p)\
-      .to_netcdf(output)
-
-try:
-    snakemake
-except NameError:
-    main.interface.cli()
-else:
-    main(snakemake.input.inputs,
-     snakemake.input.forcings,
-     snakemake.input.state,
-     snakemake.output[0],
-     **snakemake.params)
+column_run(model, inputs, forcings)\
+    .to_netcdf(snakemake.output[0])

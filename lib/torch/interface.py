@@ -62,6 +62,14 @@ def _dataset_to_dict(dataset):
     return out
 
 
+variable_attributes = {
+    'QLSF': {'units': 'm/s'},
+    'QNN': {'units': 'm/s'},
+    'SLSF': {'units': 'W/m2'},
+    'SNN': {'units': 'W/m2'},
+    'Prec': {'units': 'mm/day'}
+}
+
 def column_run(model, prognostic, forcing,
                batch_dims=('x', 'y')):
 
@@ -104,12 +112,22 @@ def column_run(model, prognostic, forcing,
     }
 
     coords['time'] = coords['time'][1:]
-    prec = xr.DataArray(
-        y['diagnostic']['Prec'].data.numpy()[..., 0],
-        coords=dissoc(coords, 'z'),
-        dims=['time', 'batch']).unstack('batch')
 
-    return xr.Dataset(progs), prec
+    # convert diagnostics to xarray
+    diags_torch = y['diagnostic']
+    diags = {
+        key: xr.DataArray(diags_torch[key].data.numpy()[..., 0],
+                          coords=dissoc(coords, 'z'),
+                          dims=['time', 'batch'],
+                          attrs=variable_attributes.get(key, None))
+        .unstack('batch')
+        for key in diags_torch
+    }
+
+    # add it to the dict of progs
+    progs.update(diags)
+
+    return xr.Dataset(progs)
 
 
 def rhs(model, prognostic, forcing,

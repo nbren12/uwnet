@@ -61,9 +61,31 @@ def large_scale_forcing(i, data):
 
 def compute_total_moisture(prog, data):
     w = data['constant']['w']
-    return (prog['qt'] * w).sum(-1, keepdim=True)/1000
+    return mass_integrate(prog['qt'], w)
 
 
+def mass_integrate(x, w):
+    return (x * w).sum(-1, keepdim=True)/1000
+
+
+def compute_diagnostics(steps, lsf, w, dt):
+    """Routine for computing diagnostics such as precipitation or MSE budgets
+    """
+
+    prog_start, prog_lsf, prog_nn = steps
+    q_start, q_lsf, q_nn = [mass_integrate(prog['qt'], w)
+                            for prog in steps]
+    s_start, s_lsf, s_nn = [mass_integrate(prog['sl'], w)
+                            for prog in steps]
+
+    evap = lsf['LHF'] * 86400 / 2.51e6
+    prec = evap - (q_nn - q_lsf)/dt
+    return {
+        'QLSF': (q_lsf - q_start)/dt/86400/1000**2,
+        'QNN': (q_nn - q_lsf)/dt/86400/1000**2,
+        'SLSF': 1004*(s_lsf - s_start)/dt/86400,
+        'SNN': 1004*(s_nn-s_lsf)/dt/86400,
+    }
 
 
 def precip_from_s(fsl, qrad, shf, w):
@@ -269,24 +291,19 @@ class ForcedStepper(nn.Module):
 
                 # store old state
                 prog0 = prog
-
-                # copmute apply large scale forcings
+                
+                # apply large scale forcings
                 lsf = large_scale_forcing(i, data)
                 prog = _euler_step(prog, lsf, h / nsteps)
-                total_moisture_before = compute_total_moisture(prog, data)
+                prog1 = prog
 
                 # compute and apply rhs using neural network
-                src, diags = self.rhs(prog0, lsf, w)
+                src, _ = self.rhs(prog, lsf, data['constant']['w'])
                 prog = _euler_step(prog, src, h / nsteps)
+                prog2 = prog
 
-                # fix any negative precip locations
-                prog['qt'] = _fix_moisture(prog['qt'], w)
-
-                # compute precipitation
-                total_moisture_after = compute_total_moisture(prog, data)
-                evap = lsf['LHF'] * 86400 / 2.51e6 * h/nsteps
-                prec = (total_moisture_before - total_moisture_after + evap) / h * nsteps
-                diags['Prec'] = prec
+                diags = compute_diagnostics([prog0, prog1, prog2], lsf,
+                                            w=data['constant']['w'], dt=h/nsteps)
 
                 # running average of diagnostics
                 for key in diags:
