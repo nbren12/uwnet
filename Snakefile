@@ -3,6 +3,8 @@ import xarray as xr
 import os
 from lib.scam import create_iopfile
 
+conda: "environment.yml"
+
 # configurations
 configfile: "config.yaml"
 nseeds = config.get('nseeds', 10)
@@ -31,8 +33,15 @@ rule download_data_file:
     output: "data/raw/{f}"
     shell: "rsync --progress -z nbren12@olympus:/home/disk/eos8/nbren12/Data/id/{wildcards.f} {output}"
 
+# rule inputs_and_forcings:
+#     input: d3=files_3d, d2=file_2d, stat=file_stat
+#     output: inputs="data/processed/inputs.nc",
+#             forcings="data/processed/forcings.nc"
+#     script: "scripts/inputs_and_forcings.py"
+
+
 rule inputs_and_forcings:
-    input: d3=files_3d, d2=file_2d, stat=file_stat
+    input: d3="data/processed/sam_tend.nc", d2=file_2d, stat=file_stat
     output: inputs="data/processed/inputs.nc",
             forcings="data/processed/forcings.nc"
     script: "scripts/inputs_and_forcings.py"
@@ -170,8 +179,35 @@ rule plot_model:
     script: "scripts/model_report.py"
 
 
-rule make_init_cond_netcdf:
-    input: stat="data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc",
-           d3="data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/all.nc"
-    output: "ic.nc", "grd"
-    shell: "scripts/sam_init_cond.py -i {input.d3} -s {input.stat} -t 0 {output}"
+rule compute_tendencies_sam:
+    output: "data/interim/tendencies/{physics}/{t}.nc"
+    log: "data/interim/tendencies/{physics}/{t}.log"
+    shell: "scripts/sam_init_cond.py -t {wildcards.t} -p {wildcards.physics} ~/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX {output} > {log}"
+
+rule combine_sam_tends:
+    input: expand("data/interim/tendencies/{{physics}}/{t}.nc", t=range(640))
+    output: "data/processed/tend_{physics}.nc"
+    run:
+        import sh
+        from tqdm import tqdm
+
+        pat = re.compile("(\d+).nc$")
+        def key(s):
+            return int(pat.search(s).group(1))
+
+        input = sorted(input, key=key)
+
+        deleteme = []
+        print("Repacking")
+        for f in tqdm(input):
+            rec = f + 'rec.nc'
+            sh.ncpdq("-O", '-a', 'time,step', f, rec)
+            deleteme.append(rec)
+
+
+        print("Concatenating")
+        sh.ncrcat("-O", deleteme, output[0])
+
+        print("cleaning up")
+        for f in deleteme:
+            os.unlink(f)

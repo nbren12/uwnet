@@ -9,6 +9,81 @@ import shutil
 import xarray as xr
 import tempfile
 
+full_physics = """
+ dosgs		= .true.,
+ dodamping 	= .true.,
+ doupperbound  	= .true.,
+ docloud 	= .true.,
+ doprecip 	= .true.,
+ dolongwave	= .true.,
+ doshortwave	= .true.,
+ dosurface 	= .true.,
+ dolargescale 	= .false.,
+ doradforcing   = .false.,
+ dosfcforcing   = .false.,
+ donudging_uv   = .false.,
+ donudging_tq   = .false.,
+
+ doradlat = .true.
+ doseasons = .false.
+ doequinox = .true.
+ docoriolis = .true.
+ dofplane = .false.
+
+"""
+
+dry_physics = """
+ dosgs		= .true.,
+ dodamping 	= .true.,
+ doupperbound  	= .true.,
+ docloud 	= .false.,
+ doprecip 	= .false.,
+ dolongwave	= .false.,
+ doshortwave	= .false.,
+ dosurface 	= .false.,
+ dolargescale 	= .false.,
+ doradforcing   = .false.,
+ dosfcforcing   = .false.,
+ donudging_uv   = .false.,
+ donudging_tq   = .false.,
+
+ doradlat = .true.
+ doseasons = .false.
+ doequinox = .true.
+ docoriolis = .true.
+ dofplane = .false.
+
+"""
+
+rad_physics = """
+ dosgs		= .true.,
+ dodamping 	= .true.,
+ doupperbound  	= .true.,
+ docloud 	= .false.,
+ doprecip 	= .false.,
+ dolongwave	= .true.,
+ doshortwave	= .true.,
+ dosurface 	= .false.,
+ dolargescale 	= .false.,
+ doradforcing   = .false.,
+ dosfcforcing   = .false.,
+ donudging_uv   = .false.,
+ donudging_tq   = .false.,
+
+ doradlat = .true.
+ doseasons = .false.
+ doequinox = .true.
+ docoriolis = .true.
+ dofplane = .false.
+
+"""
+
+physics_options = {
+    'rad': rad_physics,
+    'full': full_physics,
+    'dry': dry_physics
+}
+
 namelist_template = """
  &PARAMETERS
 
@@ -21,28 +96,8 @@ namelist_template = """
  CEM = .true.,
  OCEAN = .true.,
 
- dosgs		= .true.,
- dodamping 	= .true.,
- doupperbound  	= .true.,
- docloud 	= .true.,
- doprecip 	= .true.,
- dolongwave	= .true.,
- doshortwave	= .true.,
- dosurface 	= .true.,
+ {physics}
 
- dolargescale 	= .false.,
- doradforcing   = .false.,
- dosfcforcing   = .false.,
- donudging_uv   = .false.,
- donudging_tq   = .false.,
-
- doradlat = .true.
- doseasons = .false.
- doequinox = .true.
-
-
- docoriolis = .true.
- dofplane = .false.
  ocean_type = 3 !QOBS
  perturb_type = 23
  initial_condition_netcdf = 'NGAqua/ic.nc'
@@ -199,18 +254,22 @@ def save_ic(stag, cent, stat, path):
     ic.to_netcdf(path)
 
 
-def save_namelist(time_interval, day0, path):
+def save_namelist(time_interval, day0, physics, path):
     dt = 30.0
     nstop = int(time_interval // dt)
     with open(path, "w") as f:
-        f.write(namelist_template.format(day0=day0, nstop=nstop))
+        namelist = namelist_template.format(day0=day0, nstop=nstop,
+                                            physics=physics_options[physics])
+        print(namelist)
+        f.write(namelist)
 
 
 def save_rundata(path, src="/Users/noah/workspace/models/SAMUWgh/RUNDATA"):
     shutil.copytree(src, path)
 
 
-def save_sam_dir(stag, cent, stat, path, time_interval=900.0):
+def save_sam_dir(stag, cent, stat, path, time_interval=900.0,
+                 physics='full'):
     for out_dir in 'OUT_3D OUT_2D OUT_STAT RESTART NGAqua'.split():
         os.mkdir(os.path.join(path, out_dir))
 
@@ -224,7 +283,7 @@ def save_sam_dir(stag, cent, stat, path, time_interval=900.0):
     nc = os.path.join(case_dir, 'ic.nc')
 
     day0 = float(stag.time)
-    save_namelist(time_interval, day0, prm)
+    save_namelist(time_interval, day0, physics, prm)
     save_snd(snd)
     save_grd(stag.z, grd)
     save_ic(stag, cent, stat, nc)
@@ -254,6 +313,17 @@ def convert_nc(path, docker_image="nbren12/sam"):
     output_name = os.path.splitext(path)[0] + '.nc'
     return output_name
 
+def combine_steps(ds1, ds2):
+
+    dt = float(ds2.time) - float(ds1.time)
+
+    ds2['time'] = ds1.time
+    ds = xr.concat([ds1, ds2], dim='step')
+    ds['dt'] = xr.DataArray(dt,
+                            attrs={'long_name': 'timestep', 'units': 'day'})
+
+    return ds
+
 
 def rename_var(z, coords):
     rename_d = {'xc': 'x', 'yc': 'y', 'ys': 'y', 'xs': 'x'}
@@ -269,6 +339,9 @@ def parse_arguments():
     parser.add_argument('basedir', type=str)
     parser.add_argument('output', type=str)
     parser.add_argument('-t', '--time', type=int, default=0)
+    parser.add_argument('-r', '--retry', type=int, default=10)
+    parser.add_argument('-p', '--physics', type=str, default='full',
+                        help='Physics package')
 
     return parser.parse_args()
 
@@ -287,15 +360,27 @@ stag = (xr.open_dataset(stagger_path).sel(time=time)
         .apply(lambda x: rename_var(x, cent.coords)))
 stat = xr.open_dataset(stat_path)
 
-
+remove_queue = []
 # Create SAM directory and run SAM
-output_dir = tempfile.mkdtemp(dir=".")
-save_sam_dir(stag, cent, stat, output_dir)
-run_sam(output_dir)
-ncfile = convert_nc(f"{output_dir}/OUT_3D/NGAqua_test_1_0000000030.bin3D")
+for _ in range(args.retry):
+    output_dir = tempfile.mkdtemp(dir=".", prefix=".tmp")
+    remove_queue.append(output_dir)
 
-# move output file to specified location
-shutil.move(ncfile, args.output)
+    save_sam_dir(stag, cent, stat, output_dir, physics=args.physics)
+    run_sam(output_dir)
 
-# delete temporary directory
-shutil.rmtree(output_dir)
+    ncfile1 = convert_nc(f"{output_dir}/OUT_3D/NGAqua_test_1_0000000000.bin3D")
+    ncfile2 = convert_nc(f"{output_dir}/OUT_3D/NGAqua_test_1_0000000030.bin3D")
+    ds1 = xr.open_dataset(ncfile1)
+    try:
+        ds2 = xr.open_dataset(ncfile2)
+    except OSError:
+        print("SAM did not run succesfully. Retrying")
+    else:
+        break
+
+combine_steps(ds1, ds2).to_netcdf(args.output)
+
+# delete temporary directories
+for output_dir in remove_queue:
+    shutil.rmtree(output_dir)

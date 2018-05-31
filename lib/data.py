@@ -77,3 +77,44 @@ def inputs_and_forcings(file_3d, file_2d, stat_file):
     inputs['w'] = w
 
     return inputs, forcings
+
+
+def inputs_and_forcings_sam(file_3d, file_2d, stat_file):
+
+    data_3d = xr.open_dataset(file_3d, chunks={'time': 10})
+    # patch x coordinate from data_3d onto data_2d
+    data_2d = xr.open_dataset(file_2d)\
+                .sel(time=data_3d.time)\
+                .assign_coords(x=data_3d.x, y=data_3d.y)
+
+    stat = xr.open_dataset(stat_file)
+
+    p = stat.p
+    rho = stat.RHO[0].drop('time')
+    w = layer_mass(rho)
+
+    sl = liquid_water_temperature(data_3d.TABS, data_3d.QN, data_3d.QP)
+    qt = total_water(data_3d.QV, data_3d.QN)
+    sl.persist()
+    qt.persist()
+
+    forcings = {}
+    forcings['qt'] = (qt.sel(step=1) - qt.sel(step=0))/data_3d.dt
+    forcings['sl'] = (sl.sel(step=1) - sl.sel(step=0))/data_3d.dt
+    forcings['SHF'] = data_2d.SHF
+    forcings['LHF'] = data_2d.LHF
+    forcings['QRAD'] = data_3d.QRAD.sel(step=0)
+    forcings['Prec'] = data_2d.Prec
+    forcings['SOLIN'] = data_2d.SOLIN
+    forcings['W'] = data_3d.W.sel(step=0)
+
+    inputs = {}
+    inputs['p'] = p
+    inputs['w'] = w
+    inputs['qt'] = qt.sel(step=0)
+    inputs['sl'] = sl.sel(step=0)
+
+    inputs = xr.Dataset(inputs)
+    forcings = xr.Dataset(forcings)
+
+    return inputs, forcings
