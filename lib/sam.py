@@ -104,7 +104,7 @@ namelist_template = """
 
  dx =   160000.,
  dy = 	160000.,
- dt = 	  30.,
+ dt = 	  {dt},
 
 
  latitude0= 0.72,
@@ -238,29 +238,11 @@ def save_grd(z, path):
     np.savetxt(path, z, fmt="%10.5f")
 
 
-def save_ic(stag, cent, stat, path):
-    ic = xr.Dataset({
-        'U': stag.U,
-        'V': stag.V,
-        'W': cent.W,
-        'QV': cent.QV,
-        'TABS': cent.TABS,
-        'QN': cent.QN,
-        'QP': cent.QP,
-        'RHO': stat.RHO[0].drop('time'),
-        'Ps': stat.Ps[0].drop('time')
-    })
-
-    ic.to_netcdf(path)
-
-
-def save_namelist(time_interval, day0, physics, path):
-    dt = 30.0
-    nstop = int(time_interval // dt)
+def save_namelist(nstop, day0, physics, path, dt=30.0):
     with open(path, "w") as f:
         namelist = namelist_template.format(day0=day0, nstop=nstop,
-                                            physics=physics_options[physics])
-        print(namelist)
+                                            physics=physics_options[physics],
+                                            dt=dt)
         f.write(namelist)
 
 
@@ -268,8 +250,7 @@ def save_rundata(path, src="/Users/noah/workspace/models/SAMUWgh/RUNDATA"):
     shutil.copytree(src, path)
 
 
-def save_sam_dir(stag, cent, stat, path, time_interval=900.0,
-                 physics='full'):
+def save_sam_dir(ds, path, nstop=1, physics='full', **kwargs):
     for out_dir in 'OUT_3D OUT_2D OUT_STAT RESTART NGAqua'.split():
         os.mkdir(os.path.join(path, out_dir))
 
@@ -282,15 +263,34 @@ def save_sam_dir(stag, cent, stat, path, time_interval=900.0,
     grd = os.path.join(case_dir, 'grd')
     nc = os.path.join(case_dir, 'ic.nc')
 
-    day0 = float(stag.time)
-    save_namelist(time_interval, day0, physics, prm)
+    day0 = float(ds.time)
+    save_namelist(nstop, day0, physics, prm, **kwargs)
     save_snd(snd)
-    save_grd(stag.z, grd)
-    save_ic(stag, cent, stat, nc)
+    save_grd(ds.z, grd)
+    ds.to_netcdf(nc)
     save_rundata(rundata)
 
     with open(casename, "w") as f:
         f.write("NGAqua")
+
+
+def evolve(ds, output_dir=None, **kwargs):
+    if not output_dir:
+        output_dir = tempfile.mkdtemp(dir=".", prefix=".tmp")
+
+    save_sam_dir(ds, output_dir, **kwargs)
+    run_sam(output_dir)
+
+    n = kwargs.pop('nstop')
+
+    ncfile1 = convert_nc(f"{output_dir}/OUT_3D/NGAqua_test_1_0000000000.bin3D")
+    ncfile2 = convert_nc(f"{output_dir}/OUT_3D/NGAqua_test_1_{n:010d}.bin3D")
+
+    ncs = [ncfile1, ncfile2]
+    dss = map(xr.open_dataset, ncs)
+
+    return xr.concat(dss, dim='time')
+
 
 
 def run_sam(path, docker_image="nbren12/sam",
@@ -299,7 +299,8 @@ def run_sam(path, docker_image="nbren12/sam",
     return subprocess.call(['docker', 'run',
                             "-v", path + ":/run",
                             "-w", "/run",
-                            docker_image, exe])
+                            docker_image, exe],
+                           stdout=subprocess.DEVNULL)
 
 
 def convert_nc(path, docker_image="nbren12/sam"):
@@ -309,9 +310,11 @@ def convert_nc(path, docker_image="nbren12/sam"):
     subprocess.call(['docker', 'run',
                      "-v", folder + ":/tmp",
                      "-w", "/tmp",
-                     docker_image, 'bin3D2nc', name])
+                     docker_image, 'bin3D2nc', name],
+                    stdout=subprocess.DEVNULL)
     output_name = os.path.splitext(path)[0] + '.nc'
     return output_name
+
 
 def combine_steps(ds1, ds2):
 
@@ -346,41 +349,57 @@ def parse_arguments():
     return parser.parse_args()
 
 
-args = parse_arguments()
+def get_ic(basedir, time):
+    stagger_path = os.path.join(basedir, "stagger", "3d", "all.nc")
+    center_path = os.path.join(basedir, "coarse", "3d", "all.nc")
+    stat_path = os.path.join(basedir, "stat.nc")
 
-time = args.time
-stagger_path = os.path.join(args.basedir, "stagger", "3d", "all.nc")
-center_path = os.path.join(args.basedir, "coarse", "3d", "all.nc")
-stat_path = os.path.join(args.basedir, "stat.nc")
+    # open necessary files
+    cent = xr.open_dataset(center_path, engine='netcdf4').isel(time=time)
+    time = cent.time
+    stag = (xr.open_dataset(stagger_path).sel(time=time)
+            .apply(lambda x: rename_var(x, cent.coords)))
+    stat = xr.open_dataset(stat_path)
 
-# open necessary files
-cent = xr.open_dataset(center_path, engine='netcdf4').isel(time=time)
-time = cent.time
-stag = (xr.open_dataset(stagger_path).sel(time=time)
-        .apply(lambda x: rename_var(x, cent.coords)))
-stat = xr.open_dataset(stat_path)
+    ic = xr.Dataset({
+        'U': stag.U,
+        'V': stag.V,
+        'W': cent.W,
+        'QV': cent.QV,
+        'TABS': cent.TABS,
+        'QN': cent.QN,
+        'QP': cent.QP,
+        'RHO': stat.RHO[0].drop('time'),
+        'Ps': stat.Ps[0].drop('time')
+    })
 
-remove_queue = []
-# Create SAM directory and run SAM
-for _ in range(args.retry):
-    output_dir = tempfile.mkdtemp(dir=".", prefix=".tmp")
-    remove_queue.append(output_dir)
+    return ic
 
-    save_sam_dir(stag, cent, stat, output_dir, physics=args.physics)
-    run_sam(output_dir)
 
-    ncfile1 = convert_nc(f"{output_dir}/OUT_3D/NGAqua_test_1_0000000000.bin3D")
-    ncfile2 = convert_nc(f"{output_dir}/OUT_3D/NGAqua_test_1_0000000030.bin3D")
-    ds1 = xr.open_dataset(ncfile1)
-    try:
-        ds2 = xr.open_dataset(ncfile2)
-    except OSError:
-        print("SAM did not run succesfully. Retrying")
-    else:
-        break
+def main():
+    args = parse_arguments()
 
-combine_steps(ds1, ds2).to_netcdf(args.output)
+    ds = get_ic(args.basedir, args.time)
 
-# delete temporary directories
-for output_dir in remove_queue:
-    shutil.rmtree(output_dir)
+    remove_queue = []
+    # Create SAM directory and run SAM
+    for _ in range(args.retry):
+        output_dir = tempfile.mkdtemp(dir=".", prefix=".tmp")
+        remove_queue.append(output_dir)
+        try:
+            ds = evolve(ds, output_dir=output_dir, dt=30.0, nstop=30,
+                        physics=args.physics)
+        except OSError:
+            print("SAM did not run succesfully. Retrying")
+        else:
+            break
+
+    ds.to_netcdf(args.output)
+
+    # delete temporary directories
+    for output_dir in remove_queue:
+        shutil.rmtree(output_dir)
+
+
+if __name__ == '__main__':
+    main()

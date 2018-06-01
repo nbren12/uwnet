@@ -33,18 +33,18 @@ rule download_data_file:
     output: "data/raw/{f}"
     shell: "rsync --progress -z nbren12@olympus:/home/disk/eos8/nbren12/Data/id/{wildcards.f} {output}"
 
-# rule inputs_and_forcings:
-#     input: d3=files_3d, d2=file_2d, stat=file_stat
-#     output: inputs="data/processed/inputs.nc",
-#             forcings="data/processed/forcings.nc"
-#     script: "scripts/inputs_and_forcings.py"
-
-
 rule inputs_and_forcings:
-    input: d3="data/processed/sam_tend.nc", d2=file_2d, stat=file_stat
+    input: d3=files_3d, d2=file_2d, stat=file_stat
     output: inputs="data/processed/inputs.nc",
             forcings="data/processed/forcings.nc"
     script: "scripts/inputs_and_forcings.py"
+
+
+# rule inputs_and_forcings:
+#     input: d3="data/processed/sam_tend.nc", d2=file_2d, stat=file_stat
+#     output: inputs="data/processed/inputs.nc",
+#             forcings="data/processed/forcings.nc"
+#     script: "scripts/inputs_and_forcings.py"
 
 rule time_series_data:
     input: inputs="data/processed/inputs.nc",
@@ -182,32 +182,20 @@ rule plot_model:
 rule compute_tendencies_sam:
     output: "data/interim/tendencies/{physics}/{t}.nc"
     log: "data/interim/tendencies/{physics}/{t}.log"
-    shell: "scripts/sam_init_cond.py -t {wildcards.t} -p {wildcards.physics} ~/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX {output} > {log}"
+    shell: "python -m lib.sam -t {wildcards.t} -p {wildcards.physics} ~/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX {output} > {log}"
 
 rule combine_sam_tends:
     input: expand("data/interim/tendencies/{{physics}}/{t}.nc", t=range(640))
     output: "data/processed/tend_{physics}.nc"
     run:
         import sh
-        from tqdm import tqdm
 
+        # make sorted input
         pat = re.compile("(\d+).nc$")
         def key(s):
             return int(pat.search(s).group(1))
-
         input = sorted(input, key=key)
 
-        deleteme = []
-        print("Repacking")
-        for f in tqdm(input):
-            rec = f + 'rec.nc'
-            sh.ncpdq("-O", '-a', 'time,step', f, rec)
-            deleteme.append(rec)
-
-
         print("Concatenating")
-        sh.ncrcat("-O", deleteme, output[0])
+        sh.ncrcat("-O", input, output[0])
 
-        print("cleaning up")
-        for f in deleteme:
-            os.unlink(f)
