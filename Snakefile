@@ -57,7 +57,7 @@ def modeling_experiments():
     # global
     model_fit_params['0'] = dict(south=1, north=18)
     model_fit_params['1'] = dict(south=16, north=28)
-    model_fit_params['2'] = dict(south=26, north=38)
+    model_fit_params['2'] = dict(south=26, north=38, window_size=20)
     model_fit_params['3'] = dict(south=36, north=48)
     model_fit_params['4'] = dict(south=46, north=63)
     return model_fit_params

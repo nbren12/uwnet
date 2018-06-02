@@ -41,9 +41,7 @@ def train_multistep_objective(train_data, test_data, output_dir,
                               num_batches=None, batch_size=200, lr=0.01,
                               weight_decay=0.0, nsteps=1, nhidden=(256,),
                               cuda=False, pytest=False,
-                              precip_in_loss=False,
                               precip_positive=False,
-                              radiation='zero',
                               seed=1):
     """Train a single layer perceptron euler time stepping model
 
@@ -100,9 +98,7 @@ def train_multistep_objective(train_data, test_data, output_dir,
     # define constants to be used by model
     constants = data.to_constants(train_data)
     scaler = data.to_scaler(train_data)
-    loss = data.to_dynamic_loss(train_data,
-                                radiation_in_loss=radiation == 'interactive', precip_in_loss=precip_in_loss,
-                                cuda=cuda)
+    loss = data.to_dynamic_loss(train_data, cuda=cuda)
 
 
     # get testing_loader
@@ -118,7 +114,6 @@ def train_multistep_objective(train_data, test_data, output_dir,
         m,
         hidden=nhidden,
         scaler=scaler,
-        radiation=radiation,
         precip_positive=precip_positive)
 
     nstepper = model.ForcedStepper(

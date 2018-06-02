@@ -35,22 +35,6 @@ def _euler_step(prog, src, h):
     return prog
 
 
-def padded_deriv(f, z):
-
-    df = torch.zeros_like(f)
-
-    df[..., 1:-1] = (f[..., 2:] - f[..., :-2]) / (z[2:] - z[:-2])
-    df[..., 0] = (f[..., 1] - f[..., 0]) / (z[1] - z[0])
-    df[..., -1] = (f[..., -1] - f[..., -2]) / (z[-1] - z[-2])
-
-    return df
-
-
-def vertical_advection(w, f, z):
-    df = padded_deriv(f, z)
-    return df * w * 86400
-
-
 def large_scale_forcing(i, data):
     forcing = {
         key: (val[i - 1] + val[i]) / 2
@@ -88,44 +72,8 @@ def compute_diagnostics(steps, lsf, w, dt):
     }
 
 
-def precip_from_s(fsl, qrad, shf, w):
-    return (w * (fsl - qrad)).sum(
-        -1, keepdim=True
-    ) * constants.cp / constants.Lv - shf * 86400 / constants.Lv
-
-
-def precip_from_q(fqt, lhf, w):
-    return -(fqt * w).sum(-1, keepdim=True) / 1000. + lhf * 86400 / constants.Lv
-
-
 def mass_integrate(x, w):
     return (x * w).sum(-1, keepdim=True)
-
-
-def enforce_precip_sl(fsl, qrad, shf, precip, w):
-    """Adjust temperature tendency to match a target precipitation
-
-    .. math::
-
-        cp < f >  = cp <QRAD> + SHF + L P
-
-    Parameters
-    ----------
-    fsl : K/day
-    qrad : K/day
-    shf : W/m^2
-    precip : mm/day
-    w : kg /m^2
-
-    """
-
-    mass = mass_integrate(1.0, w)
-    qrad_col = mass_integrate(qrad, w)
-    f_col = mass_integrate(fsl, w)
-    f_col_target = qrad_col + (
-        shf * 86400 + constants.Lv * precip) / constants.cp
-
-    return fsl - f_col / mass + f_col_target / mass
 
 
 def enforce_precip_qt(fqt, lhf, w, **kwargs):
@@ -174,28 +122,6 @@ def mlp(layer_sizes):
     return nn.Sequential(*layers)
 
 
-class Qrad(nn.Module):
-    def __init__(self):
-        super(Qrad, self).__init__()
-        n = 71
-        m = 34
-
-        nhid = 128
-
-        self.net = nn.Sequential(
-            nn.BatchNorm1d(n),
-            nn.Linear(n, nhid),
-            nn.ReLU(),
-            nn.BatchNorm1d(nhid),
-            nn.Linear(nhid, nhid),
-            nn.ReLU(), nn.BatchNorm1d(nhid), nn.Linear(nhid, m))
-        self.n = n
-        self.m = m
-
-    def forward(self, x):
-        return self.net(x)
-
-
 class RHS(nn.Module):
     def __init__(self,
                  m,
@@ -217,7 +143,6 @@ class RHS(nn.Module):
         self.lin = nn.Linear(m + num_2d_inputs + m, m, bias=False)
         self.scaler = scaler
         self.bn = nn.BatchNorm1d(num_2d_inputs + m)
-        self.qrad = Qrad()
         self.radiation = radiation
         self.precip_positive = precip_positive
         self.num_2d_inputs = num_2d_inputs
@@ -237,18 +162,6 @@ class RHS(nn.Module):
         x = torch.cat((x, data_2d), -1)
         y = self.mlp(x) #+ self.lin(x)
         src = _to_dict(y)
-
-
-        # compute radiation
-        if self.radiation == 'interactive':
-            qrad = self.qrad(x)
-            diags['QRAD'] = qrad
-            src['sl'] = src['sl'] + qrad
-        elif self.radiation == 'prescribed':
-            qrad = force['QRAD']
-            src['sl'] = src['sl'] + qrad
-        elif self.radiation == 'zero':
-            qrad = force['QRAD']
 
         if self.precip_positive:
             src['qt'] = enforce_precip_qt(src['qt'], force['LHF'], w)

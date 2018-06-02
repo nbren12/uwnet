@@ -73,7 +73,6 @@ def to_dynamic_loss(data, cuda=True, **kwargs):
     return dynamic_loss(weights=weights, **kwargs)
 
 
-
 def to_dataset(data,
                window_size,
                prognostic_variables=('sl', 'qt'),
