@@ -2,6 +2,7 @@
 special dataloaders etc
 
 """
+import os
 import json
 import logging
 import pprint
@@ -31,6 +32,15 @@ def _prepare_vars_in_nested_dict(data, cuda=False):
             for key, val in data.items()
         }
 
+
+def save(model, path):
+    """Save object using torch.save, creating any directories in the path"""
+    try:
+        os.mkdir(os.path.dirname(path))
+    except OSError:
+        pass
+
+    torch.save(model, path)
 
 
 def train_multistep_objective(train_data, test_data, output_dir,
@@ -66,6 +76,12 @@ def train_multistep_objective(train_data, test_data, output_dir,
     arguments.pop('train_data')
     logger.info("Called with parameters:\n" + pprint.pformat(arguments))
     logger.info(f"Saving to {output_dir}")
+
+    try:
+        os.mkdir(output_dir)
+    except OSError:
+        pass
+
 
     json.dump(arguments, open(f"{output_dir}/arguments.json", "w"))
 
@@ -175,17 +191,18 @@ def train_multistep_objective(train_data, test_data, output_dir,
         nstepper.window_size = T
 
         logger.info(f"Saving state to %s" % file)
-        torch.save(nstepper.to_saved(), file)
+
+        save(nstepper.to_saved(), file)
 
     def on_finish():
         import json
         # torch.save(nstepper, f"{output_dir}/{num_epochs}/model.torch")
-        torch.save(nstepper.to_saved(), f"{output_dir}/{num_epochs}/state.torch")
+        save(nstepper.to_saved(), f"{output_dir}/{num_epochs}/state.torch")
         json.dump(epoch_data, open(f"{output_dir}/loss.json", "w"))
 
     def on_error(data):
         logging.critical("Dumping data to \"dump.pt\"")
-        torch.save({
+        save({
             "data": data,
             "model": nstepper,
             "constants": constants
