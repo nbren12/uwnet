@@ -7,47 +7,53 @@
 import xarray as xr
 import numpy as np
 import torch
-from lib.torch import train_multistep_objective
-from lib.data import prepare_data
+from lib.torch import train_multistep_objective, TrainingData
 import json, sys
 from contextlib import redirect_stdout
-
 import logging
+
 handlers = [logging.FileHandler(snakemake.log[0]), logging.StreamHandler()]
-
-
-def _train(x):
-    return x.isel(x=slice(64, None))
-
-
-def _test(x):
-    return x.isel(x=slice(0, 64))
-
-
-
-
 logging.basicConfig(level=logging.DEBUG, handlers=handlers)
+
+params = snakemake.params[0]
+i = snakemake.input
 
 logging.info("Starting training script")
 
-params = snakemake.params[0]
+# define paths
+files = [
+    (i.tend, ('FQT', 'FSL')),
+    (i.cent, ('QV', 'TABS', 'QN', 'QP', 'QRAD')),
+    (i.stat, ('p', 'RHO')),
+    (i['2d'], ('LHF', 'SHF', 'SOLIN')),
+]
+
+# get training region
 north = params.pop('north', 40)
 south = params.pop('south', 24)
-
-y_range = slice(south, north)
-
 logging.info(f"Training on data between y-indices {south} and {north}")
 
-i = snakemake.input
-inputs = xr.open_dataset(i.inputs).isel(y=y_range)
-forcings = xr.open_dataset(i.forcings).isel(y=y_range)
+def safesel(da, **kwargs):
+    kwargs['y'] = slice(24, 40)
+    sel = {dim: kwargs[dim] for dim in da.dims
+           if dim in kwargs}
+    return da.isel(**sel)
+
+def _train(x):
+    return safesel(x, x=slice(64, None))
+
+def _test(x):
+    return safesel(x, x=slice(0, 64))
 
 
+logging.info("Loading training data")
+train = TrainingData.from_var_files(files, post=_train)
+logging.info("Size of training dataset: %.2f MB"%(train.nbytes/1e6))
+
+logging.info("Loading testing data")
+test = TrainingData.from_var_files(files, post=_test)
+logging.info("Size of testing dataset: %.2f MB"%(test.nbytes/1e6))
+
+logging.info("Calling train_multistep_objective")
 output_dir = params.pop('output_dir')
-
-train_data = prepare_data(_train(inputs), _train(forcings))
-test_data = prepare_data(_test(inputs), _test(forcings))
-train_multistep_objective(train_data, test_data, output_dir, **params)
-
-# torch.save(stepper, snakemake.output.model)
-# json.dump(epoch_data, open(snakemake.output.json, "w"))
+train_multistep_objective(train, test, output_dir, **params)

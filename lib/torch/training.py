@@ -7,30 +7,14 @@ import json
 import logging
 import pprint
 
-import numpy as np
 import torch
 from torch.autograd import Variable
-from torch.utils.data import DataLoader
-from torch.utils.data.sampler import SubsetRandomSampler
 
 from .utils import train
-from . import model, data
+from . import model
 
 
 logger = logging.getLogger(__name__)
-
-
-def _prepare_vars_in_nested_dict(data, cuda=False):
-    if torch.is_tensor(data):
-        x = Variable(data).float()
-        if cuda:
-            x = x.cuda()
-        return x.transpose(0, 1)
-    elif isinstance(data, dict):
-        return {
-            key: _prepare_vars_in_nested_dict(val, cuda=cuda)
-            for key, val in data.items()
-        }
 
 
 def save(model, path):
@@ -48,7 +32,7 @@ def train_multistep_objective(train_data, test_data, output_dir,
                               num_test_examples=10000,
                               window_size={0: 2, 1: 10, 2: 20},
                               test_window_size=64,
-                              num_batches=None, batch_size=200, lr=0.01,
+                              num_samples=None, batch_size=200, lr=0.01,
                               weight_decay=0.0, nsteps=1, nhidden=(256,),
                               cuda=False, pytest=False,
                               precip_positive=False,
@@ -104,7 +88,7 @@ def train_multistep_objective(train_data, test_data, output_dir,
         dt = dt.cuda()
 
 
-    test_dataset = data.to_dataset(test_data, test_window_size)
+    test_dataset = test_data.torch_dataset(test_window_size)
     # ntrain = len(train_dataset)
     ntest = len(test_dataset)
 
@@ -112,20 +96,16 @@ def train_multistep_objective(train_data, test_data, output_dir,
     logging.info(f"Testing dataset length: {ntest}")
 
     # define constants to be used by model
-    constants = data.to_constants(train_data)
-    scaler = data.to_scaler(train_data)
-    loss = data.to_dynamic_loss(train_data, cuda=cuda)
+    scaler = train_data.scaler()
+    loss = train_data.dynamic_loss()
 
 
     # get testing_loader
-    testing_inds = np.random.choice(len(test_dataset), num_test_examples,
-                                    replace=False)
-    test_loader = DataLoader(test_dataset, batch_size=len(testing_inds),
-                             sampler=SubsetRandomSampler(testing_inds))
-
+    test_loader = test_data.get_loader(test_window_size,
+                                       num_samples=num_test_examples)
 
     # define the neural network
-    m = data.get_num_features(train_data)
+    m = train_data.get_num_features()
     rhs = model.RHS(
         m,
         hidden=nhidden,
@@ -140,11 +120,6 @@ def train_multistep_objective(train_data, test_data, output_dir,
     optimizer = torch.optim.Adam(
         rhs.parameters(), lr=lr, weight_decay=weight_decay)
 
-    # move data to gpu if appropriate
-    if cuda:
-        nstepper.cuda()
-        for key in constants:
-            constants[key] = constants[key].cuda()
 
     ##
     # model training code below here
@@ -153,24 +128,10 @@ def train_multistep_objective(train_data, test_data, output_dir,
 
     def get_generator(epoch):
         T = window_size(epoch)
-        train_dataset = data.to_dataset(train_data, T)
-        training_inds = np.arange(len(train_dataset))
-
-        # Create training data loaders
-        if num_batches:
-            logger.info(f"Using boostrap sample of {num_batches}.")
-            training_inds = np.random.choice(len(train_dataset),
-                                             num_batches * batch_size, replace=False)
-        else:
-            logger.info(f"Using full training dataset")
-
-        train_loader = DataLoader(train_dataset, batch_size=batch_size,
-                                  sampler=SubsetRandomSampler(training_inds))
-        return train_loader
+        return train_data.get_loader(T, num_samples=num_samples,
+                                     batch_size=batch_size, shuffle=True)
 
     def closure(batch):
-        batch = _prepare_vars_in_nested_dict(batch, cuda=cuda)
-        batch['constant'] = constants
         y = nstepper(batch)
         return loss(batch, y)
 
@@ -205,7 +166,6 @@ def train_multistep_objective(train_data, test_data, output_dir,
         save({
             "data": data,
             "model": nstepper,
-            "constants": constants
         }, "dump.pt")
 
     train(

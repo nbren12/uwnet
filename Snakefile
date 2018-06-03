@@ -33,25 +33,6 @@ rule download_data_file:
     output: "data/raw/{f}"
     shell: "rsync --progress -z nbren12@olympus:/home/disk/eos8/nbren12/Data/id/{wildcards.f} {output}"
 
-rule inputs_and_forcings:
-    input: d3=files_3d, d2=file_2d, stat=file_stat
-    output: inputs="data/processed/inputs.nc",
-            forcings="data/processed/forcings.nc"
-    script: "scripts/inputs_and_forcings.py"
-
-
-# rule inputs_and_forcings:
-#     input: d3="data/processed/sam_tend.nc", d2=file_2d, stat=file_stat
-#     output: inputs="data/processed/inputs.nc",
-#             forcings="data/processed/forcings.nc"
-#     script: "scripts/inputs_and_forcings.py"
-
-rule time_series_data:
-    input: inputs="data/processed/inputs.nc",
-            forcings="data/processed/forcings.nc"
-    output: "data/output/time_series_data.pkl",
-    script: "scripts/torch_preprocess.py"
-
 def modeling_experiments():
     model_fit_params = {}
     # global
@@ -89,8 +70,7 @@ def fit_model_params(wildcards):
 
 
 rule fit_model:
-    input: inputs="data/processed/inputs.nc",
-           forcings="data/processed/forcings.nc"
+    input: **config['paths']
     output:
         expand("data/output/model.{{k}}/{{seed}}/{epoch}/state.torch", epoch=range(nepoch+1)),
         "data/output/model.{k}/{seed}/loss.json",
@@ -113,9 +93,7 @@ rule combine_errors:
     script: "scripts/combine_errors.py"
 
 rule forced_column_slp:
-    input: state="{d}/state.torch",
-           inputs="data/processed/inputs.nc",
-           forcings="data/processed/forcings.nc"
+    input: **dict(state="{d}/state.torch", **config['paths'])
     priority: 10
     output: "{d}/columns.nc"
     script: "scripts/forced_column_slp.py"
