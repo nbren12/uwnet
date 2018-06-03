@@ -178,24 +178,13 @@ rule plot_model:
     output: "{d}/plots.html"
     script: "scripts/model_report.py"
 
-
 rule compute_tendencies_sam:
     output: "data/interim/tendencies/{physics}/{t}.nc"
     log: "data/interim/tendencies/{physics}/{t}.log"
     shell: "python -m lib.sam -t {wildcards.t} -p {wildcards.physics} ~/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX {output} > {log}"
 
 rule combine_sam_tends:
-    input: expand("data/interim/tendencies/{{physics}}/{t}.nc", t=range(640))
-    output: "data/processed/tend_{physics}.nc"
-    run:
-        import sh
-
-        # make sorted input
-        pat = re.compile("(\d+).nc$")
-        def key(s):
-            return int(pat.search(s).group(1))
-        input = sorted(input, key=key)
-
-        print("Concatenating")
-        sh.ncrcat("-O", input, output[0])
+    input: expand("data/interim/tendencies/dry/{t}.nc", t=range(640))
+    output: "data/processed/dry_tends.nc"
+    script: "scripts/combine_sam_tends.py"
 
