@@ -34,7 +34,7 @@ south = params.pop('south', 24)
 logging.info(f"Training on data between y-indices {south} and {north}")
 
 def safesel(da, **kwargs):
-    kwargs['y'] = slice(24, 40)
+    kwargs['y'] = slice(south, north)
     sel = {dim: kwargs[dim] for dim in da.dims
            if dim in kwargs}
     return da.isel(**sel)
