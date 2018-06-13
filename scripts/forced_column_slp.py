@@ -23,7 +23,7 @@ files = [
 data = TrainingData.from_var_files(files)
 nt, ny, nx, nz = data.FQT.shape
 
-loader = data.get_loader(nt, batch_size=ny*nx*nz, shuffle=False)
+loader = data.get_loader(nt, batch_size=ny * nx * nz, shuffle=False)
 input_data = first(loader)
 
 model = ForcedStepper.from_file(state)
@@ -34,13 +34,16 @@ print("nsteps", nsteps)
 with torch.no_grad():
     out = model(input_data)
 
+
 def unstackdiag(x):
     shape = (nt - 1, ny, nx)
     return x.data.numpy().reshape(shape)
 
+
 def unstack2d(x):
     shape = (nt, ny, nx)
     return x.data.numpy().reshape(shape)
+
 
 def unstack3d(x):
     shape = (nt, ny, nx, nz)
@@ -55,7 +58,8 @@ output = {
 for key, val in out['diagnostic'].items():
     output[key] = (['time', 'y', 'x'], unstackdiag(val))
 
-output['z'] = (['z'], data.z)
 output['p'] = (['z'], data.p)
 
-xr.Dataset(output).to_netcdf(snakemake.output[0])
+coords = {'z': data.z, 'x': data.x, 'y': data.y}
+
+xr.Dataset(output, coords=coords).to_netcdf(snakemake.output[0])
