@@ -1,3 +1,4 @@
+import numpy as np
 import sys
 import xarray as xr
 import os
@@ -27,7 +28,7 @@ output_files = [
 ]
 
 rule all:
-    input: expand("data/output/model.{region}/0/3/state.torch", region=range(5))
+    input: expand("data/output/model.{region}/0/3/state.torch", region=range(3))
 
 rule download_data_file:
     output: "data/raw/{f}"
@@ -35,12 +36,9 @@ rule download_data_file:
 
 def modeling_experiments():
     model_fit_params = {}
-    # global
-    model_fit_params['0'] = dict(south=1, north=18)
-    model_fit_params['1'] = dict(south=16, north=28)
-    model_fit_params['2'] = dict(south=26, north=38, window_size=20)
-    model_fit_params['3'] = dict(south=36, north=48)
-    model_fit_params['4'] = dict(south=46, north=63)
+    model_fit_params['0'] = dict(y=np.r_[1:17,48:64], window_size=10)
+    model_fit_params['1'] = dict(y=np.r_[15:28,36:50], window_size=10)
+    model_fit_params['2'] = dict(y=np.r_[26:38], window_size=20)
     return model_fit_params
 
 

@@ -29,12 +29,11 @@ files = [
 ]
 
 # get training region
-north = params.pop('north', 40)
-south = params.pop('south', 24)
-logging.info(f"Training on data between y-indices {south} and {north}")
+y = params.pop('y', np.r_[:64])
+logging.info(f"Training on y-indices: {y}")
 
 def safesel(da, **kwargs):
-    kwargs['y'] = slice(south, north)
+    kwargs['y'] = y
     sel = {dim: kwargs[dim] for dim in da.dims
            if dim in kwargs}
     return da.isel(**sel)
