@@ -2,7 +2,6 @@ import numpy as np
 import sys
 import xarray as xr
 import os
-from lib.scam import create_iopfile
 
 conda: "environment.yml"
 
@@ -114,45 +113,12 @@ rule rce_column_slp:
     params: RCE=True
     script: "scripts/forced_column_slp.py"
 
-wildcard_constraints:
-    i="\d+",
-    j="\d+"
-
-rule make_iop_file:
-    input: d3=files_3d, d2=file_2d, stat=file_stat
-    output: "data/processed/iop.nc"
-    run:
-        create_iopfile.main(input.d2, input.d3, input.stat, output[0])
-
-rule prepare_iop_directories:
-    input: "data/processed/iop.nc"
-    output: nml="data/processed/iop/{i}-{j}/namelist.txt",
-            nc="data/processed/iop/{i}-{j}/iop.nc"
-    run:
-        iop = xr.open_dataset(input[0])
-        output_dir = "data/processed/iop"
-        create_iopfile.save_all_dirs(iop, output_dir)
-
-rule run_scam_forced:
-    input: "data/processed/iop.nc"
-    output: "data/processed/iop/{i}-{j}/cam.nc"
-    script: "scripts/run_scam.py"
-
-rule run_scam_rce:
-    input: "data/processed/iop.nc"
-    output: "data/processed/rce/{i}-{j}/cam.nc"
-    params: RCE=True
-    script: "scripts/run_scam.py"
-
-rule combine_scam:
-    input: expand("data/processed/iop/{i}-{j}/cam.nc", i=range(128), j=8)
-    output: "data/output/scam.nc"
-    script: "scripts/combine_scam.py"
-
 rule plot_model:
     input: cols="{d}/columns.nc",
     output: "{d}/plots.html"
     script: "scripts/model_report.py"
+
+include: "rules/cam.smk"
 
 rule compute_tendencies_sam:
     output: "data/interim/tendencies/{physics}/{t}.nc"
