@@ -37,7 +37,7 @@ def _euler_step(prog, src, h):
 
 def large_scale_forcing(i, data):
     forcing = {
-        key: (val[i - 1] + val[i]) / 2
+        key: val[i - 1]
         for key, val in data['forcing'].items()
     }
     return forcing
@@ -204,15 +204,16 @@ class ForcedStepper(nn.Module):
 
                 # store old state
                 prog0 = prog
-                
+
                 # apply large scale forcings
                 lsf = large_scale_forcing(i, data)
-                prog = _euler_step(prog, lsf, h / nsteps)
+                # prog = _euler_step(prog, lsf, h / nsteps)
                 prog1 = prog
 
                 # compute and apply rhs using neural network
                 src, _ = self.rhs(prog, lsf, data['constant']['w'])
                 prog = _euler_step(prog, src, h / nsteps)
+                prog['qt'] = _fix_moisture(prog['qt'], data['constant']['w'])
                 prog2 = prog
 
                 diags = compute_diagnostics([prog0, prog1, prog2], lsf,
