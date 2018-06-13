@@ -1,6 +1,11 @@
 import xarray as xr
 from lib.scam import create_iopfile
 
+# input files
+files_3d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/all.nc"
+file_2d = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc"
+file_stat = "data/raw/2/NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc"
+
 wildcard_constraints:
     i="\d+",
     j="\d+"
