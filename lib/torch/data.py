@@ -101,6 +101,8 @@ class TrainingData(object):
     layer_mass = attr.ib()
     z = attr.ib()
     p = attr.ib()
+    x = attr.ib()
+    y = attr.ib()
 
     def constants(self):
         return {
@@ -116,7 +118,7 @@ class TrainingData(object):
 
     def forcing(self):
         # create forcing dictionary
-        auxiliary_names = ('QRAD', 'LHF', 'SHF', 'SOLIN')
+        auxiliary_names = ('QRAD', 'LHF', 'SHF', 'SOLIN', 'y')
         forcing_variables = {
             'sl': self.FSL,
             'qt': self.FQT,
@@ -258,8 +260,14 @@ class TrainingData(object):
         if post:
             init_kwargs = valmap(post, init_kwargs)
 
+        # add coordinate information
+        sl = init_kwargs['sl']
+        init_kwargs['x'] = sl.x
+        init_kwargs['y'] = sl.y
+
         # process all files into numpy arrays
         init_kwargs = {key: prepare_array(x) for key, x in init_kwargs.items()}
+
 
         return TrainingData(**init_kwargs)
 
