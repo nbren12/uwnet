@@ -169,6 +169,25 @@ class RHS(nn.Module):
         return src, diags
 
 
+def rhs_hidden_from_state_dict(state):
+    """Determine the hidden argument for RHS from the state dictionary
+    """
+    import re
+    pattern = re.compile('rhs\.mlp\.(\d)\.bias')
+    sizes = {}
+    for key, val in state.items():
+        m = pattern.search(key)
+        if m:
+            step = int(m.group(1))
+            sizes[step] = val.size(0)
+
+    # sort the sizes by the digit
+    sizes = [sizes[k] for k in sorted(sizes.keys())]
+
+    # drop the size of the output layer
+    return sizes[:-1]
+
+
 class ForcedStepper(nn.Module):
     def __init__(self, rhs, h, nsteps):
         super(ForcedStepper, self).__init__()
@@ -242,6 +261,7 @@ class ForcedStepper(nn.Module):
         from .data import scaler
         m, rhs_kw = d.pop('rhs')
         rhs_kw['scaler'] =  scaler(*rhs_kw.pop('scaler_args'))
+        rhs_kw['hidden'] = rhs_hidden_from_state_dict(d['state'])
         rhs = RHS(m, **rhs_kw)
 
 
@@ -257,8 +277,7 @@ class ForcedStepper(nn.Module):
 
     def to_saved(self):
         m = self.rhs.lin.out_features
-        nhidden = self.rhs.mlp[0].out_features
-        rhs_kwargs = dict(num_2d_inputs=self.rhs.num_2d_inputs, hidden=(nhidden,),
+        rhs_kwargs = dict(num_2d_inputs=self.rhs.num_2d_inputs,
                           precip_positive=self.rhs.precip_positive,
                           radiation=self.rhs.radiation,
                           scaler_args=self.rhs.scaler.args)
