@@ -63,7 +63,7 @@ def get_dz(z):
 
 def layer_mass(rho):
     dz = get_dz(rho.z)
-    return rho*dz
+    return (rho*dz).assign_attrs(units='kg/m2')
 
 
 def layer_mass_from_p(p, ps=None):

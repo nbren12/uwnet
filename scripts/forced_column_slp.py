@@ -59,7 +59,6 @@ for key, val in out['diagnostic'].items():
     output[key] = (['time', 'y', 'x'], unstackdiag(val))
 
 output['p'] = (['z'], data.p)
-
-coords = {'z': data.z, 'x': data.x, 'y': data.y}
+coords = {'z': data.z, 'x': data.x, 'y': data.y, 'time': data.time[1:]}
 
 xr.Dataset(output, coords=coords).to_netcdf(snakemake.output[0])

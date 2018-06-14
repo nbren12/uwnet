@@ -43,6 +43,22 @@ rule fit_model:
     script: "scripts/train_neural_network.py"
 
 
+rule true_columns:
+    input: **config['paths']
+    output: "data/output/truth.nc"
+    run:
+        from lib import thermo
+        d = xr.open_dataset(input.cent)
+        rho = xr.open_dataset(input.stat).RHO[0].drop('time')
+        out = xr.Dataset({
+            'sl': thermo.liquid_water_temperature(d.TABS, d.QN, d.QP),
+            'qt': (d.QV + d.QN + d.QP).assign_attrs(units='g/kg'),
+            'rho': rho,
+            'layer_mass': thermo.layer_mass(rho)
+        })
+
+        out.to_netcdf(output[0])
+
 rule test_model:
     input: inputs="data/processed/inputs.nc",
            forcings="data/processed/forcings.nc",

@@ -103,6 +103,7 @@ class TrainingData(object):
     p = attr.ib()
     x = attr.ib()
     y = attr.ib()
+    time = attr.ib()
 
     def constants(self):
         return {
@@ -264,6 +265,7 @@ class TrainingData(object):
         sl = init_kwargs['sl']
         init_kwargs['x'] = sl.x
         init_kwargs['y'] = sl.y
+        init_kwargs['time'] = sl.time
 
         # process all files into numpy arrays
         init_kwargs = {key: prepare_array(x) for key, x in init_kwargs.items()}
