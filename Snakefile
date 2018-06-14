@@ -24,7 +24,12 @@ rule download_data_file:
 
 
 def fit_model_params(wildcards):
-    d =  config['models'][int(wildcards.k)].copy()
+    try:
+        k = int(wildcards.k)
+    except ValueError:
+        k = wildcards.k
+
+    d =  config['models'][k].copy()
     d['seed'] = int(wildcards.seed)
     d['cuda']  = config.get('cuda', False)
     d['output_dir'] = f"data/output/model.{wildcards.k}/{wildcards.seed}/"

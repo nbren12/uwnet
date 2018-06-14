@@ -139,7 +139,7 @@ class RHS(nn.Module):
             constrain precip to be positive if True
         """
         super(RHS, self).__init__()
-        self.mlp = mlp((m + num_2d_inputs + m, ) + hidden + (m, ))
+        self.mlp = mlp((m + num_2d_inputs + m, ) + tuple(hidden) + (m, ))
         self.lin = nn.Linear(m + num_2d_inputs + m, m, bias=False)
         self.scaler = scaler
         self.bn = nn.BatchNorm1d(num_2d_inputs + m)
