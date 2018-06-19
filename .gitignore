@@ -244,3 +244,4 @@ reports
 *.html
 .tmp5hstd6xr .tmp7tsu5vbr .tmp820fu3is .tmpc6kevcb0 .tmpfho_1ajw .tmpjrl4sokf .tmpjxzw6x6k .tmplfxxhlxh .tmpu070dnv1 .tmpvjlqz8x5 .tmpzfrs8lhw
 .tmp*
+.pytest_cache/
