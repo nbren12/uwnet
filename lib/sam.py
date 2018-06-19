@@ -274,17 +274,24 @@ def save_sam_dir(ds, path, nstop=1, physics='full', **kwargs):
         f.write("NGAqua")
 
 
-def evolve(ds, output_dir=None, **kwargs):
+def evolve(ds, output_dir=None, sam_kws=None, **kwargs):
     if not output_dir:
         output_dir = tempfile.mkdtemp(dir=".", prefix=".tmp")
 
+
     save_sam_dir(ds, output_dir, **kwargs)
-    run_sam(output_dir)
+
+    if sam_kws is None:
+        sam_kws = {}
+
+    run_sam(output_dir, **sam_kws)
 
     n = kwargs.pop('nstop')
 
-    ncfile1 = convert_nc(f"{output_dir}/OUT_3D/NGAqua_test_1_0000000000.bin3D")
-    ncfile2 = convert_nc(f"{output_dir}/OUT_3D/NGAqua_test_1_{n:010d}.bin3D")
+    ncfile1 = convert_nc(f"{output_dir}/OUT_3D/NGAqua_test_1_0000000000.bin3D",
+                         **sam_kws)
+    ncfile2 = convert_nc(f"{output_dir}/OUT_3D/NGAqua_test_1_{n:010d}.bin3D", 
+                         **sam_kws)
 
     ncs = [ncfile1, ncfile2]
     dss = map(xr.open_dataset, ncs)
@@ -293,17 +300,18 @@ def evolve(ds, output_dir=None, **kwargs):
 
 
 
-def run_sam(path, docker_image="nbren12/sam",
+def run_sam(path, docker_image="nbren12/samuwgh:callpytorch",
             exe="/sam/SAM_ADV_MPDATA_SGS_TKE_RAD_CAM_MICRO_SAM1MOM"):
     path = os.path.abspath(path)
+    log_file = os.path.join(path, "output")
     return subprocess.call(['docker', 'run',
                             "-v", path + ":/run",
                             "-w", "/run",
                             docker_image, exe],
-                           stdout=subprocess.DEVNULL)
+                           stdout=open(log_file, "w"))
 
 
-def convert_nc(path, docker_image="nbren12/sam"):
+def convert_nc(path, docker_image="nbren12/samuwgh:callpytorch"):
     folder = os.path.dirname(path)
     name = os.path.basename(path)
     folder = os.path.abspath(folder)
@@ -345,6 +353,9 @@ def parse_arguments():
     parser.add_argument('-r', '--retry', type=int, default=10)
     parser.add_argument('-p', '--physics', type=str, default='full',
                         help='Physics package')
+    parser.add_argument('-d', '--dir', default=None)
+    parser.add_argument('-i', '--docker-image',
+                        default="nbren12/samuwgh:latest")
 
     return parser.parse_args()
 
@@ -384,11 +395,17 @@ def main():
     remove_queue = []
     # Create SAM directory and run SAM
     for _ in range(args.retry):
-        output_dir = tempfile.mkdtemp(dir=".", prefix=".tmp")
-        remove_queue.append(output_dir)
+        if args.dir is None:
+            output_dir = tempfile.mkdtemp(dir=".", prefix=".tmp")
+            remove_queue.append(output_dir)
+        else:
+            output_dir = args.dir
+            os.mkdir(output_dir)
+
         try:
             ds = evolve(ds, output_dir=output_dir, dt=30.0, nstop=30,
-                        physics=args.physics)
+                        physics=args.physics,
+                        sam_kws={'docker_image': args.docker_image})
         except OSError:
             print("SAM did not run succesfully. Retrying")
         else:
