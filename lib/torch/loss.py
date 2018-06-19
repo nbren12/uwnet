@@ -17,6 +17,6 @@ def dynamic_loss(truth, pred, weights=None):
     # time series loss
     for key in y:
         w = weights.get(key, 1.0)
-        total_loss += weighted_loss(w, x[key], y[key]) / len(y)
+        total_loss += weighted_loss(w, x[key], y[key])
 
     return total_loss
