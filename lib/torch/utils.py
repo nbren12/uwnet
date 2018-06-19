@@ -7,7 +7,7 @@ from timeit import default_timer as timer
 
 
 
-def train(get_generator, loss_fn, optimizer, num_epochs=1, monitor=None,
+def train(data_loader, loss_fn, optimizer, num_epochs=1, monitor=None,
           on_epoch_start=None, on_finish=None, on_error=None):
     """Train a torch model
 
@@ -27,7 +27,6 @@ def train(get_generator, loss_fn, optimizer, num_epochs=1, monitor=None,
         if on_epoch_start:
             on_epoch_start(epoch)
 
-        data_loader = get_generator(epoch)
         num_steps = len(data_loader)
 
         t_start = timer()

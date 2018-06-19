@@ -11,6 +11,7 @@ import torch
 from torch.autograd import Variable
 
 from .utils import train
+from .data import TrainingData
 from . import model
 
 
@@ -27,15 +28,14 @@ def save(model, path):
     torch.save(model, path)
 
 
-def train_multistep_objective(train_data, test_data, output_dir,
-                              num_epochs=5,
+def train_multistep_objective(train_data: TrainingData, test_data: TrainingData,
+                              output_dir, num_epochs=5,
                               num_test_examples=10000,
-                              window_size={0: 2, 1: 10, 2: 20},
+                              window_size=10,
                               test_window_size=64,
                               num_samples=None, batch_size=200, lr=0.01,
                               weight_decay=0.0, nsteps=1, nhidden=(256,),
-                              cuda=False, pytest=False,
-                              precip_positive=False,
+                              cuda=False, pytest=False, precip_positive=False,
                               seed=1):
     """Train a single layer perceptron euler time stepping model
 
@@ -47,11 +47,8 @@ def train_multistep_objective(train_data, test_data, output_dir,
 
     Parameters
     ----------
-    window_size : int or callable
-        Size of prediction window for training. If this is a dict then the
-        window_size of the time stepper will be set to window_size(epoch).
-        Default: 10.
-
+    window_size : int
+        Size of prediction window for training. Default: 10.
 
     """
 
@@ -70,17 +67,6 @@ def train_multistep_objective(train_data, test_data, output_dir,
     json.dump(arguments, open(f"{output_dir}/arguments.json", "w"))
 
     torch.manual_seed(seed)
-
-    # set window size scheduler
-    default_window_size = 20
-    if isinstance(window_size, int):
-        default_window_size = window_size
-        def window_size(epoch):
-            return default_window_size
-    elif isinstance(window_size, dict):
-        window_size_dict = window_size
-        def window_size(epoch):
-            return window_size_dict.get(epoch, default_window_size)
 
     # the sampling interval of the data
     dt = Variable(torch.FloatTensor([3 / 24]), requires_grad=False)
@@ -103,6 +89,8 @@ def train_multistep_objective(train_data, test_data, output_dir,
     # get testing_loader
     test_loader = test_data.get_loader(test_window_size,
                                        num_samples=num_test_examples)
+    train_loader = train_data.get_loader(window_size, num_samples=num_samples,
+                                         batch_size=batch_size, shuffle=True)
 
     # define the neural network
     m = train_data.get_num_features()
@@ -126,11 +114,6 @@ def train_multistep_objective(train_data, test_data, output_dir,
     ##
     epoch_data = []
 
-    def get_generator(epoch):
-        T = window_size(epoch)
-        return train_data.get_loader(T, num_samples=num_samples,
-                                     batch_size=batch_size, shuffle=True)
-
     def closure(batch):
         y = nstepper(batch)
         return loss(batch, y)
@@ -144,15 +127,8 @@ def train_multistep_objective(train_data, test_data, output_dir,
 
     def on_epoch_start(epoch):
         file = f"{output_dir}/{epoch}/state.torch"
-
         logging.info(f"Begin epoch {epoch}")
-
-        T = window_size(epoch)
-        logging.info(f"Setting training window size to {T}")
-        nstepper.window_size = T
-
         logger.info(f"Saving state to %s" % file)
-
         save(nstepper.to_saved(), file)
 
     def on_finish():
@@ -169,7 +145,7 @@ def train_multistep_objective(train_data, test_data, output_dir,
         }, "dump.pt")
 
     train(
-        get_generator,
+        train_loader,
         closure,
         optimizer=optimizer,
         monitor=monitor,
