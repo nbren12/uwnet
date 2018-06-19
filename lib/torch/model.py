@@ -11,8 +11,6 @@ from toolz import assoc, first, valmap
 from torch import nn
 from .constraints import apply_linear_constraint
 
-from .. import constants
-
 logger = logging.getLogger(__name__)
 
 
