@@ -2,7 +2,9 @@
 """
 import attr
 import numpy as np
+import torch
 from torch.utils.data import Dataset
+from toolz import valmap
 
 
 class ConcatDataset(Dataset):
@@ -81,3 +83,63 @@ class WindowedData(Dataset):
 
     def __repr__(self):
         return "WindowedData()"
+
+
+def _stack_or_rename(x, **kwargs):
+    for key, val in kwargs.items():
+        if isinstance(val, str):
+            x = x.rename({val: key})
+        else:
+            x = x.stack(**{key: val})
+    return x
+
+
+def _ds_slice_to_numpy_dict(ds):
+    dim_order = ['xtime', 'xbatch', 'xfeat']
+    out = {}
+    for key in ds.data_vars:
+        dims = [dim for dim in dim_order
+                if dim in ds[key].dims]
+        out[key] = ds[key].transpose(*dims).values
+
+    return out
+
+
+def _ds_slice_to_torch(ds):
+    return valmap(lambda x: torch.from_numpy(x).detach(),
+                  _ds_slice_to_numpy_dict(ds))
+
+
+class XRTimeSeries(Dataset):
+
+    def __init__(self, data, dims):
+        self.data = data
+        self.dims = dims
+        self._ds = _stack_or_rename(self.data, xtime=self.dims[0],
+                                    xbatch=self.dims[1],
+                                    xfeat=self.dims[2])
+
+    def __len__(self):
+        res = 1
+        for dim in self.dims[1]:
+            res *= len(self.data[dim])
+        return res
+
+    def __getitem__(self, i):
+        ds = self._ds.isel(xbatch=i)
+        return _ds_slice_to_numpy_dict(ds)
+
+    @property
+    def mean(self):
+        ds = self._ds.mean(['xbatch', 'xtime'])
+        return _ds_slice_to_torch(ds)
+
+    @property
+    def std(self):
+        ds = self._ds.std(['xbatch', 'xtime'])
+        return _ds_slice_to_torch(ds)
+
+    @property
+    def scale(self):
+        std = self.std
+        return valmap(lambda x: x.max(), std)

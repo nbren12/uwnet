@@ -1,11 +1,16 @@
 nseeds: 5
 nepochs: 3
 paths:
-  2d: /Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc
-  stagger: /Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/stagger/3d/all.nc
-  cent: /Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/all.nc
-  stat: /Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc
-  tend: data/processed/dry_tends.nc
+  - path: /Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc
+    fields: ["LHF", "SHF", "SOLIN"]
+  - path: /Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/stagger/3d/all.nc
+    fields: []
+  - path: /Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/all.nc
+    fields: ['QV', 'TABS', 'QN', 'QP', 'QRAD']
+  - path: /Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc
+    fields: ['p', 'RHO']
+  - path: data/processed/dry_tends.nc
+    fields: ['FQT', 'FSL']
 
 models:
   0:
