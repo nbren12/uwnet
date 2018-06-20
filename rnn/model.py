@@ -1,6 +1,9 @@
 import torch
 from toolz import get
 from torch import nn
+import attr
+
+from lib.torch.normalization import scaler
 
 
 def cat(seq):
@@ -19,15 +22,12 @@ def cat(seq):
 def uncat(sizes, x):
     return x.split(sizes, dim=-1)
 
-
 class SimpleLSTM(nn.Module):
-    def __init__(self, scaler, random_init=True):
+    def __init__(self, mean, scale):
         "docstring"
         super(SimpleLSTM, self).__init__()
 
         self.hidden_dim = 256
-        self.random_init = random_init
-
         self.input_fields = ['LHF', 'SHF', 'SOLIN',
                              'qt', 'sl', 'FQT', 'FSL']
         self.output_fields = ['qt', 'sl']
@@ -37,23 +37,17 @@ class SimpleLSTM(nn.Module):
         m = nz * 4 + n2d
         self.lstm = nn.LSTMCell(m, self.hidden_dim)
         self.lin = nn.Linear(self.hidden_dim, 2*nz)
-        self.scaler = scaler
+        self.mean = mean
+        self.scale = scale
+        self.scaler = scaler(scale, mean)
 
-    def init_hidden(self, n):
-        if self.random_init:
+    def init_hidden(self, n, random=False):
+        if random:
             return (torch.rand(n, self.hidden_dim)*2 -1,
                     torch.rand(n, self.hidden_dim)*2 -1)
         else:
             return (torch.zeros(n, self.hidden_dim),
                     torch.zeros(n, self.hidden_dim))
-
-    @property
-    def scale(self):
-        return self.scaler.args[0]
-
-    @property
-    def mean(self):
-        return self.scaler.args[1]
 
     def _stacked(self, x):
         return cat(get(self.input_fields, x))[1]
@@ -77,3 +71,15 @@ class SimpleLSTM(nn.Module):
             out[key] =  out[key] * self.scale[key] + self.mean[key]
 
         return out, (h, c)
+
+    def to_dict(self):
+        return {
+            'args': (self.mean, self.scale),
+            'state': self.state_dict()
+        }
+
+    @classmethod
+    def from_dict(cls, d):
+        mod = cls(*d['args'])
+        mod.load_state_dict(d['state'])
+        return mod
