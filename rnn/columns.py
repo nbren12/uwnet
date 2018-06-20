@@ -29,35 +29,35 @@ mod = model.MLP.from_dict(d['dict'])
 
 # open training data
 def post(x):
-    return x.isel(x=slice(0, 1), y=slice(50, 51)).sortby('time')
-    # return x.isel(x=slice(0, 1), y=slice(32, 33)).sortby('time')
+    return x
+    # return x.isel(x=slice(0, 1), y=slice(50, 51)).sortby('time')
+    # return x.isel(x=slice(0, 1), y=slice(32, 33))
 
 
 paths = config['paths']
 data = get_dataset(paths, post=post)
 
 # prepare input for mod
-batch = {key: torch.tensor(val).unsqueeze(0) for key, val in data[0].items()}
+with torch.no_grad():
+    batch = {key: torch.from_numpy(val) for key, val in data[:].items()}
 
 # finally run model
-with torch.no_grad():
     out = mod(batch, n=1)
 
 # save batch to netcdf
-out_da = {
-    key: xr.DataArray(val.detach().numpy(), dims=['b', 'time', 'z'])
-    for key, val in out.items()
-}
 
-ds = xr.Dataset(out_da)
+def unstack(val):
+    val = val.detach().numpy()
+    dims = ['xbatch', 'xtime', 'xfeat'][:val.ndim]
+    coords = {key: data._ds.coords[key] for key in dims}
+
+    ds = xr.DataArray(val, dims=dims, coords=coords)
+    for dim in dims:
+        ds = ds.unstack(dim)
+
+    return ds
+
+
+out_da = {key: unstack(val) for key, val in out.items()}
+ds = xr.Dataset(out_da).merge(data.data.rename({'qt': 'QTOBS', 'sl': 'SLOBS'}))
 ds.to_netcdf("out.nc")
-
-kwargs = dict(levels=np.r_[0:11] * 2)
-plt.subplot(211)
-plt.contourf(out['qt'].numpy()[0, :].T, **kwargs)
-plt.colorbar()
-plt.subplot(212)
-z = data.data.qt.squeeze().values
-plt.contourf(z.T, **kwargs)
-plt.colorbar()
-plt.show()
