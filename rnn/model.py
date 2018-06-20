@@ -1,9 +1,10 @@
 import torch
 from collections import OrderedDict
-from toolz import get, pipe
+from toolz import get, pipe, merge_with, merge
 from torch import nn
 
 from lib.torch.normalization import scaler
+from . import utils
 
 
 def cat(seq):
@@ -39,7 +40,8 @@ class StackerScalerMixin(object):
     def _unscale(self, out):
         # scale the outputs
         for key in self.output:
-            out[key] = out[key] * self.scale[key] + self.mean[key]
+            if key in self.scale:
+                out[key] = out[key] * self.scale[key] + self.mean[key]
         return out
 
 
@@ -102,16 +104,17 @@ class SimpleLSTM(nn.Module, StackerScalerMixin, SaverMixin):
 
 
 class MLP(nn.Module, StackerScalerMixin, SaverMixin):
+    input_fields = ['LHF', 'SHF', 'SOLIN', 'qt', 'sl', 'FQT', 'FSL']
+    output = OrderedDict([
+            ('sl', 34),
+            ('qt', 34),
+        ])
+
     def __init__(self, mean, scale):
         "docstring"
         super(MLP, self).__init__()
 
         self.hidden_dim = 256
-        self.input_fields = ['LHF', 'SHF', 'SOLIN', 'qt', 'sl', 'FQT', 'FSL']
-        self.output = OrderedDict([
-            ('sl', 34),
-            ('qt', 34),
-        ])
 
         nz = 34
         n2d = 3
@@ -119,7 +122,7 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
 
         self.mod = nn.Sequential(
             nn.Linear(m, self.hidden_dim),
-            nn.ReLU(),
+            nn.Tanh(),
             nn.Linear(self.hidden_dim, 2 * nz)
         )
 
@@ -131,12 +134,45 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         return None
 
     @property
+    def progs(self):
+        return set(self.input_fields) & set(self.output.keys())
+
+    @property
+    def diags(self):
+        return set(self.output.keys()) - set(self.input_fields)
+
+    @property
     def args(self):
         return (self.mean, self.scale)
 
-    def forward(self, x, hidden):
-
+    def step(self, x, *args):
         stacked = pipe(x, self.scaler, self._stacked)
         out = self.mod(stacked)
         out = pipe(out, self._unstacked, self._unscale)
         return out, None
+
+    def forward(self, x, y):
+        """
+        Parameters
+        ----------
+        x
+            prognostic variables. Initial condition only
+        y
+            auxiliary variables. Multiple time points
+
+        Returns
+        -------
+        outputs
+            dictionary of output variables including prognostics and diagnostics
+
+        """
+        nt  = y['LHF'].size(1)
+        output = []
+        for t in range(nt):
+            inputs = merge(utils.select_time(y, t), x)
+            out, _ = self.step(inputs)
+            x = {key: out[key] for key in self.progs}
+
+            output.append(out)
+
+        return utils.stack_dicts(output)

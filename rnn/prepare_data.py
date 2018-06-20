@@ -35,7 +35,10 @@ def load_data(paths):
     return xr.merge(objects, join='inner')
 
 
-def get_dataset(paths, **kwargs):
+def get_dataset(paths, post=None, **kwargs):
     # paths = yaml.load(open("config.yaml"))['paths']
-    ds = load_data(paths).load()
+    ds = load_data(paths)
+    if post is not None:
+        ds = post(ds)
+    ds = ds.load()
     return XRTimeSeries(ds, [['time'], ['x', 'y'], ['z']])

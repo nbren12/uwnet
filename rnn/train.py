@@ -11,25 +11,7 @@ import torchnet as tnt
 
 from . import model
 from .prepare_data import get_dataset
-
-
-def select_time(batch, i):
-    out = {}
-    for key, val in batch.items():
-        if val.dim() == 1:
-            out[key] = val
-        else:
-            out[key] = val[:,i]
-    return out
-
-
-def get_batch_size(batch):
-    return batch['sl'].size(0)
-
-
-def concat_dicts(seq):
-    return merge_with(lambda x: torch.cat(seq, dim=1),
-                      *seq)
+from .utils import get_batch_size, select_time
 
 
 def mse(x, y, layer_mass):
@@ -58,9 +40,9 @@ if __name__ == '__main__':
 
     args = parse_arguments()
 
-    n_epochs = 5
+    n_epochs = 1
     batch_size = 100
-    seq_length = 100
+    seq_length = 50
     nt = 640
 
     # set up meters
@@ -113,12 +95,12 @@ if __name__ == '__main__':
 
             loss = 0.0
             for t in range(nt-1):
-                pred, hid = lstm(select_time(batch, t), hid)
+                pred, hid = lstm.step(select_time(batch, t), hid)
                 loss_i = criterion(pred, select_time(batch, t+1), dm[0,:])
                 loss += loss_i
 
                 # average
-                meter_avg_loss.add(criterion(pred, mean, dm[0,:]).detach())
+                meter_avg_loss.add(criterion(pred, mean, dm[0,:]).item())
 
 
                 if t % seq_length == 0:
