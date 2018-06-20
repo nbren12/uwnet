@@ -57,7 +57,7 @@ class SaverMixin(object):
         return mod
 
 
-class SimpleLSTM(nn.Module, StackerScalerMixin):
+class SimpleLSTM(nn.Module, StackerScalerMixin, SaverMixin):
     def __init__(self, mean, scale):
         "docstring"
         super(SimpleLSTM, self).__init__()
@@ -100,3 +100,43 @@ class SimpleLSTM(nn.Module, StackerScalerMixin):
         out = pipe(out, self._unstacked, self._unscale)
         return out, (h, c)
 
+
+class MLP(nn.Module, StackerScalerMixin, SaverMixin):
+    def __init__(self, mean, scale):
+        "docstring"
+        super(MLP, self).__init__()
+
+        self.hidden_dim = 256
+        self.input_fields = ['LHF', 'SHF', 'SOLIN', 'qt', 'sl', 'FQT', 'FSL']
+        self.output = OrderedDict([
+            ('sl', 34),
+            ('qt', 34),
+        ])
+
+        nz = 34
+        n2d = 3
+        m = nz * 4 + n2d
+
+        self.mod = nn.Sequential(
+            nn.Linear(m, self.hidden_dim),
+            nn.ReLU(),
+            nn.Linear(self.hidden_dim, 2 * nz)
+        )
+
+        self.mean = mean
+        self.scale = scale
+        self.scaler = scaler(scale, mean)
+
+    def init_hidden(self, *args, **kwargs):
+        return None
+
+    @property
+    def args(self):
+        return (self.mean, self.scale)
+
+    def forward(self, x, hidden):
+
+        stacked = pipe(x, self.scaler, self._stacked)
+        out = self.mod(stacked)
+        out = pipe(out, self._unstacked, self._unscale)
+        return out, None

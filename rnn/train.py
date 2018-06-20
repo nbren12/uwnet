@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 import torchnet as tnt
 
-from .model import SimpleLSTM
+from . import model
 from .prepare_data import get_dataset
 
 
@@ -80,16 +80,20 @@ if __name__ == '__main__':
     logger.info("Computing Mean")
     mean = train_data.mean
 
+    cls = model.MLP
+
+    logger.info(f"Training with {cls}")
+
     # restart
     if args.restart:
         logger.info(f"Restarting from checkpoint at {args.restart}")
         d = torch.load(args.restart)
-        lstm = SimpleLSTM.from_dict(d['dict'])
+        lstm = cls.from_dict(d['dict'])
         i_start = d['epoch'] + 1
     else:
 
         # initialize model
-        lstm = SimpleLSTM(mean, scale)
+        lstm = cls(mean, scale)
         i_start = 0
 
 
@@ -121,11 +125,16 @@ if __name__ == '__main__':
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
-                    for x in hid:
-                        x.detach_()
+                    try:
+                        for x in hid:
+                            x.detach_()
+
+                    except TypeError:
+                        pass
+
                     loss = 0.0
 
-                meter_loss.add(loss_i.detach()[0])
+                meter_loss.add(loss_i.item())
 
             logger.info(f"Batch {k},  Loss: {meter_loss.value()[0]};"
                         f" Avg {meter_avg_loss.value()[0]}")
