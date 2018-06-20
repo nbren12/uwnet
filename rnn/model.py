@@ -59,6 +59,38 @@ class SaverMixin(object):
         return mod
 
 
+class MOE(nn.Module):
+
+    def __init__(self, m, n, n_experts):
+        "docstring"
+        super(MOE, self).__init__()
+
+        self.experts = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(m, n),
+                )
+            for _ in range(n_experts)
+        ])
+
+        self.decider = nn.Sequential(
+            nn.Linear(m, 256),
+            nn.ReLU(),
+            nn.Linear(256, n_experts),
+            nn.Softmax(dim=1)
+        )
+
+    def poll_experts(self, x):
+        return [expert(x) for expert in self.experts]
+
+    def forward(self, x):
+        weights = self.decider(x)
+        ans = 0
+        for val, w in zip(self.poll_experts(x),
+                          weights.split(1, dim=-1)):
+            ans = ans + w * val
+        return ans
+
+
 class MLP(nn.Module, StackerScalerMixin, SaverMixin):
     input_fields = ['LHF', 'SHF', 'SOLIN', 'qt', 'sl', 'FQT', 'FSL']
     output = OrderedDict([
@@ -70,16 +102,18 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         "docstring"
         super(MLP, self).__init__()
 
-        self.hidden_dim = 256
 
         nz = 34
         n2d = 3
         m = nz * 4 + n2d
+        n = 2*nz
 
+        # self.mod = MOE(m, 2*nz, n_experts40)
         self.mod = nn.Sequential(
-            nn.Linear(m, self.hidden_dim),
-            nn.ReLU(), nn.Linear(self.hidden_dim, 2 * nz))
-
+            nn.Linear(m, 512),
+            nn.ReLU(),
+            nn.Linear(512, n)
+        )
         self.mean = mean
         self.scale = scale
         self.scaler = scaler(scale, mean)

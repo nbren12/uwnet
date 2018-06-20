@@ -29,7 +29,8 @@ mod = model.MLP.from_dict(d['dict'])
 
 # open training data
 def post(x):
-    return x.isel(x=slice(0, 1), y=slice(32, 33)).sortby('time')
+    return x.isel(x=slice(0, 1), y=slice(50, 51)).sortby('time')
+    # return x.isel(x=slice(0, 1), y=slice(32, 33)).sortby('time')
 
 
 paths = config['paths']

@@ -56,10 +56,11 @@ if __name__ == '__main__':
 
     # get training loader
     def post(x):
+        return x
         return x.isel(y=slice(24, 40))
 
     train_data = get_dataset(paths, post=post)
-    train_loader = DataLoader(train_data, batch_size=batch_size)
+    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
 
     logger.info("Computing Standard Deviation")
     scale = train_data.scale
@@ -112,15 +113,6 @@ if __name__ == '__main__':
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
-
-                    # try:
-                    #     for x in hid:
-                    #         x.detach_()
-
-                    # except TypeError:
-                    #     pass
-
-                    # loss = 0.0
 
                 logger.info(f"Batch {k},  Loss: {meter_loss.value()[0]};"
                             f" Avg {meter_avg_loss.value()[0]}")

@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from .model import MLP
+from .model import MLP, MOE
 from .utils import select_time, get_batch_size, stack_dicts
 
 
@@ -55,3 +55,16 @@ def test_mlp_forward():
     pred = mlp(batch, n=1)
 
     assert pred['sl'].size() == batch['qt'].size()
+
+
+def test_moe():
+
+    m = 10
+    n = 5
+    n_exp = 3
+
+    x = torch.rand(100, m)
+
+    rhs = MOE(m, n, n_exp)
+    out = rhs(x)
+    return out.size() == (100, n)
