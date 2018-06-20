@@ -40,9 +40,10 @@ if __name__ == '__main__':
 
     args = parse_arguments()
 
-    n_epochs = 1
+    n_epochs = 10
     batch_size = 100
-    seq_length = 50
+    seq_length = 20
+    skip = 10
     nt = 640
 
     # set up meters
@@ -53,7 +54,9 @@ if __name__ == '__main__':
     paths = config['paths']
 
     # get training loader
-    train_data = get_dataset(paths)
+    def post(x):
+        return x.isel(y=slice(24, 40))
+    train_data = get_dataset(paths, post=post)
     train_loader = DataLoader(train_data, batch_size=batch_size)
 
     logger.info("Computing Standard Deviation")
@@ -82,52 +85,55 @@ if __name__ == '__main__':
     # initialize optimizer
     optimizer = torch.optim.Adam(lstm.parameters(), lr=.005)
 
-    for i in range(i_start, n_epochs):
-        logging.info(f"Epoch {i}")
-        for k, batch in enumerate(train_loader):
-            logging.info(f"Batch {k} of {len(train_loader)}")
-            n = get_batch_size(batch)
-            hid = lstm.init_hidden(n, random=True)
+    try:
+        for i in range(i_start, n_epochs):
+            logging.info(f"Epoch {i}")
+            for k, batch in enumerate(train_loader):
+                logging.info(f"Batch {k} of {len(train_loader)}")
+                n = get_batch_size(batch)
 
-            # need to remove these auxiliary variables
-            batch.pop('p')
-            dm = batch.pop('layer_mass').detach_()
+                # need to remove these auxiliary variables
+                batch.pop('p')
+                dm = batch.pop('layer_mass').detach_()
+                loss = 0.0
 
-            loss = 0.0
-            for t in range(nt-1):
-                pred, hid = lstm.step(select_time(batch, t), hid)
-                loss_i = criterion(pred, select_time(batch, t+1), dm[0,:])
-                loss += loss_i
+                for t in range(0, nt-seq_length, skip):
+                    window = select_time(batch, slice(t, t + seq_length))
+                    pred = lstm(window, n=1)
+                    loss = criterion(pred, window, dm[0,:])
 
-                # average
-                meter_avg_loss.add(criterion(pred, mean, dm[0,:]).item())
+                    # average
+                    meter_avg_loss.add(criterion(pred, mean, dm[0,:]).item())
+                    meter_loss.add(loss.item())
 
-
-                if t % seq_length == 0:
+                    # take step
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
-                    try:
-                        for x in hid:
-                            x.detach_()
 
-                    except TypeError:
-                        pass
+                        # try:
+                        #     for x in hid:
+                        #         x.detach_()
 
-                    loss = 0.0
+                        # except TypeError:
+                        #     pass
 
-                meter_loss.add(loss_i.item())
+                        # loss = 0.0
 
-            logger.info(f"Batch {k},  Loss: {meter_loss.value()[0]};"
-                        f" Avg {meter_avg_loss.value()[0]}")
-            meter_loss.reset()
-            meter_avg_loss.reset()
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
 
-        logger.info(f"Saving checkpoint to {i}.pkl")
+                logger.info(f"Batch {k},  Loss: {meter_loss.value()[0]};"
+                            f" Avg {meter_avg_loss.value()[0]}")
+                meter_loss.reset()
+                meter_avg_loss.reset()
+
+            logger.info(f"Saving checkpoint to {i}.pkl")
+            torch.save({
+                'epoch': i,
+                'dict': lstm.to_dict()
+            }, f"{i}.pkl")
+
+    except KeyboardInterrupt:
         torch.save({
             'epoch': i,
             'dict': lstm.to_dict()
-        }, f"{i}.pkl")
+        }, "interrupt.pkl")

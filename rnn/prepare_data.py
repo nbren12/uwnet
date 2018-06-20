@@ -32,7 +32,7 @@ def load_data(paths):
         val.to_dataset(name=key).assign(x=sl.x, y=sl.y)
         for key, val in data.items()
     ]
-    return xr.merge(objects, join='inner')
+    return xr.merge(objects, join='inner').sortby('time')
 
 
 def get_dataset(paths, post=None, **kwargs):

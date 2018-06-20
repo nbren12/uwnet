@@ -41,7 +41,7 @@ class StackerScalerMixin(object):
         # scale the outputs
         for key in self.output:
             if key in self.scale:
-                out[key] = out[key] * self.scale[key] + self.mean[key]
+                out[key] = out[key] * self.scale[key] #+ self.mean[key]
         return out
 
 
@@ -122,7 +122,7 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
 
         self.mod = nn.Sequential(
             nn.Linear(m, self.hidden_dim),
-            nn.Tanh(),
+            nn.ReLU(),
             nn.Linear(self.hidden_dim, 2 * nz)
         )
 
@@ -142,6 +142,10 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         return set(self.output.keys()) - set(self.input_fields)
 
     @property
+    def aux(self):
+        return set(self.input_fields) - set(self.output.keys())
+
+    @property
     def args(self):
         return (self.mean, self.scale)
 
@@ -149,16 +153,19 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         stacked = pipe(x, self.scaler, self._stacked)
         out = self.mod(stacked)
         out = pipe(out, self._unstacked, self._unscale)
+        out = {key: out[key] + x[key] for key in self.progs}
+        out['qt'].clamp_(min=0.0)
         return out, None
 
-    def forward(self, x, y):
+    def forward(self, x, n=None):
         """
         Parameters
         ----------
         x
-            prognostic variables. Initial condition only
-        y
-            auxiliary variables. Multiple time points
+            variables. predictions will be made for all time points not
+            included in the prognostic varibles in  x.
+        n : int
+            number of time steps of prognostic varibles to use
 
         Returns
         -------
@@ -166,12 +173,20 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
             dictionary of output variables including prognostics and diagnostics
 
         """
-        nt  = y['LHF'].size(1)
+        nt  = x['LHF'].size(1)
+        if n is None:
+            n = nt
         output = []
-        for t in range(nt):
-            inputs = merge(utils.select_time(y, t), x)
+
+        aux = {key: x[key] for key in self.aux}
+
+        for t in range(0, nt):
+            if t < n:
+                progs = {key: x[key][:, t] for key in self.progs}
+
+            inputs = merge(utils.select_time(aux, t), progs)
             out, _ = self.step(inputs)
-            x = {key: out[key] for key in self.progs}
+            progs = {key: out[key] for key in self.progs}
 
             output.append(out)
 

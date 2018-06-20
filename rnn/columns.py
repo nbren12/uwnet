@@ -1,5 +1,7 @@
 import argparse
 import xarray as xr
+import numpy as np
+
 
 import torch
 import yaml
@@ -24,25 +26,20 @@ mod = model.MLP.from_dict(d['dict'])
 
 # open training data
 def post(x):
-    return x.isel(x=slice(0,1), y=slice(32,33))
+    return x.isel(x=slice(0,1), y=slice(32,33)).sortby('time')
 
 paths = config['paths']
 data = get_dataset(paths, post=post)
 
 
 # prepare input for mod
-data = {key: torch.tensor(val).unsqueeze(0) for key, val in data[0].items()}
-init_cond = {key: data[key][:, 0] for key in mod.progs}
-
-orig = {}
-for key in mod.progs | set(['p', 'layer_mass']):
-    orig[key] = data.pop(key)
+batch = {key: torch.tensor(val).unsqueeze(0) for key, val in data[0].items()}
 
 # finally run model
 with torch.no_grad():
-    out = mod(init_cond, data)
+    out = mod(batch, n=1)
 
-# save data to netcdf
+# save batch to netcdf
 out_da = {key: xr.DataArray(val.detach().numpy(), dims=['b', 'time', 'z']) for key, val in out.items()}
 
 ds = xr.Dataset(out_da)
@@ -50,10 +47,12 @@ ds.to_netcdf("out.nc")
 
 # plot
 import matplotlib.pyplot as plt
+kwargs = dict(levels=np.r_[0:11]*2)
 plt.subplot(211)
-plt.contourf(out['qt'].numpy()[0,:].T)
+plt.contourf(out['qt'].numpy()[0,:].T, **kwargs)
 plt.colorbar()
 plt.subplot(212)
-plt.contourf(orig['qt'].numpy()[0,:].T)
+z = data.data.qt.squeeze().values
+plt.contourf(z.T, **kwargs)
 plt.colorbar()
 plt.show()

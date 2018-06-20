@@ -103,10 +103,6 @@ def test_mlp_forward():
 
     mlp = MLP({}, {})
 
-    prog = select_time(batch, 0)
-    qt_b = batch.pop('qt')
-    batch.pop('sl')
+    pred = mlp(batch)
 
-    pred = mlp(prog, batch)
-
-    assert pred['sl'].size() == qt_b.size()
+    assert pred['sl'].size() == batch['qt'].size()
