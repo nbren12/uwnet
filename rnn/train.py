@@ -65,6 +65,7 @@ if __name__ == '__main__':
 
     # set up meters
     meter_loss = tnt.meter.AverageValueMeter()
+    meter_avg_loss = tnt.meter.AverageValueMeter()
 
     # open training data
     paths = config['paths']
@@ -75,6 +76,9 @@ if __name__ == '__main__':
 
     logger.info("Computing Standard Deviation")
     scale = train_data.scale
+    # compute scaler
+    logger.info("Computing Mean")
+    mean = train_data.mean
 
     # restart
     if args.restart:
@@ -83,9 +87,6 @@ if __name__ == '__main__':
         lstm = SimpleLSTM.from_dict(d['dict'])
         i_start = d['epoch'] + 1
     else:
-        # compute scaler
-        logger.info("Computing Mean")
-        mean = train_data.mean
 
         # initialize model
         lstm = SimpleLSTM(mean, scale)
@@ -112,6 +113,9 @@ if __name__ == '__main__':
                 loss_i = criterion(pred, select_time(batch, t+1), dm[0,:])
                 loss += loss_i
 
+                # average
+                meter_avg_loss.add(criterion(pred, mean, dm[0,:]).detach())
+
 
                 if t % seq_length == 0:
                     optimizer.zero_grad()
@@ -123,8 +127,10 @@ if __name__ == '__main__':
 
                 meter_loss.add(loss_i.detach()[0])
 
-            logger.info(f"Batch {k},  Loss: {meter_loss.value()[0]}")
+            logger.info(f"Batch {k},  Loss: {meter_loss.value()[0]};"
+                        f" Avg {meter_avg_loss.value()[0]}")
             meter_loss.reset()
+            meter_avg_loss.reset()
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
