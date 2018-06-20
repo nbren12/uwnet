@@ -22,11 +22,13 @@ def mse(x, y, layer_mass):
 def criterion(x, y, layer_mass):
     return  (
         mse(x['sl'], y['sl'], layer_mass)/scale['sl']**2
-        + mse(x['qt'], y['qt'], layer_mass)/scale['qt']**2
+        + mse(x['qt'], y['qt'], layer_mass)/scale['qt']**2 * 5
              )
 def parse_arguments():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-r', '--restart', default=False)
+    parser.add_argument('-lr', '--lr', default=.001, type=float)
+    parser.add_argument('-n', '--n-epochs', default=10, type=int)
 
     return parser.parse_args()
 
@@ -40,7 +42,7 @@ if __name__ == '__main__':
 
     args = parse_arguments()
 
-    n_epochs = 10
+    n_epochs = args.n_epochs
     batch_size = 100
     seq_length = 20
     skip = 10
@@ -83,7 +85,7 @@ if __name__ == '__main__':
 
 
     # initialize optimizer
-    optimizer = torch.optim.Adam(lstm.parameters(), lr=.005)
+    optimizer = torch.optim.Adam(lstm.parameters(), lr=args.lr)
 
     try:
         for i in range(i_start, n_epochs):
@@ -103,7 +105,7 @@ if __name__ == '__main__':
                     loss = criterion(pred, window, dm[0,:])
 
                     # average
-                    meter_avg_loss.add(criterion(pred, mean, dm[0,:]).item())
+                    meter_avg_loss.add(criterion(mean, window, dm[0,:]).item())
                     meter_loss.add(loss.item())
 
                     # take step
