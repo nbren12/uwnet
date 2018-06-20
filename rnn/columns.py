@@ -1,13 +1,14 @@
 import argparse
-import xarray as xr
+
+# plot
+import matplotlib.pyplot as plt
 import numpy as np
-
-
 import torch
 import yaml
-from toolz import *
 
-from . import model, utils
+import xarray as xr
+
+from . import model
 from .prepare_data import get_dataset
 
 
@@ -15,6 +16,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('model')
     return parser.parse_args()
+
 
 # load configuration and process arguments
 config = yaml.load(open("config.yaml"))
@@ -24,13 +26,14 @@ args = parse_arguments()
 d = torch.load(args.model)
 mod = model.MLP.from_dict(d['dict'])
 
+
 # open training data
 def post(x):
-    return x.isel(x=slice(0,1), y=slice(32,33)).sortby('time')
+    return x.isel(x=slice(0, 1), y=slice(32, 33)).sortby('time')
+
 
 paths = config['paths']
 data = get_dataset(paths, post=post)
-
 
 # prepare input for mod
 batch = {key: torch.tensor(val).unsqueeze(0) for key, val in data[0].items()}
@@ -40,16 +43,17 @@ with torch.no_grad():
     out = mod(batch, n=1)
 
 # save batch to netcdf
-out_da = {key: xr.DataArray(val.detach().numpy(), dims=['b', 'time', 'z']) for key, val in out.items()}
+out_da = {
+    key: xr.DataArray(val.detach().numpy(), dims=['b', 'time', 'z'])
+    for key, val in out.items()
+}
 
 ds = xr.Dataset(out_da)
 ds.to_netcdf("out.nc")
 
-# plot
-import matplotlib.pyplot as plt
-kwargs = dict(levels=np.r_[0:11]*2)
+kwargs = dict(levels=np.r_[0:11] * 2)
 plt.subplot(211)
-plt.contourf(out['qt'].numpy()[0,:].T, **kwargs)
+plt.contourf(out['qt'].numpy()[0, :].T, **kwargs)
 plt.colorbar()
 plt.subplot(212)
 z = data.data.qt.squeeze().values

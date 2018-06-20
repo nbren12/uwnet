@@ -3,8 +3,6 @@ import logging
 
 import torch
 import yaml
-from toolz import merge_with
-from torch import nn
 from torch.utils.data import DataLoader
 
 import torchnet as tnt
@@ -15,15 +13,15 @@ from .utils import get_batch_size, select_time
 
 
 def mse(x, y, layer_mass):
-    w =  layer_mass / layer_mass.mean()
-    return torch.mean(torch.pow(x-y, 2) * w.float())
+    w = layer_mass / layer_mass.mean()
+    return torch.mean(torch.pow(x - y, 2) * w.float())
 
 
 def criterion(x, y, layer_mass):
-    return  (
-        mse(x['sl'], y['sl'], layer_mass)/scale['sl']**2
-        + mse(x['qt'], y['qt'], layer_mass)/scale['qt']**2 * 5
-             )
+    return (mse(x['sl'], y['sl'], layer_mass) / scale['sl']**2 +
+            mse(x['qt'], y['qt'], layer_mass) / scale['qt']**2 * 5)
+
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('-r', '--restart', default=False)
@@ -31,6 +29,7 @@ def parse_arguments():
     parser.add_argument('-n', '--n-epochs', default=10, type=int)
 
     return parser.parse_args()
+
 
 if __name__ == '__main__':
     # setup logging
@@ -58,6 +57,7 @@ if __name__ == '__main__':
     # get training loader
     def post(x):
         return x.isel(y=slice(24, 40))
+
     train_data = get_dataset(paths, post=post)
     train_loader = DataLoader(train_data, batch_size=batch_size)
 
@@ -83,7 +83,6 @@ if __name__ == '__main__':
         lstm = cls(mean, scale)
         i_start = 0
 
-
     # initialize optimizer
     optimizer = torch.optim.Adam(lstm.parameters(), lr=args.lr)
 
@@ -99,13 +98,14 @@ if __name__ == '__main__':
                 dm = batch.pop('layer_mass').detach_()
                 loss = 0.0
 
-                for t in range(0, nt-seq_length, skip):
+                for t in range(0, nt - seq_length, skip):
                     window = select_time(batch, slice(t, t + seq_length))
                     pred = lstm(window, n=1)
-                    loss = criterion(pred, window, dm[0,:])
+                    loss = criterion(pred, window, dm[0, :])
 
                     # average
-                    meter_avg_loss.add(criterion(mean, window, dm[0,:]).item())
+                    meter_avg_loss.add(
+                        criterion(mean, window, dm[0, :]).item())
                     meter_loss.add(loss.item())
 
                     # take step
@@ -113,15 +113,14 @@ if __name__ == '__main__':
                     loss.backward()
                     optimizer.step()
 
-                        # try:
-                        #     for x in hid:
-                        #         x.detach_()
+                    # try:
+                    #     for x in hid:
+                    #         x.detach_()
 
-                        # except TypeError:
-                        #     pass
+                    # except TypeError:
+                    #     pass
 
-                        # loss = 0.0
-
+                    # loss = 0.0
 
                 logger.info(f"Batch {k},  Loss: {meter_loss.value()[0]};"
                             f" Avg {meter_avg_loss.value()[0]}")
@@ -129,13 +128,7 @@ if __name__ == '__main__':
                 meter_avg_loss.reset()
 
             logger.info(f"Saving checkpoint to {i}.pkl")
-            torch.save({
-                'epoch': i,
-                'dict': lstm.to_dict()
-            }, f"{i}.pkl")
+            torch.save({'epoch': i, 'dict': lstm.to_dict()}, f"{i}.pkl")
 
     except KeyboardInterrupt:
-        torch.save({
-            'epoch': i,
-            'dict': lstm.to_dict()
-        }, "interrupt.pkl")
+        torch.save({'epoch': i, 'dict': lstm.to_dict()}, "interrupt.pkl")

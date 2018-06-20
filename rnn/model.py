@@ -1,6 +1,6 @@
 import torch
 from collections import OrderedDict
-from toolz import get, pipe, merge_with, merge
+from toolz import get, pipe, merge
 from torch import nn
 
 from lib.torch.normalization import scaler
@@ -41,7 +41,7 @@ class StackerScalerMixin(object):
         # scale the outputs
         for key in self.output:
             if key in self.scale:
-                out[key] = out[key] * self.scale[key] #+ self.mean[key]
+                out[key] = out[key] * self.scale[key]
         return out
 
 
@@ -106,9 +106,9 @@ class SimpleLSTM(nn.Module, StackerScalerMixin, SaverMixin):
 class MLP(nn.Module, StackerScalerMixin, SaverMixin):
     input_fields = ['LHF', 'SHF', 'SOLIN', 'qt', 'sl', 'FQT', 'FSL']
     output = OrderedDict([
-            ('sl', 34),
-            ('qt', 34),
-        ])
+        ('sl', 34),
+        ('qt', 34),
+    ])
 
     def __init__(self, mean, scale):
         "docstring"
@@ -122,9 +122,7 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
 
         self.mod = nn.Sequential(
             nn.Linear(m, self.hidden_dim),
-            nn.ReLU(),
-            nn.Linear(self.hidden_dim, 2 * nz)
-        )
+            nn.ReLU(), nn.Linear(self.hidden_dim, 2 * nz))
 
         self.mean = mean
         self.scale = scale
@@ -165,15 +163,17 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
             variables. predictions will be made for all time points not
             included in the prognostic varibles in  x.
         n : int
-            number of time steps of prognostic varibles to use
+            number of time steps of prognostic varibles to use before starting
+            prediction
 
         Returns
         -------
         outputs
-            dictionary of output variables including prognostics and diagnostics
+            dictionary of output variables including prognostics and
+            diagnostics
 
         """
-        nt  = x['LHF'].size(1)
+        nt = x['LHF'].size(1)
         if n is None:
             n = nt
         output = []

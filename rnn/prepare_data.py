@@ -5,7 +5,6 @@ from lib.torch.datasets import XRTimeSeries
 
 def load_data(paths):
     data = {}
-    fields = {}
     for info in paths:
         for field in info['fields']:
             ds = xr.open_dataset(info['path'], chunks={'time': 10})

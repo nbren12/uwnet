@@ -16,10 +16,10 @@ def _mock_batch(n, nt, nz, init=torch.rand):
         # 'p': init(nz),
     }
 
+
 def test_model():
     lstm = SimpleLSTM({}, {})
     n = 10
-    nt = 100
     nz = 34
 
     batch = {
@@ -38,6 +38,7 @@ def test_model():
     assert out['sl'].size() == (n, nz)
     assert out['qt'].size() == (n, nz)
 
+
 def test_tbtt():
 
     lstm = SimpleLSTM({}, {})
@@ -54,7 +55,6 @@ def test_tbtt():
         'FQT': torch.zeros(n, nt, nz),
         'FSL': torch.zeros(n, nt, nz),
     }
-
 
     n = get_batch_size(batch)
     hid = lstm.init_hidden(n)
