@@ -43,6 +43,20 @@ class StackerScalerMixin(object):
         return out
 
 
+class SaverMixin(object):
+    """Mixin for output and initializing models from dictionaries of the state and
+    arguments"""
+
+    def to_dict(self):
+        return {'args': self.args, 'state': self.state_dict()}
+
+    @classmethod
+    def from_dict(cls, d):
+        mod = cls(*d['args'])
+        mod.load_state_dict(d['state'])
+        return mod
+
+
 class SimpleLSTM(nn.Module, StackerScalerMixin):
     def __init__(self, mean, scale):
         "docstring"
@@ -72,6 +86,10 @@ class SimpleLSTM(nn.Module, StackerScalerMixin):
             return (torch.zeros(n, self.hidden_dim), torch.zeros(
                 n, self.hidden_dim))
 
+    @property
+    def args(self):
+        return (self.mean, self.scale)
+
     def forward(self, x, hidden):
 
         stacked = pipe(x, self.scaler, self._stacked)
@@ -82,11 +100,3 @@ class SimpleLSTM(nn.Module, StackerScalerMixin):
         out = pipe(out, self._unstacked, self._unscale)
         return out, (h, c)
 
-    def to_dict(self):
-        return {'args': (self.mean, self.scale), 'state': self.state_dict()}
-
-    @classmethod
-    def from_dict(cls, d):
-        mod = cls(*d['args'])
-        mod.load_state_dict(d['state'])
-        return mod
