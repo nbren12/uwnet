@@ -145,7 +145,7 @@ class TrainingData(object):
             mu, sig = [torch.from_numpy(np.squeeze(x)) for x in [mu, sig]]
 
             # take average in vertical direction
-            sig = torch.mean(sig)
+            sig = torch.max(sig)
 
             means[key] = mu
             scales[key] = sig

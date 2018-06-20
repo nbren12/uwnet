@@ -1,7 +1,11 @@
 import numpy as np
 import torch
-from .model import SimpleLSTM, MLP
+from .model import MLP
 from .utils import select_time, get_batch_size, stack_dicts
+
+
+def _assert_all_close(x, y):
+    np.testing.assert_allclose(y.numpy(), x.numpy())
 
 
 def _mock_batch(n, nt, nz, init=torch.rand):
@@ -15,61 +19,6 @@ def _mock_batch(n, nt, nz, init=torch.rand):
         'FSL': init(n, nt, nz),
         # 'p': init(nz),
     }
-
-
-def test_model():
-    lstm = SimpleLSTM({}, {})
-    n = 10
-    nz = 34
-
-    batch = {
-        'LHF': torch.zeros(n),
-        'SHF': torch.zeros(n),
-        'SOLIN': torch.zeros(n),
-        'qt': torch.zeros(n, nz),
-        'sl': torch.zeros(n, nz),
-        'FQT': torch.zeros(n, nz),
-        'FSL': torch.zeros(n, nz),
-    }
-
-    hid = lstm.init_hidden(n)
-    out, hid = lstm(batch, hid)
-    assert set(['sl', 'qt']) == set(out.keys())
-    assert out['sl'].size() == (n, nz)
-    assert out['qt'].size() == (n, nz)
-
-
-def test_tbtt():
-
-    lstm = SimpleLSTM({}, {})
-    n = 10
-    nt = 100
-    nz = 34
-
-    batch = {
-        'LHF': torch.zeros(n, nt),
-        'SHF': torch.zeros(n, nt),
-        'SOLIN': torch.zeros(n, nt),
-        'qt': torch.zeros(n, nt, nz),
-        'sl': torch.zeros(n, nt, nz),
-        'FQT': torch.zeros(n, nt, nz),
-        'FSL': torch.zeros(n, nt, nz),
-    }
-
-    n = get_batch_size(batch)
-    hid = lstm.init_hidden(n)
-    output = []
-    for t in range(nt):
-        pred, hid = lstm(select_time(batch, t), hid)
-        output.append(pred)
-
-
-def test_init_hidden():
-    lstm = SimpleLSTM(None, None)
-    hid = lstm.init_hidden(11)
-
-    assert hid[0].size() == (11, 256)
-    assert hid[1].size() == (11, 256)
 
 
 def test_select_time():
@@ -95,7 +44,7 @@ def test_stack_dicts():
     print(out.keys())
     for key in out:
         print(key)
-        np.testing.assert_allclose(out[key].numpy(), batches[key].numpy())
+        _assert_all_close(out[key], batches[key])
 
 
 def test_mlp_forward():
@@ -103,6 +52,6 @@ def test_mlp_forward():
 
     mlp = MLP({}, {})
 
-    pred = mlp(batch)
+    pred = mlp(batch, n=1)
 
     assert pred['sl'].size() == batch['qt'].size()

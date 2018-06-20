@@ -59,50 +59,6 @@ class SaverMixin(object):
         return mod
 
 
-class SimpleLSTM(nn.Module, StackerScalerMixin, SaverMixin):
-    def __init__(self, mean, scale):
-        "docstring"
-        super(SimpleLSTM, self).__init__()
-
-        self.hidden_dim = 256
-        self.input_fields = ['LHF', 'SHF', 'SOLIN', 'qt', 'sl', 'FQT', 'FSL']
-        self.output = OrderedDict([
-            ('sl', 34),
-            ('qt', 34),
-        ])
-
-        nz = 34
-        n2d = 3
-        m = nz * 4 + n2d
-        self.lstm = nn.LSTMCell(m, self.hidden_dim)
-        self.lin = nn.Linear(self.hidden_dim, 2 * nz)
-        self.mean = mean
-        self.scale = scale
-        self.scaler = scaler(scale, mean)
-
-    def init_hidden(self, n, random=False):
-        if random:
-            return (torch.rand(n, self.hidden_dim) * 2 - 1,
-                    torch.rand(n, self.hidden_dim) * 2 - 1)
-        else:
-            return (torch.zeros(n, self.hidden_dim), torch.zeros(
-                n, self.hidden_dim))
-
-    @property
-    def args(self):
-        return (self.mean, self.scale)
-
-    def forward(self, x, hidden):
-
-        stacked = pipe(x, self.scaler, self._stacked)
-        h, c = self.lstm(stacked, hidden)
-        out = self.lin(h)
-
-        # unstack
-        out = pipe(out, self._unstacked, self._unscale)
-        return out, (h, c)
-
-
 class MLP(nn.Module, StackerScalerMixin, SaverMixin):
     input_fields = ['LHF', 'SHF', 'SOLIN', 'qt', 'sl', 'FQT', 'FSL']
     output = OrderedDict([
