@@ -95,7 +95,7 @@ def _stack_or_rename(x, **kwargs):
 
 
 def _ds_slice_to_numpy_dict(ds):
-    dim_order = ['xtime', 'xbatch', 'xfeat']
+    dim_order = ['xbatch', 'xtime', 'xfeat']
     out = {}
     for key in ds.data_vars:
         dims = [dim for dim in dim_order
@@ -111,8 +111,34 @@ def _ds_slice_to_torch(ds):
 
 
 class XRTimeSeries(Dataset):
+    """A pytorch Dataset class for time series data in xarray format
+
+    Parameters
+    ----------
+    data : xr.Dataset
+        input data
+    dims : seq
+        list of dimensions used to reshape the data. Format::
+
+            (time_dims, batch_dims, feature_dims)
+
+    Attributes
+    ----------
+    std
+    mean
+    scale
+
+    Examples
+    --------
+    >>> ds = xr.open_dataset("in.nc")
+    >>> XRTimeSeries(ds, [['time'], ['x', 'y'], ['z']])
+
+    """
 
     def __init__(self, data, dims):
+        """Initialize XRTimeSeries.
+
+        """
         self.data = data
         self.dims = dims
         self._ds = _stack_or_rename(self.data, xtime=self.dims[0],
@@ -131,11 +157,13 @@ class XRTimeSeries(Dataset):
 
     @property
     def mean(self):
+        """Mean of the contained variables"""
         ds = self._ds.mean(['xbatch', 'xtime'])
         return _ds_slice_to_torch(ds)
 
     @property
     def std(self):
+        """Standard deviation of the contained variables"""
         ds = self._ds.std(['xbatch', 'xtime'])
         return _ds_slice_to_torch(ds)
 

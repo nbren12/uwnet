@@ -1,6 +1,7 @@
 import xarray as xr
 from lib import thermo
 from lib.torch.datasets import XRTimeSeries
+import click
 
 
 def load_data(paths):
@@ -41,3 +42,19 @@ def get_dataset(paths, post=None, **kwargs):
         ds = post(ds)
     ds = ds.load()
     return XRTimeSeries(ds, [['time'], ['x', 'y'], ['z']])
+
+@click.command()
+@click.argument("out")
+def main(out):
+    import yaml
+    paths = yaml.load(open("config.yaml"))['paths']
+    ds = load_data(paths)\
+         .load()
+         # .chunk({'x': 8, 'y': 8})
+    # ds.to_zarr('out.zarr')
+    click.echo
+    ds.to_netcdf('out.nc')
+
+if __name__ == '__main__':
+   main()
+   
