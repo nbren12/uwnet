@@ -9,7 +9,7 @@ paths:
     fields: ['QV', 'TABS', 'QN', 'QP', 'QRAD']
   - path: /Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc
     fields: ['p', 'RHO']
-  - path: data/processed/dry_tends.nc
+  - path: /Users/noah/workspace/research/uw-machine-learning-v1/data/processed/dry_tends.nc
     fields: ['FQT', 'FSL']
 
 models:
