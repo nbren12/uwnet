@@ -7,19 +7,38 @@ import yaml
 import torch
 import torchnet as tnt
 from torch.utils.data import DataLoader
+from toolz import curry
 from uwnet import model
 from uwnet.data import get_dataset
 from uwnet.utils import get_batch_size, select_time
 
 
 def mse(x, y, layer_mass):
+    x = x.float()
+    y = y.float()
+    layer_mass = layer_mass.float()
     w = layer_mass / layer_mass.mean()
-    return torch.mean(torch.pow(x - y, 2) * w.float())
 
+    if x.dim() == 2:
+        x = x[..., None]
 
-def criterion(x, y, layer_mass):
-    return (mse(x['sl'], y['sl'], layer_mass) / scale['sl']**2 +
-            mse(x['qt'], y['qt'], layer_mass) / scale['qt']**2 * 5)
+    if x.size(-1) == w.size(-1):
+        return torch.mean(torch.pow(x - y, 2) * w)
+    else:
+        return torch.mean(torch.pow(x - y, 2))
+
+@curry
+def MVLoss(layer_mass, scale, x, y):
+    """MSE loss
+
+    Parameters
+    ----------
+    x : truth
+    y : prediction
+    """
+    losses = {key: mse(x[key], y[key], layer_mass)/torch.tensor(scale[key]**2).float()
+              for key in scale}
+    return sum(losses.values())
 
 
 def parse_arguments():
@@ -28,6 +47,7 @@ def parse_arguments():
     parser.add_argument('-lr', '--lr', default=.001, type=float)
     parser.add_argument('-n', '--n-epochs', default=10, type=int)
     parser.add_argument('-o', '--output-dir', default='.')
+    parser.add_argument('config')
 
     return parser.parse_args()
 
@@ -37,10 +57,10 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    # load configuration
-    config = yaml.load(open("config.yaml"))
 
     args = parse_arguments()
+    # load configuration
+    config = yaml.load(open(args.config))
 
     n_epochs = args.n_epochs
     batch_size = 100
@@ -92,8 +112,11 @@ if __name__ == '__main__':
     else:
 
         # initialize model
-        lstm = cls(mean, scale)
+        lstm = cls(mean, scale, inputs=config['inputs'],
+                   outputs=config['outputs'])
         i_start = 0
+
+    logger.info(f"Training with {lstm}")
 
     # initialize optimizer
     optimizer = torch.optim.Adam(lstm.parameters(), lr=args.lr)
@@ -110,22 +133,34 @@ if __name__ == '__main__':
                 dm = batch.pop('layer_mass').detach_()
                 loss = 0.0
 
+                # set up loss function
+                criterion = MVLoss(dm[0, :], config['loss_scale'])
+
                 for t in range(0, nt - seq_length, skip):
+
+                    # select window
                     window = select_time(batch, slice(t, t + seq_length))
                     x = select_time(window, slice(0, -1))
                     y = select_time(window, slice(1, None))
+
+                    # make prediction
                     pred = lstm(x, n=1)
-                    loss = criterion(pred, y, dm[0, :])
 
-                    # average
-                    meter_avg_loss.add(
-                        criterion(mean, window, dm[0, :]).item())
-                    meter_loss.add(loss.item())
+                    # compute loss
+                    loss = criterion(window, pred)
 
-                    # take step
+                    # Back propagate
                     optimizer.zero_grad()
                     loss.backward()
+
+                    # take step
                     optimizer.step()
+
+                    # Log the results
+                    meter_avg_loss.add(
+                        criterion(window, mean).item())
+                    meter_loss.add(loss.item())
+
 
                 logger.info(f"Batch {k},  Loss: {meter_loss.value()[0]};"
                             f" Avg {meter_avg_loss.value()[0]}")

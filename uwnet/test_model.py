@@ -68,3 +68,29 @@ def test_moe():
     rhs = MOE(m, n, n_exp)
     out = rhs(x)
     return out.size() == (100, n)
+
+
+def test_variable_input():
+    nz = 5
+    batch = _mock_batch(3, 4, nz)
+
+    # rename LHF to a
+    batch['a'] = batch.pop('LHF')
+
+    mlp = MLP({}, {},
+              inputs=[('a', 1), ('sl', nz), ('qt', nz)],
+              outputs=[('sl', nz), ('qt', nz), ('SHF', 1)])
+
+    outputs = mlp(batch)
+    assert outputs['sl'].size(-1) == nz
+
+    for key in ['sl', 'qt', 'SHF']:
+        assert outputs[key].size(-1) == mlp.output_fields[key]
+
+def test_to_dict():
+    mlp = MLP({}, {}, inputs=(('LHF', 1),))
+    a = mlp.to_dict()
+    mlp1 = mlp.from_dict(a)
+
+    assert mlp.input_fields == mlp1.input_fields
+    assert mlp.output_fields == mlp1.output_fields

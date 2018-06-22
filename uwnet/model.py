@@ -1,6 +1,6 @@
 import torch
 from collections import OrderedDict
-from toolz import get, pipe, merge
+from toolz import get, pipe, merge, first
 from torch import nn
 
 from uwnet.normalization import scaler
@@ -12,8 +12,6 @@ def cat(seq):
     sizes = []
 
     for x in seq:
-        if x.dim() == 1:
-            x = x[..., None]
         seq_with_nulldim.append(x)
         sizes.append(x.size(-1))
 
@@ -31,17 +29,17 @@ class StackerScalerMixin(object):
     """
 
     def _stacked(self, x):
-        return cat(get(self.input_fields, x))[1]
+        return cat(get(list(self.input_fields), x))[1]
 
     def _unstacked(self, out):
-        out = out.split(tuple(self.output.values()), dim=-1)
-        return dict(zip(self.output.keys(), out))
+        out = out.split(tuple(self.output_fields.values()), dim=-1)
+        return dict(zip(self.output_fields.keys(), out))
 
     def _unscale(self, out):
         # scale the outputs
-        for key in self.output:
+        for key in self.output_fields:
             if key in self.scale:
-                out[key] = out[key] * self.scale[key]
+                out[key] = out[key] * self.scale[key].float()
         return out
 
 
@@ -50,11 +48,12 @@ class SaverMixin(object):
     arguments"""
 
     def to_dict(self):
-        return {'args': self.args, 'state': self.state_dict()}
+        return {'args': self.args, 'kwargs': self.kwargs, 'state':
+                self.state_dict()}
 
     @classmethod
     def from_dict(cls, d):
-        mod = cls(*d['args'])
+        mod = cls(*d['args'], **d['kwargs'])
         mod.load_state_dict(d['state'])
         return mod
 
@@ -92,27 +91,27 @@ class MOE(nn.Module):
 
 
 class MLP(nn.Module, StackerScalerMixin, SaverMixin):
-    input_fields = ['LHF', 'SHF', 'SOLIN', 'qt', 'sl', 'FQT', 'FSL']
-    output = OrderedDict([
-        ('sl', 34),
-        ('qt', 34),
-    ])
 
-    def __init__(self, mean, scale):
+    def __init__(self, mean, scale,
+                 inputs=(('LHF', 1), ('SHF', 1), ('SOLIN', 1), ('qt', 34),
+                         ('sl', 34), ('FQT', 34), ('FSL', 34)),
+                 outputs=(('sl', 34), ('qt', 34))):
+
         "docstring"
         super(MLP, self).__init__()
 
+        self.kwargs = {}
+        self.kwargs['inputs'] = inputs
+        self.kwargs['outputs'] = outputs
 
-        nz = 34
-        n2d = 3
-        m = nz * 4 + n2d
-        n = 2*nz
+        n_in = sum(x[1] for x in inputs)
+        n_out = sum(x[1] for x in outputs)
 
         # self.mod = MOE(m, 2*nz, n_experts40)
         self.mod = nn.Sequential(
-            nn.Linear(m, 512),
+            nn.Linear(n_in, 512),
             nn.ReLU(),
-            nn.Linear(512, n)
+            nn.Linear(512, n_out)
         )
         self.mean = mean
         self.scale = scale
@@ -122,26 +121,33 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         return None
 
     @property
-    def progs(self):
-        return set(self.input_fields) & set(self.output.keys())
+    def input_fields(self):
+        return OrderedDict(self.kwargs['inputs'])
+
+    @property
+    def output_fields(self):
+        return OrderedDict(self.kwargs['outputs'])
 
     @property
     def diags(self):
-        return set(self.output.keys()) - set(self.input_fields)
+        return set(self.output_fields.keys()) - set(self.input_fields)
 
     @property
     def aux(self):
-        return set(self.input_fields) - set(self.output.keys())
+        return set(self.input_fields) - set(self.output_fields.keys())
 
     @property
     def args(self):
         return (self.mean, self.scale)
 
     def step(self, x, *args):
+        x = {key: val if val.dim() == 2 else val.unsqueeze(-1)
+             for key, val in x.items()}
+
         stacked = pipe(x, self.scaler, self._stacked)
         out = self.mod(stacked)
         out = pipe(out, self._unstacked, self._unscale)
-        out = {key: out[key] + x[key] for key in self.progs}
+        out = {key: out[key] + x[key] for key in self.output_fields}
         out['qt'].clamp_(min=0.0)
         return out, None
 
@@ -159,25 +165,28 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         Returns
         -------
         outputs
-            dictionary of output variables including prognostics and
+            dictionary of output_fields variables including prognostics and
             diagnostics
 
         """
-        nt = x['LHF'].size(1)
+        nt = x[first(self.input_fields.keys())].size(1)
         if n is None:
             n = nt
-        output = []
+        output_fields = []
 
         aux = {key: x[key] for key in self.aux}
 
         for t in range(0, nt):
             if t < n:
-                progs = {key: x[key][:, t] for key in self.progs}
+                progs = {key: x[key][:, t] for key in self.output_fields}
 
             inputs = merge(utils.select_time(aux, t), progs)
             out, _ = self.step(inputs)
-            progs = {key: out[key] for key in self.progs}
+            progs = {key: out[key] for key in self.output_fields}
 
-            output.append(out)
+            output_fields.append(out)
 
-        return utils.stack_dicts(output)
+        return utils.stack_dicts(output_fields)
+
+    def __repr__(self):
+        return f"MLP({self.input_fields}, {self.output_fields})"
