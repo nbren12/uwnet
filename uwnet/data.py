@@ -1,88 +1,10 @@
-"""Torch dataset classes for working with multiscale sam data
-"""
-import attr
-import numpy as np
-import torch
-from torch.utils.data import Dataset
+import click
 from toolz import valmap
 
-
-class ConcatDataset(Dataset):
-    def __init__(self, *datasets):
-        self.datasets = datasets
-
-    def __getitem__(self, i):
-        return tuple(d[i] for d in self.datasets)
-
-    def __len__(self):
-        return min(len(d) for d in self.datasets)
-
-
-class DictDataset(Dataset):
-    def __init__(self, mapping):
-        self.datasets = mapping
-
-    def __getitem__(self, i):
-        return {key: val[i] for key, val in self.datasets.items()}
-
-    def __len__(self):
-        return min(len(d) for d in self.datasets.values())
-
-
-@attr.s
-class WindowedData(Dataset):
-    """Window data along first dimension
-
-    Examples
-    --------
-    >>> arr = np.arange(10).reshape((10, 1, 1, 1))
-    >>> d = WindowedData(arr)
-    >>> d[0:5][:,0,0]
-    array([0, 1, 2])
-    >>> d[0:5][:,1,0]
-    array([1, 2, 3])
-    >>> d[0:5][:,2,0]
-    array([2, 3, 4])
-    >>> d[0:5][:,3,0]
-    array([3, 4, 5])
-    """
-    x = attr.ib()
-    chunk_size = attr.ib(default=3)
-
-    @property
-    def nwindows(self):
-        t  = self.reshaped.shape[0]
-        return  t - self.chunk_size + 1
-
-    @property
-    def reshaped(self):
-        sh  = self.x.shape
-
-        nt = sh[0]
-        if self.x.ndim == 4:
-            nf = sh[-1]
-        elif self.x.ndim == 3:
-            nf = 1
-        else:
-            raise ValueError("data has dimension less the 3. Maybe it is not a time series variable.")
-        return self.x.reshape((nt, -1, nf))
-
-    def __len__(self):
-        b = self.reshaped.shape[1]
-        return self.nwindows * b
-
-
-    def __getitem__(self, ind):
-        """i + j nt  = ind
-
-        """
-        i = ind % self.nwindows
-        j = (ind-i) // self.nwindows
-
-        return self.reshaped[i:i+self.chunk_size,j,:]
-
-    def __repr__(self):
-        return "WindowedData()"
+import torch
+import xarray as xr
+from torch.utils.data import Dataset
+from uwnet import thermo
 
 
 def _stack_or_rename(x, **kwargs):
@@ -171,3 +93,56 @@ class XRTimeSeries(Dataset):
     def scale(self):
         std = self.std
         return valmap(lambda x: x.max(), std)
+
+
+def load_data(paths):
+    data = {}
+    for info in paths:
+        for field in info['fields']:
+            ds = xr.open_dataset(info['path'], chunks={'time': 10})
+            data[field] = ds[field]
+
+    # compute layer mass from stat file
+    rho = data.pop('RHO')[0]
+    rhodz = thermo.layer_mass(rho)
+
+    data['layer_mass'] = rhodz
+
+    TABS = data.pop('TABS')
+    QV = data.pop('QV')
+    QN = data.pop('QN', 0.0)
+    QP = data.pop('QP', 0.0)
+
+    sl = thermo.liquid_water_temperature(TABS, QN, QP)
+    qt = QV + QN
+
+    data['sl'] = sl
+    data['qt'] = qt
+
+    objects = [
+        val.to_dataset(name=key).assign(x=sl.x, y=sl.y)
+        for key, val in data.items()
+    ]
+    return xr.merge(objects, join='inner').sortby('time')
+
+
+def get_dataset(paths, post=None, **kwargs):
+    # paths = yaml.load(open("config.yaml"))['paths']
+    ds = load_data(paths)
+    if post is not None:
+        ds = post(ds)
+    ds = ds.load()
+    return XRTimeSeries(ds, [['time'], ['x', 'y'], ['z']])
+
+
+@click.command()
+@click.argument("out")
+def main(out):
+    import yaml
+    paths = yaml.load(open("config.yaml"))['paths']
+    ds = load_data(paths).load()
+    ds.to_netcdf('out.nc')
+
+
+if __name__ == '__main__':
+    main()

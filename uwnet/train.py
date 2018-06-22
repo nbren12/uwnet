@@ -7,9 +7,9 @@ from torch.utils.data import DataLoader
 
 import torchnet as tnt
 
-from . import model
-from .prepare_data import get_dataset
-from .utils import get_batch_size, select_time
+from uwnet import model
+from uwnet.data import get_dataset
+from uwnet.utils import get_batch_size, select_time
 
 
 def mse(x, y, layer_mass):

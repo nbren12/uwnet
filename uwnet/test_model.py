@@ -1,7 +1,7 @@
 import numpy as np
 import torch
-from .model import MLP, MOE
-from .utils import select_time, get_batch_size, stack_dicts
+from uwnet.model import MLP, MOE
+from uwnet.utils import select_time, get_batch_size, stack_dicts
 
 
 def _assert_all_close(x, y):

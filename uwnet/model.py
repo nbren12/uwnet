@@ -3,8 +3,8 @@ from collections import OrderedDict
 from toolz import get, pipe, merge
 from torch import nn
 
-from lib.torch.normalization import scaler
-from . import utils
+from uwnet.normalization import scaler
+from uwnet import utils
 
 
 def cat(seq):

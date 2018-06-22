@@ -8,8 +8,8 @@ import yaml
 
 import xarray as xr
 
-from . import model
-from .prepare_data import get_dataset
+from uwnet import model
+from uwnet.data import get_dataset
 
 
 def parse_arguments():
