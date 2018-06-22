@@ -1,12 +1,12 @@
 import argparse
 import logging
+import os
+
+import yaml
 
 import torch
-import yaml
-from torch.utils.data import DataLoader
-
 import torchnet as tnt
-
+from torch.utils.data import DataLoader
 from uwnet import model
 from uwnet.data import get_dataset
 from uwnet.utils import get_batch_size, select_time
@@ -27,6 +27,7 @@ def parse_arguments():
     parser.add_argument('-r', '--restart', default=False)
     parser.add_argument('-lr', '--lr', default=.001, type=float)
     parser.add_argument('-n', '--n-epochs', default=10, type=int)
+    parser.add_argument('-o', '--output-dir', default='.')
 
     return parser.parse_args()
 
@@ -59,9 +60,20 @@ if __name__ == '__main__':
         return x
         return x.isel(y=slice(24, 40))
 
+    logger.info("Opening Training Data")
     train_data = get_dataset(paths, post=post)
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
 
+    # switch to output directory
+    logger.info(f"Saving outputs in {args.output_dir}")
+    try:
+        os.mkdir(args.output_dir)
+    except OSError:
+        pass
+
+    os.chdir(args.output_dir)
+
+    # compute standard deviation
     logger.info("Computing Standard Deviation")
     scale = train_data.scale
     # compute scaler
