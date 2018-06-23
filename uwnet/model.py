@@ -153,7 +153,7 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
 
         stacked = pipe(x, self.scaler, self._stacked)
         out = self.mod(stacked)
-        out = pipe(out, self._unstacked, self._unscale)
+        out = pipe(out, self._unstacked)
         for key in self.progs:
             out[key] = out[key] + x[key]
         out['qt'].clamp_(min=0.0)
