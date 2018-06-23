@@ -3,6 +3,8 @@ import torch
 from uwnet.model import MLP, MOE
 from uwnet.utils import select_time, get_batch_size, stack_dicts
 
+import pytest
+
 
 def _assert_all_close(x, y):
     np.testing.assert_allclose(y.numpy(), x.numpy())
@@ -94,3 +96,28 @@ def test_to_dict():
 
     assert mlp.input_fields == mlp1.input_fields
     assert mlp.output_fields == mlp1.output_fields
+
+@pytest.mark.parametrize("n", [1,2,3,4])
+def test_mlp_no_cheating(n):
+    """Make sure that MLP only uses the initial point"""
+
+    batch = _mock_batch(3, 10, 34)
+
+    mlp = MLP({}, {})
+
+
+    for key, val in batch.items():
+        val.requires_grad = True
+
+    pred = mlp(batch, n=n)
+
+    # backprop
+    sl = pred['sl']
+    sl[0, -1, 0].backward()
+
+    sl_true = batch['sl']
+    # the gradient of sl_true should only be nonzero for the first n points
+    # of the data
+    grad_t  = torch.norm(sl_true.grad[0, :, :], dim=1)
+    assert torch.sum(grad_t[n:]).item() == 0
+    assert torch.sum(grad_t[0:n]).item() > 0
