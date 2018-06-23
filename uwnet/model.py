@@ -129,6 +129,13 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         return OrderedDict(self.kwargs['outputs'])
 
     @property
+    def progs(self):
+        """Prognostic variables are shared between the input and output
+        sets
+        """
+        return set(self.output_fields) & set(self.input_fields)
+
+    @property
     def diags(self):
         return set(self.output_fields.keys()) - set(self.input_fields)
 
@@ -147,7 +154,8 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         stacked = pipe(x, self.scaler, self._stacked)
         out = self.mod(stacked)
         out = pipe(out, self._unstacked, self._unscale)
-        out = {key: out[key] + x[key] for key in self.output_fields}
+        for key in self.progs:
+            out[key] = out[key] + x[key]
         out['qt'].clamp_(min=0.0)
         return out, None
 
@@ -178,11 +186,11 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
 
         for t in range(0, nt):
             if t < n:
-                progs = {key: x[key][:, t] for key in self.output_fields}
+                progs = {key: x[key][:, t] for key in self.progs}
 
             inputs = merge(utils.select_time(aux, t), progs)
             out, _ = self.step(inputs)
-            progs = {key: out[key] for key in self.output_fields}
+            progs = {key: out[key] for key in self.progs}
 
             output_fields.append(out)
 
