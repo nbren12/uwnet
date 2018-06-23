@@ -147,7 +147,7 @@ if __name__ == '__main__':
                     pred = lstm(x, n=1)
 
                     # compute loss
-                    loss = criterion(window, pred)
+                    loss = criterion(y, pred)
 
                     # Back propagate
                     optimizer.zero_grad()
