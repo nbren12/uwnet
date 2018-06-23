@@ -57,7 +57,6 @@ if __name__ == '__main__':
 
     # get training loader
     def post(x):
-        return x
         return x.isel(y=slice(24, 40))
 
     logger.info("Opening Training Data")
@@ -113,8 +112,10 @@ if __name__ == '__main__':
 
                 for t in range(0, nt - seq_length, skip):
                     window = select_time(batch, slice(t, t + seq_length))
-                    pred = lstm(window, n=1)
-                    loss = criterion(pred, window, dm[0, :])
+                    x = select_time(window, slice(0, -1))
+                    y = select_time(window, slice(1, None))
+                    pred = lstm(x, n=1)
+                    loss = criterion(pred, y, dm[0, :])
 
                     # average
                     meter_avg_loss.add(
