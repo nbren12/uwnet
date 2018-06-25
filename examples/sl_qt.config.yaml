@@ -23,5 +23,5 @@ outputs:
   - [qt, 34] 
   - [sl, 34] 
 loss_scale:
-  qt: 5.0
-  sl: 1.0
+  qt: 1.0
+  sl: 10.0

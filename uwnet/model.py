@@ -110,7 +110,11 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         # self.mod = MOE(m, 2*nz, n_experts40)
         self.mod = nn.Sequential(
             nn.Linear(n_in, 512),
-            nn.ReLU(),
+            nn.ELU(),
+            nn.Linear(512, 512),
+            nn.ELU(),
+            nn.Linear(512, 512),
+            nn.ELU(),
             nn.Linear(512, n_out)
         )
         self.mean = mean

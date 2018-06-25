@@ -63,9 +63,9 @@ if __name__ == '__main__':
     config = yaml.load(open(args.config))
 
     n_epochs = args.n_epochs
-    batch_size = 100
+    batch_size = 200
     seq_length = 20
-    skip = 10
+    skip = 1
     nt = 640
 
     # set up meters
@@ -77,6 +77,7 @@ if __name__ == '__main__':
 
     # get training loader
     def post(x):
+        return x
         return x.isel(y=slice(24, 40))
 
     logger.info("Opening Training Data")
@@ -90,6 +91,7 @@ if __name__ == '__main__':
     except OSError:
         pass
 
+    path = os.path.abspath(args.restart)
     os.chdir(args.output_dir)
 
     # compute standard deviation
@@ -105,8 +107,8 @@ if __name__ == '__main__':
 
     # restart
     if args.restart:
-        logger.info(f"Restarting from checkpoint at {args.restart}")
-        d = torch.load(args.restart)
+        logger.info(f"Restarting from checkpoint at {path}")
+        d = torch.load(path)
         lstm = cls.from_dict(d['dict'])
         i_start = d['epoch'] + 1
     else:

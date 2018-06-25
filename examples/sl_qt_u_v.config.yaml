@@ -28,9 +28,9 @@ outputs:
   - [U, 34] 
   - [V, 34] 
 loss_scale:
-  LHF: 80
+  LHF: 60
   SHF: 10
-  qt: 6
+  qt: 2
   sl: 10.0
   U: 20
   V: 20
