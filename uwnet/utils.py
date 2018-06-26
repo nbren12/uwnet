@@ -20,5 +20,5 @@ def get_batch_size(batch):
     return batch['sl'].size(0)
 
 
-def concat_dicts(seq):
-    return merge_with(lambda x: torch.cat(seq, dim=1), *seq)
+def concat_dicts(seq, dim=1):
+    return merge_with(lambda x: torch.cat(x, dim=dim), *seq)

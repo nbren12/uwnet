@@ -1,9 +1,11 @@
 import click
-from toolz import valmap
-
+import numpy as np
 import torch
-import xarray as xr
+from dask.diagnostics import ProgressBar
+from toolz import valmap
 from torch.utils.data import Dataset
+
+import xarray as xr
 from uwnet import thermo
 
 
@@ -20,8 +22,7 @@ def _ds_slice_to_numpy_dict(ds):
     dim_order = ['xbatch', 'xtime', 'xfeat']
     out = {}
     for key in ds.data_vars:
-        dims = [dim for dim in dim_order
-                if dim in ds[key].dims]
+        dims = [dim for dim in dim_order if dim in ds[key].dims]
         out[key] = ds[key].transpose(*dims).values
 
     return out
@@ -63,9 +64,11 @@ class XRTimeSeries(Dataset):
         """
         self.data = data
         self.dims = dims
-        self._ds = _stack_or_rename(self.data, xtime=self.dims[0],
-                                    xbatch=self.dims[1],
-                                    xfeat=self.dims[2])
+        self._ds = _stack_or_rename(
+            self.data,
+            xtime=self.dims[0],
+            xbatch=self.dims[1],
+            xfeat=self.dims[2])
 
     def __len__(self):
         res = 1
@@ -74,8 +77,34 @@ class XRTimeSeries(Dataset):
         return res
 
     def __getitem__(self, i):
-        ds = self._ds.isel(xbatch=i)
-        return _ds_slice_to_numpy_dict(ds)
+
+        # convert i to an array
+        # this code should handle i = slice, list, etc
+        i = np.arange(len(self))[i]
+        scalar_idx = i.ndim == 0
+        if scalar_idx:
+            i = [i]
+
+        # get coordinates using np.unravel_index
+        # this code should probably be refactored
+        batch_dims = self.dims[1]
+        batch_shape = [len(self.data[dim]) for dim in batch_dims]
+
+        idxs = np.unravel_index(i, batch_shape)
+        coords = {}
+        for key, idx in zip(batch_dims, idxs):
+            coords[key] = xr.DataArray(idx, dims='xbatch')
+
+        # select, load, and stack the batch
+        batch_ds = self.data.isel(**coords).load()
+        ds_r = _stack_or_rename(
+            batch_ds, xtime=self.dims[0], xfeat=self.dims[2])
+
+        # prepare for output
+        out = _ds_slice_to_numpy_dict(ds_r)
+        if scalar_idx:
+            out = valmap(lambda x: x[0], out)
+        return out
 
     @property
     def mean(self):
@@ -99,7 +128,11 @@ def load_data(paths):
     data = {}
     for info in paths:
         for field in info['fields']:
-            ds = xr.open_dataset(info['path'], chunks={'time': 10})
+            try:
+                ds = xr.open_dataset(info['path'], chunks={'time': 40})
+            except ValueError:
+                ds = xr.open_dataset(info['path'])
+
             data[field] = ds[field]
 
     # compute layer mass from stat file
@@ -131,17 +164,19 @@ def get_dataset(paths, post=None, **kwargs):
     ds = load_data(paths)
     if post is not None:
         ds = post(ds)
-    ds = ds.load()
     return XRTimeSeries(ds, [['time'], ['x', 'y'], ['z']])
 
 
 @click.command()
+@click.argument("config")
 @click.argument("out")
-def main(out):
+def main(config, out):
     import yaml
-    paths = yaml.load(open("config.yaml"))['paths']
-    ds = load_data(paths).load()
-    ds.to_netcdf('out.nc')
+    paths = yaml.load(open(config))['paths']
+    with ProgressBar():
+        load_data(paths)\
+            .chunk({'y': 8, 'x': 8})\
+            .to_zarr(out)
 
 
 if __name__ == '__main__':

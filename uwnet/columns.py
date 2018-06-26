@@ -4,18 +4,21 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from tqdm import tqdm
 import yaml
+from torch.utils.data import DataLoader
 
 import xarray as xr
 
 from uwnet import model
-from uwnet.data import get_dataset
+from uwnet.data import get_dataset, XRTimeSeries
+from uwnet.utils import concat_dicts
 
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('model')
-    parser.add_argument('config')
+    parser.add_argument('data')
     parser.add_argument('output')
     return parser.parse_args()
 
@@ -24,7 +27,6 @@ def parse_arguments():
 args = parse_arguments()
 
 # load model
-config = yaml.load(open(args.config))
 d = torch.load(args.model)
 mod = model.MLP.from_dict(d['dict'])
 
@@ -36,19 +38,23 @@ def post(x):
     # return x.isel(x=slice(0, 1), y=slice(24, 40))
 
 
-paths = config['paths']
 print("Opening data")
-data = get_dataset(paths, post=post)
+ds = xr.open_zarr(args.data).isel(x=slice(0,8))
+data = XRTimeSeries(ds.load(), [['time'], ['x', 'y'], ['z']])
+loader = DataLoader(data, batch_size=128, shuffle=False)
 
 print("Running model")
 # prepare input for mod
+outputs = []
 with torch.no_grad():
-    batch = {key: torch.from_numpy(val) for key, val in data[:].items()}
+    for batch in tqdm(loader):
+        out = mod(batch, n=1)
+        outputs.append(out)
 
-# finally run model
-    out = mod(batch, n=1)
 
-# save batch to netcdf
+
+# concatenate outputs
+out = concat_dicts(outputs, dim=0)
 
 def unstack(val):
     val = val.detach().numpy()
@@ -62,6 +68,11 @@ def unstack(val):
     ds = xr.DataArray(val, dims=dims, coords=coords)
     for dim in dims:
         ds = ds.unstack(dim)
+
+    # transpose dims
+    dim_order = [dim for dim in ['time', 'z', 'y', 'x']
+                 if dim in ds.dims]
+    ds = ds.transpose(*dim_order)
 
     return ds
 

@@ -21,3 +21,6 @@ def test_XRTimeSeries():
 
     assert o[0]['a'].shape == (4, 2)
     assert o[0]['c'].shape == (4, )
+
+    # try slice input
+    assert o[:]['a'].shape == (15, 4, 2)

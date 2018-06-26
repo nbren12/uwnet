@@ -2,14 +2,15 @@ import argparse
 import logging
 import os
 
-import yaml
-
 import torch
 import torchnet as tnt
-from torch.utils.data import DataLoader
+import yaml
 from toolz import curry
+from torch.utils.data import DataLoader
+
+import xarray as xr
 from uwnet import model
-from uwnet.data import get_dataset
+from uwnet.data import XRTimeSeries
 from uwnet.utils import get_batch_size, select_time
 
 
@@ -27,6 +28,7 @@ def mse(x, y, layer_mass):
     else:
         return torch.mean(torch.pow(x - y, 2))
 
+
 @curry
 def MVLoss(layer_mass, scale, x, y):
     """MSE loss
@@ -36,8 +38,11 @@ def MVLoss(layer_mass, scale, x, y):
     x : truth
     y : prediction
     """
-    losses = {key: mse(x[key], y[key], layer_mass)/torch.tensor(scale[key]**2).float()
-              for key in scale}
+    losses = {
+        key:
+        mse(x[key], y[key], layer_mass) / torch.tensor(scale[key]**2).float()
+        for key in scale
+    }
     return sum(losses.values())
 
 
@@ -48,6 +53,7 @@ def parse_arguments():
     parser.add_argument('-n', '--n-epochs', default=10, type=int)
     parser.add_argument('-o', '--output-dir', default='.')
     parser.add_argument('config')
+    parser.add_argument("input")
 
     return parser.parse_args()
 
@@ -56,7 +62,6 @@ if __name__ == '__main__':
     # setup logging
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
-
 
     args = parse_arguments()
     # load configuration
@@ -81,7 +86,8 @@ if __name__ == '__main__':
         return x.isel(y=slice(24, 40))
 
     logger.info("Opening Training Data")
-    train_data = get_dataset(paths, post=post)
+    ds = xr.open_zarr(args.input)
+    train_data = XRTimeSeries(ds.load(), [['time'], ['x', 'y'], ['z']])
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
 
     # switch to output directory
@@ -114,8 +120,8 @@ if __name__ == '__main__':
     else:
 
         # initialize model
-        lstm = cls(mean, scale, inputs=config['inputs'],
-                   outputs=config['outputs'])
+        lstm = cls(
+            mean, scale, inputs=config['inputs'], outputs=config['outputs'])
         i_start = 0
 
     logger.info(f"Training with {lstm}")
@@ -136,7 +142,7 @@ if __name__ == '__main__':
                 loss = 0.0
 
                 # set up loss function
-                criterion = MVLoss(dm[0, :], config['loss_scale'])
+                criterion = MVLoss(dm, config['loss_scale'])
 
                 for t in range(0, nt - seq_length, skip):
 
@@ -159,10 +165,8 @@ if __name__ == '__main__':
                     optimizer.step()
 
                     # Log the results
-                    meter_avg_loss.add(
-                        criterion(window, mean).item())
+                    meter_avg_loss.add(criterion(window, mean).item())
                     meter_loss.add(loss.item())
-
 
                 logger.info(f"Batch {k},  Loss: {meter_loss.value()[0]};"
                             f" Avg {meter_avg_loss.value()[0]}")
