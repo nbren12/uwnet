@@ -52,6 +52,9 @@ def parse_arguments():
     parser.add_argument('-lr', '--lr', default=.001, type=float)
     parser.add_argument('-n', '--n-epochs', default=10, type=int)
     parser.add_argument('-o', '--output-dir', default='.')
+    parser.add_argument('-s', '--skip', default=1, type=int)
+    parser.add_argument('-l', '--seq_length', default=20, type=int)
+    parser.add_argument('-b', '--batch_size', default=200, type=int)
     parser.add_argument('config')
     parser.add_argument("input")
 
@@ -68,9 +71,8 @@ if __name__ == '__main__':
     config = yaml.load(open(args.config))
 
     n_epochs = args.n_epochs
-    batch_size = 200
-    seq_length = 20
-    skip = 1
+    batch_size = args.batch_size
+    seq_length = args.seq_length
     nt = 640
 
     # set up meters
@@ -97,8 +99,6 @@ if __name__ == '__main__':
     except OSError:
         pass
 
-    path = os.path.abspath(args.restart)
-    os.chdir(args.output_dir)
 
     # compute standard deviation
     logger.info("Computing Standard Deviation")
@@ -113,6 +113,7 @@ if __name__ == '__main__':
 
     # restart
     if args.restart:
+        path = os.path.abspath(args.restart)
         logger.info(f"Restarting from checkpoint at {path}")
         d = torch.load(path)
         lstm = cls.from_dict(d['dict'])
@@ -129,6 +130,7 @@ if __name__ == '__main__':
     # initialize optimizer
     optimizer = torch.optim.Adam(lstm.parameters(), lr=args.lr)
 
+    os.chdir(args.output_dir)
     try:
         for i in range(i_start, n_epochs):
             logging.info(f"Epoch {i}")
@@ -144,7 +146,7 @@ if __name__ == '__main__':
                 # set up loss function
                 criterion = MVLoss(dm, config['loss_scale'])
 
-                for t in range(0, nt - seq_length, skip):
+                for t in range(0, nt - seq_length, args.skip):
 
                     # select window
                     window = select_time(batch, slice(t, t + seq_length))
