@@ -107,15 +107,13 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         n_in = sum(x[1] for x in inputs)
         n_out = sum(x[1] for x in outputs)
 
-        # self.mod = MOE(m, 2*nz, n_experts40)
+        # self.mod = MOE(n_in, n_out, n_experts=40)
         self.mod = nn.Sequential(
-            nn.Linear(n_in, 512),
-            nn.ELU(),
-            nn.Linear(512, 512),
-            nn.ELU(),
-            nn.Linear(512, 512),
-            nn.ELU(),
-            nn.Linear(512, n_out)
+            nn.Linear(n_in, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, n_out),
         )
         self.mean = mean
         self.scale = scale
