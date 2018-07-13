@@ -80,3 +80,18 @@ def energy_imbalance(FSL, shf, prec, radsfc, radtop, layer_mass):
 def moisture_imbalance():
     """Same as energy imbalance but for moisture budget"""
     pass
+
+
+def fix_negative_moisture(q, layer_mass):
+    """Fix negative moisture in moisture conserving way"""
+    eps = torch.tensor(1e-10, requires_grad=False)
+
+    water_before = (q*layer_mass).sum(-1, keepdim=True)
+    q = q.clamp(eps)
+    water_after = (q*layer_mass).sum(-1, keepdim=True)
+    return q * water_before/water_after
+
+
+
+
+

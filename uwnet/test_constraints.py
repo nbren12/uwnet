@@ -1,4 +1,4 @@
-from uwnet.constraints import apply_linear_constraint
+from uwnet.constraints import apply_linear_constraint, fix_negative_moisture
 import numpy as np
 import torch
 
@@ -53,3 +53,17 @@ def test_precip_functional():
     print("modified precip", prec_modified)
     assert (prec_modified > -eps).all()
 
+
+def test_fix_negative_moisture():
+    q = torch.arange(-4, 20) + .1
+    layer_mass = torch.rand(len(q)) + .1
+
+    q_new = fix_negative_moisture(q, layer_mass)
+
+    # No negative humidiy
+    assert (q_new >= 0).all()
+
+    # water is conserved
+    q1 = (q_new * layer_mass).sum(-1)
+    q0 = (q * layer_mass).sum(-1)
+    np.testing.assert_allclose(q1.numpy(), q0.numpy())
