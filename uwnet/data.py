@@ -106,6 +106,10 @@ class XRTimeSeries(Dataset):
             out = valmap(lambda x: x[0], out)
         return out
 
+    def constants(self):
+        return {'layer_mass': torch.tensor(self.data['layer_mass'].values,
+                                           requires_grad=False).float()}
+
     @property
     def mean(self):
         """Mean of the contained variables"""

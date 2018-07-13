@@ -5,7 +5,7 @@ import os
 import torch
 import torchnet as tnt
 import yaml
-from toolz import curry
+from toolz import curry, merge
 from torch.utils.data import DataLoader
 
 import xarray as xr
@@ -23,7 +23,10 @@ def mse(x, y, layer_mass):
     if x.dim() == 2:
         x = x[..., None]
 
-    if x.size(-1) == w.size(-1):
+    if x.size(-1) > 1:
+        if layer_mass.size(-1) != x.size(-1):
+            raise ValueError
+
         return torch.mean(torch.pow(x - y, 2) * w)
     else:
         return torch.mean(torch.pow(x - y, 2))
@@ -38,6 +41,7 @@ def MVLoss(layer_mass, scale, x, y):
     x : truth
     y : prediction
     """
+
     losses = {
         key:
         mse(x[key], y[key], layer_mass) / torch.tensor(scale[key]**2).float()
@@ -91,6 +95,7 @@ if __name__ == '__main__':
     ds = xr.open_zarr(args.input)
     train_data = XRTimeSeries(ds.load(), [['time'], ['x', 'y'], ['z']])
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
+    constants = train_data.constants()
 
     # switch to output directory
     logger.info(f"Saving outputs in {args.output_dir}")
@@ -99,10 +104,10 @@ if __name__ == '__main__':
     except OSError:
         pass
 
-
     # compute standard deviation
     logger.info("Computing Standard Deviation")
     scale = train_data.scale
+
     # compute scaler
     logger.info("Computing Mean")
     mean = train_data.mean
@@ -141,17 +146,18 @@ if __name__ == '__main__':
 
                 # need to remove these auxiliary variables
                 batch.pop('p')
-                dm = batch.pop('layer_mass').detach_()
-                loss = 0.0
-
                 # set up loss function
-                criterion = MVLoss(dm, config['loss_scale'])
+                criterion = MVLoss(constants['layer_mass'], config['loss_scale'])
 
                 for t in range(0, nt - seq_length, args.skip):
 
                     # select window
                     window = select_time(batch, slice(t, t + seq_length))
                     x = select_time(window, slice(0, -1))
+
+                    # patch the constants back in
+                    x = merge(x, constants)
+
                     y = select_time(window, slice(1, None))
 
                     # make prediction

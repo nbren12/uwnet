@@ -4,7 +4,7 @@ from toolz import get, pipe, merge, first
 from torch import nn
 
 from uwnet.normalization import scaler
-from uwnet import utils
+from uwnet import utils, constraints
 
 
 def cat(seq):
@@ -219,6 +219,7 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
             diagnostics
 
         """
+        dt = torch.tensor(self.time_step, requires_grad=False)
         nt = x[first(self.input_fields.keys())].size(1)
         if n is None:
             n = nt

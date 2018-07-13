@@ -19,6 +19,7 @@ def _mock_batch(n, nt, nz, init=torch.rand):
         'sl': init(n, nt, nz),
         'FQT': init(n, nt, nz),
         'FSL': init(n, nt, nz),
+        'layer_mass': torch.arange(1, nz+1) * 1.0,
         # 'p': init(nz),
     }
 
@@ -45,8 +46,8 @@ def test_stack_dicts():
     assert out['sl'].size() == batches['sl'].size()
     print(out.keys())
     for key in out:
-        print(key)
-        _assert_all_close(out[key], batches[key])
+        if key != 'layer_mass':
+            _assert_all_close(out[key], batches[key])
 
 
 def test_mlp_forward():

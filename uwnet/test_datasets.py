@@ -9,14 +9,12 @@ def get_obj():
     a = xr.DataArray(np.ones((3, 4, 5, 2)))
     b = xr.DataArray(np.zeros((3, 4, 5, 2)))
     c = xr.DataArray(np.zeros((3, 4, 5)))
-    ds = xr.Dataset({'a': a, 'b': b, 'c': c})
+    d = xr.DataArray(np.zeros((2,)), dims=['dim_3'])
+    ds = xr.Dataset({'a': a, 'b': b, 'c': c, 'layer_mass': d})
     return ds
 
 def test_XRTimeSeries():
-    a = xr.DataArray(np.ones((3, 4, 5, 2)))
-    b = xr.DataArray(np.zeros((3, 4, 5, 2)))
-    c = xr.DataArray(np.zeros((3, 4, 5)))
-    ds = xr.Dataset({'a': a, 'b': b, 'c': c})
+    ds = get_obj()
 
     o = XRTimeSeries(ds, [['dim_2'], ['dim_0', 'dim_1'], ['dim_3']])
     assert len(o) == 3 * 4
@@ -50,3 +48,10 @@ def test_XRTimeSeries_timestep():
 
     with pytest.raises(ValueError):
         dataset.timestep()
+
+def test_XRTimeSeries_constants():
+    ds = get_obj()
+
+    # dim_1 is the time dimension here
+    dataset = XRTimeSeries(ds, [['dim_1'], ['dim_0', 'dim_2'], ['dim_3']])
+    assert 'layer_mass' in dataset.constants()

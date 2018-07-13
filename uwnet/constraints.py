@@ -1,3 +1,4 @@
+from toolz import assoc, curry
 import torch
 
 
