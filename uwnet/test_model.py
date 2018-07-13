@@ -52,7 +52,7 @@ def test_stack_dicts():
 def test_mlp_forward():
     batch = _mock_batch(3, 4, 34)
 
-    mlp = MLP({}, {})
+    mlp = MLP({}, {}, time_step=.125)
 
     pred = mlp(batch, n=1)
 
@@ -79,7 +79,7 @@ def test_variable_input():
     # rename LHF to a
     batch['a'] = batch.pop('LHF')
 
-    mlp = MLP({}, {},
+    mlp = MLP({}, {}, time_step=.125,
               inputs=[('a', 1), ('sl', nz), ('qt', nz)],
               outputs=[('sl', nz), ('qt', nz), ('SHF', 1)])
 
@@ -90,7 +90,7 @@ def test_variable_input():
         assert outputs[key].size(-1) == mlp.output_fields[key]
 
 def test_to_dict():
-    mlp = MLP({}, {}, inputs=(('LHF', 1),))
+    mlp = MLP({}, {}, time_step=.125, inputs=(('LHF', 1),))
     a = mlp.to_dict()
     mlp1 = mlp.from_dict(a)
 
@@ -103,7 +103,7 @@ def test_mlp_no_cheating(n):
 
     batch = _mock_batch(3, 10, 34)
 
-    mlp = MLP({}, {})
+    mlp = MLP({}, {}, time_step=.125)
 
 
     for key, val in batch.items():

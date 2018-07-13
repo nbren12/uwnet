@@ -123,6 +123,18 @@ class XRTimeSeries(Dataset):
         std = self.std
         return valmap(lambda x: x.max(), std)
 
+    def timestep(self):
+        time_dim = self.dims[0][0]
+        time = self.data[time_dim]
+        dt = np.diff(time)
+
+        all_equal = dt.std()/dt.mean() < 1e-6
+        if not all_equal:
+            raise ValueError("Data must be uniformly sampled in time")
+
+        return dt[0]
+
+
 
 def load_data(paths):
     data = {}

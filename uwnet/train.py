@@ -122,7 +122,8 @@ if __name__ == '__main__':
 
         # initialize model
         lstm = cls(
-            mean, scale, inputs=config['inputs'], outputs=config['outputs'])
+            mean, scale, time_step=train_data.timestep(),
+            inputs=config['inputs'], outputs=config['outputs'])
         i_start = 0
 
     logger.info(f"Training with {lstm}")

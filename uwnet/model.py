@@ -92,7 +92,7 @@ class MOE(nn.Module):
 
 class MLP(nn.Module, StackerScalerMixin, SaverMixin):
 
-    def __init__(self, mean, scale,
+    def __init__(self, mean, scale, time_step,
                  inputs=(('LHF', 1), ('SHF', 1), ('SOLIN', 1), ('qt', 34),
                          ('sl', 34), ('FQT', 34), ('FSL', 34)),
                  outputs=(('sl', 34), ('qt', 34))):
@@ -117,6 +117,7 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         )
         self.mean = mean
         self.scale = scale
+        self.time_step = time_step
         self.scaler = scaler(scale, mean)
 
     def init_hidden(self, *args, **kwargs):
@@ -147,18 +148,53 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
 
     @property
     def args(self):
-        return (self.mean, self.scale)
+        return (self.mean, self.scale, self.time_step)
 
-    def step(self, x, *args):
+    def rhs(self, x):
+        """Estimated source terms and diagnostics"""
         x = {key: val if val.dim() == 2 else val.unsqueeze(-1)
              for key, val in x.items()}
 
         stacked = pipe(x, self.scaler, self._stacked)
         out = self.mod(stacked)
+
         out = pipe(out, self._unstacked)
-        for key in self.progs:
-            out[key] = out[key] + x[key]
-        out['qt'].clamp_(min=0.0)
+
+        sources = {key: out[key] for key in self.progs}
+        diags = {key: out[key] for key in self.diags}
+        return sources, diags
+
+    def step(self, x, *args):
+        """Perform one time step using the neural network
+
+        Parameters
+        ----------
+        x : dict
+            dict of torch arrays (input variables)
+        *args
+            not used 
+
+        Returns
+        -------
+        out : dict of torch arrays
+            dict of the predictands. Either the next time step for the
+            prognostic variables, or the predicted value for the
+            non-prognostics (e.g. LHF, SHF, Prec).
+        None
+            placeholder to work with legacy code.
+
+        """
+
+        sources, diagnostics = self.rhs(x)
+        dt = torch.tensor(self.time_step, requires_grad=False)
+
+        out = {}
+        for key in sources:
+            out[key] = x[key] + dt * sources[key]
+
+        out = merge(out, diagnostics)
+        out['qt'].clamp_(0.0)
+
         return out, None
 
     def forward(self, x, n=None):
