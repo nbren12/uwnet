@@ -6,6 +6,7 @@ import torch
 import torchnet as tnt
 import yaml
 from toolz import curry, merge
+from time import time
 from torch.utils.data import DataLoader
 
 import xarray as xr
@@ -149,6 +150,8 @@ if __name__ == '__main__':
                 # set up loss function
                 criterion = MVLoss(constants['layer_mass'], config['loss_scale'])
 
+                time_batch_start = time()
+
                 for t in range(0, nt - seq_length, args.skip):
 
                     # select window
@@ -177,8 +180,10 @@ if __name__ == '__main__':
                     meter_avg_loss.add(criterion(window, mean).item())
                     meter_loss.add(loss.item())
 
-                logger.info(f"Batch {k},  Loss: {meter_loss.value()[0]};"
-                            f" Avg {meter_avg_loss.value()[0]}")
+                time_elapsed_batch = time() - time_batch_start
+                logger.info(f"Batch {k},  Loss: {meter_loss.value()[0]}; "
+                            f"Avg {meter_avg_loss.value()[0]}; "
+                            f"Time Elapsed {time_elapsed_batch} ")
                 meter_loss.reset()
                 meter_avg_loss.reset()
 
