@@ -1,0 +1,34 @@
+nseeds: 5
+nepochs: 3
+paths:
+  - path: /Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc
+    fields: ["LHF", "SHF", "SOLIN", "SST", "Prec"]
+  - path: /Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/stagger/3d/all.nc
+    fields: []
+  - path: /Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/all.nc
+    fields: ['QV', 'TABS', 'QN', 'QP', 'QRAD', "U", "V"]
+  - path: /Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc
+    fields: ['p', 'RHO']
+  - path: /Users/noah/workspace/research/uw-machine-learning-v1/data/processed/dry_tends.nc
+    fields: ['FQT', 'FSL']
+inputs:
+  - [qt, 34]
+  - [sl, 34]
+  - [U, 34]
+  - [V, 34]
+  - [FQT, 34]
+  - [FSL, 34]
+  - [SST, 1]
+  - [SOLIN, 1]
+outputs:
+  - [LHF, 1] 
+  - [Prec, 1] 
+  - [SHF, 1] 
+  - [qt, 34] 
+  - [sl, 34] 
+loss_scale:
+  LHF: 60
+  SHF: 10
+  Prec: 10
+  qt: 2
+  sl: 10.0

@@ -162,6 +162,10 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
 
         sources = {key: out[key] for key in self.progs}
         diags = {key: out[key] for key in self.diags}
+
+        if 'Prec' in self.diags:
+            diags['Prec'] = torch.exp(diags['Prec'])
+
         return sources, diags
 
     def step(self, x, *args):
