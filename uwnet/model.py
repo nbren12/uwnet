@@ -168,7 +168,7 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
 
         return sources, diags
 
-    def step(self, x, *args):
+    def step(self, x, dt, *args):
         """Perform one time step using the neural network
 
         Parameters
@@ -190,14 +190,13 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         """
 
         sources, diagnostics = self.rhs(x)
-        dt = torch.tensor(self.time_step, requires_grad=False)
 
         out = {}
         for key in sources:
             out[key] = x[key] + dt * sources[key]
 
         out = merge(out, diagnostics)
-        out['qt'].clamp_(0.0)
+        out = constraints.apply_constraints(x, out, dt)
 
         return out, None
 
@@ -232,7 +231,11 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
                 progs = {key: x[key][:, t] for key in self.progs}
 
             inputs = merge(utils.select_time(aux, t), progs)
-            out, _ = self.step(inputs)
+            # This hardcoded string will cause trouble
+            # This class should not know about layer_mass
+            inputs['layer_mass'] = x['layer_mass']
+
+            out, _ = self.step(inputs, dt)
             progs = {key: out[key] for key in self.progs}
 
             output_fields.append(out)
