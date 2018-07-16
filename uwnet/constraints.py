@@ -77,8 +77,9 @@ def energy_imbalance(FSL, shf, prec, radsfc, radtop, layer_mass):
     return (fsl_int - density_liquid_h2o * latent_heat_cond * prec - shf -
             radsfc + radtop)
 
+
 @curry
-def fix_moisture_imbalance(q0, q1, precip, lhf, h, layer_mass):
+def fix_moisture_imbalance(q0, q1, fqt, precip, lhf, h, layer_mass):
     """Same as energy imbalance but for moisture budget
 
     Parameters
@@ -87,6 +88,8 @@ def fix_moisture_imbalance(q0, q1, precip, lhf, h, layer_mass):
         moisture before
     q1  (g/kg)
         moisture after
+    fqt (g/kg/day)
+        moistening from horizontal advection.
     h   (day)
         time step
     precip (mm/d)
@@ -97,10 +100,13 @@ def fix_moisture_imbalance(q0, q1, precip, lhf, h, layer_mass):
     Lv = 2.51e6
     density_liquid = 1000.0
 
-    water0 = (q0 * layer_mass).sum(-1, keepdim=True)/1000.0  # kg
-    water1 = (q1 * layer_mass).sum(-1, keepdim=True)/1000.0  # kg
-    net_evap = lhf / Lv - precip / 1000.0 * density_liquid / 86400  # kg/s
-    water1_constrained = water0 + net_evap * h * 86400
+    water0 = (q0 * layer_mass).sum(-1, keepdim=True)/1000.0            # kg
+    water1 = (q1 * layer_mass).sum(-1, keepdim=True)/1000.0            # kg
+    fqt_int = (fqt * layer_mass).sum(-1, keepdim=True)/1000.0 / 86400  # kg/s
+    net_evap = lhf / Lv - precip / 1000.0 * density_liquid / 86400     # kg/s
+    h = h * 86400 # s
+
+    water1_constrained = water0 + (fqt_int + net_evap) * h
 
     return q1 * water1_constrained / water1
 
@@ -121,8 +127,8 @@ def apply_constraints(x0, x1, time_step):
     # apply humidity constraints
     qt = x1['qt']
     if 'Prec' in x1:
-        qt = fix_moisture_imbalance(x0['qt'], qt, x1['Prec'], x1['LHF'],
-                                    time_step, x0['layer_mass'])
+        qt = fix_moisture_imbalance(x0['qt'], qt, x0['FQT'], x1['Prec'],
+                                    x1['LHF'], time_step, x0['layer_mass'])
     qt = fix_negative_moisture(qt, x0['layer_mass'])
 
     x1['qt'] = qt

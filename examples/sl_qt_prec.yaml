@@ -29,6 +29,6 @@ outputs:
 loss_scale:
   LHF: 60
   SHF: 10
-  Prec: 10
+  Prec: 20
   qt: 2
   sl: 10.0
