@@ -19,13 +19,16 @@ def _stack_or_rename(x, **kwargs):
 
 
 def _ds_slice_to_numpy_dict(ds):
-    dim_order = ['xbatch', 'xtime', 'xfeat']
     out = {}
     for key in ds.data_vars:
-        dims = [dim for dim in dim_order if dim in ds[key].dims]
-        out[key] = ds[key].transpose(*dims).values
-
+        out[key] = _to_numpy(ds[key])
     return out
+
+
+def _to_numpy(x: xr.DataArray):
+    dim_order = ['xbatch', 'xtime', 'xfeat']
+    dims = [dim for dim in dim_order if dim in x.dims]
+    return x.transpose(*dims).values
 
 
 def _ds_slice_to_torch(ds):
@@ -101,14 +104,36 @@ class XRTimeSeries(Dataset):
             batch_ds, xtime=self.dims[0], xfeat=self.dims[2])
 
         # prepare for output
-        out = _ds_slice_to_numpy_dict(ds_r)
-        if scalar_idx:
-            out = valmap(lambda x: x[0], out)
+        out = {}
+        for key in ds_r.data_vars:
+            if key in self.constants():
+                continue
+
+            arr = _to_numpy(ds_r[key])
+            arr = torch.from_numpy(arr)
+            arr.requires_grad = False
+            if scalar_idx:
+                arr = arr[0]
+
+            out[key] = arr.float()
+
         return out
 
+    @property
+    def time_dim(self):
+        return self.dims[0][0]
+
     def constants(self):
-        return {'layer_mass': torch.tensor(self.data['layer_mass'].values,
-                                           requires_grad=False).float()}
+        for key in self.data:
+            if self.time_dim not in self.data[key].dims:
+                yield key
+
+    def torch_constants(self):
+        return {
+            key: torch.tensor(self.data[key].values, requires_grad=False)
+            .float()
+            for key in self.constants()
+        }
 
     @property
     def mean(self):
@@ -132,12 +157,11 @@ class XRTimeSeries(Dataset):
         time = self.data[time_dim]
         dt = np.diff(time)
 
-        all_equal = dt.std()/dt.mean() < 1e-6
+        all_equal = dt.std() / dt.mean() < 1e-6
         if not all_equal:
             raise ValueError("Data must be uniformly sampled in time")
 
         return dt[0]
-
 
 
 def load_data(paths):
@@ -152,6 +176,7 @@ def load_data(paths):
             data[field] = ds[field]
 
     # compute layer mass from stat file
+    # remove presssur
     rho = data.pop('RHO')[0]
     rhodz = thermo.layer_mass(rho)
 

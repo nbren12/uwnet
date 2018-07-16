@@ -96,7 +96,7 @@ if __name__ == '__main__':
     ds = xr.open_zarr(args.input)
     train_data = XRTimeSeries(ds.load(), [['time'], ['x', 'y'], ['z']])
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    constants = train_data.constants()
+    constants = train_data.torch_constants()
 
     # switch to output directory
     logger.info(f"Saving outputs in {args.output_dir}")
@@ -145,8 +145,6 @@ if __name__ == '__main__':
                 logging.info(f"Batch {k} of {len(train_loader)}")
                 n = get_batch_size(batch)
 
-                # need to remove these auxiliary variables
-                batch.pop('p')
                 # set up loss function
                 criterion = MVLoss(constants['layer_mass'], config['loss_scale'])
 

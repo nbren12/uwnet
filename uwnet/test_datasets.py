@@ -32,6 +32,7 @@ def test_XRTimeSeries():
     assert o[:]['a'].shape == (15, 4, 2)
 
 
+
 def test_XRTimeSeries_timestep():
     dt = .125
     ds = get_obj()
@@ -49,9 +50,12 @@ def test_XRTimeSeries_timestep():
     with pytest.raises(ValueError):
         dataset.timestep()
 
-def test_XRTimeSeries_constants():
+def test_XRTimeSeries_torch_constants():
     ds = get_obj()
 
     # dim_1 is the time dimension here
     dataset = XRTimeSeries(ds, [['dim_1'], ['dim_0', 'dim_2'], ['dim_3']])
-    assert 'layer_mass' in dataset.constants()
+    assert 'layer_mass' in dataset.torch_constants()
+
+    # constants should not be in batch
+    assert 'layer_mass' not in dataset[0]
