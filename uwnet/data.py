@@ -164,6 +164,18 @@ class XRTimeSeries(Dataset):
         return dt[0]
 
 
+def compute_radiation(data):
+    lw = data.pop('LWNS')
+    sw = data.pop('SWNS')
+    data['RADSFC'] = lw - sw
+
+    lw = data.pop('LWNT')
+    sw = data.pop('SWNT')
+    data['RADTOA'] = lw - sw
+
+    return data
+
+
 def load_data(paths):
     data = {}
     for info in paths:
@@ -182,6 +194,7 @@ def load_data(paths):
 
     data['layer_mass'] = rhodz
 
+    # compute thermodynamic variables
     TABS = data.pop('TABS')
     QV = data.pop('QV')
     QN = data.pop('QN', 0.0)
@@ -192,6 +205,8 @@ def load_data(paths):
 
     data['sl'] = sl
     data['qt'] = qt
+
+    data = compute_radiation(data)
 
     objects = [
         val.to_dataset(name=key).assign(x=sl.x, y=sl.y)
