@@ -7,7 +7,7 @@ import pytest
 
 
 def _assert_all_close(x, y):
-    np.testing.assert_allclose(y.numpy(), x.numpy())
+    np.testing.assert_allclose(y.detach().numpy(), x.detach().numpy())
 
 
 def _mock_batch(n, nt, nz, init=torch.rand):
@@ -50,8 +50,28 @@ def test_stack_dicts():
             _assert_all_close(out[key], batches[key])
 
 
+def test_MLP_step():
+    batch = _mock_batch(1, 1, 34)
+    mlp = MLP({}, {}, time_step=.125)
+    x = {}
+    for key, val in batch.items():
+        try:
+            x[key] = val[:, 0]
+        except IndexError:
+            x[key] = val
+
+    # a 0 second step should not change state
+    out, _ = mlp.step(x, 0.0)
+    _assert_all_close(out['qt'], x['qt'])
+
+    # a 30 second step should
+    with pytest.raises(AssertionError):
+        out, _ = mlp.step(x, 30/86400)
+        _assert_all_close(out['qt'], x['qt'])
+
+
 def test_mlp_forward():
-    batch = _mock_batch(3, 4, 34)
+    batch = _mock_batch(1, 4, 34)
 
     mlp = MLP({}, {}, time_step=.125)
 
