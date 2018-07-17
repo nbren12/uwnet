@@ -35,21 +35,25 @@ def apply_linear_constraint(lin, a, x, *args, inequality=False, v=None,
     return x - v * (alpha / val_v)
 
 
-def energy_imbalance(FSL, shf, prec, radsfc, radtop, layer_mass):
+def energy_imbalance(s0, s1, fsl, precip, shf, radtoa, radsfc, layer_mass, h):
     """Enforce energy and moisture conservation
 
     Parameters
     ----------
-    FSL
-        Total tendency from neural network and model
+    s0, s1 : (K)
+        Temperatures before and after
+    fsl : (K/day)
+        Tendencies from horizontal advection
+    prec
+        precipitation (mm/day)
     shf
         sensible heat flux (W/m2)
-    prec
-        precipitation (m/s)
     radsfc, radtop
         radiative fluxes (upwelling) (W/m2)
     layer_mass
         mass of each vertical level (kg/m2)
+    h
+        time step
 
     Returns
     -------
@@ -97,18 +101,81 @@ def fix_moisture_imbalance(q0, q1, fqt, precip, lhf, h, layer_mass):
     lhf  (W/m2)
 
     """
+    _, expected = expected_moisture(q0, fqt, precip, lhf, h, layer_mass)
+    actual = (q1 * layer_mass).sum(-1)
+    return q1 * expected/actual
+
+
+@curry
+def expected_moisture(q0, fqt, precip, lhf, h, layer_mass):
+    """Same as energy imbalance but for moisture budget
+
+    Parameters
+    ----------
+    q0  (g/kg)
+        moisture before
+    fqt (g/kg/day)
+        moistening from horizontal advection.
+    h   (day)
+        time step
+    precip (mm/d)
+        sfc flux over time step
+    lhf  (W/m2)
+
+    Returns
+    -------
+    current_pw, expected_pw (g/m2)
+
+    """
     Lv = 2.51e6
     density_liquid = 1000.0
 
     water0 = (q0 * layer_mass).sum(-1, keepdim=True)/1000.0            # kg
-    water1 = (q1 * layer_mass).sum(-1, keepdim=True)/1000.0            # kg
     fqt_int = (fqt * layer_mass).sum(-1, keepdim=True)/1000.0 / 86400  # kg/s
     net_evap = lhf / Lv - precip / 1000.0 * density_liquid / 86400     # kg/s
-    h = h * 86400 # s
+    h = h * 86400  # s
+    return water0*1000, 1000 * (water0 + (fqt_int + net_evap) * h)
 
-    water1_constrained = water0 + (fqt_int + net_evap) * h
 
-    return q1 * water1_constrained / water1
+def expected_temperature(sl, fsl, pw_change, shf, radtoa, radsfc, h,
+                         layer_mass):
+    """Expected column average SLI to conserve energy
+
+    Parameters
+    ----------
+    sl (K)
+        output before neural network
+    fsl (K/day)
+        heat transport without surface fluxes
+    pw_change (g/m2)
+        change in precipitable water over time step
+    shf, radtoa, radsfc (W/m2)
+        surface and toa fields (upward)
+    h (day)
+        time step
+    layer_mass (kg/m2)
+
+    Returns
+    -------
+    sl0, sl_int (K / kg / m^2)
+        integrals of before/after SLI
+
+    """
+    Lv = 2.51e6
+    cp = 1004
+
+    sl0 = (layer_mass * sl).sum(-1)
+    fsl_int = (layer_mass * fsl).sum(-1)
+    h_seconds = h * 86400
+
+    energy_change = pw_change / 1000 * Lv + (shf + radsfc - radtoa) * h_seconds
+    sl1 = sl0 + fsl_int * h + energy_change / cp
+    return sl0, sl1
+
+
+def enforce_expected_integral(x, int, layer_mass):
+    int_actual = (x * layer_mass).sum(-1)
+    return x * int/int_actual
 
 
 def fix_negative_moisture(q, layer_mass):
@@ -124,12 +191,21 @@ def fix_negative_moisture(q, layer_mass):
 def apply_constraints(x0, x1, time_step):
     """Main function for applying constraints"""
 
-    # apply humidity constraints
-    qt = x1['qt']
-    if 'Prec' in x1:
-        qt = fix_moisture_imbalance(x0['qt'], qt, x0['FQT'], x1['Prec'],
+    layer_mass = x0['layer_mass']
+    qt = fix_negative_moisture(x1['qt'], x0['layer_mass'])
+    if 'Prec' in x0:
+        pw0, pw = expected_moisture(x0['qt'], x0['FQT'], x1['Prec'],
                                     x1['LHF'], time_step, x0['layer_mass'])
-    qt = fix_negative_moisture(qt, x0['layer_mass'])
+
+        sl_int0, sl_int = expected_temperature(x0['sl'], x0['FSL'], pw0-pw,
+                                               x1['SHF'], x1['RADTOA'],
+                                               x1['RADSFC'], time_step)
+
+        sl = enforce_expected_integral(x1['sl'], sl_int, layer_mass)
+        qt = enforce_expected_integral(x1['qt'], pw, layer_mass)
+    else:
+        sl = x1['sl']
 
     x1['qt'] = qt
+    x1['sl'] = sl
     return x1
