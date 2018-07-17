@@ -67,6 +67,13 @@ def parse_arguments():
 
 
 if __name__ == '__main__':
+    import tinydb
+
+    # open up tinydb
+    db = tinydb.TinyDB("runs.json")
+    log_table = db.table('batches')
+    run_table = db.table('runs')
+
     # setup logging
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
@@ -74,6 +81,12 @@ if __name__ == '__main__':
     args = parse_arguments()
     # load configuration
     config = yaml.load(open(args.config))
+
+    run_table.insert({
+        "run": args.output_dir,
+        "config": config,
+        "args": vars(args)
+    })
 
     n_epochs = args.n_epochs
     batch_size = args.batch_size
@@ -179,6 +192,17 @@ if __name__ == '__main__':
                     meter_loss.add(loss.item())
 
                 time_elapsed_batch = time() - time_batch_start
+
+                batch_info = {
+                    'run': args.output_dir,
+                    'epoch': i,
+                    'batch': k,
+                    'loss': meter_loss.value()[0],
+                    'avg_loss': meter_avg_loss.value()[0],
+                    'time_elapsed': time_elapsed_batch
+                }
+                log_table.insert(batch_info)
+
                 logger.info(f"Batch {k},  Loss: {meter_loss.value()[0]}; "
                             f"Avg {meter_avg_loss.value()[0]}; "
                             f"Time Elapsed {time_elapsed_batch} ")
