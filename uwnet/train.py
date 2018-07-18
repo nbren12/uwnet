@@ -1,6 +1,7 @@
 import argparse
 import logging
 import os
+import sh
 
 import torch
 import torchnet as tnt
@@ -13,6 +14,11 @@ import xarray as xr
 from uwnet import model
 from uwnet.data import XRTimeSeries
 from uwnet.utils import get_batch_size, select_time
+
+
+def get_git_rev():
+    out = sh.git('rev-parse', 'HEAD')
+    return out.strip()
 
 
 def mse(x, y, layer_mass):
@@ -85,7 +91,8 @@ if __name__ == '__main__':
     run_table.insert({
         "run": args.output_dir,
         "config": config,
-        "args": vars(args)
+        "args": vars(args),
+        'git': {'rev': get_git_rev()}
     })
 
     n_epochs = args.n_epochs
