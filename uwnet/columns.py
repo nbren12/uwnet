@@ -81,5 +81,9 @@ def unstack(val):
 
 print("Reshaping and saving outputs")
 out_da = {key: unstack(val) for key, val in out.items()}
-ds = xr.Dataset(out_da).merge(data.data.rename({key: key + 'OBS' for key in out}))
+
+truth_vars = set(out) & set(data.data)
+rename_dict = {key: key + 'OBS' for key in truth_vars}
+
+ds = xr.Dataset(out_da).merge(data.data.rename(rename_dict))
 ds.to_netcdf(args.output)

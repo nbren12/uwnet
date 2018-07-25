@@ -198,6 +198,11 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         out = merge(out, diagnostics)
         out = constraints.apply_constraints(x, out, dt)
 
+        #  diagnostics
+        if 'FQT' in self.input_fields:
+            out['Q2NN'] = (out['qt'] - x['qt'])/dt - x['FQT']
+            out['Q1NN'] = (out['sl'] - x['sl'])/dt - x['FSL']
+
         return out, None
 
     def forward(self, x, n=None):
