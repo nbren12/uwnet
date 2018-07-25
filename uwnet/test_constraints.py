@@ -30,30 +30,6 @@ def test_apply_linear_constraint():
     assert y.size() == x.size()
 
 
-@pytest.mark.skip()
-def test_precip_functional():
-    lhf = torch.FloatTensor([1, 10]).unsqueeze(-1)
-
-    z = torch.linspace(0, 16e3, 34)
-    w = torch.ones(34)
-    fq = (np.exp(-z / 1e3)) * 100
-    fq = torch.stack([fq, fq])
-
-    def linear(x):
-        return -(w * x).sum(-1, keepdim=True) / 1000.
-
-    a = -lhf * 86400 / 2.51e6
-
-    fqt_modified = apply_linear_constraint(linear, a, fq, inequality=True).data
-    prec_modified = precip_from_q(fqt_modified, lhf, w.data)
-    prec = precip_from_q(fq.data, lhf, w.data)
-    eps = 1e-7
-
-    print("original precip", prec)
-    print("modified precip", prec_modified)
-    assert (prec_modified > -eps).all()
-
-
 def test_fix_negative_moisture():
     q = torch.arange(-4, 20) + .1
     layer_mass = torch.rand(len(q)) + .1
@@ -71,20 +47,18 @@ def test_fix_negative_moisture():
 
 def test_fix_expected_moisture():
     n = 11
-    dt = 1.0  # day
-
     q = torch.rand(n)
     q1 = torch.rand(n)
+
     layer_mass = torch.rand(n) + .5
 
     pw0, pw = expected_moisture(q, 0, 0, 0, 0, layer_mass)
     actual = (layer_mass * q).sum()
     np.testing.assert_allclose(pw.item(), actual.item())
 
-
-    Lv = 2.51e6
-    evap = 5.0 # kg/m^2/day
-    lhf = evap / 86400 *  Lv
+    latent_heat = 2.51e6
+    evap = 5.0  # kg/m^2/day
+    lhf = evap / 86400 * latent_heat
     pw0, pw = expected_moisture(q, 0, 0, lhf, 1.0, layer_mass)
     np.testing.assert_allclose((pw-pw0).item()/1000, evap)
 

@@ -24,7 +24,7 @@ def torch_flat_to_numpy_3d(x, shape):
     return x.reshape(orig_shape).copy()
 
 
-def step_model(step, dt, layer_mass, qt, sl, FQT, FSL, U, V, SST, SOLIN):
+def step_model(step, dt, layer_mass, qt, sl, FQT, FSL, U, V, SST, SOLIN, **kw):
     """
     Take a step using the model
 
