@@ -82,6 +82,13 @@ def test_fix_expected_moisture():
     np.testing.assert_allclose(pw.item(), actual.item())
 
 
+    Lv = 2.51e6
+    evap = 5.0 # kg/m^2/day
+    lhf = evap / 86400 *  Lv
+    pw0, pw = expected_moisture(q, 0, 0, lhf, 1.0, layer_mass)
+    np.testing.assert_allclose((pw-pw0).item()/1000, evap)
+
+
 def test_enforce_expected_integral():
     expected = 2.0
 

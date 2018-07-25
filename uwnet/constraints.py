@@ -1,4 +1,11 @@
-from toolz import assoc, curry
+"""
+Energy and moisture are conserved if the following vertically integrated quantities are true:
+
+    cp <Q1> = L_v Prec + SHF + RADSFC - RADTOP
+    <Q2> = Evap - Prec
+
+"""
+from toolz import curry
 import torch
 
 
