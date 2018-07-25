@@ -1,6 +1,6 @@
 from uwnet.constraints import (apply_linear_constraint, fix_negative_moisture,
-                               fix_moisture_imbalance, expected_moisture,
-                               enforce_expected_integral, expected_temperature)
+                               expected_moisture, enforce_expected_integral,
+                               expected_temperature)
 import numpy as np
 import torch
 
@@ -67,33 +67,6 @@ def test_fix_negative_moisture():
     q1 = (q_new * layer_mass).sum(-1)
     q0 = (q * layer_mass).sum(-1)
     np.testing.assert_allclose(q1.numpy(), q0.numpy())
-
-
-def test_fix_moisture_imbalance():
-    n = 11
-    dt = 1.0 / 86400  # day
-
-    q = torch.zeros(n)
-    q1 = torch.rand(n)
-    layer_mass = torch.rand(n) + .5
-
-    target_mass = 1000  # g/day/m2
-    fqt = torch.rand(n) * 10
-    fqt = fqt - ((fqt * layer_mass).mean())/layer_mass \
-          + target_mass/layer_mass/n
-
-    horz = (fqt * layer_mass).sum(-1)
-    np.testing.assert_allclose(horz, target_mass, rtol=1e-5)
-
-    precip = 4  # mm/day
-    lhf = 400  # W/m2
-    rhow = 1000  # kg/m3
-    net_evap = lhf / 2.51e6 - precip / 1000 / 86400 * rhow  + \
-               target_mass / 1000 / 86400
-
-    q1_adj = fix_moisture_imbalance(q, q1, fqt, precip, lhf, dt, layer_mass)
-    delta_q = (layer_mass * q1_adj / 1000).sum()
-    np.testing.assert_allclose(delta_q.item(), net_evap, rtol=1e-6)
 
 
 def test_fix_expected_moisture():
