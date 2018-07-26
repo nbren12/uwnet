@@ -156,7 +156,10 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
              for key, val in x.items()}
 
         # zero out FSL in upper level
-        x['FSL'][:,-1] = 0.0
+        # TODO this needs to be refactored
+        # This routine should not know about FSL
+        if 'FSL' in x:
+            x['FSL'][:,-1] = 0.0
 
         stacked = pipe(x, self.scaler, self._stacked)
         out = self.mod(stacked)

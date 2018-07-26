@@ -84,7 +84,7 @@ def test_expected_temperature():
     _, ans = expected_temperature(
         temp,
         delta_temp,
-        pw_change=0,
+        prec=0,
         shf=0,
         radtoa=0,
         radsfc=0,
@@ -98,7 +98,7 @@ def test_expected_temperature():
     _, ans = expected_temperature(
         temp,
         0,
-        pw_change=0,
+        prec=0,
         shf=shf,
         radtoa=0,
         radsfc=0,
@@ -110,7 +110,7 @@ def test_expected_temperature():
     _, ans = expected_temperature(
         temp,
         0,
-        pw_change=0,
+        prec=0,
         shf=0,
         radtoa=-shf,
         radsfc=0,
@@ -122,7 +122,7 @@ def test_expected_temperature():
     _, ans = expected_temperature(
         temp,
         0,
-        pw_change=0,
+        prec=0,
         shf=0,
         radtoa=0,
         radsfc=shf,

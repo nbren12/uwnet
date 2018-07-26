@@ -128,7 +128,8 @@ def test_mlp_no_cheating(n):
 
 
     for key, val in batch.items():
-        val.requires_grad = True
+        if key not in {'FSL', 'FQT'}:
+            val.requires_grad = True
 
     pred = mlp(batch, n=n)
 
