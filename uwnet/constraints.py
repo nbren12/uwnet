@@ -156,7 +156,7 @@ def apply_constraints(x0, x1, time_step):
                                                layer_mass)
 
         sl = enforce_expected_integral(x1['sl'], sl_int, layer_mass)
-        qt = enforce_expected_integral(x1['qt'], pw, layer_mass)
+        qt = enforce_expected_integral(qt, pw, layer_mass)
     else:
         sl = x1['sl']
 
