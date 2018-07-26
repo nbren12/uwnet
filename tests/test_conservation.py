@@ -75,7 +75,7 @@ def output_to_ds(out, coords):
 # ds0.to_netcdf('ds0.nc')
 ds0 = xr.open_dataset('ds0.nc')
 
-model = MLP.from_dict(torch.load("13_actual_constraint/1.pkl")['dict'])
+model = MLP.from_dict(torch.load("13_actual_constraint/5.pkl")['dict'])
 step = model.step
 
 x = ds_to_np_dict(ds0)
@@ -83,7 +83,6 @@ x['dt'] = 86400  # d
 out = step_model(step, **x)
 out_ds = output_to_ds(out, ds0.coords)
 out_ds['layer_mass'] = ds0.layer_mass
-out_ds['Q2NN'] = out_ds.Q2NN / 1000 / 86400
 
 h20b = water_budget(out_ds, dim='z')
 

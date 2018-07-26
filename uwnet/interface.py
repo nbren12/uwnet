@@ -73,7 +73,7 @@ def step_model(step, dt, layer_mass, qt, sl, FQT, FSL, U, V, SST, SOLIN, **kw):
         out, _ = step(x, dt)
 
     # flatten and scale outputs
-    scales = {'qt': kg_kg_to_g_kg}
+    scales = {'qt': kg_kg_to_g_kg, 'Q1NN': 1000 * 86400, 'Q2NN': 1000 * 86400}
     out_np = {}
     for key, arr in out.items():
         arr = torch_flat_to_numpy_3d(arr, [ny, nx])
