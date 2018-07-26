@@ -1,4 +1,33 @@
 import torch
+import xarray as xr
+import numpy as np
+
+
+def load_model_from_path(path):
+    from uwnet.model import MLP
+    d = torch.load(path)['dict']
+    return MLP.from_dict(d)
+
+
+def xr_to_step_model_args(ds):
+    """convert xarray to dict of arguments needed by step_model"""
+    out = {}
+
+    for key in ds.data_vars:
+        val  = ds[key]
+        dims = set(val.dims)
+        if dims == {'x', 'y'}:
+            val = val.transpose('y', 'x').values[np.newaxis]
+        elif dims == {'x', 'y', 'z'}:
+            val = val.transpose('z', 'y', 'x').values
+        elif key in {'layer_mass'}:
+            val  = val.values
+        elif key in {'dt'}:
+            val = float(val)
+
+        out[key] = val
+
+    return out
 
 
 def numpy_3d_to_torch_flat(x):
