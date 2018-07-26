@@ -155,6 +155,9 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         x = {key: val if val.dim() == 2 else val.unsqueeze(-1)
              for key, val in x.items()}
 
+        # zero out FSL in upper level
+        x['FSL'][:,-1] = 0.0
+
         stacked = pipe(x, self.scaler, self._stacked)
         out = self.mod(stacked)
 
@@ -164,7 +167,7 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         diags = {key: out[key] for key in self.diags}
 
         if 'Prec' in self.diags:
-            diags['Prec'] = torch.exp(diags['Prec'])
+            diags['Prec'].clamp_(0.0)
 
         return sources, diags
 

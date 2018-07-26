@@ -29,10 +29,10 @@ outputs:
   - [qt, 34] 
   - [sl, 34] 
 loss_scale:
-  LHF: 300
-  SHF: 100
+  LHF: 150
+  SHF: 10
   RADTOA: 600.0
   RADSFC: 600.0
-  Prec: 100
+  Prec: 8
   qt: 1.0
   sl: 2.5
