@@ -150,7 +150,7 @@ def apply_constraints(x0, x1, time_step):
         pw0, pw = expected_moisture(x0['qt'], x0['FQT'], x1['Prec'],
                                     x1['LHF'], time_step, x0['layer_mass'])
 
-        sl_int0, sl_int = expected_temperature(x0['sl'], x0['FSL'], pw0-pw,
+        sl_int0, sl_int = expected_temperature(x0['sl'], x0['FSL'], x1['Prec'],
                                                x1['SHF'], x1['RADTOA'],
                                                x1['RADSFC'], time_step,
                                                layer_mass)
@@ -161,5 +161,5 @@ def apply_constraints(x0, x1, time_step):
         sl = x1['sl']
 
     x1['qt'] = qt
-    # x1['sl'] = sl
+    x1['sl'] = sl
     return x1
