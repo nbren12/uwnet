@@ -90,6 +90,40 @@ class MOE(nn.Module):
         return ans
 
 
+class AbstractApparentSource(nn.Module):
+    """Class for computing the apparent sources of variables
+
+    Attributes
+    ----------
+    mean : dict
+        dict of means to use for centering variables
+    scales : dict
+        dict of scales to use for scaling variables
+    """
+
+    def forward(self, h, aux, prog):
+        """Compute the apparent tendencies of the prognostic variables
+
+        Parameters
+        ----------
+        h : float
+            time step
+        aux : dict
+            dict of auxiliary inputs
+        prog : dict
+             dict of prognostic variables
+
+        Returns
+        -------
+        sources : dict
+            apparent sources of prognostic variables
+        diags : dict
+            diagnostic quantities (e.g. precipitation, latent heat flux, etc)
+        """
+        raise NotImplementedError
+
+
+
 class MLP(nn.Module, StackerScalerMixin, SaverMixin):
 
     def __init__(self, mean, scale, time_step,
@@ -150,8 +184,12 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
     def args(self):
         return (self.mean, self.scale, self.time_step)
 
-    def rhs(self, x):
+    def rhs(self, aux, progs):
         """Estimated source terms and diagnostics"""
+        x = {}
+        x.update(aux)
+        x.update(progs)
+
         x = {key: val if val.dim() == 2 else val.unsqueeze(-1)
              for key, val in x.items()}
 
@@ -166,11 +204,14 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
 
         out = pipe(out, self._unstacked)
 
-        sources = {key: out[key] for key in self.progs}
-        diags = {key: out[key] for key in self.diags}
+        sources = {key: out[key] for key in progs}
+        diags = {key: val for key, val in out.items()
+                 if key not in progs}
 
-        if 'Prec' in self.diags:
+        try:
             diags['Prec'].clamp_(0.0)
+        except KeyError:
+            pass
 
         return sources, diags
 
@@ -195,7 +236,10 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
 
         """
 
-        sources, diagnostics = self.rhs(x)
+        aux = {key: val for key, val in x.items() if key in self.aux}
+        progs = {key: val for key, val in x.items() if key in self.progs}
+
+        sources, diagnostics = self.rhs(aux, progs)
 
         out = {}
         for key in sources:
