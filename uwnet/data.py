@@ -231,7 +231,7 @@ def main(config, out):
     paths = yaml.load(open(config))['paths']
     with ProgressBar():
         load_data(paths)\
-            .chunk({'y': 8, 'x': 8})\
+            .load()\
             .to_zarr(out)
 
 
