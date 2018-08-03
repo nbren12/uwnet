@@ -69,6 +69,7 @@ def parse_arguments():
     parser.add_argument('-s', '--skip', default=1, type=int)
     parser.add_argument('-l', '--seq_length', default=20, type=int)
     parser.add_argument('-b', '--batch_size', default=200, type=int)
+    parser.add_argument('-db', default='runs.json')
     parser.add_argument('config')
     parser.add_argument("input")
 
@@ -76,12 +77,6 @@ def parse_arguments():
 
 
 if __name__ == '__main__':
-    import tinydb
-
-    # open up tinydb
-    db = tinydb.TinyDB("runs.json")
-    log_table = db.table('batches')
-    run_table = db.table('runs')
 
     # setup logging
     logging.basicConfig(level=logging.INFO)
@@ -90,6 +85,13 @@ if __name__ == '__main__':
     args = parse_arguments()
     # load configuration
     config = yaml.load(open(args.config))
+
+    import tinydb
+
+    # open up tinydb
+    db = tinydb.TinyDB(args.db)
+    log_table = db.table('batches')
+    run_table = db.table('runs')
 
     run_table.insert({
         "run": args.output_dir,

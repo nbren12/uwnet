@@ -35,7 +35,7 @@ process trainModel {
 
 
   """
-  python -m uwnet.train -n 1 -lr .001 -s 5 -l 10 $params.config $data 
+  python -m uwnet.train -n 1 -lr .001 -s 5 -l 10 -db $params.trainingDB $params.config $data 
   """
 }
 
