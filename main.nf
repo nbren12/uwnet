@@ -16,6 +16,7 @@ params.trainingDB = "$baseDir/runs.json"
 params.config = "$baseDir/examples/all.yaml"
 
 process makeTrainingData {
+    publishDir "data"
 
     output:
     file '*.zarr'  into train_data_ch
@@ -23,7 +24,6 @@ process makeTrainingData {
     """
     python -m uwnet.data  $params.config training_data.zarr
     """
-
 }
 
 process trainModel {

@@ -4,9 +4,9 @@ paths:
   - path: /Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/2d/all.nc
     fields: ["LHF", "SHF", "SOLIN", "SST", "Prec", "SWNS", "SWNT", "LWNS", "LWNT"]
   - path: /Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/stagger/3d/all.nc
-    fields: []
+    fields: ["U", "V"]
   - path: /Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/coarse/3d/all.nc
-    fields: ['QV', 'TABS', 'QN', 'QP', 'QRAD', "U", "V"]
+    fields: ['QV', 'TABS', 'QN', 'QP', 'QRAD', "W"]
   - path: /Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/stat.nc
     fields: ['p', 'RHO']
   - path: /Users/noah/workspace/research/uw-machine-learning-v1/data/processed/dry_tends.nc

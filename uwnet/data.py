@@ -176,7 +176,18 @@ def compute_radiation(data):
     return data
 
 
+def compute_forcings(data):
+    pass
+
+
+def rename_staggered_dims(ds):
+    ds['U'] = ds.U.rename({'xs': 'x', 'yc': 'y'})
+    ds['V'] = ds.V.rename({'xc': 'x', 'ys': 'y'})
+    return ds
+
+
 def load_data(paths):
+
     data = {}
     for info in paths:
         for field in info['fields']:
@@ -207,12 +218,14 @@ def load_data(paths):
     data['qt'] = qt
 
     data = compute_radiation(data)
+    compute_forcings(data)
 
     objects = [
         val.to_dataset(name=key).assign(x=sl.x, y=sl.y)
         for key, val in data.items()
     ]
-    return xr.merge(objects, join='inner').sortby('time')
+    ds = xr.merge(objects, join='inner').sortby('time')
+    return rename_staggered_dims(ds)
 
 
 def get_dataset(paths, post=None, **kwargs):
