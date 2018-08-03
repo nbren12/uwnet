@@ -17,8 +17,11 @@ from uwnet.utils import get_batch_size, select_time
 
 
 def get_git_rev():
-    out = sh.git('rev-parse', 'HEAD')
-    return out.strip()
+    import subprocess
+    import uwnet
+    root_dir = os.path.dirname(uwnet.__path__[0])
+    out = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root_dir)
+    return out.decode().strip()
 
 
 def mse(x, y, layer_mass):
