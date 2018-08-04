@@ -1,7 +1,6 @@
 import argparse
 import logging
 import os
-import sh
 
 import torch
 import torchnet as tnt
@@ -13,7 +12,7 @@ from torch.utils.data import DataLoader
 import xarray as xr
 from uwnet import model
 from uwnet.data import XRTimeSeries
-from uwnet.utils import get_batch_size, select_time
+from uwnet.utils import select_time
 
 
 def get_git_rev():
@@ -76,7 +75,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-if __name__ == '__main__':
+def main():
 
     # setup logging
     logging.basicConfig(level=logging.INFO)
@@ -92,12 +91,18 @@ if __name__ == '__main__':
     db = tinydb.TinyDB(args.db)
     log_table = db.table('batches')
     run_table = db.table('runs')
+    epoch_table = db.table('epochs')
 
-    run_table.insert({
-        "run": args.output_dir,
+    output_dir = os.path.abspath(args.output_dir)
+
+    run_id = run_table.insert({
+        "run": output_dir,
+        'training_data': os.path.abspath(args.input),
         "config": config,
         "args": vars(args),
-        'git': {'rev': get_git_rev()}
+        'git': {
+            'rev': get_git_rev()
+        }
     })
 
     n_epochs = args.n_epochs
@@ -109,13 +114,9 @@ if __name__ == '__main__':
     meter_loss = tnt.meter.AverageValueMeter()
     meter_avg_loss = tnt.meter.AverageValueMeter()
 
-    # open training data
-    paths = config['paths']
-
     # get training loader
     def post(x):
         return x
-        return x.isel(y=slice(24, 40))
 
     logger.info("Opening Training Data")
     ds = xr.open_zarr(args.input)
@@ -126,7 +127,7 @@ if __name__ == '__main__':
     # switch to output directory
     logger.info(f"Saving outputs in {args.output_dir}")
     try:
-        os.mkdir(args.output_dir)
+        os.mkdir(output_dir)
     except OSError:
         pass
 
@@ -153,8 +154,11 @@ if __name__ == '__main__':
 
         # initialize model
         lstm = cls(
-            mean, scale, time_step=train_data.timestep(),
-            inputs=config['inputs'], outputs=config['outputs'])
+            mean,
+            scale,
+            time_step=train_data.timestep(),
+            inputs=config['inputs'],
+            outputs=config['outputs'])
         i_start = 0
 
     logger.info(f"Training with {lstm}")
@@ -162,16 +166,16 @@ if __name__ == '__main__':
     # initialize optimizer
     optimizer = torch.optim.Adam(lstm.parameters(), lr=args.lr)
 
-    os.chdir(args.output_dir)
+    os.chdir(output_dir)
     try:
         for i in range(i_start, n_epochs):
             logging.info(f"Epoch {i}")
             for k, batch in enumerate(train_loader):
                 logging.info(f"Batch {k} of {len(train_loader)}")
-                n = get_batch_size(batch)
 
                 # set up loss function
-                criterion = MVLoss(constants['layer_mass'], config['loss_scale'])
+                criterion = MVLoss(constants['layer_mass'],
+                                   config['loss_scale'])
 
                 time_batch_start = time()
 
@@ -206,12 +210,12 @@ if __name__ == '__main__':
                 time_elapsed_batch = time() - time_batch_start
 
                 batch_info = {
-                    'run': args.output_dir,
+                    'run': run_id,
                     'epoch': i,
                     'batch': k,
                     'loss': meter_loss.value()[0],
                     'avg_loss': meter_avg_loss.value()[0],
-                    'time_elapsed': time_elapsed_batch
+                    'time_elapsed': time_elapsed_batch,
                 }
                 log_table.insert(batch_info)
 
@@ -223,6 +227,14 @@ if __name__ == '__main__':
 
             logger.info(f"Saving checkpoint to {i}.pkl")
             torch.save({'epoch': i, 'dict': lstm.to_dict()}, f"{i}.pkl")
+            epoch_table.insert({
+                'model': os.path.join(output_dir, f'{i}.pkl'),
+                'run': run_id
+            })
 
     except KeyboardInterrupt:
         torch.save({'epoch': i, 'dict': lstm.to_dict()}, "interrupt.pkl")
+
+
+if __name__ == '__main__':
+    main()
