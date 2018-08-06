@@ -33,6 +33,7 @@ full_physics = """
  doequinox = .true.
  docoriolis = .true.
  dofplane = .false.
+ dowally = .true.
 
 """
 
@@ -114,6 +115,7 @@ namelist_template = """
  latitude0= 0.72,
  longitude0=0.0,
  nrad = 30,
+ dowally = .true.
 
  day0= {day0}
 
