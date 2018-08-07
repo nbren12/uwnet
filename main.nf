@@ -86,7 +86,7 @@ process combineSingleTimeStepForcings {
     output:
         file 'forcing.nc' into sam_forcing_ch
     """
-    ls *.nc | ncrcat 
+    echo $x | sort -n | ncrcat -o forcing.nc
     """
 }
 
