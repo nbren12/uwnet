@@ -149,7 +149,7 @@ process trainModel {
 
   """
   python -m uwnet.check_data $x && \
-  python -m uwnet.train  -n 6 -lr .001 -s 5 -l 10 -db $params.trainingDB \
+  python -m uwnet.train  -n 3 -lr .001 -s 5 -l 20 -db $params.trainingDB \
          $params.config $x
   """
 }
