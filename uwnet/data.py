@@ -180,12 +180,6 @@ def compute_forcings(data):
     pass
 
 
-def rename_staggered_dims(ds):
-    ds['U'] = ds.U.rename({'xs': 'x', 'yc': 'y'})
-    ds['V'] = ds.V.rename({'xc': 'x', 'ys': 'y'})
-    return ds
-
-
 def load_data(paths):
 
     data = {}
@@ -214,18 +208,28 @@ def load_data(paths):
     sl = thermo.liquid_water_temperature(TABS, QN, QP)
     qt = QV + QN
 
-    data['sl'] = sl
-    data['qt'] = qt
+    data['sl'] = sl.assign_attrs(units='K')
+    data['qt'] = qt.assign_attrs(units='g/kg')
 
     data = compute_radiation(data)
     compute_forcings(data)
+
+    # rename staggered dimensions
+    data['U'] = (data['U']
+                 .rename({'xs': 'x', 'yc': 'y'}))
+
+    data['V'] = (data['V']
+                 .rename({'xc': 'x', 'ys': 'y'}))
 
     objects = [
         val.to_dataset(name=key).assign(x=sl.x, y=sl.y)
         for key, val in data.items()
     ]
+
     ds = xr.merge(objects, join='inner').sortby('time')
-    return rename_staggered_dims(ds)
+    return ds
+
+
 
 
 def get_dataset(paths, post=None, **kwargs):

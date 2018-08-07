@@ -8,25 +8,25 @@
  #### Homepage / Documentation
  https://github.com/sam-uwnet
  #### Authors
- Noah D. Brenowitz nbren12 <nbren12@uw.edu> - noahbrenowitz.com>
+ Noah D. Brenowitz nbren12 <nbren12@uw.edu> - http://www.noahbrenowitz.com
 ----------------------------------------------------------------------------------------
 */
 
 params.trainingDB = "$baseDir/runs.json"
 params.config = "$baseDir/examples/all.yaml"
-params.numTimePoints = 639
+params.numTimePoints = 640
 params.NGAquaDir = "/Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX"
+params.forcingMethod = 'SAM' // Available options are FD and SAM, ORIG
 
-i = Channel.from(0..params.numTimePoints)
+i = Channel.from(0..params.numTimePoints-1)
 
 process makeTrainingData {
-    publishDir "data"
 
     output:
-    file '*.zarr'  into train_data_ch
+    file '*.zarr' into input_data_ch
 
     """
-    python -m uwnet.data  $params.config training_data.zarr
+    python -m uwnet.data  $params.config ngaqua_data.zarr
     """
 }
 
@@ -35,13 +35,17 @@ process makeTrainingData {
  */
 
 process runSAMWithInitialConditions {
-    afterScript "rm -rf OUT*  RUNDATA NGAqua RESTART _*.nc"
+    // publishDir "data/samIC/$i"
+    afterScript "rm -rf OUT*  RUNDATA RESTART _*.nc"
     input:
     val i
 
     output:
-    set val(i), file('out.nc') into sam_short_run_ch
+    set val(i), file('out.nc'), file('NGAqua') into sam_short_run_ch
     stdout info logger_sam
+
+    when:
+        params.forcingMethod == 'SAM'
 
     """
     sam.py -d \$PWD --physics dry -t $i $params.NGAquaDir out.nc
@@ -49,12 +53,13 @@ process runSAMWithInitialConditions {
 
 }
 
-process computeForcing {
+process computeSAMForcing {
     input:
-        set val(i), file(x) from sam_short_run_ch
+        set val(i), file(x), file(rundir) from sam_short_run_ch
 
     output:
-        file "*.nc" into forcing_ch
+        file "*.nc" into sam_step_forcing_ch
+
 
     """
     #!/usr/bin/env python
@@ -76,15 +81,59 @@ process computeForcing {
 
 
 process combineSingleTimeStepForcings {
-    publishDir 'data/sam_forcing'
     input:
-        file(x) from forcing_ch.collect()
+        file(x) from sam_step_forcing_ch.collect()
     output:
-        file 'forcing.nc'
+        file 'forcing.nc' into sam_forcing_ch
     """
-    ncrcat *.nc forcing.nc
+    ls *.nc | ncrcat 
     """
 }
+
+
+/ *
+Compute forcings using Finite differences
+* /
+
+process computeForcingFiniteDifference {
+
+    input:
+      file data from input_data_ch
+
+    output:
+        file 'forcing.nc' into fd_forcing_ch
+
+    when:
+        params.forcingMethod == 'FD'
+
+    """
+    compute_forcings_finite_difference.py $data forcing.nc
+    """
+}
+
+process mergeNGAquaAndComputeForcings {
+
+  publishDir "data"
+
+  input:
+    file f from fd_forcing_ch.concat(sam_forcing_ch)
+    file data from input_data_ch
+
+  output:
+    file 'training_data.zarr' into training_data_ch
+
+  """
+  #!/usr/bin/env python
+  import xarray as xr
+  ds = xr.open_zarr("$data")
+  forcings = xr.open_dataset("$f")
+
+  ds = ds.drop(['FQT', 'FSL']).merge(forcings)
+  ds.load().to_zarr("training_data.zarr")
+  """
+
+}
+
 
 /*
  Train the Neural network
@@ -92,14 +141,16 @@ process combineSingleTimeStepForcings {
 
 process trainModel {
   input:
-  file data from train_data_ch
+  file x from training_data_ch
 
   output:
   file '*.pkl' into trained_model_ch
 
 
   """
-  python -m uwnet.train -n 5 -lr .001 -s 5 -l 10 -db $params.trainingDB $params.config $data 
+  python -m uwnet.check_data $x && \
+  python -m uwnet.train  -n 6 -lr .001 -s 5 -l 10 -db $params.trainingDB \
+         $params.config $x
   """
 }
 
@@ -113,7 +164,7 @@ process trainModel {
 process runSingleColumnModel {
   input:
   file model from trained_model_ch
-  file data from train_data_ch
+  file data from input_data_ch
 
   output:
   file 'cols.nc' into single_column_ch
@@ -129,7 +180,7 @@ process runSingleColumnModel {
  */
 
 process plotPrecipTropics {
-   publishDir 'data/plots/'
+   publishDir "data/plots/${params.forcingMethod}"
    input:
    file sim from single_column_ch
 

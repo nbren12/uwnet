@@ -68,6 +68,7 @@ def parse_arguments():
     parser.add_argument('-s', '--skip', default=1, type=int)
     parser.add_argument('-l', '--seq_length', default=20, type=int)
     parser.add_argument('-b', '--batch_size', default=200, type=int)
+    parser.add_argument('-f', '--forcing-data', type=str, default='')
     parser.add_argument('-db', default='runs.json')
     parser.add_argument('config')
     parser.add_argument("input")
