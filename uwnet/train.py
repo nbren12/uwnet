@@ -1,26 +1,19 @@
 import argparse
 import logging
 import os
+from time import time
+
+import yaml
+from toolz import curry, merge
 
 import torch
 import torchnet as tnt
-import yaml
-from toolz import curry, merge
-from time import time
-from torch.utils.data import DataLoader
-
 import xarray as xr
+from torch.utils.data import DataLoader
 from uwnet import model
 from uwnet.data import XRTimeSeries
 from uwnet.utils import select_time
-
-
-def get_git_rev():
-    import subprocess
-    import uwnet
-    root_dir = os.path.dirname(uwnet.__path__[0])
-    out = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root_dir)
-    return out.decode().strip()
+from uwnet.logging import MongoDBLogger, TinyDBLogger
 
 
 def mse(x, y, layer_mass):
@@ -69,6 +62,7 @@ def parse_arguments():
     parser.add_argument('-l', '--seq_length', default=20, type=int)
     parser.add_argument('-b', '--batch_size', default=200, type=int)
     parser.add_argument('-f', '--forcing-data', type=str, default='')
+    parser.add_argument('--test', action='store_true')
     parser.add_argument('-db', default='runs.json')
     parser.add_argument('config')
     parser.add_argument("input")
@@ -86,25 +80,11 @@ def main():
     # load configuration
     config = yaml.load(open(args.config))
 
-    import tinydb
-
     # open up tinydb
-    db = tinydb.TinyDB(args.db)
-    log_table = db.table('batches')
-    run_table = db.table('runs')
-    epoch_table = db.table('epochs')
+    # db = TinyDBLogger(args.db)
+    db = MongoDBLogger()
 
-    output_dir = os.path.abspath(args.output_dir)
-
-    run_id = run_table.insert({
-        "run": output_dir,
-        'training_data': os.path.abspath(args.input),
-        "config": config,
-        "args": vars(args),
-        'git': {
-            'rev': get_git_rev()
-        }
-    })
+    db.log_run(args, config)
 
     n_epochs = args.n_epochs
     batch_size = args.batch_size
@@ -121,6 +101,12 @@ def main():
 
     logger.info("Opening Training Data")
     ds = xr.open_zarr(args.input)
+    if args.test:
+        logger.info(
+            "Running in accelerated test mode using only equatorial data")
+        ds = ds.isel(y=slice(32, 33))
+        n_epochs = 1
+
     train_data = XRTimeSeries(ds.load(), [['time'], ['x', 'y'], ['z']])
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     constants = train_data.torch_constants()
@@ -128,7 +114,7 @@ def main():
     # switch to output directory
     logger.info(f"Saving outputs in {args.output_dir}")
     try:
-        os.mkdir(output_dir)
+        os.mkdir(args.output_dir)
     except OSError:
         pass
 
@@ -167,7 +153,7 @@ def main():
     # initialize optimizer
     optimizer = torch.optim.Adam(lstm.parameters(), lr=args.lr)
 
-    os.chdir(output_dir)
+    os.chdir(args.output_dir)
     try:
         for i in range(i_start, n_epochs):
             logging.info(f"Epoch {i}")
@@ -211,27 +197,20 @@ def main():
                 time_elapsed_batch = time() - time_batch_start
 
                 batch_info = {
-                    'run': run_id,
                     'epoch': i,
                     'batch': k,
                     'loss': meter_loss.value()[0],
                     'avg_loss': meter_avg_loss.value()[0],
                     'time_elapsed': time_elapsed_batch,
                 }
-                log_table.insert(batch_info)
-
+                db.log_batch(batch_info)
                 logger.info(f"Batch {k},  Loss: {meter_loss.value()[0]}; "
                             f"Avg {meter_avg_loss.value()[0]}; "
                             f"Time Elapsed {time_elapsed_batch} ")
                 meter_loss.reset()
                 meter_avg_loss.reset()
 
-            logger.info(f"Saving checkpoint to {i}.pkl")
-            torch.save({'epoch': i, 'dict': lstm.to_dict()}, f"{i}.pkl")
-            epoch_table.insert({
-                'model': os.path.join(output_dir, f'{i}.pkl'),
-                'run': run_id
-            })
+            db.log_epoch(i, lstm)
 
     except KeyboardInterrupt:
         torch.save({'epoch': i, 'dict': lstm.to_dict()}, "interrupt.pkl")

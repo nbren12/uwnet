@@ -139,9 +139,11 @@ process mergeNGAquaAndComputeForcings {
  Train the Neural network
  */
 
+training_data_ch.into {t1; t2}
+
 process trainModel {
   input:
-  file x from training_data_ch
+  file x from t1
 
   output:
   file '*.pkl' into trained_model_ch
@@ -150,6 +152,21 @@ process trainModel {
   """
   python -m uwnet.check_data $x && \
   python -m uwnet.train  -n 3 -lr .001 -s 5 -l 20 -db $params.trainingDB \
+         $params.config $x
+  """
+}
+
+
+process testTrainModel {
+  cache false
+  input:
+  file x from t2
+
+  when:
+      false
+
+  """
+  python -m uwnet.train  --test -lr .001 -s 5 -l 20 -db $params.trainingDB \
          $params.config $x
   """
 }
