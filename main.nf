@@ -142,11 +142,12 @@ process mergeNGAquaAndComputeForcings {
 training_data_ch.into {t1; t2}
 
 process trainModel {
+  publishDir "data/models/${params.forcingMethod}/"
   input:
   file x from t1
 
   output:
-  file '*.pkl' into trained_model_ch
+        file '*.pkl' into single_column_mode_ch, sam_run_ch
 
 
   """
@@ -180,7 +181,7 @@ process testTrainModel {
 
 process runSingleColumnModel {
   input:
-  file model from trained_model_ch
+  file model from single_column_mode_ch
   file data from input_data_ch
 
   output:
@@ -233,3 +234,44 @@ process plotPrecipTropics {
   """
 
 }
+
+
+/*
+ Run the neural network with SAM
+ */
+process runSAMNeuralNetwork {
+    cache false
+    publishDir 'data/samNN/'
+    validExitStatus 0,9
+    afterScript "rm -rf   RUNDATA RESTART "
+    input:
+        file(x) from sam_run_ch.flatten().last()
+
+    output:
+        set file('NG1/data.pkl'), file('*.pkl' ) into check_sam_dbg_ch
+        file('output.txt')
+    """
+    run_sam_nn_docker.sh $x $baseDir/assets/NG1 > output.txt
+    """
+}
+
+process checkSAMNN {
+    publishDir 'data/samNN/checks'
+    input:
+        set file(model), file(x) from check_sam_dbg_ch
+    output:
+        file 'sam_nn.txt'
+    // when:
+    //     false
+
+    """
+    for file in $x
+    do
+        echo "Checking Water budget for \$file" >> sam_nn.txt
+        check_sam_nn_debugging.py \$file $model >> sam_nn.txt
+        echo
+    done
+    """
+
+}
+

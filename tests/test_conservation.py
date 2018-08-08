@@ -70,12 +70,16 @@ def output_to_ds(out, coords):
     return xr.Dataset(data_vars, coords=coords).squeeze('m')
 
 
-# ds = xr.open_zarr("all.1.zarr").pipe(to_normal_units_nn_columns)
-# ds0 = ds.isel(time=0)
-# ds0.to_netcdf('ds0.nc')
+import sys
+
+indata, pkl = sys.argv[1:]
+
+ds = xr.open_zarr(indata).pipe(to_normal_units_nn_columns)
+ds0 = ds.isel(time=0)
+ds0.to_netcdf('ds0.nc')
 ds0 = xr.open_dataset('ds0.nc')
 
-model = MLP.from_dict(torch.load("13_actual_constraint/5.pkl")['dict'])
+model = MLP.from_dict(torch.load(pkl)['dict'])
 step = model.step
 
 x = ds_to_np_dict(ds0)
