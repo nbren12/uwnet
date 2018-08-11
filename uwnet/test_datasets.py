@@ -9,9 +9,10 @@ def get_obj():
     a = xr.DataArray(np.ones((3, 4, 5, 2)))
     b = xr.DataArray(np.zeros((3, 4, 5, 2)))
     c = xr.DataArray(np.zeros((3, 4, 5)))
-    d = xr.DataArray(np.zeros((2,)), dims=['dim_3'])
+    d = xr.DataArray(np.zeros((2, )), dims=['dim_3'])
     ds = xr.Dataset({'a': a, 'b': b, 'c': c, 'layer_mass': d})
     return ds
+
 
 def test_XRTimeSeries():
     ds = get_obj()
@@ -32,7 +33,6 @@ def test_XRTimeSeries():
     assert o[:]['a'].shape == (15, 4, 2)
 
 
-
 def test_XRTimeSeries_timestep():
     dt = .125
     ds = get_obj()
@@ -49,6 +49,7 @@ def test_XRTimeSeries_timestep():
 
     with pytest.raises(ValueError):
         dataset.timestep()
+
 
 def test_XRTimeSeries_torch_constants():
     ds = get_obj()

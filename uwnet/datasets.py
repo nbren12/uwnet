@@ -1,7 +1,5 @@
-import click
 import numpy as np
 import torch
-from dask.diagnostics import ProgressBar
 from toolz import valmap
 from torch.utils.data import Dataset
 

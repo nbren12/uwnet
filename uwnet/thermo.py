@@ -50,7 +50,7 @@ def total_water(qv, qn):
 
 
 def get_dz(z):
-    zext = np.hstack((-z[0],  z,  2.0*z[-1] - 1.0*z[-2]))
+    zext = np.hstack((-z[0], z, 2.0*z[-1] - 1.0*z[-2]))
     zw = .5 * (zext[1:] + zext[:-1])
     dz = zw[1:] - zw[:-1]
 

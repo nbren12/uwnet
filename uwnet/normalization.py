@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 from toolz import curry
 from torch.autograd import Variable

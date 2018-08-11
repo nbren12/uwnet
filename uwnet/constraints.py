@@ -114,7 +114,6 @@ def expected_temperature(sl, fsl, prec, shf, radtoa, radsfc, h,
         integrals of before/after SLI
 
     """
-    Lv = 2.51e6
     cp = 1004
 
     sl0 = mass_integrate(layer_mass, sl)

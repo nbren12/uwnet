@@ -48,7 +48,6 @@ def test_fix_negative_moisture():
 def test_fix_expected_moisture():
     n = 11
     q = torch.rand(n)
-    q1 = torch.rand(n)
 
     layer_mass = torch.rand(n) + .5
 
@@ -60,7 +59,7 @@ def test_fix_expected_moisture():
     evap = 5.0  # kg/m^2/day
     lhf = evap / 86400 * latent_heat
     pw0, pw = expected_moisture(q, 0, 0, lhf, 1.0, layer_mass)
-    np.testing.assert_allclose((pw-pw0).item()/1000, evap)
+    np.testing.assert_allclose((pw - pw0).item() / 1000, evap)
 
 
 def test_enforce_expected_integral():
@@ -96,36 +95,15 @@ def test_expected_temperature():
     shf = 100  # W/m2
     next_temp = temp + shf / 1004 * h * 86400
     _, ans = expected_temperature(
-        temp,
-        0,
-        prec=0,
-        shf=shf,
-        radtoa=0,
-        radsfc=0,
-        layer_mass=mass,
-        h=1.0)
+        temp, 0, prec=0, shf=shf, radtoa=0, radsfc=0, layer_mass=mass, h=1.0)
     assert pytest.approx(ans.item()) == next_temp.item()
 
     # RADTOA
     _, ans = expected_temperature(
-        temp,
-        0,
-        prec=0,
-        shf=0,
-        radtoa=-shf,
-        radsfc=0,
-        layer_mass=mass,
-        h=1.0)
+        temp, 0, prec=0, shf=0, radtoa=-shf, radsfc=0, layer_mass=mass, h=1.0)
     assert pytest.approx(ans.item()) == next_temp.item()
 
     # RADSFC
     _, ans = expected_temperature(
-        temp,
-        0,
-        prec=0,
-        shf=0,
-        radtoa=0,
-        radsfc=shf,
-        layer_mass=mass,
-        h=1.0)
+        temp, 0, prec=0, shf=0, radtoa=0, radsfc=shf, layer_mass=mass, h=1.0)
     assert pytest.approx(ans.item()) == next_temp.item()

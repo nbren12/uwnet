@@ -1,17 +1,14 @@
 import argparse
 
 # plot
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
 from tqdm import tqdm
-import yaml
 from torch.utils.data import DataLoader
 
 import xarray as xr
 
 from uwnet import model
-from uwnet.data import get_dataset, XRTimeSeries
+from uwnet.data import XRTimeSeries
 from uwnet.utils import concat_dicts
 
 
@@ -39,7 +36,7 @@ def post(x):
 
 
 print("Opening data")
-ds = xr.open_zarr(args.data).isel(x=slice(0,8))
+ds = xr.open_zarr(args.data).isel(x=slice(0, 8))
 data = XRTimeSeries(ds.load(), [['time'], ['x', 'y'], ['z']])
 loader = DataLoader(data, batch_size=128, shuffle=False)
 
@@ -54,10 +51,9 @@ with torch.no_grad():
         out = mod(batch, n=1)
         outputs.append(out)
 
-
-
 # concatenate outputs
 out = concat_dicts(outputs, dim=0)
+
 
 def unstack(val):
     val = val.detach().numpy()
@@ -73,11 +69,11 @@ def unstack(val):
         ds = ds.unstack(dim)
 
     # transpose dims
-    dim_order = [dim for dim in ['time', 'z', 'y', 'x']
-                 if dim in ds.dims]
+    dim_order = [dim for dim in ['time', 'z', 'y', 'x'] if dim in ds.dims]
     ds = ds.transpose(*dim_order)
 
     return ds
+
 
 print("Reshaping and saving outputs")
 out_da = {key: unstack(val) for key, val in out.items()}

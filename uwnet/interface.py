@@ -1,5 +1,4 @@
 import torch
-import xarray as xr
 import numpy as np
 
 
@@ -110,6 +109,3 @@ def step_model(step, dt, layer_mass, qt, sl, FQT, FSL, U, V, SST, SOLIN, **kw):
             arr /= scales[key]
         out_np[key] = arr
     return out_np
-
-
-

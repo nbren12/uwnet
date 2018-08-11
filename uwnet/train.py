@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from uwnet import model
 from uwnet.data import XRTimeSeries
 from uwnet.utils import select_time
-from uwnet.logging import MongoDBLogger, TinyDBLogger
+from uwnet.logging import MongoDBLogger
 
 
 def mse(x, y, layer_mass):

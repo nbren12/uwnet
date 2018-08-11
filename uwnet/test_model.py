@@ -19,7 +19,7 @@ def _mock_batch(n, nt, nz, init=torch.rand):
         'sl': init(n, nt, nz),
         'FQT': init(n, nt, nz),
         'FSL': init(n, nt, nz),
-        'layer_mass': torch.arange(1, nz+1) * 1.0,
+        'layer_mass': torch.arange(1, nz + 1) * 1.0,
         # 'p': init(nz),
     }
 
@@ -66,7 +66,7 @@ def test_MLP_step():
 
     # a 30 second step should
     with pytest.raises(AssertionError):
-        out, _ = mlp.step(x, 30/86400)
+        out, _ = mlp.step(x, 30 / 86400)
         _assert_all_close(out['qt'], x['qt'])
 
 
@@ -100,9 +100,11 @@ def test_variable_input():
     # rename LHF to a
     batch['a'] = batch.pop('LHF')
 
-    mlp = MLP({}, {}, time_step=.125,
-              inputs=[('a', 1), ('sl', nz), ('qt', nz)],
-              outputs=[('sl', nz), ('qt', nz), ('SHF', 1)])
+    mlp = MLP(
+        {}, {},
+        time_step=.125,
+        inputs=[('a', 1), ('sl', nz), ('qt', nz)],
+        outputs=[('sl', nz), ('qt', nz), ('SHF', 1)])
 
     outputs = mlp(batch)
     assert outputs['sl'].size(-1) == nz
@@ -110,22 +112,23 @@ def test_variable_input():
     for key in ['sl', 'qt', 'SHF']:
         assert outputs[key].size(-1) == mlp.output_fields[key]
 
+
 def test_to_dict():
-    mlp = MLP({}, {}, time_step=.125, inputs=(('LHF', 1),))
+    mlp = MLP({}, {}, time_step=.125, inputs=(('LHF', 1), ))
     a = mlp.to_dict()
     mlp1 = mlp.from_dict(a)
 
     assert mlp.input_fields == mlp1.input_fields
     assert mlp.output_fields == mlp1.output_fields
 
-@pytest.mark.parametrize("n", [1,2,3,4])
+
+@pytest.mark.parametrize("n", [1, 2, 3, 4])
 def test_mlp_no_cheating(n):
     """Make sure that MLP only uses the initial point"""
 
     batch = _mock_batch(3, 10, 34)
 
     mlp = MLP({}, {}, time_step=.125)
-
 
     for key, val in batch.items():
         if key not in {'FSL', 'FQT'}:
@@ -140,6 +143,6 @@ def test_mlp_no_cheating(n):
     sl_true = batch['sl']
     # the gradient of sl_true should only be nonzero for the first n points
     # of the data
-    grad_t  = torch.norm(sl_true.grad[0, :, :], dim=1)
+    grad_t = torch.norm(sl_true.grad[0, :, :], dim=1)
     assert torch.sum(grad_t[n:]).item() == 0
     assert torch.sum(grad_t[0:n]).item() > 0

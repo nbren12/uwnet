@@ -54,8 +54,11 @@ class SaverMixin(object):
     """
 
     def to_dict(self):
-        return {'args': self.args, 'kwargs': self.kwargs, 'state':
-                self.state_dict()}
+        return {
+            'args': self.args,
+            'kwargs': self.kwargs,
+            'state': self.state_dict()
+        }
 
     @classmethod
     def from_dict(cls, d):
@@ -65,24 +68,18 @@ class SaverMixin(object):
 
 
 class MOE(nn.Module):
-
     def __init__(self, m, n, n_experts):
         "docstring"
         super(MOE, self).__init__()
 
-        self.experts = nn.ModuleList([
-            nn.Sequential(
-                nn.Linear(m, n),
-                )
-            for _ in range(n_experts)
-        ])
+        self.experts = nn.ModuleList(
+            [nn.Sequential(nn.Linear(m, n), ) for _ in range(n_experts)])
 
         self.decider = nn.Sequential(
             nn.Linear(m, 256),
             nn.ReLU(),
             nn.Linear(256, n_experts),
-            nn.Softmax(dim=1)
-        )
+            nn.Softmax(dim=1))
 
     def poll_experts(self, x):
         return [expert(x) for expert in self.experts]
@@ -90,8 +87,7 @@ class MOE(nn.Module):
     def forward(self, x):
         weights = self.decider(x)
         ans = 0
-        for val, w in zip(self.poll_experts(x),
-                          weights.split(1, dim=-1)):
+        for val, w in zip(self.poll_experts(x), weights.split(1, dim=-1)):
             ans = ans + w * val
         return ans
 
@@ -129,10 +125,11 @@ class AbstractApparentSource(nn.Module):
         raise NotImplementedError
 
 
-
 class MLP(nn.Module, StackerScalerMixin, SaverMixin):
-
-    def __init__(self, mean, scale, time_step,
+    def __init__(self,
+                 mean,
+                 scale,
+                 time_step,
                  inputs=(('LHF', 1), ('SHF', 1), ('SOLIN', 1), ('qt', 34),
                          ('sl', 34), ('FQT', 34), ('FSL', 34)),
                  outputs=(('sl', 34), ('qt', 34))):
@@ -196,14 +193,16 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         x.update(aux)
         x.update(progs)
 
-        x = {key: val if val.dim() == 2 else val.unsqueeze(-1)
-             for key, val in x.items()}
+        x = {
+            key: val if val.dim() == 2 else val.unsqueeze(-1)
+            for key, val in x.items()
+        }
 
         # zero out FSL in upper level
         # TODO this needs to be refactored
         # This routine should not know about FSL
         if 'FSL' in x:
-            x['FSL'][:,-1] = 0.0
+            x['FSL'][:, -1] = 0.0
 
         stacked = pipe(x, self.scaler, self._stacked)
         out = self.mod(stacked)
@@ -211,8 +210,7 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         out = pipe(out, self._unstacked)
 
         sources = {key: out[key] for key in progs}
-        diags = {key: val for key, val in out.items()
-                 if key not in progs}
+        diags = {key: val for key, val in out.items() if key not in progs}
 
         try:
             diags['Prec'].clamp_(0.0)
@@ -229,7 +227,7 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         x : dict
             dict of torch arrays (input variables)
         *args
-            not used 
+            not used
 
         Returns
         -------
@@ -256,8 +254,8 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
 
         #  diagnostics
         if 'FQT' in self.input_fields:
-            out['Q2NN'] = (out['qt'] - x['qt'])/dt - x['FQT']
-            out['Q1NN'] = (out['sl'] - x['sl'])/dt - x['FSL']
+            out['Q2NN'] = (out['qt'] - x['qt']) / dt - x['FQT']
+            out['Q1NN'] = (out['sl'] - x['sl']) / dt - x['FSL']
 
         return out, None
 
