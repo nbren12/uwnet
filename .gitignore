@@ -247,3 +247,10 @@ reports
 .pytest_cache/
 trained_models/
 *.zarr
+
+dist
+*.ps
+nextflow
+.nextflow/
+runs.json
+tmp/
