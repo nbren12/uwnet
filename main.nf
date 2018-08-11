@@ -18,6 +18,7 @@ params.numTimePoints = 640
 params.NGAquaDir = "/Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX"
 params.forcingMethod = 'SAM' // Available options are FD and SAM, ORIG
 params.train = false // Train the model (default: false)
+params.numEpochs = 1
 
 i = Channel.from(0..params.numTimePoints-1)
 
@@ -154,7 +155,7 @@ process trainModel {
 
   """
   python -m uwnet.check_data $x && \
-  python -m uwnet.train  -n 3 -lr .001 -s 5 -l 20 -db $params.trainingDB \
+  python -m uwnet.train  -n $params.numEpochs -lr .001 -s 5 -l 20 -db $params.trainingDB \
          $params.config $x
   """
 }
@@ -221,7 +222,7 @@ process plotPrecipTropics {
 
 
 
-      for key in ['qt', 'sl']:
+      for key in ['qt', 'sl', 'QN', 'QP']:
           plt.figure()
           qt = g[key][:,:,j, 0]
           qt.plot.contourf(x='time')

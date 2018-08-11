@@ -42,8 +42,8 @@ def load_data(paths):
     # compute thermodynamic variables
     TABS = data.pop('TABS')
     QV = data.pop('QV')
-    QN = data.pop('QN', 0.0)
-    QP = data.pop('QP', 0.0)
+    QN = data.get('QN', 0.0)
+    QP = data.get('QP', 0.0)
 
     sl = thermo.liquid_water_temperature(TABS, QN, QP)
     qt = QV + QN

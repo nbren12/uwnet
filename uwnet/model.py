@@ -1,10 +1,12 @@
-import torch
 from collections import OrderedDict
-from toolz import get, pipe, merge, first
-from torch import nn
 
+import attr
+from toolz import first, get, merge, pipe
+
+import torch
+from torch import nn
+from uwnet import constraints, utils
 from uwnet.normalization import scaler
-from uwnet import utils, constraints
 
 
 def cat(seq):
@@ -125,6 +127,46 @@ class AbstractApparentSource(nn.Module):
         raise NotImplementedError
 
 
+@attr.s
+class VariableSpec(object):
+    """Specification data for variable inputs
+
+    This class allows passing relevant metadata such as physical units,
+    dimension, and name.
+    """
+    name = attr.ib()
+    num = attr.ib()
+    positive = attr.ib(default=False)
+    conserved = attr.ib(default=False)
+    units = attr.ib(default='')
+
+
+@attr.s
+class VariableList(object):
+    """List of VariableSpec objects"""
+    variables = attr.ib()
+
+    @property
+    def num(self):
+        if len(self.variables) > 0:
+            return sum(x.num for x in self.variables)
+        else:
+            return 0
+
+    def to_dict(self):
+        return OrderedDict([(var.name, var.num) for var in self.variables])
+
+    @classmethod
+    def from_tuples(cls, inputs):
+        return cls([VariableSpec(*input) for input in inputs])
+
+    def __getitem__(self, key):
+        return self.variables[0]
+
+    def __iter__(self):
+        return iter(self.variables)
+
+
 class MLP(nn.Module, StackerScalerMixin, SaverMixin):
     def __init__(self,
                  mean,
@@ -141,8 +183,11 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         self.kwargs['inputs'] = inputs
         self.kwargs['outputs'] = outputs
 
-        n_in = sum(x[1] for x in inputs)
-        n_out = sum(x[1] for x in outputs)
+        self.inputs = VariableList.from_tuples(inputs)
+        self.outputs = VariableList.from_tuples(outputs)
+
+        n_in = self.inputs.num
+        n_out = self.outputs.num
 
         # self.mod = MOE(n_in, n_out, n_experts=40)
         self.mod = nn.Sequential(
@@ -150,8 +195,7 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
             nn.ReLU(),
             nn.Linear(256, 256),
             nn.ReLU(),
-            nn.Linear(256, n_out),
-        )
+            nn.Linear(256, n_out), )
         self.mean = mean
         self.scale = scale
         self.time_step = time_step
@@ -162,11 +206,11 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
 
     @property
     def input_fields(self):
-        return OrderedDict(self.kwargs['inputs'])
+        return self.inputs.to_dict()
 
     @property
     def output_fields(self):
-        return OrderedDict(self.kwargs['outputs'])
+        return self.outputs.to_dict()
 
     @property
     def progs(self):
@@ -211,12 +255,6 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
 
         sources = {key: out[key] for key in progs}
         diags = {key: val for key, val in out.items() if key not in progs}
-
-        try:
-            diags['Prec'].clamp_(0.0)
-        except KeyError:
-            pass
-
         return sources, diags
 
     def step(self, x, dt, *args):
@@ -250,7 +288,7 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
             out[key] = x[key] + dt * sources[key]
 
         out = merge(out, diagnostics)
-        out = constraints.apply_constraints(x, out, dt)
+        out = constraints.apply_constraints(x, out, dt, output_specs=self.outputs)
 
         #  diagnostics
         if 'FQT' in self.input_fields:

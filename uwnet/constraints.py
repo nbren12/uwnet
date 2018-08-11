@@ -5,8 +5,9 @@ Energy and moisture are conserved if the following vertically integrated quantit
     <Q2> = Evap - Prec
 
 """
-from toolz import curry
 import torch
+from toolz import curry
+import torch.nn.functional as F
 
 
 def mass_integrate(x, w):
@@ -70,11 +71,11 @@ def expected_moisture(q0, fqt, precip, lhf, h, layer_mass):
     Lv = 2.51e6
     density_liquid = 1000.0
 
-    water0 = mass_integrate(q0, layer_mass)/1000.0            # kg
-    fqt_int = mass_integrate(fqt, layer_mass)/1000.0 / 86400  # kg/s
-    net_evap = lhf / Lv - precip / 1000.0 * density_liquid / 86400     # kg/s
+    water0 = mass_integrate(q0, layer_mass) / 1000.0  # kg
+    fqt_int = mass_integrate(fqt, layer_mass) / 1000.0 / 86400  # kg/s
+    net_evap = lhf / Lv - precip / 1000.0 * density_liquid / 86400  # kg/s
     h = h * 86400  # s
-    return water0*1000, 1000 * (water0 + (fqt_int + net_evap) * h)
+    return water0 * 1000, 1000 * (water0 + (fqt_int + net_evap) * h)
 
 
 def precip_to_energy(prec):
@@ -90,8 +91,7 @@ def precip_to_energy(prec):
     return coef * prec
 
 
-def expected_temperature(sl, fsl, prec, shf, radtoa, radsfc, h,
-                         layer_mass):
+def expected_temperature(sl, fsl, prec, shf, radtoa, radsfc, h, layer_mass):
     """Expected column average SLI to conserve energy
 
     Parameters
@@ -127,7 +127,7 @@ def expected_temperature(sl, fsl, prec, shf, radtoa, radsfc, h,
 
 def enforce_expected_integral(x, int, layer_mass):
     int_actual = mass_integrate(x, layer_mass)
-    return x * int/int_actual
+    return x * int / int_actual
 
 
 def fix_negative_moisture(q, layer_mass):
@@ -137,27 +137,35 @@ def fix_negative_moisture(q, layer_mass):
     water_before = mass_integrate(q, layer_mass)
     q = q.clamp(eps)
     water_after = mass_integrate(q, layer_mass)
-    return q * water_before/water_after
+    return q * water_before / water_after
 
 
-def apply_constraints(x0, x1, time_step):
+def apply_constraints(x0, x1, time_step, output_specs):
     """Main function for applying constraints"""
 
     layer_mass = x0['layer_mass']
-    qt = fix_negative_moisture(x1['qt'], x0['layer_mass'])
-    if 'Prec' in x1:
-        pw0, pw = expected_moisture(x0['qt'], x0['FQT'], x1['Prec'],
-                                    x1['LHF'], time_step, x0['layer_mass'])
 
-        sl_int0, sl_int = expected_temperature(x0['sl'], x0['FSL'], x1['Prec'],
-                                               x1['SHF'], x1['RADTOA'],
-                                               x1['RADSFC'], time_step,
-                                               layer_mass)
+    for spec in output_specs:
+        if spec.positive and (spec.name in x1):
+            if spec.conserved:
+                x1[spec.name] = fix_negative_moisture(x1[spec.name],
+                                                      x0['layer_mass'])
+            else:
+                x1[spec.name] = F.softplus(x1[spec.name])
+
+    if 'Prec' in x1:
+        pw0, pw = expected_moisture(x0['qt'], x0['FQT'], x1['Prec'], x1['LHF'],
+                                    time_step, x0['layer_mass'])
+
+        sl_int0, sl_int = expected_temperature(
+            x0['sl'], x0['FSL'], x1['Prec'], x1['SHF'], x1['RADTOA'],
+            x1['RADSFC'], time_step, layer_mass)
 
         sl = enforce_expected_integral(x1['sl'], sl_int, layer_mass)
-        qt = enforce_expected_integral(qt, pw, layer_mass)
+        qt = enforce_expected_integral(x1['qt'], pw, layer_mass)
     else:
         sl = x1['sl']
+        qt = x1['qt']
 
     x1['qt'] = qt
     x1['sl'] = sl

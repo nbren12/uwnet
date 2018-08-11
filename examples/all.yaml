@@ -21,18 +21,22 @@ inputs:
   - [SST, 1]
   - [SOLIN, 1]
 outputs:
-  - [LHF, 1] 
-  - [SHF, 1] 
-  - [RADTOA, 1] 
-  - [RADSFC, 1] 
-  - [Prec, 1] 
-  - [qt, 34] 
-  - [sl, 34] 
+  - [LHF, 1]
+  - [SHF, 1]
+  - [RADTOA, 1]
+  - [RADSFC, 1]
+  - [Prec, 1, True]
+  - [QP, 34, True]
+  - [QN, 34, True]
+  - [qt, 34, True, True]
+  - [sl, 34, True]
 loss_scale:
   LHF: 150
   SHF: 10
   RADTOA: 600.0
   RADSFC: 600.0
   Prec: 8
+  QP: .05
+  QN: .05
   qt: 1.0
   sl: 2.5

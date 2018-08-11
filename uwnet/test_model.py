@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from uwnet.model import MLP, MOE
+from uwnet.model import MLP, MOE, VariableSpec, VariableList
 from uwnet.utils import select_time, get_batch_size, stack_dicts
 
 import pytest
@@ -146,3 +146,18 @@ def test_mlp_no_cheating(n):
     grad_t = torch.norm(sl_true.grad[0, :, :], dim=1)
     assert torch.sum(grad_t[n:]).item() == 0
     assert torch.sum(grad_t[0:n]).item() > 0
+
+
+def test_VariableList():
+
+    inputs = [('LHF', 1), ('SHF', 1), ('SOLIN', 1), ('qt', 34), ('sl', 34)]
+    vl = VariableList.from_tuples(inputs)
+    assert vl.num == 3 + 2 * 34
+
+    inputs = [('SHF', 1, True)]
+    vl = VariableList.from_tuples(inputs)
+
+    # see if indexing works
+    v = vl[0]
+    assert v.name == 'SHF'
+    assert v.positive
