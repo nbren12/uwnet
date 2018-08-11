@@ -26,7 +26,7 @@ process makeTrainingData {
     file '*.zarr' into input_data_ch
 
     """
-    python -m uwnet.data  $params.config ngaqua_data.zarr
+    python -m uwnet.prepare_data  $params.config ngaqua_data.zarr
     """
 }
 

@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from uwnet.data import XRTimeSeries
+from uwnet.datasets import XRTimeSeries
 
 
 def get_obj():
