@@ -48,12 +48,6 @@ class XRTimeSeries(Dataset):
 
             (time_dims, batch_dims, feature_dims)
 
-    Attributes
-    ----------
-    std
-    mean
-    scale
-
     Examples
     --------
     >>> ds = xr.open_dataset("in.nc")

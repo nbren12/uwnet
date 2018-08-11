@@ -44,8 +44,14 @@ class StackerScalerMixin(object):
 
 
 class SaverMixin(object):
-    """Mixin for output and initializing models from dictionaries of the state and
-    arguments"""
+    """Mixin for output and initializing models from dictionaries of the state
+    and arguments
+
+    Attributes
+    ----------
+    args
+    kwargs
+    """
 
     def to_dict(self):
         return {'args': self.args, 'kwargs': self.kwargs, 'state':
