@@ -7,6 +7,8 @@ all: ./nextflow
 	./nextflow run main.nf -w $(WORKDIR)  -resume \
 		 --numTimePoints=640 --forcingMethod=FD
 
+no_resume:
+	./nextflow run main.nf -w $(WORKDIR) --forcingMethod=FD
 
 debug_sam_output: 
 	rm -f ~/workspace/models/SAMUWgh/SAM_*
