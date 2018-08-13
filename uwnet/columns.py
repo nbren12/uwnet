@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 import xarray as xr
 
 from uwnet import model
-from uwnet.data import XRTimeSeries
+from uwnet.datasets import XRTimeSeries
 from uwnet.utils import concat_dicts
 
 
