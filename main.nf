@@ -17,6 +17,7 @@ params.config = "$baseDir/examples/all.yaml"
 params.numTimePoints = 640
 params.NGAquaDir = "/Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX"
 params.forcingMethod = 'SAM' // Available options are FD and SAM, ORIG
+params.train = false // Train the model (default: false)
 
 i = Channel.from(0..params.numTimePoints-1)
 
@@ -142,6 +143,7 @@ process mergeNGAquaAndComputeForcings {
 training_data_ch.into {t1; t2}
 
 process trainModel {
+  cache ! params.train
   publishDir "data/models/${params.forcingMethod}/"
   input:
   file x from t1
