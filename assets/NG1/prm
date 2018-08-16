@@ -54,10 +54,10 @@
 
  day0= 100.625
 
- nstop 		=  480, ! 1 day
+ nstop 		=  240, ! 1 day
  nprint 	= 240, ! 1 hr
  nstat 		= 240,
- nstatfrq 	= 240,
+ nstatfrq 	= 1,
 
  nsave2D	= 120,
  nsave2Dstart	= 1000000,
