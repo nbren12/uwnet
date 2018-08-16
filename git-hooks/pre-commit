@@ -24,13 +24,13 @@ echo
     exit 1
 fi
 
-if ! pytest
-then
-    echo "pytest failed...commit anyway [y/n]"
-    read answer
-    case answer in
-        y) exit 0
-            ;;
-        *) exit 1 ;;
-    esac
-fi
+# if ! pytest
+# then
+#     echo "pytest failed...commit anyway [y/n]"
+#     read answer
+#     case answer in
+#         y) exit 0
+#             ;;
+#         *) exit 1 ;;
+#     esac
+# fi
