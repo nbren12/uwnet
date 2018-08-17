@@ -152,4 +152,11 @@ class XRTimeSeries(Dataset):
         if not all_equal:
             raise ValueError("Data must be uniformly sampled in time")
 
-        return dt[0]
+        if time.units.startswith('d'):
+            return dt[0] * 86400
+        elif time.units.startswith('s'):
+            return dt[0]
+        else:
+            raise ValueError(
+                f"Units of time are {time.units}, but must be either seconds"
+                "or days")

@@ -33,14 +33,18 @@ def test_XRTimeSeries():
     assert o[:]['a'].shape == (15, 4, 2)
 
 
-def test_XRTimeSeries_timestep():
-    dt = .125
+@pytest.mark.parametrize('dt,units,dt_seconds', [
+    (.125, 'd', 10800.0),
+    (10, 's', 10.0),
+])
+def test_XRTimeSeries_timestep(dt, units, dt_seconds):
     ds = get_obj()
     ds = ds.assign_coords(dim_1=np.arange(len(ds['dim_1'])) * dt)
+    ds['dim_1'].attrs['units'] = units
 
     # dim_1 is the time dimension here
     dataset = XRTimeSeries(ds, [['dim_1'], ['dim_0', 'dim_2'], ['dim_3']])
-    assert dataset.timestep() == .125
+    assert dataset.timestep() == dt_seconds
 
     # non-uniformly sampled data
     time = np.arange(len(ds['dim_1']))**2
