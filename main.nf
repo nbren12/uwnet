@@ -22,118 +22,38 @@ params.numEpochs = 1
 
 i = Channel.from(0..params.numTimePoints-1)
 
-process makeTrainingData {
-
-    output:
-    file '*.zarr' into input_data_ch
-
-    """
-    python -m uwnet.prepare_data  $params.config ngaqua_data.zarr
-    """
-}
-
 /*
- Compute forcings using SAM
+ Process the NGAqua data
  */
 
-process runSAMWithInitialConditions {
-    // publishDir "data/samIC/$i"
-    afterScript "rm -rf OUT*  RUNDATA RESTART _*.nc"
+time_step_ch = Channel.from(0..params.numTimePoints - 1)
+
+
+process processOneTimeStep {
     input:
-    val i
+        val t from time_step_ch
 
     output:
-    set val(i), file('out.nc'), file('NGAqua') into sam_short_run_ch
-    stdout info logger_sam
-
-    when:
-        params.forcingMethod == 'SAM'
+        file 'rec.*.nc' into single_time_steps_ch
 
     """
-    sam.py -d \$PWD --physics dry -t $i $params.NGAquaDir out.nc
-    """
-
-}
-
-process computeSAMForcing {
-    input:
-        set val(i), file(x), file(rundir) from sam_short_run_ch
-
-    output:
-        file "*.nc" into sam_step_forcing_ch
-
-
-    """
-    #!/usr/bin/env python
-    import xarray as xr
-
-    f = xr.open_dataset("$x")
-    fqt = (f.QV[1] - f.QV[0]).assign_coords(time=f.time[0]).expand_dims('time')
-    fqt.attrs['units'] = 'g/kg/day'
-
-    fsl = (f.TABS[1] - f.TABS[0]).assign_coords(time=f.time[0]).expand_dims('time')
-    fsl.attrs['units'] = 'K/day'
-
-    xr.Dataset({'FSL': fsl, 'FQT': fqt})\
-      .to_netcdf("${sprintf("%020d",i)}.nc", unlimited_dims=['time'])
-
-    """
-
-}
-
-
-process combineSingleTimeStepForcings {
-    input:
-        file(x) from sam_step_forcing_ch.collect()
-    output:
-        file 'forcing.nc' into sam_forcing_ch
-    """
-    echo $x | sort -n | ncrcat -o forcing.nc
+    process_ngaqua.py -n $params.NGAquaDir $t
+    f=\$(ls *.nc)
+    ncks -A --mk_rec_dmn time \$f rec.\$f
+    rm -f \$f
     """
 }
 
 
-/ *
-Compute forcings using Finite differences
-* /
-
-process computeForcingFiniteDifference {
-
+process concatAllFiles {
+    publishDir 'data'
     input:
-      file data from input_data_ch
-
+        file x from single_time_steps_ch.collect()
     output:
-        file 'forcing.nc' into fd_forcing_ch
-
-    when:
-        params.forcingMethod == 'FD'
-
+        file 'training_data.nc' into training_data_ch
     """
-    compute_forcings_finite_difference.py $data forcing.nc
+    echo $x | sort -n | ncrcat -o training_data.nc
     """
-}
-
-process mergeNGAquaAndComputeForcings {
-
-  publishDir "data"
-
-  input:
-    file f from fd_forcing_ch.concat(sam_forcing_ch)
-    file data from input_data_ch
-
-  output:
-    file 'training_data.zarr' into training_data_ch
-
-  """
-  #!/usr/bin/env python
-  import xarray as xr
-  ds = xr.open_zarr("$data")
-  forcings = xr.open_dataset("$f")
-
-  ds = ds.drop(['FQT', 'FSL']).merge(forcings)
-  ds.load().to_zarr("training_data.zarr")
-  """
-
 }
 
 
@@ -185,7 +105,7 @@ process testTrainModel {
 process runSingleColumnModel {
   input:
   file model from single_column_mode_ch
-  file data from input_data_ch
+  file data from training_data_ch
 
   output:
   file 'cols.nc' into single_column_ch
