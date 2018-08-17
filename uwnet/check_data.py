@@ -32,6 +32,15 @@ def check_w_correlated_with_fqt(ds):
             "FQT and W are negatively correlated...check this data.")
 
 
+def check_time_equally_spaced(ds):
+    time = ds.time
+    dt = np.diff(time)
+
+    sig = dt.std() / dt.mean()
+    print(f"Variance in dt is {sig}%")
+    assert sig < 1e-6
+
+
 def check_w_domain_mean_vanishes(ds):
     # vertical velocity should vanish
     mean = ds.W[0].mean(['x', 'y'])

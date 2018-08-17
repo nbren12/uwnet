@@ -50,7 +50,7 @@ process concatAllFiles {
     output:
         file 'training_data.nc' into concated_file_ch
     """
-    echo $x | sort -n | ncrcat -o training_data.nc
+    echo $x | tr ' ' '\\n' | sort -n | ncrcat -o training_data.nc
     ncatted -a units,FQT,c,c,'g/kg/s' \
             -a units,FSLI,c,c,'K/s' \
             -a units,FU,c,c,'m/s^2' \
