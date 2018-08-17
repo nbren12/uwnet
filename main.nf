@@ -20,13 +20,12 @@ params.forcingMethod = 'SAM' // Available options are FD and SAM, ORIG
 params.train = false // Train the model (default: false)
 params.numEpochs = 1
 
-i = Channel.from(0..params.numTimePoints-1)
-
 /*
  Process the NGAqua data
  */
 
 time_step_ch = Channel.from(0..params.numTimePoints - 1)
+stat_file_ch = Channel.fromPath(params.NGAquaDir + "/stat.nc")
 
 
 process processOneTimeStep {
@@ -46,13 +45,47 @@ process processOneTimeStep {
 
 
 process concatAllFiles {
-    publishDir 'data'
     input:
         file x from single_time_steps_ch.collect()
     output:
-        file 'training_data.nc' into training_data_ch
+        file 'training_data.nc' into concated_file_ch
     """
     echo $x | sort -n | ncrcat -o training_data.nc
+    ncatted -a units,FQT,c,c,'g/kg/s' \
+            -a units,FSLI,c,c,'K/s' \
+            -a units,FU,c,c,'m/s^2' \
+            -a units,FV,c,c,'m/s^2' \
+            -a units,x,c,c,'m' \
+            -a units,y,c,c,'m' \
+             training_data.nc
+    """
+}
+
+process computeLaterMass {
+    input:
+        file stat from stat_file_ch
+    output:
+        file 'layer_mass.nc' into layer_mass_ch
+    """
+    #!/usr/bin/env python
+    import xarray as xr
+    from uwnet.thermo import layer_mass
+    stat = xr.open_dataset("$stat")
+    rho = stat.RHO.isel(time=0).drop('time')
+    layer_mass(rho).to_dataset(name='layer_mass').to_netcdf('layer_mass.nc')
+    """
+}
+
+process appendLayerMass {
+    publishDir 'data'
+    input:
+        file x from concated_file_ch
+        file y from layer_mass_ch
+    output:
+        file x into training_data_ch
+
+    """
+    ncks -A $y $x
     """
 }
 
@@ -61,7 +94,7 @@ process concatAllFiles {
  Train the Neural network
  */
 
-training_data_ch.into {t1; t2}
+training_data_ch.into {t1; t2; scm_ch}
 
 process trainModel {
   cache ! params.train
@@ -105,7 +138,7 @@ process testTrainModel {
 process runSingleColumnModel {
   input:
   file model from single_column_mode_ch
-  file data from training_data_ch
+  file data from scm_ch
 
   output:
   file 'cols.nc' into single_column_ch

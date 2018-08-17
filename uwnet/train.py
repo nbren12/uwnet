@@ -65,7 +65,11 @@ def main():
         return x
 
     logger.info("Opening Training Data")
-    ds = xr.open_zarr(args.input)
+    try:
+        ds = xr.open_zarr(args.input)
+    except ValueError:
+        ds = xr.open_dataset(args.input)
+
     if args.test:
         logger.info(
             "Running in accelerated test mode using only equatorial data")
