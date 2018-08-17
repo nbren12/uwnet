@@ -2,6 +2,7 @@
 import sys
 import xarray as xr
 import numpy as np
+import click
 
 
 def _check_nan(x):
@@ -9,6 +10,18 @@ def _check_nan(x):
     if sum_nan != 0:
         raise ValueError(
             f"NaNs detected in input. Total number is {sum_nan} of {x.size}.")
+
+
+def check_necessary_variables_present(ds):
+    variables_needed = {
+        'SOLIN', 'QT', 'SLI', 'FSLI', 'FQT', 'U', 'V', 'W', 'SOLIN', 'SST',
+        'RADTOA', 'RADSFC', 'Prec', 'LHF', 'SHF'
+    }
+
+    not_present = variables_needed - set(ds.data_vars)
+    if len(not_present) > 0:
+        raise ValueError("Not all needed variables are present. These "
+                         f"variables are missing: {not_present}.")
 
 
 def check_for_nans(ds):
@@ -60,21 +73,24 @@ def check_w_domain_mean_vanishes(ds):
 
 def run_checks(ds):
     check_funs = [f for f in globals() if f.startswith('check')]
-    failed = False
+    failed = 0
     for func_name in check_funs:
         func = globals()[func_name]
         print(f"Running {func_name}...")
         try:
             func(ds)
         except Exception as exc:
-            print("Check BAD")
+            click.secho("Check BAD", fg="red")
             print(exc)
-            failed = True
+            failed += 1
         else:
-            print("Check OK")
+            click.secho("Check OK", fg="blue")
 
-    if failed:
+    if failed > 0:
+        click.secho(f"Failed {failed} of {len(check_funs)} checks!", fg="red")
         sys.exit(1)
+    else:
+        click.echo("All tests passed!")
 
 
 data = sys.argv[1]
