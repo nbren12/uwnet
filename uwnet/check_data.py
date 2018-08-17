@@ -17,7 +17,7 @@ def check_for_nans(ds):
 
 
 def check_units(ds):
-    for key, expected in [('FQT', 'g/kg/d'), ('FSL', 'K/d')]:
+    for key, expected in [('FQT', 'g/kg/s'), ('FSLI', 'K/s')]:
         actual = ds[key].units
         if actual != expected:
             raise ValueError(f"{key} units are {actual}")
@@ -30,6 +30,23 @@ def check_w_correlated_with_fqt(ds):
     if ans < 0:
         raise ValueError(
             "FQT and W are negatively correlated...check this data.")
+
+
+def check_w_domain_mean_vanishes(ds):
+    # vertical velocity should vanish
+    mean = ds.W[0].mean(['x', 'y'])
+    sig = ds.W[0].std(['x', 'y'])
+
+    M = ds.layer_mass.sum()
+
+    mean_ss = np.sqrt(float((ds.layer_mass * (mean**2)).sum() / M))
+    sig_ss = np.sqrt(float((ds.layer_mass * (sig**2)).sum() / M))
+
+    if (mean_ss / sig_ss) > 1e-4:
+        raise ValueError(
+            "The domain mean of W is larger than acceptable. The typical "
+            f"magnitude is {mean_ss} while the standard deviation is {sig_ss}."
+        )
 
 
 def run_checks(ds):
@@ -52,6 +69,9 @@ def run_checks(ds):
 
 
 data = sys.argv[1]
-ds = xr.open_zarr(data)
+try:
+    ds = xr.open_zarr(data)
+except ValueError:
+    ds = xr.open_dataset(data)
 
 run_checks(ds)
