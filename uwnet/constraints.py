@@ -55,9 +55,9 @@ def expected_moisture(q0, fqt, precip, lhf, h, layer_mass):
     ----------
     q0  (g/kg)
         moisture before
-    fqt (g/kg/day)
+    fqt (g/kg/s)
         moistening from horizontal advection.
-    h   (day)
+    h   (s)
         time step
     precip (mm/d)
         sfc flux over time step
@@ -72,9 +72,8 @@ def expected_moisture(q0, fqt, precip, lhf, h, layer_mass):
     density_liquid = 1000.0
 
     water0 = mass_integrate(q0, layer_mass) / 1000.0  # kg
-    fqt_int = mass_integrate(fqt, layer_mass) / 1000.0 / 86400  # kg/s
+    fqt_int = mass_integrate(fqt, layer_mass) / 1000.0  # kg/s
     net_evap = lhf / Lv - precip / 1000.0 * density_liquid / 86400  # kg/s
-    h = h * 86400  # s
     return water0 * 1000, 1000 * (water0 + (fqt_int + net_evap) * h)
 
 
@@ -98,7 +97,7 @@ def expected_temperature(sl, fsl, prec, shf, radtoa, radsfc, h, layer_mass):
     ----------
     sl (K)
         output before neural network
-    fsl (K/day)
+    fsl (K/s)
         heat transport without surface fluxes
     prec (mm/day)
         change in precipitable water over time step
@@ -118,10 +117,9 @@ def expected_temperature(sl, fsl, prec, shf, radtoa, radsfc, h, layer_mass):
 
     sl0 = mass_integrate(layer_mass, sl)
     fsl_int = mass_integrate(fsl, layer_mass)
-    h_seconds = h * 86400
 
     energy_rate_of_change = precip_to_energy(prec) + shf + radsfc - radtoa
-    sl1 = sl0 + fsl_int * h + energy_rate_of_change / cp * h_seconds
+    sl1 = sl0 + h * (fsl_int + energy_rate_of_change / cp)
     return sl0, sl1
 
 
@@ -144,6 +142,10 @@ def apply_constraints(x0, x1, time_step, output_specs):
     """Main function for applying constraints"""
 
     layer_mass = x0['layer_mass']
+    qt_name = 'QT'
+    sl_name = 'SLI'
+    fsl_name = 'FSLI'
+    fqt_name = 'FQT'
 
     for spec in output_specs:
         if spec.positive and (spec.name in x1):
@@ -154,19 +156,19 @@ def apply_constraints(x0, x1, time_step, output_specs):
                 x1[spec.name] = F.softplus(x1[spec.name])
 
     if 'Prec' in x1:
-        pw0, pw = expected_moisture(x0['qt'], x0['FQT'], x1['Prec'], x1['LHF'],
-                                    time_step, x0['layer_mass'])
+        pw0, pw = expected_moisture(x0[qt_name], x0[fqt_name], x1['Prec'],
+                                    x1['LHF'], time_step, x0['layer_mass'])
 
         sl_int0, sl_int = expected_temperature(
-            x0['sl'], x0['FSL'], x1['Prec'], x1['SHF'], x1['RADTOA'],
+            x0[sl_name], x0[fsl_name], x1['Prec'], x1['SHF'], x1['RADTOA'],
             x1['RADSFC'], time_step, layer_mass)
 
-        sl = enforce_expected_integral(x1['sl'], sl_int, layer_mass)
-        qt = enforce_expected_integral(x1['qt'], pw, layer_mass)
+        sl = enforce_expected_integral(x1[sl_name], sl_int, layer_mass)
+        qt = enforce_expected_integral(x1[qt_name], pw, layer_mass)
     else:
-        sl = x1['sl']
-        qt = x1['qt']
+        sl = x1[sl_name]
+        qt = x1[qt_name]
 
-    x1['qt'] = qt
-    x1['sl'] = sl
+    x1[qt_name] = qt
+    x1[sl_name] = sl
     return x1
