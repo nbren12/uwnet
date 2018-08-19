@@ -36,7 +36,7 @@ def post(x):
 
 
 print("Opening data")
-ds = xr.open_zarr(args.data).isel(x=slice(0, 8))
+ds = xr.open_dataset(args.data).isel(x=slice(0, 8))
 data = XRTimeSeries(ds.load(), [['time'], ['x', 'y'], ['z']])
 loader = DataLoader(data, batch_size=128, shuffle=False)
 
