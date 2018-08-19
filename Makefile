@@ -1,3 +1,5 @@
+.PHONY: data
+
 WORKDIR = ~/Data/0
 
 ./nextflow:
@@ -13,7 +15,6 @@ no_resume:
 debug_sam_output: 
 	rm -f ~/workspace/models/SAMUWgh/SAM_*
 	make all
-	# @grep -a pyt data/samNN/output.txt
 	@grep 'W range' data/samNN/checks/sam_nn.txt
 	@grep 'FQT range' data/samNN/checks/sam_nn.txt
 	@grep -v 'FQT range' data/samNN/checks/sam_nn.txt | grep FQT
@@ -28,4 +29,13 @@ check_sam_output:
 	@grep FSL data/samNN/checks/sam_nn.txt
 	@grep Prec data/samNN/checks/sam_nn.txt
 
+
+
+## Call nextflow to produce the training data.
+data: ./nextflow
+	./nextflow run data.nf -w $(WORKDIR)  --numTimePoints=640 -resume 
+
+## train
+train:
+	./nextflow run train.nf -w $(WORKDIR) --trainingData data/training_data.nc -resume
 
