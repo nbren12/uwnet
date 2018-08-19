@@ -26,6 +26,7 @@ params.numEpochs = 1
 
 time_step_ch = Channel.from(0..params.numTimePoints - 1)
 stat_file_ch = Channel.fromPath(params.NGAquaDir + "/stat.nc")
+sfc_file_ch = Channel.fromPath(params.NGAquaDir + "/coarse/2d/all.nc")
 
 
 process processOneTimeStep {
@@ -61,31 +62,54 @@ process concatAllFiles {
     """
 }
 
-process computeLaterMass {
+
+process addOtherNeededVariables {
     input:
+        file x from concated_file_ch
         file stat from stat_file_ch
+        file d2d from sfc_file_ch
     output:
-        file 'layer_mass.nc' into layer_mass_ch
+        set file('aux.nc'), file(x) into combine_vars_ch
+
     """
     #!/usr/bin/env python
     import xarray as xr
     from uwnet.thermo import layer_mass
+
+    # compute layer_mass
     stat = xr.open_dataset("$stat")
     rho = stat.RHO.isel(time=0).drop('time')
-    layer_mass(rho).to_dataset(name='layer_mass').to_netcdf('layer_mass.nc')
+    w = layer_mass(rho)
+
+    # get 2D variables
+    d2 = xr.open_dataset("$d2d")
+    ds = xr.open_dataset("$x")
+    d2 = d2.sel(time=ds.time)
+
+    out = xr.Dataset({
+       'RADTOA': d2.LWNT - d2.SWNT,
+       'RADSFC': d2.LWNS - d2.SWNS,
+       'layer_mass': w
+    })
+
+
+    for key in 'Prec SHF LHF SOLIN SST'.split():
+        out[key] = d2[key]
+
+    # append these variables
+    out.to_netcdf("aux.nc")
+
     """
 }
 
-process appendLayerMass {
+process combineVariables {
     publishDir 'data'
     input:
-        file x from concated_file_ch
-        file y from layer_mass_ch
+        set file(x), file(y) from combine_vars_ch
     output:
-        file x into training_data_ch
-
+        file y into training_data_ch
     """
-    ncks -A $y $x
+    ncks -A $x $y
     """
 }
 
@@ -206,6 +230,8 @@ process runSAMNeuralNetwork {
     output:
         set file('NG1/data.pkl'), file('*.pkl' ) into check_sam_dbg_ch
         file('output.txt')
+    when:
+        false
     """
     run_sam_nn_docker.sh $x $baseDir/assets/NG1 > output.txt
     """
