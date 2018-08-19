@@ -256,7 +256,7 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         sources = {key: out[key] for key in progs}
 
         # scale sources since time step in units of seconds is too large
-        sources = {key: out[key] for key in progs}
+        sources = {key: out[key]/86400 for key in progs}
 
         diags = {key: val for key, val in out.items() if key not in progs}
         return sources, diags
