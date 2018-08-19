@@ -161,10 +161,11 @@ class VariableList(object):
         return cls([VariableSpec(*input) for input in inputs])
 
     def __getitem__(self, key):
-        return self.variables[0]
+        return self.variables[key]
 
     def __iter__(self):
         return iter(self.variables)
+
 
 
 class MLP(nn.Module, StackerScalerMixin, SaverMixin):
@@ -268,6 +269,8 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         ----------
         x : dict
             dict of torch arrays (input variables)
+        dt : float
+            the timestep in seconds
         *args
             not used
 
@@ -300,6 +303,7 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
             out['Q1NN'] = (out['SLI'] - x['SLI']) / dt - x['FSLI']
 
         return out, None
+
 
     def forward(self, x, n=None):
         """

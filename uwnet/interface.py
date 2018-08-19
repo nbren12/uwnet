@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+from toolz import curry, valmap, first
 
 
 def load_model_from_path(path):
@@ -13,14 +14,14 @@ def xr_to_step_model_args(ds):
     out = {}
 
     for key in ds.data_vars:
-        val  = ds[key]
+        val = ds[key]
         dims = set(val.dims)
         if dims == {'x', 'y'}:
             val = val.transpose('y', 'x').values[np.newaxis]
         elif dims == {'x', 'y', 'z'}:
             val = val.transpose('z', 'y', 'x').values
         elif key in {'layer_mass'}:
-            val  = val.values
+            val = val.values
         elif key in {'dt'}:
             val = float(val)
 
@@ -29,13 +30,18 @@ def xr_to_step_model_args(ds):
     return out
 
 
-def numpy_3d_to_torch_flat(x):
-    nz = x.shape[0]
-    x = x.reshape((nz, -1)).T
-    return torch.from_numpy(x).float()
+def _numpy_3d_to_torch_flat(x):
+    if x.ndim > 1:
+        nz = x.shape[0]
+        x = x.reshape((nz, -1)).T
+
+    y = torch.from_numpy(x).float()
+    y.requires_grad = False
+    return y
 
 
-def torch_flat_to_numpy_3d(x, shape):
+@curry
+def _torch_flat_to_numpy_3d(x, shape):
     """Convert flat torch array to numpy and reshape
 
     Parameters
@@ -52,61 +58,41 @@ def torch_flat_to_numpy_3d(x, shape):
     return x.reshape(orig_shape).copy()
 
 
-def step_model(step, dt, layer_mass, qt, sl, FQT, FSL, U, V, SST, SOLIN, **kw):
-    """
-    Take a step using the model
+def numpy_dict_to_torch_dict(x):
+    """Convert dict of numpy arrays to dict of torch arrays"""
+    return valmap(_numpy_3d_to_torch_flat, x)
+
+
+def get_xy_shape(x):
+    for key in x:
+        if x[key].ndim == 3:
+            return x[key].shape[-2:]
+
+
+def torch_dict_to_numpy_dict(x, shape):
+    return valmap(_torch_flat_to_numpy_3d(shape=shape), x)
+
+
+def step_with_numpy_inputs(step, x, dt):
+    """Step model with numpy inputs
+
+    This method is useful for interfacing with external models such as SAM.
 
     Parameters
     ----------
-    model
-        Torch model with `step` function
-    dt
-        time step
-    *args
-        remaining inputs in kg -m -s  units.
+    x : dict of numpy arrays
+        These should be the same inputs and have the same units as specified
+        in self.inputs. However, these arrays should have size (z, y, x).
+    dt : float
+        the time step in seconds
 
     Returns
     -------
-    outputs : dict of numpy arrays
-        These outputs include LHF, SHF, RADTOA, RADSFC, Prec, qt, sl.
-        All of these are in kg-m-s units as well.
+    out : dict of numpy arrays
+        A dict of the outputs listed in self.outputs.
     """
-
-    s_to_day = 86400
-    kg_kg_to_g_kg = 1000
-
-    dt = dt / s_to_day
-
-    # convert the units for the model
-    x = {
-        'qt': qt * kg_kg_to_g_kg,  # needs to be in g/kg
-        'sl': sl,  # K
-        'FQT': FQT * s_to_day * kg_kg_to_g_kg,
-        'FSL': FSL * s_to_day,
-        'U': U,
-        'V': V,
-        'SST': SST,
-        'SOLIN': SOLIN,
-    }
-
-    nz, ny, nx = x['qt'].shape
-    # call the neural network
     with torch.no_grad():
-        # flatten numpy arrays and convert to torch
-        x = {key: numpy_3d_to_torch_flat(val) for key, val in x.items()}
+        x_t = numpy_dict_to_torch_dict(x)
+        out, _ = step(x_t, dt)
 
-        # add layer mass
-        x['layer_mass'] = torch.from_numpy(layer_mass).float()
-
-        out, _ = step(x, dt)
-
-    # flatten and scale outputs
-    scales = {'qt': kg_kg_to_g_kg, 'Q1NN': 1000 * 86400, 'Q2NN': 1000 * 86400,
-              'QP': kg_kg_to_g_kg, 'QN': kg_kg_to_g_kg}
-    out_np = {}
-    for key, arr in out.items():
-        arr = torch_flat_to_numpy_3d(arr, [ny, nx])
-        if key in scales:
-            arr /= scales[key]
-        out_np[key] = arr
-    return out_np
+    return torch_dict_to_numpy_dict(out, shape=get_xy_shape(x))

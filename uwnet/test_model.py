@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from uwnet.model import MLP, MOE, VariableSpec, VariableList
+from uwnet.model import MLP, MOE, VariableList
 from uwnet.utils import select_time, get_batch_size, stack_dicts
 
 import pytest
@@ -69,7 +69,7 @@ def test_MLP_step():
 
     # a 30 second step should
     with pytest.raises(AssertionError):
-        out, _ = mlp.step(x, 30 / 86400)
+        out, _ = mlp.step(x, 30)
         _assert_all_close(out[qt_name], x[qt_name])
 
 
