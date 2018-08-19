@@ -16,6 +16,9 @@ from uwnet.logging import MongoDBLogger
 from uwnet.loss import MVLoss
 from uwnet.utils import select_time
 
+from comet_ml import Experiment
+
+
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='')
@@ -39,16 +42,15 @@ def main():
 
     # setup logging
     logging.basicConfig(level=logging.INFO)
+    experiment = Experiment(api_key="fEusCnWmzAtmrB0FbucyEggW2")
+    db = MongoDBLogger()
     logger = logging.getLogger(__name__)
 
     args = parse_arguments()
     # load configuration
     config = yaml.load(open(args.config))
 
-    # open up tinydb
-    # db = TinyDBLogger(args.db)
-    db = MongoDBLogger()
-
+    experiment.log_parameter('directory', os.path.abspath(args.output_dir))
     db.log_run(args, config)
 
     n_epochs = args.n_epochs
@@ -172,6 +174,8 @@ def main():
                     'avg_loss': meter_avg_loss.value()[0],
                     'time_elapsed': time_elapsed_batch,
                 }
+                experiment.log_metric('loss', batch_info['loss'])
+                experiment.log_metric('avg_loss', batch_info['avg_loss'])
                 db.log_batch(batch_info)
                 logger.info(f"Batch {k},  Loss: {meter_loss.value()[0]}; "
                             f"Avg {meter_avg_loss.value()[0]}; "
@@ -179,6 +183,7 @@ def main():
                 meter_loss.reset()
                 meter_avg_loss.reset()
 
+            experiment.log_epoch_end(i)
             db.log_epoch(i, lstm)
 
     except KeyboardInterrupt:
