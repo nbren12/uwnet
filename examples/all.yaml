@@ -12,12 +12,12 @@ paths:
   - path: /Users/noah/workspace/research/uw-machine-learning-v1/data/processed/dry_tends.nc
     fields: ['FQT', 'FSL']
 inputs:
-  - [qt, 34]
-  - [sl, 34]
+  - [QT, 34]
+  - [SLI, 34]
   - [U, 34]
   - [V, 34]
   - [FQT, 34]
-  - [FSL, 34]
+  - [FSLI, 34]
   - [SST, 1]
   - [SOLIN, 1]
 outputs:
@@ -28,8 +28,8 @@ outputs:
   - [Prec, 1, True]
   - [QP, 34, True]
   - [QN, 34, True]
-  - [qt, 34, True, True]
-  - [sl, 34, True]
+  - [SLI, 34]
+  - [QT, 34, True, True]
 loss_scale:
   LHF: 150
   SHF: 10
@@ -38,5 +38,5 @@ loss_scale:
   Prec: 8
   QP: .05
   QN: .05
-  qt: 1.0
-  sl: 2.5
+  QT: 1.0
+  SLI: 2.5

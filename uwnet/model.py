@@ -172,9 +172,9 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
                  mean,
                  scale,
                  time_step,
-                 inputs=(('LHF', 1), ('SHF', 1), ('SOLIN', 1), ('qt', 34),
-                         ('sl', 34), ('FQT', 34), ('FSL', 34)),
-                 outputs=(('sl', 34), ('qt', 34))):
+                 inputs=(('LHF', 1), ('SHF', 1), ('SOLIN', 1), ('QT', 34),
+                         ('SLI', 34), ('FQT', 34), ('FSLI', 34)),
+                 outputs=(('SLI', 34), ('QT', 34))):
 
         "docstring"
         super(MLP, self).__init__()
@@ -245,8 +245,8 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         # zero out FSL in upper level
         # TODO this needs to be refactored
         # This routine should not know about FSL
-        if 'FSL' in x:
-            x['FSL'][:, -1] = 0.0
+        if 'FSLI' in x:
+            x['FSLI'][:, -1] = 0.0
 
         stacked = pipe(x, self.scaler, self._stacked)
         out = self.mod(stacked)
@@ -254,6 +254,10 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         out = pipe(out, self._unstacked)
 
         sources = {key: out[key] for key in progs}
+
+        # scale sources since time step in units of seconds is too large
+        sources = {key: out[key] for key in progs}
+
         diags = {key: val for key, val in out.items() if key not in progs}
         return sources, diags
 
@@ -292,8 +296,8 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
 
         #  diagnostics
         if 'FQT' in self.input_fields:
-            out['Q2NN'] = (out['qt'] - x['qt']) / dt - x['FQT']
-            out['Q1NN'] = (out['sl'] - x['sl']) / dt - x['FSL']
+            out['Q2NN'] = (out['QT'] - x['QT']) / dt - x['FQT']
+            out['Q1NN'] = (out['SLI'] - x['SLI']) / dt - x['FSLI']
 
         return out, None
 

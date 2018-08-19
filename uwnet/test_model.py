@@ -5,6 +5,8 @@ from uwnet.utils import select_time, get_batch_size, stack_dicts
 
 import pytest
 
+sl_name = 'SLI'
+
 
 def _assert_all_close(x, y):
     np.testing.assert_allclose(y.detach().numpy(), x.detach().numpy())
@@ -15,10 +17,10 @@ def _mock_batch(n, nt, nz, init=torch.rand):
         'LHF': init(n, nt),
         'SHF': init(n, nt),
         'SOLIN': init(n, nt),
-        'qt': init(n, nt, nz),
-        'sl': init(n, nt, nz),
+        'QT': init(n, nt, nz),
+        'SLI': init(n, nt, nz),
         'FQT': init(n, nt, nz),
-        'FSL': init(n, nt, nz),
+        'FSLI': init(n, nt, nz),
         'layer_mass': torch.arange(1, nz + 1) * 1.0,
         # 'p': init(nz),
     }
@@ -28,7 +30,7 @@ def test_select_time():
     batch = _mock_batch(100, 10, 11)
     ibatch = select_time(batch, 0)
 
-    assert ibatch['sl'].size() == (100, 11)
+    assert ibatch[sl_name].size() == (100, 11)
     assert ibatch['SHF'].size() == (100, )
 
 
@@ -43,7 +45,7 @@ def test_stack_dicts():
     seq = [select_time(batches, i) for i in range(4)]
     out = stack_dicts(seq)
 
-    assert out['sl'].size() == batches['sl'].size()
+    assert out[sl_name].size() == batches[sl_name].size()
     print(out.keys())
     for key in out:
         if key != 'layer_mass':
@@ -51,6 +53,7 @@ def test_stack_dicts():
 
 
 def test_MLP_step():
+    qt_name = 'QT'
     batch = _mock_batch(1, 1, 34)
     mlp = MLP({}, {}, time_step=.125)
     x = {}
@@ -62,12 +65,12 @@ def test_MLP_step():
 
     # a 0 second step should not change state
     out, _ = mlp.step(x, 0.0)
-    _assert_all_close(out['qt'], x['qt'])
+    _assert_all_close(out[qt_name], x[qt_name])
 
     # a 30 second step should
     with pytest.raises(AssertionError):
         out, _ = mlp.step(x, 30 / 86400)
-        _assert_all_close(out['qt'], x['qt'])
+        _assert_all_close(out[qt_name], x[qt_name])
 
 
 def test_mlp_forward():
@@ -77,7 +80,7 @@ def test_mlp_forward():
 
     pred = mlp(batch, n=1)
 
-    assert pred['sl'].size() == batch['qt'].size()
+    assert pred['SLI'].size() == batch['QT'].size()
 
 
 def test_moe():
@@ -103,13 +106,13 @@ def test_variable_input():
     mlp = MLP(
         {}, {},
         time_step=.125,
-        inputs=[('a', 1), ('sl', nz), ('qt', nz)],
-        outputs=[('sl', nz), ('qt', nz), ('SHF', 1)])
+        inputs=[('a', 1), ('SLI', nz), ('QT', nz)],
+        outputs=[('SLI', nz), ('QT', nz), ('SHF', 1)])
 
     outputs = mlp(batch)
-    assert outputs['sl'].size(-1) == nz
+    assert outputs['SLI'].size(-1) == nz
 
-    for key in ['sl', 'qt', 'SHF']:
+    for key in ['SLI', 'QT', 'SHF']:
         assert outputs[key].size(-1) == mlp.output_fields[key]
 
 
@@ -131,16 +134,16 @@ def test_mlp_no_cheating(n):
     mlp = MLP({}, {}, time_step=.125)
 
     for key, val in batch.items():
-        if key not in {'FSL', 'FQT'}:
+        if key not in {'FSLI', 'FQT'}:
             val.requires_grad = True
 
     pred = mlp(batch, n=n)
 
     # backprop
-    sl = pred['sl']
+    sl = pred['SLI']
     sl[0, -1, 0].backward()
 
-    sl_true = batch['sl']
+    sl_true = batch['SLI']
     # the gradient of sl_true should only be nonzero for the first n points
     # of the data
     grad_t = torch.norm(sl_true.grad[0, :, :], dim=1)
@@ -150,7 +153,7 @@ def test_mlp_no_cheating(n):
 
 def test_VariableList():
 
-    inputs = [('LHF', 1), ('SHF', 1), ('SOLIN', 1), ('qt', 34), ('sl', 34)]
+    inputs = [('LHF', 1), ('SHF', 1), ('SOLIN', 1), ('qt', 34), (sl_name, 34)]
     vl = VariableList.from_tuples(inputs)
     assert vl.num == 3 + 2 * 34
 

@@ -1,5 +1,5 @@
 import torch
-from toolz import merge_with
+from toolz import merge_with, first
 
 
 def stack_dicts(seq):
@@ -17,7 +17,7 @@ def select_time(batch, i):
 
 
 def get_batch_size(batch):
-    return batch['sl'].size(0)
+    return first(batch.values()).size(0)
 
 
 def concat_dicts(seq, dim=1):
