@@ -13,6 +13,7 @@ params.trainingData =""
 
 training_data_ch = Channel.fromPath(params.trainingData)
 scm_data_ch = Channel.fromPath(params.trainingData)
+prm_data_ch = Channel.fromPath("$baseDir/assets/NG1/prm")
 
 /*
  Train the Neural network
@@ -102,12 +103,12 @@ process plotPrecipTropics {
  Run the neural network with SAM
  */
 process runSAMNeuralNetwork {
-    cache false
-    publishDir 'data/samNN/'
+    publishDir "data/samNN/$workflow.runName"
     validExitStatus 0,9
     afterScript "rm -rf   RUNDATA RESTART "
     input:
         file(x) from sam_run_ch.flatten().last()
+        file prm from prm_data_ch
 
     output:
         set file('NG1/data.pkl'), file('*.pkl' ) into check_sam_dbg_ch
@@ -118,7 +119,7 @@ process runSAMNeuralNetwork {
 }
 
 process checkSAMNN {
-    publishDir 'data/samNN/checks'
+    publishDir "data/samNN/$workflow.runName/"
     input:
         set file(model), file(x) from check_sam_dbg_ch
     output:
