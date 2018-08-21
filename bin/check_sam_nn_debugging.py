@@ -4,7 +4,7 @@ import sys
 import torch
 import xarray as xr
 
-from uwnet.interface import step_model
+from uwnet.interface import step_with_numpy_inputs
 from uwnet.model import MLP
 
 def lhf_to_evap(lhf):
@@ -37,11 +37,10 @@ def print_water_budget(b):
     print("P-E", b['Prec'] - b['Evap'], "mm/day")
 
 
-def check_water_budget(state, out):
+def check_water_budget(state, out, dt):
     w = state['layer_mass']
-    pw0 = vertical_integral(w, state['qt']).mean()
-    pw1 = vertical_integral(w, out['qt']).mean()
-    dt = state['dt']
+    pw0 = vertical_integral(w, state['QT']).mean()
+    pw1 = vertical_integral(w, out['QT']).mean()
 
     water_budget = {
         "pw0 (mm)": pw0,
@@ -72,8 +71,8 @@ def load_model_from_path(path):
 dbg = torch.load(sys.argv[1])
 model = load_model_from_path(sys.argv[2])
 
-state, out = dbg['kwargs'], dbg['out']
-out = step_model(model.step, **state)
+(state, dt), out = dbg['args'], dbg['out']
+out = step_with_numpy_inputs(model.step, state, dt)
 
-check_water_budget(dbg['kwargs'], out)
-check_vert_vel(dbg['kwargs'])
+check_water_budget(state, out, dt)
+check_vert_vel(state)
