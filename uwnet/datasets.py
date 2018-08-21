@@ -115,7 +115,7 @@ class XRTimeSeries(Dataset):
         return self.dims[0][0]
 
     def constants(self):
-        for key in self.data:
+        for key in self.data.data_vars:
             if self.time_dim not in self.data[key].dims:
                 yield key
 
