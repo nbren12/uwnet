@@ -29,7 +29,12 @@ check_sam_output:
 	@grep FSL data/samNN/checks/sam_nn.txt
 	@grep Prec data/samNN/checks/sam_nn.txt
 
-
+print_sam_checks:
+	@grep 'W range' data/samNN/checks/sam_nn.txt
+	@grep 'FQT range' data/samNN/checks/sam_nn.txt
+	@grep -v 'FQT range' data/samNN/checks/sam_nn.txt | grep FQT
+	@grep FSL data/samNN/checks/sam_nn.txt
+	@grep Prec data/samNN/checks/sam_nn.txt
 
 ## Call nextflow to produce the training data.
 data: ./nextflow
@@ -39,3 +44,6 @@ data: ./nextflow
 train:
 	./nextflow run train.nf -w $(WORKDIR) --trainingData data/training_data.nc -resume
 
+
+upload_reports:
+	rsync -avz reports/ olympus:~/public_html/reports/uwnet/

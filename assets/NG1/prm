@@ -33,7 +33,7 @@
  docoriolis = .true.
  dofplane = .false.
  dopython = .true.
- npython = 1
+ npython = 10
  usepython = .false.
  docolumn = .false.
 

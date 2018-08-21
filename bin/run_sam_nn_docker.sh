@@ -23,6 +23,7 @@ cp -r $CASEDIR NG1
 cp $model NG1/data.pkl
 
 docker run \
+       -i  \
        -v $(pwd):/case \
        -v /Users/noah/workspace/research/uwnet:/uwnet \
        -v /Users/noah/workspace/models/SAMUWgh:/sam \
