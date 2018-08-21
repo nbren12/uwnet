@@ -28,11 +28,15 @@ docker run \
        -v /Users/noah/workspace/research/uwnet:/uwnet \
        -v /Users/noah/workspace/models/SAMUWgh:/sam \
        -e UWNET_OUTPUT_INTERVAL=20 \
-       -e UWNET_DEBUG= \
+       -e UWNET_DEBUG=True \
        -e UWNET_MODEL=/case/NG1/data.pkl \
        -e PYTHONPATH=/uwnet:/sam/SRC/python \
        -w /case \
        $image $exe
+
+
+docker run -w /case -v $(pwd):/case $image /sam/docker/convert_files.sh
+
 
 # log data to mongodb
 f=$(readlink $model)

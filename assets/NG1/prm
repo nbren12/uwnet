@@ -33,8 +33,8 @@
  docoriolis = .true.
  dofplane = .false.
  dopython = .true.
- npython = 10
- usepython = .false.
+ npython = 1
+ usepython = .true.
  docolumn = .false.
 
 
@@ -54,9 +54,9 @@
 
  day0= 100.625
 
- nstop 		=  240, ! 1 day
- nprint 	= 240, ! 1 hr
- nstat 		= 240,
+ nstop 		=  20, ! 1 day
+ nprint 	= 20, ! 1 hr
+ nstat 		= 20,
  nstatfrq 	= 1,
 
  nsave2D	= 120,
@@ -64,8 +64,8 @@
  nsave2Dend	= 99960480,
  save2Dbin = .true.,
 
- nsave3D	= 120,
- nsave3Dstart	= 10000000,
+ nsave3D	= 1,
+ nsave3Dstart	= 00000,
  nsave3Dend	= 99960480,
  save3Dbin = .true.,
 
