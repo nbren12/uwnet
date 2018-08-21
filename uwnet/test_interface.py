@@ -2,7 +2,11 @@ import numpy as np
 import pytest
 import torch
 
-from .interface import (numpy_dict_to_torch_dict, step_with_numpy_inputs)
+import xarray as xr
+
+from .interface import (dataarray_to_numpy, numpy_dict_to_torch_dict,
+                        numpy_to_dataarray, step_with_numpy_inputs,
+                        step_with_xarray_inputs)
 
 
 def test_step_with_numpy_inputs():
@@ -40,3 +44,44 @@ def test_numpy_dict_to_torch_dict():
     for key, val in y.items():
         if not torch.is_tensor(val):
             raise ValueError(key + " is not a torch tensor")
+
+
+def test_dataarray_to_numpy():
+    nx, ny, nz = (10, 11, 12)
+    da = xr.DataArray(np.ones((ny, nx, nz)), dims=['y', 'x', 'z'])
+    x = dataarray_to_numpy(da)
+    assert x.shape == (nz, ny, nx)
+
+    # one dimensional array
+    da = xr.DataArray(np.ones((ny, nx)), dims=['y', 'x'])
+    x = dataarray_to_numpy(da)
+    assert x.shape == (1, ny, nx)
+
+
+def test_numpy_to_dataarray():
+    y = numpy_to_dataarray(np.ones((1, 10, 11)))
+    assert y.shape == (10, 11)
+    assert y.dims == ('y', 'x')
+
+    y = numpy_to_dataarray(np.ones((22, 10, 11)))
+    assert y.shape == (22, 10, 11)
+    assert y.dims == ('z', 'y', 'x')
+
+
+def test_step_with_xarray_inputs():
+    def step(x, t):
+        return {'a': x['a'], 'b': x['b'][..., 0:1]}, None
+
+    nx, ny, nz = (10, 11, 12)
+    a = xr.DataArray(np.ones((ny, nx, nz)), dims=['y', 'x', 'z'])
+    b = xr.DataArray(np.ones((ny, nx)), dims=['y', 'x'])
+
+    coords = dict(y=np.r_[:ny], x=np.r_[:nx], z=np.r_[:nz])
+    ds = xr.Dataset({'a': a, 'b': b}, coords=coords)
+
+    out_ds = step_with_xarray_inputs(step, ds, 0.0)
+
+    # check that these variables exist in the output
+    # maybe i should add more rigorous checks
+    print(out_ds.a)
+    print(out_ds.b)

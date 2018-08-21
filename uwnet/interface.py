@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from toolz import curry, valmap, first
+import xarray as xr
 
 
 def load_model_from_path(path):
@@ -96,3 +97,52 @@ def step_with_numpy_inputs(step, x, dt):
         out, _ = step(x_t, dt)
 
     return torch_dict_to_numpy_dict(out, shape=get_xy_shape(x))
+
+
+def dataarray_to_numpy(x):
+    dim_order = [dim for dim in ['z', 'y', 'x'] if dim in x.dims]
+    y = x.transpose(*dim_order).values
+    if y.ndim == 2:
+        y = y[np.newaxis]
+    return y
+
+
+def dataset_to_numpy_dict(x):
+    return {key: dataarray_to_numpy(x[key]) for key in x.data_vars}
+
+
+def numpy_to_dataarray(x, dims=None):
+    if dims is None:
+        if x.ndim == 3:
+            dims = ['z', 'y', 'x']
+        else:
+            raise ValueError("Input must be three dimensional")
+
+    # remove singleton z dimension for two-dimensional inputs
+    if 'z' == dims[0] and x.shape[0] == 1:
+        x = x[0]
+        dims = dims[1:]
+
+    return xr.DataArray(x, dims=dims)
+
+
+def step_with_xarray_inputs(step, x, dt):
+    """Step model with xarray inputs
+
+    This is useful for debugging
+
+    Parameters
+    ----------
+    x : xr.Dataset
+        These should be the same inputs and have the same units as specified
+        in self.inputs. However, these arrays should have size (z, y, x).
+    dt : float
+        the time step in seconds
+
+    Returns
+    -------
+    out : xr.Dataset
+    """
+    y = dataset_to_numpy_dict(x)
+    out = step_with_numpy_inputs(step, y, dt)
+    return xr.Dataset(valmap(numpy_to_dataarray, out), coords=x.coords)
