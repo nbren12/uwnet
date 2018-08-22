@@ -112,8 +112,8 @@ def test_variable_input():
     outputs = mlp(batch)
     assert outputs['SLI'].size(-1) == nz
 
-    for key in ['SLI', 'QT', 'SHF']:
-        assert outputs[key].size(-1) == mlp.output_fields[key]
+    for var in mlp.outputs:
+        assert outputs[var.name].size(-1) == var.num
 
 
 def test_to_dict():
@@ -121,8 +121,8 @@ def test_to_dict():
     a = mlp.to_dict()
     mlp1 = mlp.from_dict(a)
 
-    assert mlp.input_fields == mlp1.input_fields
-    assert mlp.output_fields == mlp1.output_fields
+    assert mlp.inputs == mlp1.inputs
+    assert mlp.outputs == mlp1.outputs
 
 
 @pytest.mark.parametrize("n", [1, 2, 3, 4])

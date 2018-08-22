@@ -193,27 +193,19 @@ class MLP(nn.Module, SaverMixin):
         return None
 
     @property
-    def input_fields(self):
-        return self.inputs.to_dict()
-
-    @property
-    def output_fields(self):
-        return self.outputs.to_dict()
-
-    @property
     def progs(self):
         """Prognostic variables are shared between the input and output
         sets
         """
-        return set(self.output_fields) & set(self.input_fields)
+        return set(self.outputs.names) & set(self.inputs.names)
 
     @property
     def diags(self):
-        return set(self.output_fields.keys()) - set(self.input_fields)
+        return set(self.outputs.names) - set(self.inputs.names)
 
     @property
     def aux(self):
-        return set(self.input_fields) - set(self.output_fields.keys())
+        return set(self.inputs.names) - set(self.outputs.names)
 
     @property
     def args(self):
@@ -286,7 +278,7 @@ class MLP(nn.Module, SaverMixin):
             x, out, dt, output_specs=self.outputs)
 
         #  diagnostics
-        if 'FQT' in self.input_fields:
+        if 'FQT' in self.inputs.names:
             out['Q2NN'] = (out['QT'] - x['QT']) / dt - x['FQT']
             out['Q1NN'] = (out['SLI'] - x['SLI']) / dt - x['FSLI']
 
@@ -311,7 +303,7 @@ class MLP(nn.Module, SaverMixin):
 
         """
         dt = torch.tensor(self.time_step, requires_grad=False)
-        nt = x[first(self.input_fields.keys())].size(1)
+        nt = x[first(self.inputs.names)].size(1)
         if n is None:
             n = nt
         output_fields = []
@@ -335,4 +327,4 @@ class MLP(nn.Module, SaverMixin):
         return utils.stack_dicts(output_fields)
 
     def __repr__(self):
-        return f"MLP({self.input_fields}, {self.output_fields})"
+        return f"MLP({self.inputs.names}, {self.outputs.names})"
