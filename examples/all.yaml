@@ -16,8 +16,8 @@ inputs:
   - [SLI, 34]
   - [U, 34]
   - [V, 34]
-  - [FQT, 34]
-  - [FSLI, 34]
+  # - [FQT, 34]
+  # - [FSLI, 34]
   - [SST, 1]
   - [SOLIN, 1]
 outputs:
