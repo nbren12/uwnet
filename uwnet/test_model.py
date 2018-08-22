@@ -164,3 +164,17 @@ def test_VariableList():
     v = vl[0]
     assert v.name == 'SHF'
     assert v.positive
+
+
+def test_VariableList_stack_unstack():
+    # check stacking and unstacking
+    inputs = [('a', 1), ('b', 10)]
+    data = {'a': torch.rand(11, 1), 'b': torch.rand(11, 10)}
+    vl = VariableList.from_tuples(inputs)
+
+    b = vl.stack(data)
+    assert b.shape == (11, 11)
+
+    data_orig = vl.unstack(b)
+    for key in data_orig:
+        np.testing.assert_equal(data_orig[key].numpy(), data[key].numpy())

@@ -24,27 +24,6 @@ def uncat(sizes, x):
     return x.split(sizes, dim=-1)
 
 
-class StackerScalerMixin(object):
-    """Mixin object for translating fields between stacked array objects and
-    dictionarys of arrays
-
-    """
-
-    def _stacked(self, x):
-        return cat(get(list(self.input_fields), x))[1]
-
-    def _unstacked(self, out):
-        out = out.split(tuple(self.output_fields.values()), dim=-1)
-        return dict(zip(self.output_fields.keys(), out))
-
-    def _unscale(self, out):
-        # scale the outputs
-        for key in self.output_fields:
-            if key in self.scale:
-                out[key] = out[key] * self.scale[key].float()
-        return out
-
-
 class SaverMixin(object):
     """Mixin for output and initializing models from dictionaries of the state
     and arguments
@@ -166,9 +145,23 @@ class VariableList(object):
     def __iter__(self):
         return iter(self.variables)
 
+    @property
+    def names(self):
+        return [x.name for x in self.variables]
+
+    @property
+    def nums(self):
+        return tuple(x.num for x in self.variables)
+
+    def stack(self, x):
+        return cat(get(self.names, x))[1]
+
+    def unstack(self, x):
+        x = x.split(tuple(self.nums), dim=-1)
+        return dict(zip(self.names, x))
 
 
-class MLP(nn.Module, StackerScalerMixin, SaverMixin):
+class MLP(nn.Module, SaverMixin):
     def __init__(self,
                  mean,
                  scale,
@@ -187,20 +180,18 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         self.inputs = VariableList.from_tuples(inputs)
         self.outputs = VariableList.from_tuples(outputs)
 
-        n_in = self.inputs.num
-        n_out = self.outputs.num
-
-        # self.mod = MOE(n_in, n_out, n_experts=40)
-        self.mod = nn.Sequential(
-            nn.Linear(n_in, 256),
-            nn.ReLU(),
-            nn.Linear(256, 256),
-            nn.ReLU(),
-            nn.Linear(256, n_out), )
         self.mean = mean
         self.scale = scale
         self.time_step = time_step
         self.scaler = scaler(scale, mean)
+
+        self.mod = nn.Sequential(
+            nn.Linear(self.inputs.num, 256),
+            nn.ReLU(),
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            nn.Linear(256, self.outputs.num)
+        )
 
     def init_hidden(self, *args, **kwargs):
         return None
@@ -249,10 +240,10 @@ class MLP(nn.Module, StackerScalerMixin, SaverMixin):
         if 'FSLI' in x:
             x['FSLI'][:, -1] = 0.0
 
-        stacked = pipe(x, self.scaler, self._stacked)
+        stacked = pipe(x, self.scaler, self.inputs.stack)
         out = self.mod(stacked)
 
-        out = pipe(out, self._unstacked)
+        out = pipe(out, self.outputs.unstack)
 
         sources = {key: out[key] for key in progs}
 
