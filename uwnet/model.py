@@ -7,6 +7,7 @@ import torch
 from torch import nn
 from uwnet import constraints, utils
 from uwnet.normalization import scaler
+import inspect
 
 
 def cat(seq):
@@ -36,14 +37,13 @@ class SaverMixin(object):
 
     def to_dict(self):
         return {
-            'args': self.args,
             'kwargs': self.kwargs,
             'state': self.state_dict()
         }
 
     @classmethod
     def from_dict(cls, d):
-        mod = cls(*d['args'], **d['kwargs'])
+        mod = cls(**d['kwargs'])
         mod.load_state_dict(d['state'])
         return mod
 
@@ -168,15 +168,17 @@ class MLP(nn.Module, SaverMixin):
                  time_step,
                  inputs=(('LHF', 1), ('SHF', 1), ('SOLIN', 1), ('QT', 34),
                          ('SLI', 34), ('FQT', 34), ('FSLI', 34)),
-                 outputs=(('SLI', 34), ('QT', 34))):
+                 outputs=(('SLI', 34), ('QT', 34)),
+                 add_forcing=False):
 
         "docstring"
         super(MLP, self).__init__()
 
-        self.kwargs = {}
-        self.kwargs['inputs'] = inputs
-        self.kwargs['outputs'] = outputs
+        self.kwargs = locals()
+        self.kwargs.pop('self')
+        self.kwargs.pop('__class__')
 
+        self.add_forcing = add_forcing
         self.inputs = VariableList.from_tuples(inputs)
         self.outputs = VariableList.from_tuples(outputs)
 
