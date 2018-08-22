@@ -36,10 +36,7 @@ class SaverMixin(object):
     """
 
     def to_dict(self):
-        return {
-            'kwargs': self.kwargs,
-            'state': self.state_dict()
-        }
+        return {'kwargs': self.kwargs, 'state': self.state_dict()}
 
     @classmethod
     def from_dict(cls, d):
@@ -190,10 +187,7 @@ class MLP(nn.Module, SaverMixin):
         self.mod = nn.Sequential(
             nn.Linear(self.inputs.num, 256),
             nn.ReLU(),
-            nn.Linear(256, 256),
-            nn.ReLU(),
-            nn.Linear(256, self.outputs.num)
-        )
+            nn.Linear(256, 256), nn.ReLU(), nn.Linear(256, self.outputs.num))
 
     def init_hidden(self, *args, **kwargs):
         return None
@@ -250,7 +244,7 @@ class MLP(nn.Module, SaverMixin):
         sources = {key: out[key] for key in progs}
 
         # scale sources since time step in units of seconds is too large
-        sources = {key: out[key]/86400 for key in progs}
+        sources = {key: out[key] / 86400 for key in progs}
 
         diags = {key: val for key, val in out.items() if key not in progs}
         return sources, diags
@@ -288,7 +282,8 @@ class MLP(nn.Module, SaverMixin):
             out[key] = x[key] + dt * sources[key]
 
         out = merge(out, diagnostics)
-        out = constraints.apply_constraints(x, out, dt, output_specs=self.outputs)
+        out = constraints.apply_constraints(
+            x, out, dt, output_specs=self.outputs)
 
         #  diagnostics
         if 'FQT' in self.input_fields:
@@ -296,7 +291,6 @@ class MLP(nn.Module, SaverMixin):
             out['Q1NN'] = (out['SLI'] - x['SLI']) / dt - x['FSLI']
 
         return out, None
-
 
     def forward(self, x, n=None):
         """
