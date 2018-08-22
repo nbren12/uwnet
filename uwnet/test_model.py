@@ -52,10 +52,11 @@ def test_stack_dicts():
             _assert_all_close(out[key], batches[key])
 
 
-def test_MLP_step():
+@pytest.mark.parametrize('add_forcing', [True, False])
+def test_MLP_step(add_forcing):
     qt_name = 'QT'
     batch = _mock_batch(1, 1, 34)
-    mlp = MLP({}, {}, time_step=.125)
+    mlp = MLP({}, {}, time_step=.125, add_forcing=add_forcing)
     x = {}
     for key, val in batch.items():
         try:
