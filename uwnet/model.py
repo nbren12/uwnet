@@ -281,9 +281,11 @@ class MLP(nn.Module, SaverMixin):
             x, out, dt, output_specs=self.outputs)
 
         #  diagnostics
-        if 'FQT' in self.inputs.names:
+        try:
             out['Q2NN'] = (out['QT'] - x['QT']) / dt - x['FQT']
             out['Q1NN'] = (out['SLI'] - x['SLI']) / dt - x['FSLI']
+        except KeyError:
+            pass
 
         return out, None
 
@@ -311,7 +313,7 @@ class MLP(nn.Module, SaverMixin):
             n = nt
         output_fields = []
 
-        aux = {key: x[key] for key in self.aux}
+        aux = {key: x[key] for key in set(x) - set(self.outputs.names)}
 
         for t in range(0, nt):
             if t < n:
