@@ -1,8 +1,10 @@
 """Routines for opening and analyzing debugging output from SAM/UWNET"""
 import glob
+import logging
 import os
 from collections.abc import Mapping
 
+import numpy as np
 import pandas as pd
 
 import torch
@@ -38,8 +40,40 @@ def open_debug_state_like_ds(path: str, ds: xr.Dataset) -> xr.Dataset:
     dbg = torch.load(path)
     state = index_like(dbg['args'][0], ds)
     out = index_like(dbg['out'], ds)
-    out = out.rename({key: key + 'NN' for key in set(state.data_vars) & set(out.data_vars)})
+    out = out.rename(
+        {key: key + 'NN'
+         for key in set(state.data_vars) & set(out.data_vars)})
     return xr.merge([state, out])
+
+
+def open_debug_files_as_numpy(files):
+    out = {}
+
+    logger = logging.getLogger(__name__)
+    for file in files:
+        logger.info(f"Opening {file}")
+        args = torch.load(file)['args'][0]
+        for key in args:
+            out.setdefault(key, []).append(args[key])
+
+    for key in out:
+        out[key] = np.stack(out[key])
+
+    return out
+
+
+def expand_dims(x):
+    """Assign values to all data-less dimensions
+
+    Needed by hv.Dataset
+    """
+    coords = {}
+    for k, dim in enumerate(x.dims):
+        if dim not in x.coords:
+            coords[dim] = np.arange(x.shape[k])
+    y = x.assign_coords(**coords)
+    y.name = x.name
+    return y
 
 
 def concat_datasets(args, name='mode'):
