@@ -1,0 +1,77 @@
+&SGS_TKE
+dosmagor = .true.
+/
+
+&UWOPTIONS
+dofixdivg = .true.
+/
+
+&MICRO_DRIZZLE
+Nc0 = 150.
+/
+
+ &PARAMETERS
+
+ caseid ='32x96_testf',
+
+ nrestart = 0,
+
+ LES = .true.,
+ OCEAN = .true.,
+
+ perturb_type = 1
+
+ dosgs		= .true.,
+ dodamping 	= .true.,
+ doupperbound  	= .true.,
+ docloud 	= .true.,
+ doprecip 	= .false.,
+ dolongwave	= .true.,
+ doradsimple    = .true., 
+ doshortwave	= .false.,
+ dosurface 	= .true.,
+ dolargescale 	= .true.,
+ doradforcing   = .false.,
+ dosfcforcing   = .true.,
+ docoriolis 	= .true.,
+ donudging_uv   = .false.,
+ donudging_tq   = .false.,
+
+ SFC_FLX_FXD    = .true.,
+ SFC_TAU_FXD    = .true.,
+
+ fcor = 0.376e-4,
+
+ dx = 	50.,
+ dy = 	50.,
+
+ dt = 	1.,
+
+ day0=0.5,
+ nrad = 45,
+ doisccp = .true., 
+ domodis = .true., 
+ domisr = .true., 
+
+nstop 	= 3600,
+!nelapse = 1,
+nprint  = 180,
+nstat 	= 180,
+nstatfrq= 18,
+
+doSAMconditionals = .fasle.
+dosatupdnconditionals = .false.
+
+ nsave2D	= 1,
+ nsave2Dstart	= 999991,
+ nsave2Dend	= 14400,
+ save2Dbin      = .true.
+
+ nsave3D	= 600,
+ nsave3Dstart	= 99918000,
+ nsave3Dend	= 999999999,
+ save3Dbin      = .true.
+
+/ 
+
+

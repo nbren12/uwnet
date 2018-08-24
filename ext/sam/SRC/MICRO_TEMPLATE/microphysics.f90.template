@@ -1,0 +1,635 @@
+module microphysics
+
+! This is a tamplate microphysics module that should be used to implement any new
+! microphysics scheme in SAM. Here, specific instractions on how to implement 
+! a new microphysics package will be given.  Note that MICRO_SAM1MOM directory is 
+! the original SAM bulk microphysics implementation ans is a useful example of
+! using a microphysics interface.
+
+! Instructions
+  ------------
+
+! First you need to create a new subdirectory in SRC directory that 
+! will contain ALL source files and data files that belong to microphysics. o
+! Ideally, you should NOT change or add any file into the main SRC directory 
+! when impelmenting a new microphysics.
+! Otherwise, the whole point of having a microphysics interface is lost.
+
+! Edit the Build script to set the environmental variable
+! MICRO_DIR to point to that new microphysics directory so that the compiler had 
+! correct path to it.
+
+! Again, the microphysics interface is set-up such a way that absolutely NO changes will
+! be necessary to the files in the main SRC directory.
+
+! Next, you will need to set up the dimensions of the  microphysics arrays. 
+! In SAM, all the prognostic scalars have dimensions
+! that are bigger than the grid dimensions. This is needed to implement the
+! periodical boundary conditions and to implement horizontal domain decomposition
+! for parallel model performance.
+
+! grid is SAM module which contains the required grid information
+
+use grid, only: nx, ny, nz, nzm, & ! grid dimensions; nzm=nz-1 - # of levels for all scalars
+                dimx1_s,dimx2_s,dimy1_s,dimy2_s ! actual scalar-array dimensions 
+implicit none
+
+! It is probably easier to understand the procedure of microphysics implementation
+! by following a specific example. Let's assume that we want to implement a
+! 2-moment bulk microphysics package that has two prognostic variables for aerosol number 
+! concentration (say CCN and IN), one prognostic water-vapor variable, and 
+! 5 species of liquid/ice water each having mass and concentration characteristics; 
+! therefore, our new microphysics scheme will have 10 prognostic liquid/ice water variables.  
+
+! By prognostic variable I mean the one that needis to be explicitly advected and mixed
+! by the dynamical core. In contrast, the diagnostic variables are those that can
+! simply be computed from prognostic variables along; therefore, the diagnostic
+! variable arrays can have simple (nx,ny,nzm) dimensions.
+
+! Back to our example, the total number of prognostic variables is 2+1+10 = 13
+
+integer, parameter :: nmicro_fields = 13   ! total number of prognostic water vars
+
+! Now we can allocate the required memory for all the prognostic microphysics arrays:
+
+real micro_field(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm, nmicro_fields)
+
+! We assume that our prognostic variables are positioned in micro_field array as follows:
+
+ 1 - CCN
+ 2 - IN
+ 3 - water vapor mixing ratio
+ 4 - cloud water mixing ratio
+ 5 - cloud ice mixing ratio
+ 6 - rain mixing ratio
+ 7 - snow mixing ratio
+ 8 - graupel/hail mixing ratio
+ 9 - cloud water concentration
+10 - cloud ice concentration
+11 - rain concentration
+12 - snow concentration
+13 - graupel/hail concentration
+
+
+! For many reasons, for example, to be able to compute water budget, we may need to
+! know which variables among the prognostic ones represent water mixing ratio, regardless
+! of water species. We use a simple array of flags with 1 marking the water mass
+! variable:
+
+integer, parameter :: flag_wmass(nmicro_fields) = (/0,0,1,1,1,1,1,1,0,0,0,0,0/) 
+
+! To implement large-scale forcing, surface fluxes, etc, SAM needs to know
+! which variable has a water vapor information. In our example, it is variable #3:
+
+integer, parameter :: index_water_vapor = 3 ! index for variable that contains water vapor
+
+! Now, we need to specify which variables describe precipitation. This is needed because
+! SAM has two logical flags to deal with microphysics proceses - docloud and doprecip.
+! docloud set to true means that condensation/sublimation processes are allowed to
+! form clouds. However, the possibility of rain, snow, heil, etc., is controled by
+! a second flag: doprecip. If doprecip=.false. than no precipitation is allowed, hence 
+! no advection, diffusion, and fallout of corresponding variables should be done; 
+! therefore, SAM needs an array of flags that mark the prognostic variables which
+! only make sense when doprecip=.true. :
+
+integer, parameter :: flag_precip(nmicro_fields) = (/0,0,0,0,0,1,1,1,1,1,1,1,1/)
+
+! Sometimes, a cloud ice (or even cloud water) is allowed to be a subject of
+! gravitational sedimentation, usually quite slow compared to the precipitation
+! drops. SAM calls a special routine, ice_fall() that computes sedimentation of cloud ice.
+! However, it is a rudiment from SAM's original single-moment microphysics.
+! Instead, you may want to handle sedimentation of cloud water/ice yourself similarly
+! to precipitation variables. In this case, set the index for falling cloud ice to -1, which
+! means that no default ice mixing ration sedimentation is done. 
+
+integer, parameter :: index_cloud_ice = -1   ! index for cloud ice (sedimentation)
+
+! The following arrays are needed to hold the turbulent surface and domain-top fluxes 
+! for the microphysics prognostic variables:
+
+real fluxbmk (nx, ny, 1:nmicro_fields) ! surface fluxes 
+real fluxtmk (nx, ny, 1:nmicro_fields) ! top boundary fluxes 
+
+! these arrays are needed for output statistics from advection and diffusion routines:
+
+real mkwle(nz,1:nmicro_fields)  ! resolved vertical flux
+real mkwsb(nz,1:nmicro_fields)  ! SGS vertical flux
+real mkadv(nz,1:nmicro_fields)  ! tendency due to vertical advection
+real mkdiff(nz,1:nmicro_fields)  ! tendency due to vertical diffusion
+
+!------------------------------------------------------------------
+
+! It would be quite inconvenient to work with the micro_field array itself. Besides,
+! your original microphysics routines use some specific names for the prognostic variables
+! that you don't wanna change. Therefore, you need to make aliases for prognostic variables. 
+! You can use the aliases as you would ordinary arrays.
+
+real CN(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm)  ! CCN
+real IN(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm)  ! IN
+real qq(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm)  ! water vapor (qv name is already taken by SAM)
+real qc(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm)  ! cloud water mixing ratio
+real qi(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm)  ! cloud ice mixing ratio
+real qr(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm)  ! rain mixing ratio
+real qs(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm)  ! snow mixing ratio
+real qg(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm)  ! graupel mixin ratio
+real Nc(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm)  ! cloud water drop concentration
+real Ni(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm)  ! cloud ice number concentration
+real Nr(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm)  ! rain drop number concentration
+real Ns(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm)  ! snow number concentration
+real Ng(dimx1_s:dimx2_s, dimy1_s:dimy2_s, nzm)  ! graupel number concentration
+equivalence (CN(dimx1_s,dimy1_s,1),micro_field(dimx1_s,dimy1_s,1,1))
+equivalence (IN(dimx1_s,dimy1_s,1),micro_field(dimx1_s,dimy1_s,1,2))
+equivalence (qv(dimx1_s,dimy1_s,1),micro_field(dimx1_s,dimy1_s,1,3))
+equivalence (qc(dimx1_s,dimy1_s,1),micro_field(dimx1_s,dimy1_s,1,4))
+equivalence (qi(dimx1_s,dimy1_s,1),micro_field(dimx1_s,dimy1_s,1,5))
+equivalence (qr(dimx1_s,dimy1_s,1),micro_field(dimx1_s,dimy1_s,1,6))
+equivalence (qs(dimx1_s,dimy1_s,1),micro_field(dimx1_s,dimy1_s,1,7))
+equivalence (qg(dimx1_s,dimy1_s,1),micro_field(dimx1_s,dimy1_s,1,8))
+equivalence (Nc(dimx1_s,dimy1_s,1),micro_field(dimx1_s,dimy1_s,1,9))
+equivalence (Ni(dimx1_s,dimy1_s,1),micro_field(dimx1_s,dimy1_s,1,10))
+equivalence (Nr(dimx1_s,dimy1_s,1),micro_field(dimx1_s,dimy1_s,1,11))
+equivalence (Ns(dimx1_s,dimy1_s,1),micro_field(dimx1_s,dimy1_s,1,12))
+equivalence (Ng(dimx1_s,dimy1_s,1),micro_field(dimx1_s,dimy1_s,1,13))
+
+! Note: First I tried to use pointers, but found that they are not working correctly
+! for arrays that have negative indeces (dimsx1_s and dimsy1_s are <0) on 
+! a particular compiler and hardwaree I used, so I decided to use an old-fashioned
+! way - equivalence statement - just to be safe.
+
+! You may also want to have some additional, diagnostic, arrays; 
+! for example, total nonprecipitating cloud water, etc:
+
+real qn(nx,ny,nzm)  ! cloud condensate (liquid + ice)
+
+!bloss: I added routines that can output 2D or 3D outputs from within the
+!  microphysics.  This makes it easier to produce scheme-specific outputs
+!  without needing a lot of logic in the SRC/write_fields*D.f90 routines.
+!  The number of outputs is below and can be changed in the setparm/init
+!  routines.  The actual outputs are produced by the micro_write_field*D() 
+!  subroutines.  Look at SRC/MICRO_M2005/microphysics.f90 for an example.
+!  To get the 2D outputs right, I have also added micro_stat_2Dinit subroutine
+!  that initializes the 2D outputs appropriately for the value of save2Davg.
+
+! number of fields output from micro_write_fields2D, micro_write_fields3D
+integer :: nfields2D_micro=0 
+integer :: nfields3D_micro=0 
+
+
+CONTAINS
+
+! Below are the required subroutines and functions that you need to fill in.
+!----------------------------------------------------------------------
+function micro_scheme_name
+  character(len=32) :: micro_scheme_name
+  ! Return the scheme name, normally the same as the directory name with leading "MICRO_" removed
+  
+  micro_scheme_name = "template" 
+  
+end function   micro_scheme_name
+!----------------------------------------------------------------------
+!!! Read microphysics options from prm file
+subroutine micro_setparm()
+  ! read any options in from prm file here using a namelist named
+  !   after your microphysics routine, e.g. MICRO_M2005 for the
+  !   M2005 microphysics.
+end subroutine micro_setparm
+
+!----------------------------------------------------------------------
+!!! Initialize microphysics:
+!
+! this one is guaranteed to be called by SAM at the beginning of each run, initial or restart:
+
+subroutine micro_init()
+
+  use vars
+
+  if(nrestart.eq.0) then
+
+     micro_field = 0.
+     do k=1,nzm
+      q(:,:,k) = q0(k)
+     end do
+     qn = 0.
+     fluxbmk = 0.
+     fluxtmk = 0.
+  
+  end if
+  
+
+  mkwle = 0.
+  mkwsb = 0.
+  mkadv = 0.
+  mkdiff = 0.
+ 
+  qpsrc = 0.
+  qpevp = 0.
+
+
+
+! your initialization calls are here. What is known at this point are the following 
+! vertical profiles:
+
+! temperature tabs0(1:nzm), 
+! air density rho(1:nzm), 
+! pressure pres(1:nzm), 
+! water vapor (possibly supersaturated, so handle with caution) q0(1:nzm).
+! Height of scalar levels is given by z(1:nzm), 
+! height of leyer interfaces zi(1:nz).
+! Thickness of each layer k is computed as dz*adz(k)
+! So, the mass of each layer k per unit area is dz*adz(k)*rho(k)
+
+! All the arrays above are available here through the module vars (vars.f90).
+
+! Your additional initialization calls are placed below. 
+! Remember that all your new files that contain actual microphysics subroutines 
+! and functions should be added only to the microphysics directory.
+
+!  call ... ! your calls
+
+  if(docloud) call micro_diagnose()   ! leave this call here
+
+end subroutine micro_init
+
+!----------------------------------------------------------------------
+!!! fill-in the surface and top boundary fluxes here:
+!
+! Obviously, for liquid/ice water variables those fluxes are zero. They are not zero
+! only for water vapor variable and, possibly, for CCN and IN if you have those.
+
+subroutine micro_flux()
+
+  use vars, only: fluxbq, fluxtq
+
+  fluxbmk(:,:,index_water_vapor) = fluxbq(:,:)
+  fluxtmk(:,:,index_water_vapor) = fluxtq(:,:)
+
+end subroutine micro_flux
+
+!----------------------------------------------------------------------
+!!! compute local microphysics processes (beyond advection and SGS diffusion):
+!
+!  This is the place where the condensation/sublimation, accretion, coagulation, freezing,
+!  melting, etc., are done, that is  all the microphysics processes except for the spatial 
+!  transport and mixing.
+
+! IMPORTANT: For consistancy, you need to use thermodynamic constants like specific heat,
+! specific heat of condensation, gas constant, etc, the same as in file params.f90.
+! Also, you should assume that the conservative thermodynamic variable during these
+! proceses is the liquid/ice water static energy: t = tabs + gz - Lc (qc+qr) - Ls (qi+qs+qg) 
+! It should not change during all of your point microphysical processes!
+
+subroutine micro_proc()
+
+   use vars, only: docloud
+
+!  call ..
+!  call ..
+
+
+   if (docloud)  call micro_diagnose()   ! leave this line here
+
+end subroutine micro_proc
+
+!----------------------------------------------------------------------
+!!! Diagnose arrays nessesary for dynamical core and radiation:
+!
+! This is the pace where the microphysics field that SAM actually cares about
+! are diagnosed. You need to compute all the arrays on the left-hand-side in the loop below
+! for SAM dynamical core to see your microphysics (that is to see the cloud and precipitation).
+
+subroutine micro_diagnose()
+ 
+   use vars
+
+   real omn, omp
+   integer i,j,k
+
+   do k=1,nzm
+    do j=1,ny
+     do i=1,nx
+       qv(i,j,k) = qq(i,j,k)
+       qcl(i,j,k) = qc(i,j,k)  
+       qci(i,j,k) = qi(i,j,k)
+       qpl(i,j,k) = qr(i,j,k)
+       qpi(i,j,k) = qs(i,j,k)+qg(i,j,k)
+     end do
+    end do
+   end do
+       
+
+
+end subroutine micro_diagnose
+
+!----------------------------------------------------------------------
+!!! functions to compute terminal velocity for precipitating variables:
+!
+! you need to supply your own functions functions to compute terminal velocity 
+! for all of your precipitating prognostic variables. Note that all functions should
+! compute vertical velocity given two microphysics parameters var1, var2, 
+! and temperature, and water vapor (single values, not arrays). Also, for
+! bin-microphysics implementation, there is a fifth variable with the type of
+! integer that can be used for bin index. Var1 and var2 
+! are some microphysics variables like water content and concentration.
+! IMPORTANT: Don't change the number of arguments or their meaning!
+
+real function term_vel_qr(i,j,k,ind)
+! .......  
+end function term_vel_qr
+
+real function term_vel_Nr(i,j,k,ind)
+! .......  
+end function term_vel_Nr
+
+real function term_vel_qs(i,j,k,ind)
+! .......  
+end function term_vel_qs
+
+! etc.
+
+!----------------------------------------------------------------------
+!!! compute sedimentation 
+!
+!  The purpose of this subroutine is to prepare variables needed to call
+! the precip_all() for each of the falling hydrometeor varibles
+
+subroutine micro_precip_fall()
+
+! before calling precip_fall() for each of falling prognostic variables,
+! you need to set hydro_type and omega(:,:,:) variables.
+! hydro_type can have four values:
+! 0 - variable is liquid water mixing ratio
+! 1 - hydrometeor is ice mixing ratio
+! 2 - hydrometeor is mixture-of-liquid-and-ice mixing ratio. (As in original SAM microphysics).
+! 3 - variable is not mixing ratio, but, for example, rain drop concentration
+! OMEGA(:,:,:) is used only for hydro_type=2, and is the fraction of liquid phase (0-1).
+! for our hypothetical case, there is no mixed hydrometeor, so omega is not actually used.
+! In default SAM microphysics, omega is a mass partition between liquid and ice phases.
+
+  integer hydro_type
+  real omega(nx,ny,nzm) 
+  integer ind ! variable that is reserved for bin-microphysics use (bin index).
+
+  integer i,j,k
+
+! Initialize arrays that accumulate surface precipitation flux
+
+ if(mod(nstep-1,nstatis).eq.0.and.icycle.eq.1) then
+   do j=1,ny
+    do i=1,nx
+     precsfc(i,j)=0.
+    end do
+   end do
+   do k=1,nzm
+    precflux(k) = 0.
+   end do
+ end if
+
+ do k = 1,nzm ! Initialize arrays which hold precipitation fluxes for stats.
+    qpfall(k)=0.
+    tlat(k) = 0.
+ end do
+   
+! Compute sedimentation of falling variables:
+
+ hydro_type=0
+ call precip_fall(qr, term_vel_qr, hydro_type, omega, ind)
+ hydro_type=3
+ call precip_fall(Nr, term_vel_Nr, hydro_type, omega, ind)
+ hydro_type=1
+ call precip_fall(qs, term_vel_qs, hydro_type, omega, ind)
+ hydro_type=3
+ call precip_fall(Ns, term_vel_Ns, hydro_type, omega, ind)
+ hydro_type=1
+ call precip_fall(qg, term_vel_qg, hydro_type, omega, ind)
+ hydro_type=3
+ call precip_fall(Ng, term_vel_Ng, hydro_type, omega, ind)
+
+end subroutine micro_precip_fall
+
+!----------------------------------------------------------------------
+!!! Initialize the list of microphysics statistics that will be outputted
+!!  to *.stat statistics file
+
+subroutine micro_hbuf_init(namelist,deflist,unitlist,status,average_type,count,trcount)
+
+
+   character(*) namelist(*), deflist(*), unitlist(*)
+   integer status(*),average_type(*),count,trcount
+   integer ntr
+
+
+   count = count + 1
+   trcount = trcount + 1
+   namelist(count) = 'QVFLUX'
+   deflist(count) = 'Water vapor flux (Resolved+SGS)'
+   unitlist(count) = 'W/m2'
+   status(count) = 1    
+   average_type(count) = 0
+
+   count = count + 1
+   trcount = trcount + 1
+   namelist(count) = 'QVFLUXS'
+   deflist(count) = 'Water Vapor flux flux (SGS)'
+   unitlist(count) = 'W/m2'
+   status(count) = 1    
+   average_type(count) = 0
+
+   count = count + 1
+   trcount = trcount + 1
+   namelist(count) = 'QCFLUX'
+   deflist(count) = 'Cloud-water turbulent flux (Resolved+SGS)'
+   unitlist(count) = 'W/m2'
+   status(count) = 1    
+   average_type(count) = 0
+
+   count = count + 1
+   trcount = trcount + 1
+   namelist(count) = 'QCFLUXS'
+   deflist(count) = 'Cloud-waterg turbulent flux (SGS)'
+   unitlist(count) = 'W/m2'
+   status(count) = 1    
+   average_type(count) = 0
+
+...
+
+etc.
+
+
+   count = count + 1
+   trcount = trcount + 1
+   namelist(count) = 'CCN'
+   deflist(count) = 'CCN concentration'
+   unitlist(count) = 'm-3'
+   status(count) = 1    
+   average_type(count) = 0
+
+   count = count + 1
+   trcount = trcount + 1
+   namelist(count) = 'QC'
+   deflist(count) = 'Cloud water'
+   unitlist(count) = 'g/kg'
+   status(count) = 1    
+   average_type(count) = 0
+
+   count = count + 1
+   trcount = trcount + 1
+   namelist(count) = 'QR'
+   deflist(count) = 'Rain water'
+   unitlist(count) = 'g/kg'
+   status(count) = 1    
+   average_type(count) = 0
+
+...
+
+etc.
+
+end subroutine micro_hbuf_init
+
+!----------------------------------------------------------------------
+!!!! Collect microphysics history statistics (vertical profiles)
+!! Note that only the fields declared in micro_hbuf_init() are allowed to
+! be collected
+
+subroutine micro_statistics()
+  
+  use vars
+  use hbuffer, only: hbuf_put
+  use params, only : lcond
+
+  real tmp(2), factor_xy 
+  real qcz(nzm), qiz(nzm), qrz(nzm), qsz(nzm), qgz(nzm), omg
+  integer i,j,k,m
+
+  factor_xy = 1./float(nx*ny)
+
+  do k=1,nzm
+      tmp(1) = dz/rhow(k)
+      tmp(2) = tmp(1) / dtn
+      mkwsb(k,1) = mkwsb(k,1) * tmp(1) * rhow(k) * lcond
+      mkwle(k,1) = mkwle(k,1)*tmp(2)*rhow(k)*lcond + mkwsb(k,1)
+      if(docloud.and.doprecip) then
+        mkwsb(k,2) = mkwsb(k,2) * tmp(1) * rhow(k) * lcond
+        mkwle(k,2) = mkwle(k,2)*tmp(2)*rhow(k)*lcond + mkwsb(k,2)
+      endif
+  end do
+
+  do k=1,nzm
+      tmp(1) = dz/rhow(k)
+      tmp(2) = tmp(1) / dtn
+      mkwsb(k,:) = mkwsb(k,:) * tmp(1) * rhow(k) * lcond
+      mkwle(k,:) = mkwle(k,:)*tmp(2)*rhow(k)*lcond + mkwsb(k,:)
+  end do
+  call hbuf_put('QVFLUX',mkwle(:,3),factor_xy)
+  call hbuf_put('QVFLUXS',mkwsb(:,3),factor_xy)
+  call hbuf_put('QCFLUX',mkwle(:,4),factor_xy)
+  call hbuf_put('QCFLUXS',mkwsb(:,4),factor_xy)
+... etc
+
+
+  call hbuf_avg_put('QC',qc,dimx1_s,dimx2_s,dimy1_s,dimy2_s,nzm,1.)
+  call hbuf_avg_put('NC',Nc,dimx1_s,dimx2_s,dimy1_s,dimy2_s,nzm,1.)
+  call hbuf_avg_put('QI',qc,dimx1_s,dimx2_s,dimy1_s,dimy2_s,nzm,1.)
+  call hbuf_avg_put('NI',Nc,dimx1_s,dimx2_s,dimy1_s,dimy2_s,nzm,1.)
+  call hbuf_avg_put('QR',qc,dimx1_s,dimx2_s,dimy1_s,dimy2_s,nzm,1.)
+  call hbuf_avg_put('NR',Nc,dimx1_s,dimx2_s,dimy1_s,dimy2_s,nzm,1.)
+
+...
+
+end subroutine micro_statistics
+
+
+!-----------------------------------------------------------------------
+! This one is called when stepout() is called
+
+subroutine micro_print()
+
+end subroutine micro_print()
+
+!-----------------------------------------
+subroutine micro_stat_2Dinit(ResetStorage)
+  implicit none
+  integer, intent(in) :: ResetStorage
+
+  ! initialize microphysical 2D outputs as necessary
+
+  if(ResetStorage.eq.1) then
+    !bloss: If computing storage terms for individual hydrometeors,
+    !         store initial profiles for computation of storage terms in budgets
+    !bloss mkstor(:,:) = mk0(:,:)
+  end if
+
+end subroutine micro_stat_2Dinit
+!-----------------------------------------
+! Subroutines that produce 2D/3D output that is specific to this
+!    microphysics routine.
+subroutine micro_write_fields2D(nfields1)
+  implicit none
+  integer, intent(inout) :: nfields1
+
+  ! nothing here yet
+
+end subroutine micro_write_fields2D
+
+!-----------------------------------------
+subroutine micro_write_fields3D(nfields1)
+  implicit none
+  integer, intent(inout) :: nfields1
+
+  ! nothing here yet
+
+end subroutine micro_write_fields3D
+
+!-----------------------------------------------------------------------
+! Function that computes total water in the domain:
+! Don't change this one.
+
+real function total_water()
+
+  use vars, only : nstep,nprint,adz,dz,rho
+
+  integer k,m
+
+  total_water = 0.
+  if(mod(nstep,nprint).ne.0) return
+
+  do m=1,nmicro_fields
+
+   if(flag_wmass(m).eq.1) then
+
+    do k=1,nzm
+      total_water = total_water + &
+       sum(micro_field(1:nx,1:ny,k,m))*adz(k)*dz*rho(k)
+    end do
+
+   end if
+
+  end do
+
+end function total_water
+
+! -------------------------------------------------------------------------------
+! If your microphysics allows you to compute drop/ice effective radiause,
+! insert the code here and modify corresponding micro_provides_reff? functions 
+! to return .true. If not, leave blank functions for compilation perposes. 
+
+logical function micro_provides_reffc
+  micro_provides_reffc = .false.
+end function micro_provides_reffc
+
+real function Get_Effrc ! liquid water
+  real, dimension(nx,ny,nzm) :: Get_Effrc
+end function Get_Effrc
+
+logical function micro_provides_reffi
+  micro_provides_reffi = .false.
+end function micro_provides_reffi
+
+real function Get_Effri_col ! ice
+  real, dimension(nx,ny,nzm) :: Get_Effri
+end function Get_Effri
+
+
+end module microphysics
+
+
+! You are done! Good luck!

@@ -1,0 +1,91 @@
+&MICRO_M2005_PA
+  Nc0 = 200.
+/ &end
+
+&MICRO_M2005
+  Nc0 = 200.
+/ &end
+
+&MICRO_THOMPSON
+  Nc0 = 200.
+/ &end
+
+&MICRO_DRIZZLE
+  Nc0 = 200.
+/ &end
+
+ &PARAMETERS
+
+ nrestart = 0
+
+ caseid ='2d_8x96_testa_xxx_yyy_zzz'
+
+ CEM = .true.,
+ OCEAN = .true.,
+
+domodis = .true.
+doisccp = .true.
+domisr = .true.
+
+ dosgs		= .true.,
+ dodamping 	= .true.,
+ doupperbound  	= .true.,
+ docloud 	= .true.,
+ doprecip 	= .true., 
+ dolongwave	= .true.,
+ doshortwave	= .true.,
+ dosurface 	= .true.,
+ dolargescale 	= .true.,
+ doradforcing   = .false.,
+ dosfcforcing   = .true.,
+ docoriolis 	= .false.,
+ donudging_uv   = .true.,
+ donudging_tq   = .false.,
+
+ doperpetual    = .true.,
+ dosolarconstant = .true.,
+ solar_constant  = 685.,
+ zenith_angle    = 51.7,
+
+ tauls = 7200.,
+ 
+ SFC_FLX_FXD    = .false.,
+ SFC_TAU_FXD    = .false.,
+
+ dx =   2000.,
+ dy = 	2000.,
+ dt = 	  10., !30.,
+
+ latitude0= 0.,
+ longitude0=-23.5,
+ nrad = 2,
+
+ day0=0.0,
+
+ nstop 		= 10,
+ nprint 	= 2,
+ nstat 		= 2,
+ nstatfrq 	= 2,
+
+ nsave2D	= 2,
+ nsave2Dstart	= 0,
+ nsave2Dend	= 99960480,
+ save2Dbin = .true.,
+
+ nsave3D	= 2,
+ nsave3Dstart	= 0,
+ nsave3Dend	= 99960480,
+ save3Dbin = .true.,
+
+ doSAMconditionals = .false.
+ dosatupdnconditionals = .false.
+
+/ &end 
+
+
+&SGS_TKE
+
+ dosmagor	= .true.,
+
+/ &end
+

@@ -1,0 +1,7 @@
+Modified version of CGILS S6 case that is easier to run with the stock verson of SAM:
+ - geostrophic winds (instead of short timescale nudging), and
+ - interactive surface fluxes (instead of simple parameterization).
+
+This setup was used with MICRO_M2005 for the paper Bretherton and Blossey (2017, JAMES) who used the vertical grid in grd_128_40m_6km and a model top at 40km with RAD_RRTM.
+
+Now that RAD_RRTM4PBL has been merged into the UW version of SAM, I would suggest running this case with RAD_RRTM4PBL and the domain top at 6km using grd_128_40m_6km.  Even higher horizontal/vertical resolutions could be tried as well.

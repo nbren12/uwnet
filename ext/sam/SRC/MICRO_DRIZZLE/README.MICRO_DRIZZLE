@@ -1,0 +1,19 @@
+Drizzle microphysics
+
+This is a truncated version of the Khairoutdinov & Kogan (2000) drizzle microphysics. 
+It adds a prognostic drizzle drop concentration. 
+No CCN or double-moment cloud water microphysics has been implemented.
+Cloud water amount is still computed using the all-or-nothing approach similar to SAM's default microphysics.
+However, cloud-to-drizzle autoconversion rate follows KK(2000) formulation. The cloud water
+drop concentration is prescribed (Nc0).
+
+I used this code for the GCSS WG1 drizzling DYCOMS-II case.
+
+I provide this code as a curtousy. Is was not properly tested, may contain bugs, so use at your own risk.
+
+A new namelist, MICRO_DRIZZLE, can be added to the prm file.  This
+namelist currently has one option:
+
+ - Nc0 (type real, default = 40.)
+
+which is a prescribed cloud droplet number concentration.

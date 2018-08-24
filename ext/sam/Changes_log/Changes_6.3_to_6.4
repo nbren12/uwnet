@@ -1,0 +1,114 @@
+----------------------------------------------------------
+
+Starting from version 6.4, one can add arbitrary number of tracers to be transported in the domain. 
+The tracer physics can also be added. First, one needs to specify the number of tracers ntracers in domain.f90. 
+A minimal tracer interface can be found in module tracers.f90 . 
+What is guaranteed by the code is that the tracers will be advected and mixed around the domain automatically. 
+The user only needs to supply initialization code, surface fluxes if different than zero, and physics code that 
+describes the change in tracers due to some processes. The code also will output the horizontally averaged 
+statistics with the names of tracers as TR01, TR02, etc. Again, only a generic interface is provided,
+and it is a user who should insert a specific code except for advection and SGS diffusion 
+which is done automatically. In order to do tracers, 
+dont forget to set dotracers = .true. in the namelist-file prm.
+
+-----------------------------------------------------------
+
+cloud.f90
+
+Bug in iterative procedure for mixed-phase cloud is fixed. Fortunatelym the
+effect of the change was found extremely small, in fact, withing the iteration error itself.
+Removed an ice sedimentation block into a new file ice_fall.f90
+
+----------------------------------------------------------------
+
+grid.f90
+hbuffer.f90
+init.f90
+main.f90
+periodic.f90
+restart.f90
+task_boundaries.f90
+task_dispatch.f90
+stepout.f90
+
+Changes to accomodate the addition of tracres (see above).
+
+
+----------------------------------------------------------------------------------
+
+kurant.f90
+
+Bug in handeling the case when ncycle>1 was fixed.
+
+-------------------------------------------------------------------------------------
+
+nudging.f90
+
+Nudging of local values of thermodynamics fields (t and q) to observed profile replaced by
+nudging of the horizontal mean profiles.
+
+
+-------------------------------------------------------------------------------------
+
+precip_proc.f90
+
+changed order of statements to:
+ 	   qpevp(k) = qpevp(k) - qp(i,j,k)
+           qp(i,j,k) = 0.
+
+----------------------------------------------------------------------------------
+
+main.f90
+rad_simple.f90.smoke
+rad_simple_dycoms.f90
+CAM/rad_full.f90
+CCM/rad_full.f90
+
+Changes to implement radiative heating on every subcycle step.
+
+---------------------------------------------------------------------------------------
+
+setforcing.f90" 
+
+fix typo in error messages:
+
+    if(masterproc) print*,'error in grid in lsf'
+    if(masterproc) print*,'error in grid in rad'
+
+--------------------------------------------------------------------------------------
+
+setparm.f90
+
+Move definition of solar_constant and zenith_angle above where the namelist is read
+
+
+------------------------------------------------------------------------------------------
+
+surface.f90
+
+momentum flux for is converted to m2/s2 from N/m2/s
+
+was:
+            fluxbu(i,j) = taux0
+            fluxbv(i,j) = tauy0
+now:
+            fluxbu(i,j) = taux0/rhow(1)
+            fluxbv(i,j) = tauy0/rhow(1)
+
+
+-----------------------------------------------------------------------------------------
+
+tke_full.f90
+
+dimfactor was removed. 
+
+
+-----------------------------------------------------------------------------
+
+Radiative heating is now applied every substep when ncycle > 1. Affected files:
+
+main.f90
+rad_simple*.f90
+RAD_CCM/rad_full.f90
+RAD_CAM/rad_full.f90
+*

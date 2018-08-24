@@ -1,0 +1,1 @@
+../RAD_RRTM/rrlw_kg10.f90

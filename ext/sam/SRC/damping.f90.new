@@ -1,0 +1,44 @@
+
+subroutine damping
+
+!  "Spange"-layer damping at the domain top region
+
+use vars
+use microphysics, only: micro_field, index_water_vapor
+use params, only: ggr, cp, rgas
+implicit none
+
+real tau(nzm)   ! damping time-scale
+real tau_min	! minimum damping time-scale (at the top)
+real tau_max    ! maxim damping time-scale (base of damping layer)
+real, parameter :: damp_depth=0.2 ! relative spange tthickness (fraction of domain height)
+integer i, j, k, n_damp
+
+do k=nzm,1,-1
+ if(z(nzm)-z(k).lt.damp_depth*z(nzm)) then 
+   n_damp=nzm-k+1
+ endif
+end do
+
+tau_min=40.*dt/10.  ! make it dependent on time step
+tau_max=300.*dt/10.
+do k=nzm,nzm-n_damp,-1
+ tau(k) = tau_min*exp(log(tau_max/tau_min)*(z(nzm)-z(k))/(z(nzm)-z(nzm-n_damp)))
+ tau(k) = max(3*dt,tau(k)*sqrt(rho(k)/rho(nzm-n_damp))) ! depends on density too
+ tau(k)=1./tau(k)
+end do
+
+do k = nzm, nzm-n_damp, -1
+   do j=1,ny
+    do i=1,nx
+      dudt(i,j,k,na)= dudt(i,j,k,na)-(u(i,j,k)-u0(k)) * tau(k)
+      dvdt(i,j,k,na)= dvdt(i,j,k,na)-(v(i,j,k)-v0(k)) * tau(k)
+      dwdt(i,j,k,na)= dwdt(i,j,k,na)-w(i,j,k) * tau(k)
+      t(i,j,k)= t(i,j,k)-dtn*(t(i,j,k)-t0(k)) * tau(k)
+      micro_field(i,j,k,index_water_vapor)= micro_field(i,j,k,index_water_vapor)- &
+                                    dtn*(qv(i,j,k)+qcl(i,j,k)+qci(i,j,k)-q0(k)) * tau(k)
+    end do! i 
+   end do! j
+end do ! k
+
+end subroutine damping

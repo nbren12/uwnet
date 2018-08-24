@@ -1,0 +1,40 @@
+#!/bin/sh -f
+#PBS -l nodes=4:ppn=8
+#PBS -m e
+#PBS -W group_list=bretherton
+#PBS -M andybrnr@atmos.washington.edu
+#PBS -N VOCALS_RF06_M2K5PA_AER_2D_NA100_W5_NOSHR_DRY_Z1300_DA_GRD1
+
+scriptdir=/home/disk/eos8/andybrnr/SAM_DEV/SAM_DOUBLE/AER_2D_NA100_W5_NOSHR_DRY_Z1300_DA_GRD1
+case=VOCALS_RF06
+subcase=AER_2D_NA100_W5_NOSHR_DRY_Z1300_DA_GRD1
+jobfile=$case/resub.$subcase
+logfile=log_$case$subcase
+prmfile=$case/prm.$subcase
+prmloc=$case/prm
+cluster=olympus
+SAMname=./SAM_SELPPM_RRTM_M2K5PA_192x1x384_32p_081612
+
+# Change to correct directory
+\cd $scriptdir
+\cp $case/CaseName ./
+\cp $prmfile $prmloc
+
+time /usr/local/openmpi/bin/mpirun $SAMname >> $logfile
+# time /usr/local/openmpi/bin/mpirun --mca btl tcp,self $SAMname >> $logfile
+
+exitstatus=$?
+echo SAM stopped with exit status $exitstatus
+
+if [ $exitstatus -eq 0 ]
+    then
+    
+    echo It appears the previous run ended properly and job not yet finished.
+    echo Resubmitting $jobfile
+    cat $prmfile | sed s/nrestart.\*=.\*0/nrestart\ =\ 1/ > temp.namelist
+    \mv temp.namelist $prmfile
+    \cp $prmfile $prmloc
+    rsh $cluster "cd `pwd`; /usr/local/bin/qsub $jobfile"
+fi
+
+exit 0

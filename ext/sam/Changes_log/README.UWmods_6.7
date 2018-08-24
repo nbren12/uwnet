@@ -1,0 +1,150 @@
+Peter Blossey, 4 March 2008
+
+A number of statistics and 2D outputs have been added to the model.
+In addition, the mechanism by which conditional averages
+(e.g. in-cloud averages) has been changed.  Further, an option
+(dosatupdnconditionals) has been added to the PARAMETERS namelist
+which enables the output of conditional averages for cloudy updrafts,
+cloudy downdrafts and environmental (cloud-free) air.
+
+First, the following 2D outputs have been added:
+
+  name='PSFC', long_name='P at the surface', units='mbar'
+  name='SWVP', long_name='Saturated Water Vapor Path', units='mm'
+  name='U850', long_name='850 mbar zonal velocity', units='m/s'
+  name='V850', long_name='850 mbar meridional velocity', units='m/s'
+  name='ZC',   long_name='Cloud top height (Instantaneous)', units='km'
+  name='TB',   long_name='Cloud top temperature (Instantaneous)', units='K'
+  name='ZE',   long_name='Echo top height (Instantaneous)', units='km'
+
+NOTES: 
+  1) ZC, TB, ZE are instantaneous 2D profiles.  The others are
+       time-averaged.
+  2) ZC is the height where the downward-integrated LWP+IWP exceeds
+       0.01 kg/m2.  TB is the temperature at this height.
+  3) ZE is the highest level where qg+qs+qr > 0.001 g/kg.
+  4) SWVP is the equivalent of WVP, but where the saturation mixing
+       ratio (with respect to water) is used at each height.
+
+Second, the following horizontall-averaged statistics have been added
+to the stat file and need to be appended to the lst file for their
+output:
+
+1  0 'QVTEND'	'Large-Scale Vertical Advection Moisture Tendency','g/kg/day'
+1  0 'QHTEND'	'Large-Scale Horizontal Advection Moisture Tendency','g/kg/day'
+1  0 'QNUDGE'	'Large-Scale Moisture Nudging','g/kg/day'
+1  0 'THTEND'	'Large-Scale Horizontal Advection Temperature Tendency','K/day'
+1  0 'TVTEND'	'Large-Scale Vertical Advection Temperature Tendency','K/day'
+1  0 'TNUDGE'	'Large-Scale Temperature Nudging','K/day'
+1  0 'WSTAR3'	'Value at inversion is w*^3 (conv. vel. scale)','m3/s3'
+1  0 'UADV'	'Resolved zonal momentum flux convergence','m/s/day'
+1  0 'VADV'	'Resolved meridioinal momentum flux convergence','m/s/day'
+1  0 'UDIFF'	'Subgrid zonal momentum flux convergence','m/s/day'
+1  0 'VDIFF'	'Subgrid meridioinal momentum flux convergence','m/s/day'
+1  0 'UNUDGE'	'Zonal velocity nudging','m/s/day'
+1  0 'VNUDGE'	'Meridional velocity nudging','m/s/day'
+1  0 'ULSADVV'	'Large-scale vertical advection of Zonal velocity','m/s/day'
+1  0 'VLSADVV'	'Large-scale vertical advection of meridional velocity','m/s/day'
+1  0 'USTOR'	'Zonal velocity storage','m/s/day'
+1  0 'VSTOR'	'Meridional velocity storage','m/s/day'
+1  0 'UTENDCOR'	'Zonal velocity tendency due to Coriolis effect','m/s/day'
+1  0 'URESID'	'Zonal velocity budget residual','m/s/day'
+1  0 'VTENDCOR'	'Meridional velocity budget residual','m/s/day'
+1  0 'VRESID'	'Meridional velocity budget residual','m/s/day'
+1  0 'HLSTOR'	'Liquid-ice static energy storage','K/day'
+1  0 'QTSTOR'	'Total water storage','K/day'
+
+NOTES:
+  1) Most of these are budget-related.  Mainly for momentum, but also
+       for liquid-ice static energy and moisture.
+
+Third, the handling of conditional statistics has been modified
+substantially.  There are now two logical flags (doSAMconditionals --
+default=.true. -- and dosatupdnconditional -- default=.false.) in the
+PARAMETERS namelist that control their output.  Also, the existing
+conditionals should be removed from the lst file, since there is a new
+subroutine hbuf_conditions_init() that handles their addition to the
+master list in the hbuffer module.
+
+NOTES:
+  1) In-cloud averages (suffix: CLD) are always output.
+  2) If doSAMconditionals=.true., core (suffix: COR) and downdraft
+       core (suffix: CDN) averages will also be output.
+  3) If dosatupdnconditionals=.true., cloudy updraft (suffix: SUP),
+       cloudy downdraft (suffix: SDN) and cloud-free (suffix: ENV for
+       environment) averages will also be output.  Note that the
+       threshold for cloud is 10^(-5) kg/kg, so that there may be
+       small amounts of cloud water and ice in the environmental air.
+  4) The new handling of conditional statistics allows these to be 
+       computed in the micro_statistics() routines as well.
+  5) Most averages are truly condition: they represent the average
+       over grid cells only where the condition is satisfied.  However,
+       some accumulate values only in grid cells where the condition is
+       true but compute an average as if over the whole domain.  In the
+       list below, those lines ending in n denote a conditional average.
+       Those lines ending in 0 denote an average over the whole domain
+       (while counting only those grid cells where the condition is
+       satisfied). 
+  6) The stat2nc program has been modified so that missing_values
+       (=-9999.) are output in locations where no samples where the
+       condition was never satisfied (i.e. where the cloud fraction==0
+       for in-cloud averages).  This is helpful when looking at these
+       statistics in ncview, among other places.
+  7) For each conditional average, the following statistics are
+       output (CLD/cloud is used as an example):
+
+'CLD', 'Cloud Fraction',' ',0)
+'WCLD', 'Mean W in Cloud','m/s',n)
+'UCLD', 'Mean U in Cloud','m/s',n)
+'VCLD', 'Mean V in Cloud','m/s',n)
+'MSECLD', 'Mean moist static energy in Cloud','K',n)
+'DSECLD', 'Mean dry static energy in Cloud','K',n)
+'TLCLD', 'Mean liquid-ice static energy in Cloud','K',n)
+'TACLD', 'Mean TABS in Cloud','K',n)
+'TVCLD', 'Mean THETAV in Cloud','K',n)
+'TVCLDA', 'Mean THETAV anomaly in Cloud','K',n)
+'QTCLD', 'Mean QT in Cloud','g/kg',n)
+'QNCLD', 'Mean QN in Cloud','g/kg',n)
+'QPCLD', 'Mean QP in Cloud','g/kg',n)
+'SCLD', 'Mean scalar in Cloud','K',n)
+'WCLDA', 'W in Cloud averaged over the whole domain','m/s',0)
+'TLWCLD', 'TLW in Cloud averaged over the whole domain', 'Km/s',0)
+'TVWCLD', 'TVW in Cloud averaged over the whole domain', 'Km/s',0)
+'SWCLD', 'SW in Cloud averaged over the whole domain', 'Km/s',0)
+'QTWCLD', 'QTW in Cloud averaged over the whole domain', 'g/kg m/s',0)
+'QCWCLD', 'QCW in Cloud averaged over the whole domain', 'g/kg m/s',0)
+'QIWCLD', 'QIW in Cloud averaged over the whole domain', 'g/kg m/s',0)
+
+     !bloss: frozen moist static energy statistics
+'HFCLD', 'Mean Frozen MSE in Cloud','K',n)
+'HFCLDA', 'Mean Frozen MSE anomaly in Cloud','K',n)
+
+     !bloss: velocity anomalies
+'UCLDA', 'Mean U anomaly in Cloud','m/s',n)
+'VCLDA', 'Mean V anomaly in Cloud','m/s',n)
+
+     !bloss: pressure gradients
+'UPGFCLD', 'Zonal pressure gradient in Cloud','m/s2',n)
+'VPGFCLD', 'Meridional pressure gradient in Cloud','m/s2',n)
+'WPGFCLD', 'Vertical pressure gradient in Cloud','m/s2',n)
+
+     !bloss: momentum statistics
+'UWCLD', 'UW in Cloud','m2/s2',n)
+'VWCLD', 'VW in Cloud','m2/s2',n)
+'UWSBCLD', 'Subgrid UW in Cloud','m2/s2',n)
+'VWSBCLD', 'Subgrid VW in Cloud','m2/s2',n)
+
+     !bloss: UW-added mass flux weighted statistics
+'MFCLD', 'Mass flux in Cloud averaged over the whole domain', 'kg/m2/s',0)
+'MFHCLD', 'RHO*W*HF in Cloud averaged over the whole domain', 'K kg/m2/s',0)
+'MFHCLDA', 'RHO*W*HF anomaly in Cloud averaged over the whole domain', 'K kg/m2/s',0)
+'MFTLCLD', 'RHO*W*TL in Cloud averaged over the whole domain', 'K kg/m2/s',0)
+'MFTLCLDA', 'RHO*W*TL anomaly in Cloud averaged over the whole domain', 'K kg/m2/s',0)
+'MFTVCLD', 'RHO*W*TV in Cloud averaged over the whole domain', 'K kg/m2/s',0)
+'MFTVCLDA', 'RHO*W*TV anomaly in Cloud averaged over the whole domain', 'K kg/m2/s',0)
+'MFQTCLD', 'RHO*W*QT in Cloud averaged over the whole domain', 'g/m2/s',0)
+'MFQTCLDA', 'RHO*W*QT anomaly in Cloud averaged over the whole domain', 'g/m2/s',0)
+'RUWCLD', 'RHOUW in Cloud averaged over the whole domain', 'kg/m/s2',0)
+'RVWCLD', 'RHOVW in Cloud averaged over the whole domain', 'kg/m/s2',0)
+'RWWCLD', 'RHOWW in Cloud averaged over the whole domain', 'kg/m/s2',0)
+

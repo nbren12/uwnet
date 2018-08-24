@@ -1,0 +1,34 @@
+New logical namelist variables:
+
+restart_sep - write separate restart file for each MPI task. By default (restart_sep=.false.) only single file is written. Useful only when very large-domain and therefore very large restart file would be generated which may not be allowed on some file systems and mass-storage systems.
+
+doperpetual - sun is at perpetual zenith (strait above the head for 24 hours) with the total incoming radiation that matches the normal (noving) sun's input for the day defined by day0 parameter. Default = F
+
+doseasons - allow the solar incoming radiation to change according to current calendar day. If falsethen solar diurnal cycle is always the same as during the initial day defined by day0 parameter (defaul= F) 
+
+dosfchomo - homogenize the surface fluxes that is compute them for each column (locally) separately but apply their horizonal mean (default = F)
+
+doradhomo - homogenize the radiative heating rates that is compute them for each column separately then horizontally average and apply that average profile in each grid column (default = F)
+
+save2Dsep - each 2-D horizonatal field will be saved into separate file. Default = F
+
+save3Dsep - each 3-D snapshot will be saved into separate file. Always true for 3-D model output. Default = F
+
+NOTE!!! In model version 6.0 iand earlier save2Dsep used to be used in place of save3Dsep.
+
+dogzip2D - 2D output will be further compressed using gzip utility. (may be slow for very big files) Default = F
+
+dogzip3D - 3D output will be further compressed using gzip utility. (may be slow for very big files) Default = F
+
+----------------------------
+
+File changes:
+
+In additional to changes made to accommodate the new logical parameters, a few minor bugs have been fixed mostly associated with the statistics output. No change to the dynamics core or microphysics has been made. 
+
+Several changes as suggested by Peter Blossey have been made to the CCM radiation package (RAD_CCM directory):
+- in radtpl.F: the CCM3.6 old fix applied. 
+- in radcsw.f: discrepancy between the clear sky and total TOA fluxes in clear sky condition is elliminated by computing the total fluxes one level above which is the true top-of-atmosphere rather than top-of-the model as before.
+- in radclw.f: changed definition of top of atmosphere net clear sky outgoing lw flux
+to match the top of atmosphere net outgoing lw flux in clear areas. This will give zero lw cloud forcing in clear sky regions.
+

@@ -1,0 +1,43 @@
+
+------------------------------------------------------------------
+advect_scalar2D.f90, advect_scalar3D.f90, precip_fall.f90 :
+
+    fixed a bug in the computation of antidiffusive velocities (thanks to Peter Blossey). Effect on simulations is minor.
+
+------------------------------------------------------------------
+precip_fall.f90 :
+
+    Modified by Peter Blossey to allow subcycling of computations of precipitation fall-out within a large time step without losing linear stability. Useful when very high vertical relosution is used in PBL, for example.
+
+------------------------------------------------------------------
+cloud.f90
+
+    Added the dependence of ice sedimentation on its content based on data by Heymsfield.
+
+------------------------------------------------------------------
+precip_proc.f90:
+
+Fixed the coversion of ice to snow to be in accord with the model description.  The description states that the rate of conversion of ice to snow is
+
+dqs/dt = b *f(T) (qi - qi0)
+
+where b is autoconversion rate, f(T) is some function of temperature, qi0 is the threshold (no conversion if qi is below it). It turns out that the way it was implemented was
+
+dqs/dt = b * (qi - qi0*f(T))
+
+so that the threshold was the function of temperature rather than the rate. Well, of course, since those all are rather arbitrary assumptions anyway, one can assume one or the other being right by tuning the coefficients to get plausable solutions. However, I ran a quick test with the TOGA case and it looks that with the standard set of coefficients that we use, the cloud fraction increases, which, generally improves comparison to observation. 
+
+
+------------------------------------------------------------------
+forcing.f90, hbuffer.f90 :
+
+    Added observed surface latent and sensible heat to the staatistics
+
+------------------------------------------------------------------
+RAD_CCM/rad_full.f90:
+
+  An expression for the optical path computations was modified.
+  The perpetual-sun option was modified as proposed by Peter Blossey to use the average zenith angle of 50.5 degrees (after Tompkins) rather than 0 degrees. Appropriate changes were made to the zenith.f90.
+
+
+ 

@@ -1,0 +1,14 @@
+- most namelist parameter declarations have moved from grid.f90 to params.f90. The declarations themselves set the default values. Restart parameters are now 0 (new run),1(restart), and 2(branch), there is no value 3. See the Guide for details.
+
+-User Guide has been brought up to date and has now the description of virtually all the namelist parameters that can be used with the model.
+
+- each run creates now a file in a corresponding case-dorectory named as 'case'_'case_id'.nml that contains all the namelist parameters and their values used in a run.
+
+- namelist parameter doxy has been retired. Instead, doradlat, doradlon, and dofplane have been introduced (see the Guide for details).
+
+- there is now an alternative to MPDATA advection scheme used for advection of all scalars, ULTIMATE-MACHO scheme developed by Tak Yamaguchi, and only recently published (Yamaguchi, T., D. A. Randall, and M. F. Khairoutdinov, 2011: Cloud Modeling Tests of the ULTIMATE-MACHO Scalar Advection Scheme. Monthly Weather Review. 139, pp.3248-3264). Only the 5-th order accurate scheme is used in SAM. The choice is made before compilation editing a corresponding line in Build script.
+
+- The model now has 3 satellite simulators, ISCCP, MODIS, and MISR (directory SIMULATORS), implemented using one of the latest COSP (cfmip.metoffice.com/COSP.html) packages. Big thanks to Robert Pincus with helping to implement it in SAM. See User guide for corresponding namelist parameters.
+ 
+- When running with two-moment microphysics MICRO_M2005, the effective radius can now be interactively computed and passed to both radiative packages. In the previous versions of SAM, the effective radius was prescribed depending on the surface type (ocean or land). With this enhancement, the aerosol indirect effects can be included. See the User Guide for details. 
+

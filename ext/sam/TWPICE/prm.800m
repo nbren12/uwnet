@@ -1,0 +1,95 @@
+&MICRO_M2005
+ DOICEMICRO      = .true.,
+ DOGRAUPEL       = .true.,
+ DOHAIL  = .false,
+ DOPREDICTNC     = .true.,
+ DOSPECIFYAEROSOL        = .true.,
+ DOSUBGRIDW      = .false,
+ DOARCTICICENUCL = .false,
+ DOCLOUDEDGEACTIVATION   = .false,
+ douse_reffc = .true.,
+ douse_reffi = .true.,
+ AER_RM1 =  0.03,
+ AER_RM2 =   0.18     ,
+ AER_N1  =   259.     ,
+ AER_N2  =   95.     ,
+ AER_SIG1        =   1.12     ,
+ AER_SIG2        =   1.45     ,
+ /
+
+&PARAMETERS
+
+ nrestart = 0
+
+ caseid ='gigaLES',
+
+ CEM = .true.,
+ OCEAN = .true.,
+
+ dosgs		= .true.,
+ dotracers      = .false.,
+ dodamping 	= .true.,
+ doupperbound  	= .true.,
+ docloud 	= .true.,
+ doprecip 	= .true., 
+ dolongwave	= .true.,
+ doshortwave	= .true.,
+ dosurface 	= .true.,
+ dolargescale 	= .true.,
+ doradforcing   = .false.,
+ dosfcforcing   = .true.,
+ docoriolis 	= .true.,
+ donudging_uv   = .true.,
+ donudging_tq   = .true.,
+ save2davg      = .true.,
+ restart_sep    = .true.,
+ save2dsep      = .true.,
+ dolpt          = .false.,
+
+ SFC_FLX_FXD    = .false.,
+ SFC_TAU_FXD    = .false.,
+
+ tauls = 7200.,
+ tautqls = 21600.,
+ nudging_uv_z1 = 500.
+ nudging_t_z1 = 15000.
+ nudging_q_z1 = 15000.
+
+ dx =   800.,
+ dy =   800.,
+ dt =   5.,
+
+ doisccp = .true.,
+
+ latitude0= -12.425,
+ longitude0= 130.891,
+
+ nrad = 15,
+
+ day0=18.00,
+
+ nstop 		= 172800,
+ nelapse        = 17280,
+ nprint 	= 60,
+ nstat 		= 60,
+ nstatfrq 	= 10,
+ nrestart_skip  = 71,
+
+! doSAMconditionals = .true.
+! dosatupdnconditionals = .true.
+
+
+ nsave2D	= 60,
+ nsave2Dstart	= 60,
+ nsave2Dend	= 999164000,
+ save2Dbin = .false.
+
+ nsave3D	= 60,
+ nsave3Dstart	= 60,
+ nsave3Dend	= 999164000,
+ save3Dbin = .false.
+
+/ 
+
+
+

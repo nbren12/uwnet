@@ -1,0 +1,42 @@
+
+1. A new build scripts have been implemented eliminating the circular file dependence during compilation that was quite annoying I think because of all the warning messages. The new scripts eliminate the need to manually set the module dependancy tree in the Makefile. The file dependency tree file is generated now automatically using a pair of Perl scripts that I borrowed from the NCAR CAM model distribution. Since Perl is available everywhere now, I decided to make it a standard building procedure that is however hiden from the user so you don't actually need to know Perl to use it. The scripts (found in SRC/SCRIPT directory) assume that your perl executable is located in its usual /usr/bin directory. If other directory is used in your system, you would have to edit the first lines of each script for correct pathor ask you sysadm to put perl in standard place. Any new module or other file that you add to the model will be automatically included into the dependency tree (but don't forget to clean the OBJ directory if any file is included/excluded to/from the model). 
+
+In spite of enhancements, the SAM building process is same as before - you edit the Build script, edit the Makefile for you platform and than csh-execute the Build script.
+
+
+
+2.  The ISCCP cloud simulator has been implemented (big thanks to Steve Ghan of PNNL who did it for my super-parameterization output). It allows one to sample the simulated cloud statistics in a way similar to the ISCCP satellites, thus making comparison to ISCCP observations more meaningful.  In addition to the ISCCP pressure-tau (optical depth) 7x7 matrix, it generates total, low, mid and high cloud cover fractions for optical depths that are larger than 0.3,  since satellites don't generally distinguish clouds that are less than 0.3 optically thick. The matrix contain additional bin for tau < 0.3 though. As in real ISCCP statistics, only day-time clouds are sampled. stat2nc utility adds the ISCCP cloud fractions to the statistics output netcdf file. 
+
+In order to sample the ISCCP statistics, a new logical flag doisccp should be set to .true. (default is .false.).  Each case data-directory should also contain a data file isccp in addition to usual prm, snd, lst, etc files. An isccp output statistics data file *.isccp will be created. The sample rate is the same as for the horizonatlly averaged statistics (*.stat file). The binary isccp file can be converted into netcdf format using the isccptonc utility found in UTIL. 
+
+It is unfortunate but some compilers are found to choke on the advanced fortran 95 code of the ISCCP simulator. If you experience such behavior, first try to make you sysadm to upgrade the compiler on your system. if it still doesn't help, the vendor of a compiler should know about it. In meanwhile, you could use a dummy isccp interface isccpDummy.f90 compiled instead of other isccp files to run SAM without the isccp simulator.
+
+
+
+3. Thanks to the efforts by Peter Blossey, SAM has now the option to run with the latest radiation package from NCAR Community Atmosphere Model (CAM 3). The source files are in SRC/RAD_CAM directory. As usual, in order to run with the RAD_CAM radiation, you should specify path to that directory in Build script. Unfortunately, the RAD_CAM uses rather big netcdf data-files so I decided not to include them into distribution to keep the tar file small to be able to send it around via e-mail. You should be able to download the files themselves from SAM official web-site http://kiwi.atmos.colostate.edu:16080/group/marat/SAM, under Downloads. I will put the data on that site within a day or so from this email. The default data place is in RADDATA subdirectory of the SAM6.3 directory, but you may put them in any other directory and tell SAM where to find them by setting the raddir namelist variable to be the new path (default value is ./RADDATA). If you use the old RAD_CCM radiation, no additional datafiles are needed, nor netcdf linking library.
+
+Preliminary tests have shown that the radiation statistics obtained with RAD_CAM is basically similar to the one obtained with the RAD_CCM - the standard radiation package used by SAM. However, RAD_CAM is more expensive (a factor of two or so) than RAD_CCM. Also, in very rare cases, the CAM_RAD would crash because of the strange code in some places which allows some variables are not defined in vary rare cases (that's why you can run the code for very long time before crashing without a warning). I have been trying to get relevant NCAR people to address those issues, but without success so far. Despite those concerns, I would encourage the use of CAM_RAD since it is a more "correct" radiation transfer code, especially for clear-skies transfer.
+
+
+
+4. University of Washington users have implemented various interesting ways of setting the SST, including simple dynamic (mixed-layer) ocean models. I decided to include the simplest one into SAM6.3 that contains hooks for those who interested to add other dynamic ocean models. The simple ocean model is implemented in SRC/simple_ocean.f90. A new logical switch dodynamicocean should be set to .true. to make the SST evolve with time. The initial SST distribution is controlled by the ocean_type namelist parameter which can be set to the following values:  ocean_type=0 (default) would make SST constant everywhere (as in version 6.2); ocean_type=1 would set a sinusoidal distribution ilong the x-axis (look at  simple_ocean.f90's set_sst procedure). I decided not to pollute the namelist space though with new variables related to the dynamic ocean, so direct editing of the simple_ocean.f90 file is needed to change the initial SST distribution. Note that dosfcforcing should be set to .false. to make SST interactive. 
+
+The dynamic ocean model was proposed by Chris Bretherton for the idealized Walker-circulation as the GCSS WG4 case. The sst_evolve() procedure integrates a simple dT/dt =  S - E, where source S includes SW and LW radiative heating, as well sensible and latent hear fluxes, while the term E accounts for the lateral ocean heat transport off the domain. 
+
+
+
+5. A new logical switch dosolarconstant has been implemented following the UW version of SAM. It is used when doperpetual switch is set to .true. (perpetual sun). If .true., the solar constant and the zenith angle are specified in the prm file, parameters solar_constant and zenith_angle, respectively.
+
+
+
+6. Some optimization for the cloud ice advection scheme was implemented (cloud.f90) (ice is advected only above the freezing level and not above the highest level where ice has been detected. Also, the minimum sedimentation velocity is set to 0.1 m/s following suggestion by Chris Bretherton to avoid tiny ice amounts to hang out for too long near the tropopause which may create rather unexpected radiative feedbacks in long simulations.
+
+
+
+7. Several additional radiation parameters have been added to the model output both to the statistics file and 2D datafiles, such as clear-sky fluxes to allow to estimate cloud radiative forcing. Also, vertical velocity at 500 mb level was added to the 2D output (look ar write_fields2D.f90 for details).
+
+
+ 
+8. Several small bugs have been corrected. Use diff utility applied to v6.2 and 6.3 to see the changes, many of which are superficial. Nothing serious though, so the results of SAM6.3 should be basically identical to SAM6.2. domain.inc include file became a module domain.f90. The name of task_assign routine and file has been changed to task_assign_bnd because of conflict with the MPI library on some platforms. A new file init.f90 was added to initialize some variables from the vars.90 module.
+
+

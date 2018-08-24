@@ -1,0 +1,35 @@
+restart.f90 
+
+corrected the bug introduced in 6.10 version that was causing restart MPI-hang-up. 
+Fix: move the folloing two lines from the end of read_statement() to the very end (right before return) of the read_all().
+
+        call boundaries(0)
+        call boundaries(4)
+
+----------------
+setdata.f90
+
+added  call task_barrier() right before call boundaries(4) to avoid potential MPI-hang-up in some rare situations.
+
+
+----------------
+added hbuf_sgs_init.f90 to serve as a wrapper to avoid compilation dependency issues.
+
+
+----------------
+hbuffer.f90
+
+Added call to hbuf_sgs_init()
+
+--------------------
+
+stepout.f90
+
+Added call to sgs_statistics()
+
+---------------------
+
+diagnose.f90
+
+Added call do sgs_diagnose()
+

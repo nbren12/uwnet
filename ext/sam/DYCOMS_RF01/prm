@@ -1,0 +1,67 @@
+&SGS_TKE
+dosmagor = .true.
+/
+
+ &PARAMETERS
+
+ caseid ='32x28sp',
+
+ nrestart = 0,
+
+ LES = .true.,
+ OCEAN = .true.,
+
+ dosgs		= .true.,
+ dodamping 	= .true.,
+ doupperbound  	= .true.,
+ docloud 	= .true.,
+ doprecip 	= .false.,
+ dolongwave	= .true.,
+ doradsimple    = .false., 
+ doshortwave	= .true.,
+ dosurface 	= .true.,
+ dolargescale 	= .true.,
+ doradforcing   = .false.,
+ dosfcforcing   = .true.,
+ docoriolis 	= .true.,
+ donudging_uv   = .false.,
+ donudging_tq   = .false.,
+
+ SFC_FLX_FXD    = .true.,
+ SFC_TAU_FXD    = .true.,
+
+ fcor = 0.376e-4,
+
+ dx = 	4000.,
+ dy = 	4000.,
+
+ dt = 	20.,
+
+ day0=0.5,
+ nrad = 45,
+ doisccp = .true., 
+ domodis = .true., 
+ domisr = .true., 
+
+nstop 	= 180,
+!nelapse = 1,
+nprint  = 180,
+nstat 	= 45,
+nstatfrq= 1,
+
+doSAMconditionals = .fasle.
+dosatupdnconditionals = .false.
+
+ nsave2D	= 1,
+ nsave2Dstart	= 999991,
+ nsave2Dend	= 14400,
+ save2Dbin      = .true.
+
+ nsave3D	= 600,
+ nsave3Dstart	= 99918000,
+ nsave3Dend	= 999999999,
+ save3Dbin      = .true.
+
+/ 
+
+

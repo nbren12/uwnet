@@ -1,0 +1,42 @@
+Peter Blossey has found an important issue with the new microphysics interface (appeared starting from SAM6.6), namely duplicate definition of several statistics output variables.  The result was incorrect translation of some of the *.stat file variables into netcdf format. The attached is the version (SAM6.6.5a) that has this bug fixed. Also, the lst files also had to be slightly edited. Change should not concern who continue using SAM6.5 or earlier versions. 
+
+Changes were made to 1 source file.
+
+
+hbuffer.f90
+
+
+The code was added to catch multiple definitions of statistics-output variables. 
+
+137,138c137
+< integer n,m
+< logical duplicate_entries
+---
+> integer n, m
+181,187c180,185
+< duplicate_entries = .false.
+< do n = 1,count-1
+<  do m = n+1,count
+<   if (trim(namelist(n)).eq.trim(namelist(m))) then
+<    duplicate_entries=.true.
+<    if(masterproc) then
+<     print*,'Error: Multiple definition of '//namelist(n)// ' variable in stat list'
+---
+> if(masterproc) then
+>  do n = 1,count-1
+>   do m = n+1,count
+>    if (trim(namelist(n)).eq.trim(namelist(m))) then
+>      print*,'Error: Multiple definition of '//namelist(n)//' varible in stat file'
+>     cal task_abort() 
+189c187
+<   end if
+---
+>   end do
+191c189,190
+< end do
+---
+> end if
+> 
+193,194d191
+< ! Halt simulation if duplicate entries appear in namelist.
+< if(duplicate_entries) call task_abort()

@@ -1,0 +1,36 @@
+The SAM interface to RRTM was developed by Robert Pincus and Peter
+Blossey.  The interface is patterned after the earlier SAM interfaces
+to the CAM and CCM radiation schemes.  The main difference in the
+current implementation is that radiation is computed based on the
+instantaneous model temperature, vapor and cloud fields, rather than
+time-averages of those fields (as in the earlier CAM and CCM
+interfaces).  A second difference is that the radiation code is run in
+double precision by default.
+
+As of 12/2009, the interface has been updated to use
+v4.84 of the RRTMG LW code and v3.8 of the RRTMG SW code.  See the
+README.rrtmg* files for more information about RRTMG.
+
+As implemented, the radiation code is initialized using parameters
+read in from a netcdf file.  If this causes problems for you, try
+this: 
+
+mv rrtmg_lw_k_g.constants rrtmg_lw_k_g.f90
+mv rrtmg_lw_read_nc.f90 rrtmg_lw_read_nc.optional
+mv rrtmg_sw_k_g.constants rrtmg_sw_k_g.f90
+mv rrtmg_sw_read_nc.f90 rrtmg_sw_read_nc.optional
+
+There may still be some issues related to the initialization of the
+trace gas profiles.  If this becomes an issue for many people, the
+reliance on netcdf could be lessened in future versions of the
+interface.
+
+If you encounter bugs or apparent errors in results from the RRTM
+interface to SAM, please send an email to:
+
+Peter Blossey <pblossey@gmail.com>
+Marat Khairoutdinov <mkhairoutdin@ms.cc.sunysb.edu>
+Robert Pincus <obert.pincus@noaa.gov>
+
+Contacting all of the developers at the same time increases the
+likelihood that your issue will be addressed promptly.

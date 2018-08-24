@@ -1,0 +1,10 @@
+5th order ULTIMATE-MACHO for non-uniform vertical grid
+reference: Yamaguchi, T., D. A. Randall, and M. F. Khairoutdinov, 2011: Cloud Modeling Tests of the ULTIMATE-MACHO Scalar Advection Scheme. Monthly Weather Review. 139, pp.3248-3264
+
+Modified 2015-05-22, Peter Blossey
+ - added check for zero levels at bottom and top of domain in advect_scalar.f90.
+   + if whole scalar field is zero, return.
+   + added code in advect_um_lib.f90 to restrict computation of fluxes and
+       scalar values to levels with non-zero values.
+ - this should speed up the advection a bit in general, a lot if several fields
+       are filled with zeros. 

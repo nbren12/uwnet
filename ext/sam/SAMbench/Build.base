@@ -1,0 +1,106 @@
+#! /bin/csh -f
+
+# specify the scratch directory where object files as well as
+# restart and large output data file will be located :
+
+setenv SAM_SCR `pwd`
+
+# ----------------------------------
+# specify scalar-advection directory in SRC
+setenv ADV_DIR ADV_xxx
+# xxx= MPDATA | UM5 | SELPPM
+
+# specify SGS directory in SRC
+setenv SGS_DIR SGS_TKE
+
+# specify radiation directory in SRC
+setenv RAD_DIR RAD_yyy
+# yyy= RRTM | CAM | RRTM4PBL
+
+# specify microphysics directory in SRC
+setenv MICRO_DIR MICRO_zzz
+# zzz= SAM1MOM | M2005 | DRIZZLE | WRF
+
+# ----------------------------------
+# specify (GNU) make utility
+
+setenv GNUMAKE 'make -j8'
+
+#--------------------------------------------
+#--------------------------------------------
+#--------------------------------------------
+#--------------------------------------------
+# You don't need to edit below this line.
+
+
+setenv SAM_DIR  `pwd`
+setenv SAM_OBJ  $SAM_SCR/OBJ
+setenv SAM_SRC  `pwd`/SRC
+
+if !(-d $SAM_SCR) mkdir -p $SAM_SCR
+
+set echo
+
+if !(-d $SAM_SCR/OUT_2D) mkdir $SAM_SCR/OUT_2D
+if !(-d $SAM_SCR/OUT_3D) mkdir $SAM_SCR/OUT_3D
+if !(-d $SAM_SCR/OUT_MOMENTS) mkdir $SAM_SCR/OUT_MOMENTS
+if !(-d $SAM_SCR/OUT_STAT) mkdir $SAM_SCR/OUT_STAT
+if !(-d $SAM_SCR/OUT_MOVIES) mkdir $SAM_SCR/OUT_MOVIES
+if !(-d $SAM_SCR/RESTART) mkdir $SAM_SCR/RESTART
+if !(-d $SAM_OBJ) mkdir $SAM_OBJ
+
+if !(-d OUT_2D) ln -s $SAM_SCR/OUT_2D  OUT_2D
+if !(-d OUT_3D) ln -s $SAM_SCR/OUT_3D  OUT_3D
+if !(-d OUT_MOMENTS) ln -s $SAM_SCR/OUT_MOMENTS OUT_MOMENTS
+if !(-d OUT_STAT) ln -s $SAM_SCR/OUT_STAT  OUT_STAT
+if !(-d OUT_MOVIES) ln -s $SAM_SCR/OUT_MOVIES  OUT_MOVIES
+if !(-d RESTART) ln -s $SAM_SCR/RESTART RESTART
+if !(-d OBJ) ln -s $SAM_OBJ  OBJ
+
+
+#--------------------------------------------
+#bloss: add "make clean" if MICRO or RAD options
+#        have changed.
+cat > MICRO_RAD_OPTIONS.new <<EOF
+$ADV_DIR
+$SGS_DIR
+$MICRO_DIR
+$RAD_DIR
+EOF
+
+if (-e $SAM_OBJ/MICRO_RAD_OPTIONS) then
+  # use of cmp suggested by http://docs.hp.com/en/B2355-90046/ch14s03.html
+  cmp -s $SAM_OBJ/MICRO_RAD_OPTIONS MICRO_RAD_OPTIONS.new
+  if ($status != 0) then
+    # the file has changed -- remove everything from SAM_OBJ
+    #   so that we get a fresh compile of the model
+    echo "MICRO or RAD option changed in Build.  Removing all object files from OBJ/"
+    rm -f $SAM_OBJ/*
+  endif
+endif
+# move the new options into $SAM_OBJ/MICRO_RAD_OPTIONS
+mv -f MICRO_RAD_OPTIONS.new $SAM_OBJ/MICRO_RAD_OPTIONS
+#--------------------------------------------
+
+
+
+cd $SAM_OBJ
+
+if ( !(-e Filepath) ) then
+cat >! Filepath << EOF
+$SAM_SRC
+$SAM_SRC/$ADV_DIR
+$SAM_SRC/$SGS_DIR
+$SAM_SRC/$RAD_DIR
+$SAM_SRC/$MICRO_DIR
+$SAM_SRC/SIMULATORS
+$SAM_SRC/QUICKBEAM
+$SAM_SRC/TIMING
+$SAM_SRC/LAPACK_BLAS_UTILS
+EOF
+endif
+
+
+$GNUMAKE -f $SAM_DIR/Makefile
+
+

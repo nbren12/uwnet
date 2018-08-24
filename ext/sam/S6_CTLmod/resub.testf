@@ -1,0 +1,60 @@
+#!/bin/sh -f
+#PBS -l nodes=16:ppn=8
+#PBS -l walltime=05:45:00
+#PBS -W group_list=bretherton
+#PBS -m e
+#PBS -M bloss@atmos.washington.edu
+#PBS -N zctl_s6_ugvg_Lx128
+
+scriptdir=/home/disk/eos8/bloss/Runs/ShAggr/Lx128dx250
+case=S6_CTL
+subcase=testf
+jobfile=$case/resub.$subcase
+logfile=log_$case$subcase
+prmfile=$case/prm.$subcase
+prmloc=$case/prm
+cluster=olympus
+SAMname=../SAM_ADV_UM5_SGS_TKE_RAD_RRTM_MICRO_M2005_3d_512x512x128_128proc_2016-10-19
+
+# Change to correct directory
+\cd $scriptdir
+\cp $case/CaseName ./
+\cp $prmfile $prmloc
+
+if [ ! -e $SAMname ]
+    then
+    echo Could not find $SAMname
+    echo Executable does not exist
+    exit 9
+fi
+
+# load modules for intel setup
+source /etc/profile.d/modules.sh
+module load intel/13.1.1 openmpi/1.6.4 netcdf/4.3.0-oly01
+export LD_LIBRARY_PATH=/usr/local/modules/openmpi/1.6.4/intel/13.1.1/lib:${LD_LIBRARY_PATH}
+
+cat >$SAMname.sh <<EOF
+#!/bin/sh
+ulimit -s unlimited
+exec $SAMname
+EOF
+chmod +x $SAMname.sh
+time mpirun $SAMname.sh >> $logfile
+
+####time mpirun $SAMname >> $logfile
+
+exitstatus=$?
+echo SAM stopped with exit status $exitstatus
+
+if [ $exitstatus -eq 0 ]
+    then
+    
+    echo It appears the previous run ended properly and job not yet finished.
+    echo Resubmitting $jobfile
+    cat $prmfile | sed s/nrestart.\*=.\*0/nrestart\ =\ 1/ > temp.namelist
+    \mv temp.namelist $prmfile
+    \cp $prmfile $prmloc
+    rsh $cluster "cd $scriptdir; /usr/local/bin/qsub $jobfile"
+fi
+
+exit 0

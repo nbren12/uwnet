@@ -1,0 +1,15 @@
+in SRC/write_fields2D.f90
+added 
+baickspace (46)
+after 
+222 continue
+
+to avoid positioning the file reader after the endfile record. Error was introduced to SAM6.9.1.
+
+damping.f90
+
+Commented out damping of scalars (t and q). Seems to improve temperature simulation near the domain top. 
+
+simple_ocean.f90
+
+Made changes to ocean_type 1 and 2 to be consistent with the User-guide description.

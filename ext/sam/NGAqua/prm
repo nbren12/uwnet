@@ -1,0 +1,111 @@
+ &PARAMETERS
+
+ nrestart = 0
+
+ caseid ='CRAP'
+ !caseid_restart ='ngaqua.dt45.QOBS'
+ !case_restart = 'NGAqua'
+
+ CEM = .true.,
+ OCEAN = .true.,
+
+ dosgs		= .true.,
+ dodamping 	= .true.,
+ doupperbound  	= .true.,
+ dolargescale 	= .false.,
+ doradforcing   = .false.,
+ dosfcforcing   = .false.,
+ donudging_uv   = .false.,
+ donudging_tq   = .false.,
+
+ doradlat = .true.
+ doseasons = .false.
+ doequinox = .true.
+
+ dosurface = .false.
+ docloud = .false.
+ doprecip = .false.
+ dolongwave = .false.
+ doshortwave = .false.
+ dosgs = .true.
+ docolumn=.true.
+
+
+
+! solar_constant  = 685.,
+! zenith_angle    = 0,
+
+
+ tauls = 7200.,
+ 
+ SFC_FLX_FXD    = .false.,
+ SFC_TAU_FXD    = .false.,
+
+ dx =   160000.,
+ dy = 	160000.,
+ dt = 	  30.,
+
+ min_anisotropy = 50000.
+ docoriolis = .true.
+ dofplane = .false.
+ ocean_type = 3 !QOBS
+ dopython = .true.
+ perturb_type = 23
+ initial_condition_netcdf = 'NgAqua/ic_staggered.nc'
+
+
+ latitude0= 0.72,
+ longitude0=0.0,
+ nrad = 30,
+
+ day0= 180.50
+
+ nstop 		=  5, ! .5 days
+ nprint 	= 1,
+ nstat 		= 1,
+ nstatfrq 	= 1,
+
+ nsave2D	= 1,
+ nsave2Dstart	= 0,
+ nsave2Dend	= 99960480,
+ save2Dbin = .true.,
+
+ nsave3D	= 1,
+ nsave3Dstart	= 0,
+ nsave3Dend	= 99960480,
+ save3Dbin = .true.,
+
+ ! nstop 		=  14400, ! 5 days
+ ! nprint 	= 360,
+ ! nstat 		= 360,
+ ! nstatfrq 	= 1,
+ 
+ ! nsave2D	= 360,
+ ! nsave2Dstart	= 0,
+ ! nsave2Dend	= 99960480,
+ ! save2Dbin = .true.,
+ 
+ ! nsave3D	= 360,
+ ! nsave3Dstart	= 0,
+ ! nsave3Dend	= 99960480,
+ ! save3Dbin = .true.,
+
+ doSAMconditionals = .false.
+ dosatupdnconditionals = .false.
+
+/ &end 
+
+
+&SGS_TKE
+
+ dosmagor	= .true.,
+
+/ &end
+
+&MICRO_M2005
+
+ douse_reffc = .true.
+ douse_reffi = .true.
+
+/ &end
+

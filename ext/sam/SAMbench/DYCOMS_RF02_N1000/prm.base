@@ -1,0 +1,88 @@
+&MICRO_DRIZZLE
+ Nc0 = 1000.         ! prescribed cloud drop concentration for drizzle scheme
+/
+
+&MICRO_M2005
+ Nc0 = 1000. 
+ doicemicro = .false.
+!!! doreflectivity_cloudradar = .true.
+/
+
+&MICRO_THOMPSON
+ Nc0 = 1000. 
+ doicemicro = .false.
+/
+
+&SGS_TKE
+ dosmagor	= .false.,
+/
+
+&PARAMETERS
+
+ caseid ='2D_256x128_50m_5m_0.5s_20160209_Nd1000_xxx_yyy_zzz',
+
+ nrestart = 0,
+ perturb_type = 1,
+
+ LES = .true.,
+ OCEAN = .true.,
+
+ ug =  4.0
+ vg = -7.0
+
+domodis = .true.
+doisccp = .true.
+domisr = .true.
+
+ dosgs		= .true.,
+ dodamping 	= .true.,
+ doupperbound  	= .true.,
+ docloud 	= .true.,
+ doprecip 	= .true.,
+ dolongwave	= .true.,
+ doshortwave	= .true., ! shortwave on
+ dosurface 	= .true.,
+ dolargescale 	= .true.,
+ doradforcing   = .false.,
+ doradsimple    = .false., ! testing full interactive radiation
+ dosfcforcing   = .true.,
+ docoriolis 	= .true.,
+ donudging_uv   = .false.,
+ donudging_tq   = .false.,
+
+ SFC_FLX_FXD    = .true.,
+ SFC_TAU_FXD    = .true.,
+
+ latitude0 = 31.5,
+ longitude0 = -122., ! setting longitude for interactive shortwave
+
+ dx = 	50.,
+ dy = 	50.,
+
+ dt = 	0.5,
+
+ day0=175., ! roughly 4pm on a day in July.
+
+ nrad = 30 ! run radiation every 15 seconds.
+
+nstop 	= 14400, ! 28800,
+nprint  = 1200,
+nstat 	= 1200,
+nstatfrq= 40,
+
+doSAMconditionals = .true.
+dosatupdnconditionals = .true.
+
+ nsave2D	= 3600,
+ nsave2Dstart	= 0,
+ nsave2Dend	= 99997200,
+ save2Dbin      = .true.
+
+ nsave3D	= 3600,
+ nsave3Dstart	= 0,
+ nsave3Dend	= 999999999,
+ save3Dbin      = .true.
+
+/ 
+
+

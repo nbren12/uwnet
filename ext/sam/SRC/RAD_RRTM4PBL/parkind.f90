@@ -1,0 +1,1 @@
+../RAD_RRTM/parkind.f90

@@ -1,0 +1,1 @@
+../RAD_RRTM/rrsw_kg22.f90
