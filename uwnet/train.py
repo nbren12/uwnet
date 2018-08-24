@@ -30,7 +30,6 @@ def parse_arguments():
     parser.add_argument('-l', '--seq_length', default=20, type=int)
     parser.add_argument('-b', '--batch_size', default=200, type=int)
     parser.add_argument('-f', '--forcing-data', type=str, default='')
-    parser.add_argument('--test', action='store_true')
     parser.add_argument('-db', default='runs.json')
     parser.add_argument('config')
     parser.add_argument("input")
@@ -56,7 +55,6 @@ def main():
     n_epochs = args.n_epochs
     batch_size = args.batch_size
     seq_length = args.seq_length
-    nt = 640
 
     # set up meters
     meter_loss = tnt.meter.AverageValueMeter()
@@ -71,13 +69,7 @@ def main():
         ds = xr.open_zarr(args.input)
     except ValueError:
         ds = xr.open_dataset(args.input)
-
-    if args.test:
-        logger.info(
-            "Running in accelerated test mode using only equatorial data")
-        ds = ds.isel(y=slice(32, 33))
-        n_epochs = 1
-
+    nt = len(ds.time)
     train_data = XRTimeSeries(ds.load(), [['time'], ['x', 'y'], ['z']])
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     constants = train_data.torch_constants()

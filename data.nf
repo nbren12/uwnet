@@ -107,3 +107,15 @@ process combineVariables {
     ncks -A $x $y
     """
 }
+
+process subsetData {
+    publishDir 'data'
+    input:
+    file x from training_data_ch
+
+    output:
+    file 'subset.nc'
+    """
+    ncks -d time,0,200 -d x,0,16 $x subset.nc
+    """
+}

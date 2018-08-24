@@ -30,7 +30,7 @@ process trainModel {
 
 
   """
-  python -m uwnet.check_data $x && \
+  python -m uwnet.check_data $x || \
   python -m uwnet.train  -n $params.numEpochs -lr .001 -s 5 -l 20 \
          $params.config $x
   """
