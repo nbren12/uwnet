@@ -42,8 +42,19 @@ data: ./nextflow
 
 ## train
 train:
-	./nextflow run train.nf -w $(WORKDIR) --trainingData data/training_data.nc -resume
+	./nextflow run train.nf --numEpochs=1 --trainingData data/training_data.nc -resume \
+		-with-docker nbren12/uwnet
 
 
 upload_reports:
 	rsync -avz reports/ olympus:~/public_html/reports/uwnet/
+
+
+docker:
+	docker run -it \
+		-v /Users:/Users  \
+		-v $(shell pwd)/uwnet:/opt/uwnet \
+		-w $(shell pwd) nbren12/uwnet bash
+
+build_image:
+	docker build -t nbren12/uwnet .
