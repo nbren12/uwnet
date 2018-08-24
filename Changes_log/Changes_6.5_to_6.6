@@ -1,0 +1,18 @@
+The most important change is that in SAM6.6, the microphysics package is completely separated from the dynamical core, in a manner similar to separating the radiation package. It is now possible to basically seamlessly insert virtually any microphysics package into SAM using a so-called microphysics interface. Any new microphysics package should be implemented in its own subdirectory within a SRC directory. The path to that directory is specified in the Build run-script. For example, the default SAM one-moment microphysics is now in SRC/MICRO_SAM1MOM directory. The directory SRC/MICRO_TEMPLATE contains a template module microphysics with detailed instructions on how to implement any microphysics package in SAM. It is indeed pretty straitforward and doesn't require any changes to any of the files in the main SRC directory (including restart capabilities). The model will automatically transport (advect and diffuse) the prognostic microphysics variables defined in your microphysics interface. They will also be automatically saved for restart capabilities.
+
+
+Other changes:
+
+restart.f90
+
+one additional restart file is now written, *_misc_restart.bin, is now written. It contains only the information common to all the subdomains/MPI tasks. It is much more efficient in terms of disk-space in case when many processors are used. 
+
+setforcing.f90
+
+The sounding, large-scale forcing, surface forcing and radiation forcing arrays are now dynamically allocated in response to situations when multi-year forcing (huge arrays) is used.
+
+
+forcing.f90
+
+the setting the surface fluxes, the air density at the mid-first-level was used instead of the surface value. The difference is small but not negligible. 
+

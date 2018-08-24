@@ -1,0 +1,29 @@
+
+stat_moments.f90 (thanks, Mark Branson)
+moment3(i,9,ii,jj)=(qclavg(k,5)/(divfac))      <--- i instead of k 
+should be moment3(k,9,ii,jj)= ......    Bug was introduced in SAM6.7.3
+
+cstuff.c (thanks, Mark Branson)
+#define systenf SYSTEMF  --> should be "systemf". )introduced probably in SAM6.5. 
+
+surface.f90 (thanks, David Schanen)
+qvs y-dimension (0:ny) should be replaced by (1-YES3D:ny) to avoid array bound violation in case of 2D. Bug was introduced in SAM6.7.3.
+
+stepout.f90 
+call fminmax_print('sst:',sstxy,0,nx,0,ny,1)
+should be 
+call fminmax_print('sst:',sstxy,0,nx,1-YES3D,ny,1)
+Bug was introduced in SAM6.7.3 after redefining the array bounds of sstxy to deal with the surface fluxes on staggered grid problem. 
+
+tracers.f90 (thanks, Tak Yamaguchi)
+Tracer names get lost after restart. Fixed by making the code re-read the tracer names after restart. Affected files tracers.f90, main.f90.
+
+
+CODE CHANGES (NOT BUGS):
+
+- statistics profiles of tracer fields themselves were not saved to statistics file. Affected files tracers.f90, statistics.f90 (thanks, Tak Yamaguchi)
+- added additional entries to initial perturbation list in setperturb.f90 for several GCSS WG1 cases.
+- added GCSS WG1 smoke-cloud case and also added dosmoke namelist flag to deal with the smoke-cloud case more or less cleanly. Affected files: drid.f90, main.f90, printout.f90, radiation.f90, setdata.f90, setparm.f90, MICRO_SAM1MOM/microphysics.
+- added rad_simple_smoke.f90 to be called when dosmoke=.true. and doradsimple=.true.  Renamed rad_simple_dycoms.f90 to simply rad_simple.f90; called when doradsimple=.true.  and dosmoke=.false.
+- Made conform to paper specifications the following GCSS WG1 cases: DYCOMS_RF01, DYCOMS_RF02, BOMEX, GCSSARM
+

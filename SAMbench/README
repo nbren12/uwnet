@@ -1,0 +1,11 @@
+This directory aims to automate testing of SAM by running a couple of
+cases for a short time in two-dimensional domains using a wide variety
+of model options (e.g., different radiation, advection or microphysics
+schemes).  By automating the testing of various options, it should
+hopefully be easier to figure out when something is broken.
+
+At this point, matlab scripts are provided to plot the results,
+looking mostly at timeseries.  This is certainly not comprehensive,
+but it will turn up many problems.
+
+ - Peter Blossey, February 2016

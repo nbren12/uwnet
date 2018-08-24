@@ -1,0 +1,14 @@
+3rd order PPM with selective flux correction following Blossey and Durran 2008. 
+Selective monotonicity preservation in scalar advection, Journal of Computational 
+Physics, Vol. 227, pp. 5160-5183, doi:10.1016/j.jcp.2008.01.043
+
+Written by Peter Blossey, pblossey@uw.edu.
+Based on Tak Yamaguchi's interface for the ultimate macho scheme in SRC/ADV_UM5/.
+
+Extended to perform fourth-order interpolation to cell faces on non-uniform grids, 
+enabled by default.  To turn this off, set use_uniform_grid_method_for_z = .true.
+in advect_lib.f90
+
+Also modified computation of epsilon, the small constant in the
+denominator of the expression lambda following a suggestion of Andy
+Berner.  Now, lambda = TINY(1.) + 1.e-14*SUM( gamma_k ) for k=i-1:i+1.

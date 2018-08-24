@@ -1,0 +1,9 @@
+nudging.f90
+
+tnudge and qnudge diagnostics arrays could be computed incorrectly in case of tauls.ne.tautqls, as they used coef=1./tauls rather than coef=1./tautqls. Fixed by adding coef=1./tautqls after nudging the velocity fields. 
+
+RAD_CAM/rad_full.f90
+function perpetual_factor()
+
+the variable pie (3.141...) was not defined. As the result the perpetual insolation (doperpetual=.true.) was computed for equator only. Fixed by adding pie=acos(-1.) just before the do while loop.
+

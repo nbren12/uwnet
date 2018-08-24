@@ -1,0 +1,71 @@
+ &PARAMETERS
+
+ nrestart = 0
+
+ caseid='dt120.py.test4'
+ !case_restart = 'HeldSuarez'
+ !caseid_restart ='initTeq'
+
+ CEM = .true.,
+ OCEAN = .true.,
+
+ dosgs		= .true.,
+ dodamping 	= .true.,
+ doupperbound  	= .true.,
+ docloud 	= .false.,
+ doprecip 	= .false., 
+ dolongwave	= .false.,
+ doshortwave	= .false.,
+ dosurface 	= .false.,
+ dolargescale 	= .false.,
+ doradforcing   = .false.,
+ dosfcforcing   = .false.,
+ donudging_uv   = .false.,
+ donudging_tq   = .false.,
+
+ !doheldsuarez = .true.
+ dowally = .true.
+ !docolumn = .true.
+ docoriolis = .true.
+ dofplane = .false.
+ doradlat = .true.
+ dopython = .true.
+
+ dx =   160000.,
+ dy = 	160000.,
+ dt = 	  120., !30.,
+
+
+ latitude0= 0.,
+ longitude0=0.0,
+
+ day0=0.0,
+
+ nstop 		= 80000,
+
+ nprint 	= 540,
+ nstat 		= 540,
+ nstatfrq 	= 1,
+
+ nsave2D	= 540,
+ nsave2Dstart	= 0,
+ nsave2Dend	= 99960480,
+ save2Dbin = .true.,
+
+ nsave3D	= 540,
+ nsave3Dstart	= 0,
+ nsave3Dend	= 99960480,
+ save3Dbin = .true.,
+
+ doSAMconditionals = .false.
+ dosatupdnconditionals = .false.
+
+/ &end 
+
+
+&SGS_TKE
+
+ dosmagor	= .true.,
+
+/ &end
+

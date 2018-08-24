@@ -1,0 +1,74 @@
+&SGS_TKE
+dosmagor = .true.
+/
+
+&PARAMETERS
+
+caseid ='128x128x64MK_2km_10s_CAM_SAM1MOM',
+
+nrestart = 0,
+
+CEM = .true.,
+OCEAN = .true.,
+doseawater = .true.,
+
+dosgs		= .true.,
+dodamping 	= .true.,
+doupperbound  	= .true.,
+docloud 	= .true.,
+doprecip 	= .true., 
+dolongwave	= .true.,
+doshortwave	= .true.,
+dosurface 	= .true.,
+dolargescale 	= .true.,
+doradforcing    = .false.,
+dosfcforcing    = .true.,
+docoriolis 	= .false.,
+donudging_uv    = .true.,
+donudging_tq    = .false.,
+
+doisccp = .true.,
+
+tauls = 7200.,
+
+SFC_FLX_FXD    = .false.,
+SFC_TAU_FXD    = .false.,
+
+longitude0 = 155.,
+latitude0 = -2.,
+
+nrad = 45,
+
+doseasons = .true.,
+
+dx = 	2000.,
+dy = 	2000.,
+
+dt = 	10.,
+
+day0=306.25,
+
+nstop 	= 1036800,
+!nelapse  = 144000,
+nprint 	= 180,
+nstat 	= 2160,
+nstatfrq= 72,
+
+doSAMconditionals = .false.
+dosatupdnconditionals = .false.
+
+
+nsave2D	= 720,
+nsave2Dstart	= 99999720, 
+nsave2Dend	= 999164000,
+save2Davg = .false.
+
+nsave3D	= 720,
+nsave3Dstart	= 99999720,
+nsave3Dend	= 999999999,
+save3Dbin      = .false.
+
+/ 
+
+
+

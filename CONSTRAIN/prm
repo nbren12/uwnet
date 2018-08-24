@@ -1,0 +1,119 @@
+! parameters file from Steve Krueger and Andrew Lesage at Univ of Utah
+! for CONSTRAIN cold air outbreak case.
+
+!Modifications:
+! - Specify cloud droplet concentration of 50/cm3 (Tomassini et al, 2017)
+! - Increase ncycle_max to allow time step dt to be further divided 
+!      if velocities increase as the run goes on.
+! - Use iop forcings to fix issue with humidity above dynamical model domain
+! - Turn on instrument simulators.
+! - Create new perturb_type (= 22) that adds initial noist through boundary layer
+! - Recommended to use RAD_RRTM4PBL because the model domain does not reach
+!      up to the stratosphere.  That radiation code will compute radiation on
+!      on a deeper atmospheric profile by patching a background sounding above
+!      the dynamical model domain.
+
+&SGS_TKE
+dosmagor = .false.
+/
+
+&MICRO_M2005
+ Nc0 = 50. ! Tomassini et al (2017, doi:10.1002/2016MS000822)
+
+!bloss(NOTE): I realize that there did not seem to be a cloud radar
+!  present during CONSTRAIN, but I thought it would be good to get used
+!  to looking at the cloud radar for mixed-phase cases to understand
+!  how it performs.  Let us try to simulate what CloudSat would see.
+
+! QUICKBEAM cloud radar simulator
+doreflectivity_cloudradar = .true.
+surface_cloudradar = 0 ! downward-pointing, space-based cloud radar
+freq_cloudradar = 94. ! Frequency of radar in GHz (CloudSat)
+/
+
+&MICRO_THOMPSON
+ Nc0 = 50.  ! Tomassini et al (2017, doi:10.1002/2016MS000822)
+/
+
+&PARAMETERS
+
+caseid ='256x192_250m_10s_rad10_vg_M2005_aj',
+! use grd-25
+
+iopfile = 'CONSTRAIN_forcing_from_setup_27-Aug-2013.nc',
+
+vg = -20.,
+
+OCEAN = .true.,
+CEM = .true.,
+
+day0    = 31.0
+
+dx = 	250.,
+dy = 	250.,
+dt = 	10.,
+
+nrestart = 0,
+nrestart_skip = 999999999,
+
+! 15 hr
+nstop 	= 5220,
+nprint 	= 60,		
+nstat 	= 60,
+nstatfrq= 20,
+
+nsave2D	= 360,
+nsave2Dstart	= 360, 
+nsave2Dend	= 999999999,
+save2Davg = .false.,
+save2Dbin = .true.
+
+nsave3D		= 360,
+nsave3Dstart	= 360,
+nsave3Dend	= 999999999,
+save3Dbin     	= .true.,
+
+dosgs		= .true.,
+dodamping 	= .true.,
+doupperbound  	= .true.,
+docloud 	= .true.,
+doprecip 	= .true., 
+dolongwave	= .true.,
+doshortwave	= .true.,
+dosurface 	= .true.,
+dolargescale 	= .true.,
+doradforcing    = .false.,
+dosfcforcing    = .true.,
+docoriolis 	= .true.,
+dofplane 	= .true., 
+fcor 		= 1.32176e-4,
+donudging_uv    = .false.,
+donudging_tq    = .false.,
+
+SFC_FLX_FXD    = .true.,
+SFC_TAU_FXD    = .false.,
+
+doSAMconditionals 	= .false.,
+dosatupdnconditionals 	= .false.,
+
+doperpetual		= .false.,
+dosolarconstant		= .false.,
+doseasons 		= .true.,
+latitude0 		=  65.0,
+longitude0 		= -10.0,
+
+nrad = 3
+
+doisccp = .true.
+domisr = .true.
+domodis = .true.
+
+perturb_type = 22, ! special for CONSTRAIN
+
+!bloss: Setup for adaptive time stepping with larger number of substeps 
+ncycle_max = 20,
+ncycle_min = 3,
+ncycle0 = 3,
+cfl_safety_factor = 1.5, ! never take a step with CFL exceeding 2/3 of the stability limit (Note: 2/3 = 1/1.5)
+
+/ 

@@ -1,0 +1,91 @@
+
+ &PARAMETERS
+
+ nrestart = 0
+
+ caseid ='2018-08-15-A'
+ !case_restart = 'NGAqua'
+
+ CEM = .true.,
+ OCEAN = .true.,
+
+ 
+ dowally = .true.
+ dosgs		= .false.,
+ dodamping 	= .true.,
+ doupperbound  	= .true.,
+ docloud 	= .false.,
+ doprecip 	= .false.,
+ dolongwave	= .false.,
+ doshortwave	= .false.,
+ dosurface 	= .false.,
+ dolargescale 	= .false.,
+ doradforcing   = .false.,
+ dosfcforcing   = .false.,
+ donudging_uv   = .false.,
+ donudging_tq   = .false.,
+
+ doradlat = .true.
+ doseasons = .false.
+ doequinox = .true.
+ docoriolis = .true.
+ dofplane = .false.
+ dopython = .true.
+ usepython = .false.
+ npython = 1
+ docolumn = .false.
+
+
+ ocean_type = 3 !QOBS
+ perturb_type = 23
+ initial_condition_netcdf = 'NG1/ic.nc'
+
+ dx =   160000.,
+ dy = 	160000.,
+ dt = 	  0.1,
+
+
+ latitude0= 0.72,
+ longitude0=0.0,
+ nrad = 30,
+
+
+ day0= 100.625
+
+ nstop 		=  2, ! 1 day
+ nprint 	= 2, ! 1 hr
+ nstat 		= 2,
+ nstatfrq 	= 1,
+
+ nsave2D	= 120,
+ nsave2Dstart	= 1000000,
+ nsave2Dend	= 99960480,
+ save2Dbin = .true.,
+
+ nsave3D	= 120,
+ nsave3Dstart	= 10000000,
+ nsave3Dend	= 99960480,
+ save3Dbin = .true.,
+
+ nsave2D	= 1,
+ nsave2Dstart	= 0,
+ nsave2Dend	= 99960480,
+ save2Dbin = .true.,
+
+ nsave3D	= 1,
+ nsave3Dstart	= 0,
+ nsave3Dend	= 99960480,
+ save3Dbin = .true.,
+
+ doSAMconditionals = .false.
+ dosatupdnconditionals = .false.
+
+/ &end
+
+
+&SGS_TKE
+
+ dosmagor	= .true.,
+
+/ &end
+

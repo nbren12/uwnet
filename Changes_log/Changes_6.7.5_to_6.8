@@ -1,0 +1,87 @@
+
+
+One pretty serious bug was uncovered that affects simulations with M2005 microphysics with dopredictNc = true. Apparently, the velocity field was not updated after advection of scalars, so it was still in 'Courant' form required by the advection algorithm (that is each velocitycomponent was ultiplied by dt/ds, where ds=dx,dy,dz). The result is artificially low values of cloud drop concentration Nc because of low values of vertical velocity used in the formular for CCN activation. The fix is to move the call uvw() in main.f90 to before the microphyics is called.
+
+MICRO_M2005: 
+
+> The M2005 microphysics was updated to V2.0 by Hugh Morrison. Changes from the previous version are listed at the very top of module_mp_graupel.f90 file in SRC/MICRO_M2005 directory.  
+
+> Peter Blossey modified the M2005 microphysics interface to use total water (vapor + cloud liquid water) as prognostic variable instead of two separate variables used in previous SAM versions. This change 1) reduces number of variables, and 2) creates an invariant variable to describe subgrid-scale mixing bettwer and easier.  
+
+> dopredictNc = .false. by default now, before it was .true. Other small changes from Peter's email:
+
+* saturation adjustment performed before calling WRF routine (using
+new satadj_liquid subroutine based on Marat's cloud.f90) and turned
+off within WRF routine.
+ * turned off cloud liquid droplet activation within WRF routine when
+using fixed droplet concentration.
+ * latent heating can't be reliably estimated in total water
+formulation (because transport of cloud liquid isn't known), so that latent heating statistics (QLAT*) are no longer output.
+ * effective radius statistics were not reliable due to averaging
+issues -- you should compute the effective radius from the mean
+optical depth and mean mixing ratio, rather than averaging the
+effective radii themselves.  To make this easily accessible, I have
+added a QCOEFFR statistic which gives the effective radius in microns
+as EFFR = QC/QCOEFFR without any scaling.  This seems to work reliably
+in the RF02 test.  As I recall, the old formulation could give some
+sketchy results in places where the hydrometeor fraction was very
+small at the tops or bottoms of clouds.
+Also, some inconsistencies with values of gas constants, ggr, etc, noticed by Dave Schanen have been fixed.
+Note that is you liked the previous version of M2005, you can use it as before by copying the directory from SAM6.7.5. But don't forget then to fix a bug in microphysics.f90 as discussed below.
+         
+
+Specific changes:         
+
+-------------------------------------------------------------------------------
+main.f90
+
+Moved call uvw() to right after advection/diffusion of scalers block to address the M2005 drop activation bug (see above).
+
+-------------------------------------------------------------------------------
+MICRO_M2005/microphysics.f90
+
+User Jiwen Fan noticed that the 2D output variables precsfc(i,j) and prec_xy(i,j) should not be divided dtn. Make sure that your lines look like:
+         ! take care of surface precipitation         
+	precsfc(i,j) = precsfc(i,j) + sfcpcp/dz         
+	prec_xy(i,j) = prec_xy(i,j) + sfcpcp/dz
+
+------------------------------------------------------------------------------------------------------
+restart.f90
+
+Peter Blossey reported and fixed the potential problem with restartability when running on many nodes using NFS file system. For some unknown reason, the misc_restart file does not get updated on nodes that don't run master process. As the result, the model crashes shortly after restart. The problem is probably caused that the misc_reastart file (unit 66) is also opened without writing by processes other than the master but not closed after write is done. The problem seems to be fixed by making sure that the misc_restart file is opened only by the master process during the write of the restart information. Fix: wrap the open(66..) in write_all() in if(masterproc).
+Also, in the misc-file read-statement, prevented overwritting the case and caseid variables. This is useful when case is restarted with nrestsrt=1 from files that were renamed or copied. Otherwise, the original file not the file specified in the prm will be written and updated.
+
+---------------------------------------------------------------------------------------------------
+setparm.f90
+
+Tak Yamaguchi noticed that when nrestart=2 and setparm() is called twice, the conditional statistics arrays are allocated twice. Fix, deallocate them before allocating again (in the case conditional sampling is changed when nrestart=2).
+
+------------------------------------------------------------------------------------------------------------
+
+advect_scalar2D.f90
+advect_scalar3D.f90
+
+I noticed that the positive definite scalar advection of quantities that have zero minimum values (like cloud water, drop concentration, etc), could sometimes produce very small negative numbers, most likely due to truncation errors. The numbers are indeed very small, about -1e-9*max(positive value) or so. I decided to do a simple fix as just forcing the values to be nonnegative at the exit from the scalar advection algorithm. Again, the negative values are indeed very small, and have been seen mostly with hydrometeor concentrations of M2005 microphysics. The error should not affect global conservation in any meaningful manner.
+
+---------------------------------------------------------------------------------------------------
+hbuffer.f90
+
+increased precision of averaging. Added s_sst (mean surface temperature) as output diagnostics (also affected statistics.f90 and vars.f90)
+
+------------------------------------------------------------------------------------------------------------
+
+utils.f90
+
+increased precision of averaging.
+fixed issue in averageXY_MPI with not setting fm(k) when dompi=.false.
+
+------------------------------------------------------------------------------------------------
+isccp.f90
+
+fixed issue with some compilers complaning about the dummy array arguments substituted by sclars.
+
+
+------------------------------------------------------------------------------------------------
+RAD_CAM/rad_full.f90
+
+Changed interface-level pressure computations from hydrostatic equation to integrating from top to bottom rather than from botton to top. The latter could generate negative pressure values at the very top level in stratosphere due to inconsistency between hydrostatic pressure constantly recomputed following the prescribed (and hence changing) surface pressure while keeping constant density profile to enforce mass conservation. This is important since the radiation routines compute mass of the levels based on pressure thickness rather than using the air density from the model. 

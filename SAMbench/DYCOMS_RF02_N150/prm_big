@@ -1,0 +1,61 @@
+ &PARAMETERS
+
+ caseid ='512x512x96_nodrizzle_tke',
+
+ nrestart = 0,
+
+ LES = .true.,
+
+ OCEAN = .true.,
+
+ dodrizzle = .true.,
+
+ dosgs		= .true.,
+ dosmagor	= .false.,
+ doscalar	= .false.,
+ dodamping 	= .true.,
+ doupperbound  	= .true.,
+ docloud 	= .true.,
+ doprecip 	= .false.,
+ dolongwave	= .true.,
+ doshortwave	= .false.,
+ dosurface 	= .true.,
+ dolargescale 	= .true.,
+ doradforcing   = .false.,
+ doradsimple    = .true., 
+ dosfcforcing   = .true.,
+ docoriolis 	= .true.,
+ donudging_uv   = .false.,
+ donudging_tq   = .false.,
+
+ SFC_FLX_FXD    = .false.,
+ SFC_TAU_FXD    = .false.,
+
+ latitude0 = 31.5,
+
+ dx = 	12.,
+ dy = 	12.,
+
+ dt = 	0.5,
+
+ day0=0.,
+
+nstop 	= 43200,
+!nelapse = 9600,
+nprint  = 120,
+nstat 	= 600,
+nstatfrq= 20,
+
+ nsave2D	= 600,
+ nsave2Dstart	= 7200,
+ nsave2Dend	= 99997200,
+ save2Dbin      = .true.
+
+ nsave3D	= 3600,
+ nsave3Dstart	= 7200,
+ nsave3Dend	= 999999999,
+ save3Dbin      = .true.
+
+/ 
+
+

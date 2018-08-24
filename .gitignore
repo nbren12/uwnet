@@ -1,0 +1,101 @@
+OBJ/
+OUT_2D/
+OUT_3D/
+OUT_STAT/
+RESTART/
+SAM_ADV_MPDATA_SGS_TKE_RAD_CAM_MICRO_SAM1MOM
+SAM_ADV_MPDATA_SGS_TKE_RAD_RRTM_MICRO_SAM1MOM
+SRC/domain.mod
+TAGS
+run_output
+test
+test.nc
+testsnd/ic.nc
+testsnd/testsnd_2d_8x96_testa.nml
+timing.0
+/OUT_TXT/Held_suarez.txt
+./OUT_TXT/
+NGAqua/NGAqua_ngaqua.nml
+NGAqua/prm
+NGAqua/snd
+.DS_Store
+NGAqua/NGAqua_ngaqua.dt15.QOBS.nml
+NGAqua/NGAqua_ngaqua.dt15.correctQOBS.continuation.nml
+NGAqua/NGAqua_ngaqua.dt30.correctQOBS.continuation.nml
+NGAqua/NGAqua_ngaqua.dt45.QOBS.nml
+NGAqua/NGAqua_ngaqua.dt45.correctQOBS.nml
+NGAqua/NGAqua_ngaqua.dt45.nml
+NGAqua/NGAqua_ngaqua.dt60.nml
+NGAqua/grd.34
+NGAqua/grd96
+NGAqua/snd.moist
+OUT_TXT/
+out
+.ipynb_checkpoints
+# Prerequisites
+*.d
+
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+
+# Linker output
+*.ilk
+*.map
+*.exp
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Libraries
+*.lib
+*.a
+*.la
+*.lo
+
+# Shared objects (inc. Windows DLLs)
+*.dll
+*.so
+*.so.*
+*.dylib
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Kernel Module Compile Results
+*.mod*
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
+Mkfile.old
+dkms.conf
+*.nc
+
+# python
+__pycache__
+*.nml
+*.pt
+/tests/tests.x
+*.zarr
+.envrc
+.cache/
+
+.pytest_cache
+*.egg-info
+SRC/TESTS/call_python/*.c
+SRC/TESTS/call_python/test_f90

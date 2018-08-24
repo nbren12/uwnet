@@ -1,0 +1,1 @@
+../RAD_RRTM/shr_kind_mod.f90

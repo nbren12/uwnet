@@ -1,0 +1,1 @@
+../RAD_RRTM/rrtmg_sw_spcvmc.f90

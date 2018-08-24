@@ -1,0 +1,16 @@
+1) Huge memory 'black hole' was accidently introduced in SAM6.7.3! When no moment sampling on the degraded grid is needed, moment statistics sampling parameters navgmom_x and navgmom_y are (incorrectly) set to 1 in domain.f90.  However, since the statistics arrays are statically allocated, setting those parameters to 1 means that all 38(!)  full-resolution 3D arrays in stat_moments module are allocated even though they are never actually used! This effectively may have doubled the required memory and sometimes caused the code not to fit into rather tight-memory architectures like BlueGene even though before version 6.7 it may have fit alright. 
+The fix: By default, if you don't need statistical moment sampling, in domain.f90, set navgmom_x and navgmom_y to -1 (not 1). Array definitions in stat_moments.f90 were appropriately modified. File setparm.f90 was also changed to disallow any moment statistics sampling when the above parameters are set to -1.
+
+2) when simulating a smoke cloud (dosmoke=.true.), the virtual temperature correction (Rv/Ra=0.61) in buoyancy calculations and statistics should be set to zero because smoke concentration takes the place of the total water (water vapor) variable so the virtual correction is not appropriate. Fix: replace everywhere the hardcoded 0.61 to variable epsv set to 0.61 or 0. (in setparms.f90) depending on dosmoke flag.
+Affected files: buoyancy.f90, landflx.f90,params.f90,pressz.f90,restart.f90,setdata.f90,statistics.f90,surface.f90,tke_full.f90
+
+3) kurant.f90: changed CFL stability criterion making it a bit more strict in the case of predominantly two-dimensional horizontal flows.
+
+4) MICRO_M2005/microphysics.f90: Changed vertical interpolation of the vertical velocity to the scalar levels to be more appropriate for the stretched grids (subroutine micro_proc).
+ 
+5) setperturb.f90: for 'warm bubble' case (perturb_type=2), added the code for the water vapor perturbation in addition to the temperature perturbation.
+
+6) setdata.f90: added initialization of absolute temperature.
+
+7) restart.f90: added epsv and dosmoke flag to the write/read lists.
+

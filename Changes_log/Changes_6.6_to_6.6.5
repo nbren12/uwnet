@@ -1,0 +1,73 @@
+MICRO_SAM1MOM/cloud.f90
+
+In the cloud condensation procedure, the definition of latent heat for precipitation did not take into account latent heat of freezing. Although the effect of the bug is relatively small but not negligible.
+
+New:          lstarp=fac_cond+(1.-omp)*fac_fus
+---
+Old:         lstarp=fac_cond+(1.-om)*fac_fus
+
+-----------------------------------------------------------------
+statistics.f90
+
+Wrong definition of static energies for the output:
+
+New:
+          mse(k)=mse(k)+tabs(i,j,k)+gamaz(k)+fac_cond*qv(i,j,k)
+          sse(k)=sse(k)+tabs(i,j,k)+gamaz(k)+fac_cond*qsatw(tabs(i,j,k),pres(k))
+---
+Old:
+          mse(k)=mse(k)+t(i,j,k)+gamaz(k)+fac_cond*qv(i,j,k)
+          sse(k)=sse(k)+t(i,j,k)+gamaz(k)+fac_cond*qsatw(tabs(i,j,k),pres(k))
+---------------------------------------------------------------------------------------
+
+restart.f90
+diagnose.f90
+setdata.f90
+setgrid.f90
+
+Restartability issues.
+
+Peter Blossey noticed that "It seems that running pressz on restart (called at the end of diagnose) changes things at the level of rounding error as compared to a run without restart." He found a hack that seems to work. Also, fcory and fcorzy apparently were not initialized in restarted runs if doxy=.false. The solution was proposed to move their definition from setdata.f90 to setgrid.f90.
+
+
+
+diff SRC ../SAM6.6/SRC
+Common subdirectories: SRC/MICRO_SAM1MOM and ../SAM6.6/SRC/MICRO_SAM1MOM
+Common subdirectories: SRC/MICRO_TEMPLATE and ../SAM6.6/SRC/MICRO_TEMPLATE
+Common subdirectories: SRC/RAD_CAM and ../SAM6.6/SRC/RAD_CAM
+Common subdirectories: SRC/RAD_CCM and ../SAM6.6/SRC/RAD_CCM
+Common subdirectories: SRC/RAD_DUMMY and ../SAM6.6/SRC/RAD_DUMMY
+Common subdirectories: SRC/SCRIPT and ../SAM6.6/SRC/SCRIPT
+Common subdirectories: SRC/TIMING and ../SAM6.6/SRC/TIMING
+diff SRC/diagnose.f90 ../SAM6.6/SRC/diagnose.f90
+119,120c119
+< ! recompute pressure levels, except at restart (saved levels are used).
+< if(dtfactor.ge.0.) call pressz()   ! recompute pressure levels
+---
+> call pressz()   ! recompute pressure levels
+diff SRC/restart.f90 ../SAM6.6/SRC/restart.f90
+127d126
+<        dtfactor = -1.
+169c168
+<          z, pres, prespot, presi, rho, rhow, bet, sstxy, &
+---
+>          z, pres, rho, rhow, bet, sstxy, &
+210c209
+<          z, pres, prespot, presi, rho, rhow, bet, sstxy, &
+---
+>          z, pres, rho, rhow, bet, sstxy, &
+diff SRC/setdata.f90 ../SAM6.6/SRC/setdata.f90
+267a268,269
+>    fcory(j) = fcor
+>    fcorzy(j) = fcorz
+diff SRC/setgrid.f90 ../SAM6.6/SRC/setgrid.f90
+96,97d95
+<   fcory(j) = fcor
+<   fcorzy(j) = fcorz
+diff SRC/statistics.f90 ../SAM6.6/SRC/statistics.f90
+139,140c139,140
+<          mse(k)=mse(k)+tabs(i,j,k)+gamaz(k)+fac_cond*qv(i,j,k)
+<          sse(k)=sse(k)+tabs(i,j,k)+gamaz(k)+fac_cond*qsatw(tabs(i,j,k),pres(k))
+---
+>          mse(k)=mse(k)+t(i,j,k)+gamaz(k)+fac_cond*qv(i,j,k)
+>          sse(k)=sse(k)+t(i,j,k)+gamaz(k)+fac_cond*qsatw(tabs(i,j,k),pres(k))

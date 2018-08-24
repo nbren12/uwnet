@@ -1,0 +1,10 @@
+The bug was introduced to SAM6.9.1 to M2005 microphysics. It artificially reduces the KK2000 autoconversion rate at LES (dx<100m) grid spacings. Those who already downloaded SAM6.9.* , change the following line (in two places) in SRC/MICRO_M2005/module_mp_graupel.f90:
+
+                PRC(K)=(100./dx)**2*1350.*QC3D(K)**2.47*
+
+to
+
+                PRC(K)=min(1.,100./dx)**2*1350.*QC3D(K)**2.47*
+
+Again, do it in two separate places. 
+

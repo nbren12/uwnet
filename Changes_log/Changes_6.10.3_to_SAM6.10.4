@@ -1,0 +1,41 @@
+RAD_CAM/rad_restart.f90
+
+Peter Bogenschutz reported that SAM does not have bit-for-bit restorability property, that is when restarted, the solution starts very gradually diverge from the solution without that restart. I was able to trace it to the bug in radiation restart, namely failure to save the cld_rad variable, which is the cloud fraction field obtained by averaging over nrad steps. As the result, in some situations, for the first nrad (usually 20-40) steps right after restart, the radiation may not see the clouds (cloud fraction is zero). After cld_rad was added to the read/write statements in rad_restart.f90, the bit-for-bit restorability of SAM has been confirmed. 
+
+diagnose.f90
+
+index kc in computation of w500 was not defined. The result is that instead of level closest to 500 mb, the level just below 500-mb level was always chosen. Corrected by defining kc. (Thanks to Caroline Muller).
+
+landflx.f90
+
+Limited the bulk Ri for stable stratification by 0.25 to avoid erroneously large surface flux.
+
+press_grad.f90
+
+the pressure should be recomputed from p/rho for all values, not just 1,ny and 1,nx to compute correctly the UPGF* and VPGF* statistics (thanks, Peter Blossey and Zhiming)
+
+
+MICRO_M2005/microphysics.f90
+
+When running the Morrison microphysics with nrestart=2, the microphysical fields get wiped clean.  In micro_setparm, the initialization of micro_fields and everything below (except for compute_reffc and compute_reffi) should be included inside the if(isallocatedMICRO) statement (thanks to Peter Blossey and Andy)
+
+
+
+movies.f90
+
+	* The previously hard-coded limits of various fields used for compression to 1-byte data are now variables that could be set via a new nameless called MOVIES (see the updated user-guide in DOC directory). The default values can be found in the file movies.f90. 
+	* Replaced MSE field with surface temperature. Surface potential temperature is now surface air temperature. 
+	* Used a new function bytes_in_rec() (see utils.f90) to determine the number of bytes in a write record in order to adjusts the specification of the record size when opening direct-access files. The Fortran standard is generally mute and vague about this issue. It is generally incorrect to assume that by default it is one-byte-per-record in directly accessed files. It really depends on compiler and system. One could, of course, use compiler options to set the desired behavior. However, some users may not even realize the problem. For example, on MacOSX with intel compiler, the default record size is indeed 4 bytes not 1 byte; therefore, the movie file-size would be artificially four times bigger than intended. 
+	* Changed the name of the info file from ending by info.raw to info.movie as sometimes when the raw files are deleted, the info file could also be accidentally deleted. Also, the number of frames in the movie files written into the info-file was too large by 1. Also, made some changes to the glue_movie_raw in UTIL directory to make sure that large files raw-file could be read. (thanks, Steve Krueger)
+
+main.f90
+
+Added call to init_movies().
+
+utils.f90
+
+Added function bytes_in_rec() which returns the default number of bytes in output record in your system.
+
+task_init.f90
+
+replaced undefined-yet masterproc with rank.eq.0 in the check if number of processors is equal to number of subdomain (thanks, Tak)

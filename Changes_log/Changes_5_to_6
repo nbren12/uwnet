@@ -1,0 +1,41 @@
+--------------------------------------------
+! cloud.f90
+
+* minimum total water threshold changed from 1.e-7 to 0. ;
+* sedimentation of ice is computed using 2nd order monotonic scheme (contributed by Peter Blossey, UW) in place of the 1st order upstream;
+* liquid water/ice static energy change due to falling ice is corrected;
+
+----------------------------------------
+! diffuse_mom*.f90   diffuse_scalar*.f90
+
+Based on the experiences with the GCSS WG4 DYCOMS2 case, the horizontal eddy diffusivity/conductivity is scaled to accommodate cases with large grid anisotropy dx >> dz. It looks like this improves the stratocumulus-topped STBL simulations. This correction is done for the LES mode only, since a similar modification for the CRM model was found too smoothing and could lead to linear instability. LES with very anisotropic grid may also require smaller time step than usual to maintain linear stability for the diffusion operator.
+
+---------------------------------------
+!
+  A new namelist parameter doperpetual was added. If set true, the solar radiation will experience no seasonal changes; that is, solar radiation will repeat the very first day of a simulation;
+
+dogzip3D namelist parameter is added. If true, the output 3D files will be gzip-compressed. Default .false.
+
+----------------------------------------
+!   kurant.f90
+
+ a bug was fixed
+
+----------------------------------------
+!
+ tke_full.f90
+
+ SGS length-scale is computed using the vertical grid spacing only.
+ 
+
+-----------------------------------------
+! precip_fall.f90
+
+A rather serious bug discovered by Peter Blossey, from UW, was fixed.  The bug affected the simulations that produce mixed phase deep precipitating clouds. In energy terms, the bug was equivalent to energy leak of about 10 W/m2.
+
+--------------------------------------
+!
+
+RAD_CCM/zenith.f
+
+Earth orbit eccentricity factor was computed incorrectly resulting in the sun being closer to the Earth during summer rather than during winter (noticed by Peter Blossey, UW).

@@ -1,0 +1,39 @@
+
+
+buoyancy.f90
+
+Please delete the pressure-perturbation terms in the expression for buoyancy (terms with p() ). After discussing the matter with Chris Bretherton, I am convinced that those terms should not be there when static energy is predicted rather than potential temperature. The effect is found very small in general except for cases of severe and very deep convection when this term can generate rather large vertical velocities in updraft cores. The effect is found to be small for PBL, shallow and congestus convection. Also, you may notice that buoyancy term is computed slightly differently or more consistently with the theoretical definition than in SAM6.4.
+
+
+tke_full.f90
+
+	 Smagorinsky constant Cs has been reduced from 0.19 to 0.15, and the Prandtl number Pr was froced to be always 1 rather in the range from 1 to 3. The reason for these changes is that I noticed that in the case of quasi-isotropic turbulence, namely, dry convectively driven PBL, the model overdamps the smallest scales compared to Kolmogorov spectrum. The reason is that the Cs and Pr coefficients are basically theoretical values, while in reality there is numerical dissipation in addition to imposed SGS dissipation. For the case of velocity, the 3rd order Adams-Bashforth scheme is slightly diffusive. The monotonic Smolarkiewicz advection scheme used to transport scalars is quite numerically diffusive, so the choice of Pr=1 is to compensate. As the result of this changes, the Kolmogorov (-5/3) spectrum is much better reproduced in SAM6.5 for both the TKE and scalar fields all the way down to the smallest scales. 
+	I also tested how the SGS works for anisotropic grids, that is when dx > dz which is rather typical situation. As you may know, SAM computes addy coefficients based only on dz grid spacing. The SGS eddy-coefficients are obtained in LES mode by scaling the vertical coefficients by (dx/dz)^2. I found that this ad-hoc approach actually works quite well, at least I tested it for dx/dz=4 and 8. Figure demenstrate the corresponding spectra for the same dry PBL case. One can see that the spectra still look quite good. 
+	One other change is using the scaling factors for CEM mode as well. They used to be just 1 which may underestimate lateral SGS mixing in clouds when large dx (>500 m) is used. In SAM6.5, it is allowed to be a function of dx/dz ratio but not to exceed 4^2=16  to avoid excessive horizontal eddy viscocity in the case of highly anisotropic grids (say dx=4 km which is my favorite ;-). Affected file: setgrid.f90 
+	Finally, please make sure that the mixing length smix in your code is computed in tke_full() the same way as in SAM6.5. 
+
+
+	Those two are the major changes. 
+
+	There are other, mostly software related changes. One of the most important is concerning the sounding and forcing files. Previously, these files (snd, lsf, rad, sfc) have been read in beginning of each simulation. Then the forcing data were interpolated to the model levels and on each time step the forcing profile ot surface flux or SST value were computed using time interpolation. There is no problem with that approach except that for restart purposes the forcing data was written to restart file. There is little problem with this, but recently I was pointed out that in the case when really long forcing data is used (like ARM continuous forcing data that can be several years long) the restart files suddenly become unreasonably big. So, in SAM 6.5 the forcing data is not saved to restart file but rather read from files in the beginning of each run, initial or restart. 
+	Affected files: vars.f90, setforcing.f90, forcing.f90, restart.f90.
+
+SAM6.5 now, by default, collects run-time timing information for various SAM processes and at the and of each run prints it out in timing.* files. I borrowed the software from the NCAR Community Atmosphere Model.  The overhead for it is very small, but if you don;t want that feature, just uncomment the corresponding lines in the very beginning of a Makefile. The timing information is pretty useful as it can show where your bottlenecks are for a particular hardware. You can add new entries to the timing information by adding a pair of calls to t_startf("my name") and t_stopf('my name') anywhere in the code and the software will time how long the program spends between those two calls.
+
+damping.f90
+
+Damping time scales have been changed towards reduction to suppress better the gravity waves for the case of very deep convection.
+
+rad_simple_dycoms.f90
+
+Was redone by Peter Blossey (thanks again!)
+
+zero.f90
+
+pressure levels are updated at each time step.
+also, the precipitation-process parameters and variables are updated every hour.
+
+
+pressure_orig.f90
+
+changed 3D three-diagonal matrix solver coefficients to 1D as some significant slowdown of f90 version at nersc in the case when multithreading is used.

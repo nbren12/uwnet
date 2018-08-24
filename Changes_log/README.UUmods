@@ -1,0 +1,62 @@
+Peter Bogenschutz, March 2008
+
+1) DESCRIPTION OF STATISTICAL/MOMENT CODE
+
+Subroutines have been added to compute statistics over user specified area
+domains (i.e. goal is to compute moments for each 1 km x 1 km area for the
+projected super run).  The computation of these moments/statistics can 
+easily be turned off by changing a parameter in the setparm.f90 file 
+(see below).  
+
+A file SRC/moments.f90 has been added, which computes the statistical 
+profiles and writes them to outputfiles.  Currently the moment files 
+are set to be output to DATA3D/moment directorty, although this could 
+easily be modified for each user.
+
+The subroutine "compmoments" (in the moments.f90 file), does not actually
+compute the moments (besides the first moments), but computes sum of 
+squares, sum of the cubes, and fluxes; so that second, third, and fourth
+moments and covariances can be computed in postprocessing.  The reason the
+moments themselves are not computed within the model is for the option of easy 
+spatial averaging of the statistical profiles before the moments are 
+constructed.  
+
+Currently, 31 statistical profiles are computed.  These include:
+
+- First moment of Cloud Water mixing ratio (qcl)
+- First moment of x-wind (u)
+- First moment of y-wind (v)
+- First moment of Liquid Water Potential Temp. (theta_l)
+- First moment of Total Water Mixing Ratio (qw = qv+qcl+qci)
+- First moment of vertical velocity (w)
+- Sum of squares of theta_l
+- Sum of squares of qw
+- Sum of squares of w
+- Sum of squares of u
+- Sum of squares of v
+- Sum of cubes of theta_l
+- Sum of cubes of qw
+- Sum of cubes of w
+- Sum of qauds of w
+- Flux of theta_l and w
+- Flux of theta_l and qw
+- Flux of qw and w
+- Flux of w and u
+- Flux of w and v
+- Flux qcl and w
+- Flux of w^2 and qcl
+- Flux of theta_l and qcl
+- Flux of qw and qcl
+- Flux of w^2 and theta_l
+- Flux of w^2 and qw
+- Flux of theta_l^2 and w
+- Flux of qw^2 and w
+- Flux of w and theta_l and qw
+- Flux of u^2 and w
+- Flux of v^2 and w
+
+For each time in which the statistical profiles are computed, one output 
+file is produced; which contains the profiles for each variable at each 
+"sub-domain" calculation.  
+
+See SRC/stat_moments.f90 for details.

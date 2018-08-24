@@ -1,0 +1,61 @@
+&SGS_TKE
+dosmagor = .false.
+/
+
+&PARAMETERS
+
+ nrestart = 0
+
+ caseid ='32x32x32_12.5m_ug_init',
+
+ LES = .true.,
+ LAND = .true.,
+
+ dosgs		= .true.,
+ dodamping 	= .true.,
+ doupperbound  	= .true.,
+ docloud 	= .false.,
+ doprecip 	= .false., 
+ dolongwave	= .false.,
+ doshortwave	= .false.,
+ dosurface 	= .true.,
+ dolargescale 	= .false.,
+ doradforcing   = .false.,
+ dosfcforcing   = .true.,
+ docoriolis 	= .true.,
+ donudging_uv   = .false.,
+ donudging_tq   = .false.,
+
+ SFC_FLX_FXD    = .false.,
+ SFC_TAU_FXD    = .false.,
+
+ z0 = 0.1,
+ soil_wetness = 0.,
+ fcor = 1.39e-4,
+
+ ug = 5.
+ vg = 0.
+
+ dx = 	12.5,
+ dy = 	12.5,
+ dt = 	1,
+
+ day0=0.,
+
+ nstop 		= 32400,
+ nprint 	= 30,
+ nstat 		= 300,
+ nstatfrq 	= 15,
+
+ nsave2D	= 9999180,
+ nsave2Dstart	= 99992160,
+ nsave2Dend	= 999164000,
+
+ nsave3D	= 999999360,
+ nsave3Dstart	= 999992160,
+ nsave3Dend	= 999164000,
+
+
+/ 
+
+

@@ -1,0 +1,14 @@
+setparm.f90
+
+Error: when running without coriolis, the dowally becomes set to .true.
+Introduced: in SAM6.9.1
+
+Fix:
+change 
+        if(.not.dofplane.or.doradlat) dowally=.true.
+to
+        if(docoriolis.and..not.dofplane.or.doradlat) dowally=.true.
+
+printout.f90
+
+Added print doallx and dowallx

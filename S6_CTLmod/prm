@@ -1,0 +1,155 @@
+&MICRO_M2005_PA
+
+ ! No ice for this warm rain case.
+ doicemicro = .false.
+ dograupel = .false.
+
+!bloss: first option, fixed cloud droplet number concentration (from LES specs)
+dopredictNc = .true.
+Nc0 = 100.
+dopredictNc = .true.
+dospecifyaerosol = .true.
+doprogaerosol = .true.
+aerinitmode = 1
+doprecoff = .false.
+dosedoff = .false.
+doevapnc = .true.
+docloudedgeactivation = .true.
+! docldselfcollect = .false.
+douse_reffc = .true.
+massfactor = 1.
+
+do_m2011_scavenge = .false.
+nscv = 3
+
+aerfluxmode = 2
+fluxQAd0 = 7.12E-14
+fluxNAd0 = 44440000.
+
+aer_rm1 = 0.1
+aer_sig1 = 2.0
+aer_n1 = 100.
+aer_rm2 = 0.1
+aer_sig2 = 2.0
+aer_n2 = 100.
+
+/
+
+ &MICRO_DRIZZLE
+
+ Nc0 = 100.,
+ sigmag = 1.2, 
+
+/
+
+&SGS_TKE
+
+ dosmagor	= .false.,
+
+/
+
+ &PARAMETERS
+
+ caseid ='256x128_250m_testf_ac',
+
+ nrestart = 0,
+
+ CEM = .true.,
+
+ OCEAN = .true.,
+
+ dosgs		= .true.,
+ dodamping 	= .true.,
+ doupperbound  	= .true.,
+ docloud 	= .true.,
+ doprecip 	= .true.,
+ doradsimple    = .false., 
+ dolongwave	= .true.,
+ doshortwave	= .true.,
+ dosurface 	= .true.,
+ dolargescale 	= .true.,
+ doradforcing   = .false.,
+ dosfcforcing   = .true.,
+ docoriolis 	= .true., ! use geostrophic winds
+ donudging_uv   = .true., ! long nudging timescale of 12 hours
+ donudging_tq   = .true.,
+
+! ! apply temperature nudging above 6km, ramping up to 1 per hour above 7km.
+! donudging_t = .true.
+! donudging_q = .true.
+! tautqls = 3600.,
+! nudging_t_z1 = 6.5e3
+! nudging_t_z2 = 40.e3
+! nudging_q_z1 = 6.5e3
+! nudging_q_z2 = 40.e3
+
+ tauls = 43200.,
+
+ SFC_FLX_FXD    = .false., ! interactive surface fluxes
+ SFC_TAU_FXD    = .false.,
+
+ latitude0 = 17.0,
+ longitude0 = -149.,
+
+ ug = -8.5,
+ vg = -3.0,
+
+ dx = 250.,
+ dy = 250.,
+
+ dt =  5.,
+
+ doperpetual = .true.,
+ dosolarconstant = .true.,
+ solar_constant = 712.04,
+ zenith_angle = 51.0,
+ nrad = 12,
+ day0=196.,
+
+! doperpetual = .false.,
+! nrad = 12,
+! day0=197.,
+
+nstop 	= 25920,
+nprint  = 120,
+nstat 	= 120,
+nstatfrq= 10,
+
+ nsave2D	= 120,
+ nsave2Dstart	= 0,
+ nsave2Dend	= 99997200,
+ save2Dbin      = .true.
+ save2Davg = .false.
+
+ nsave3D	= 1440,
+ nsave3Dstart	= 0,
+ nsave3Dend	= 999999999,
+ save3Dbin      = .true.
+
+ doisccp = .true.
+
+ doSCAMiopdata = .true.
+ iopfile = 'S6_CTL_Dec2010d.nc' ! updated initial winds -- taken from small-domain SAM run
+! iopfile = 'S6_CTL_Dec2010c.nc' ! updated geostrophic wind to yield steady winds
+! iopfile = 'S6_CTL_Dec2010b.nc' ! this corrects small error in insolation
+ dozero_out_day0 = .false.
+ 
+ doSAMconditionals = .true.
+ dosatupdnconditionals = .true.
+
+ perturb_type = 6
+
+!bloss do_chunked_energy_budgets = .true.
+!bloss do_chunked_momentum_budgets = .true.
+!bloss nsaveMSE = 120,
+!bloss nchunk_x_gl = 32
+!bloss nchunk_y_gl = 32
+
+ncycle_min = 2,
+ncycle_max = 40,
+ncycle0 = 2,
+
+cfl_safety_factor = 1.5
+
+/ 
+
