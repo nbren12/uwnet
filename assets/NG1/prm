@@ -32,9 +32,6 @@
  doequinox = .true.
  docoriolis = .true.
  dofplane = .false.
- dopython = .true.
- npython = 1
- usepython = .true.
  docolumn = .false.
 
 
@@ -96,3 +93,13 @@
 
 / &end
 
+&python
+  dopython = .true.
+  usepython = .true.
+  npython = 1
+  function_name = 'call_neural_network'
+  module_name = 'module'
+/
+
+&uwoptions
+/
