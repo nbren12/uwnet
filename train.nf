@@ -13,7 +13,7 @@ params.trainingData =""
 
 training_data_ch = Channel.fromPath(params.trainingData)
 scm_data_ch = Channel.fromPath(params.trainingData)
-prm_data_ch = Channel.fromPath("$baseDir/assets/NG1/prm")
+case_ch = Channel.fromPath("$baseDir/assets/NG1/")
 
 /*
  Train the Neural network
@@ -31,7 +31,7 @@ process trainModel {
 
   """
   python -m uwnet.check_data $x || \
-  python -m uwnet.train  -n $params.numEpochs -lr .001 -s 5 -l 20 \
+  python -m uwnet.train  -n $params.numEpochs -lr .005 -s 5 -l 20 \
          $params.config $x
   """
 }
@@ -108,7 +108,7 @@ process runSAMNeuralNetwork {
     afterScript "rm -rf   RUNDATA RESTART "
     input:
         file(x) from sam_run_ch.flatten().last()
-        file prm from prm_data_ch
+    file 'NG1' from case_ch
 
     output:
         set file('NG1/data.pkl'), file('*.pkl' ) into check_sam_dbg_ch
