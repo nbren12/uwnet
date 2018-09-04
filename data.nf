@@ -115,7 +115,9 @@ process subsetData {
 
     output:
     file 'subset.nc'
+    file 'training_data_lower_atmos.nc'
     """
-    ncks -d time,0,200 -d x,0,16 $x subset.nc
+    ncks -d time,0,200 -d z,0,27 -d x,0,16 $x subset.nc
+    ncks -d z,0,27 $x training_data_lower_atmos.nc
     """
 }

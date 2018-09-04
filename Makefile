@@ -1,5 +1,6 @@
 .PHONY: data
 
+TRAINING_DATA = data/training_data_lower_atmos.nc
 WORKDIR = ~/Data/0
 
 ./nextflow:
@@ -42,9 +43,11 @@ data: ./nextflow
 
 ## train
 train:
-	./nextflow run train.nf --numEpochs=1 --trainingData data/training_data.nc -resume
-		-
+	./nextflow run train.nf --numEpochs=2 --trainingData $(TRAINING_DATA) -resume
 
+## train on a subset of thed data. This is useful for speeding up the training
+train_subset:
+	./nextflow run train.nf --numEpochs=10 --trainingData data/subset.nc -resume
 
 upload_reports:
 	rsync -avz reports/ olympus:~/public_html/reports/uwnet/

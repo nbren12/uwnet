@@ -14,9 +14,12 @@ else
 fi
 
 # setup up environment
-export PYTHONPATH=/uwnet:/sam/SRC/python:$PYTHONPATH
-exe=/sam/SAM_ADV_MPDATA_SGS_TKE_RAD_CAM_MICRO_SAM1MOM
+export UWNET_OUTPUT_INTERVAL=0
+export UWNET_DEBUG=
 export UWNET_MODEL=$model
+
+export PYTHONPATH=/uwnet:$PYTHONPATH
+exe=/opt/sam/SAM_ADV_MPDATA_SGS_TKE_RAD_CAM_MICRO_SAM1MOM
 
 # build the model if needed
 (
