@@ -122,10 +122,8 @@ process runSAMNeuralNetwork {
         set file('NG1/data.pkl'), file('*.pkl' ) into check_sam_dbg_ch
         file('output.txt')
 
-    when:
-        false
     """
-    run_sam_nn_docker.sh $x $baseDir/assets/NG1 > output.txt
+    run_sam_nn_docker.sh $x $baseDir/assets/NG1
     """
 }
 

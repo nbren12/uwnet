@@ -166,7 +166,7 @@ class MLP(nn.Module, SaverMixin):
                  inputs=(('LHF', 1), ('SHF', 1), ('SOLIN', 1), ('QT', 34),
                          ('SLI', 34), ('FQT', 34), ('FSLI', 34)),
                  outputs=(('SLI', 34), ('QT', 34)),
-                 add_forcing=False):
+                 add_forcing=False, **kwargs):
 
         "docstring"
         super(MLP, self).__init__()

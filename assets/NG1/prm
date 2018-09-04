@@ -98,7 +98,7 @@
   usepython = .true.
   npython = 1
   function_name = 'call_neural_network'
-  module_name = 'module'
+  module_name = 'uwnet.sam_interface'
 /
 
 &uwoptions
