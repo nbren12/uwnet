@@ -151,7 +151,6 @@ if(dopython) then
    do j=1,ny
       do i=1,nx
          tmp(i,j,1)=prec_xy(i,j)  * coef
-         prec_xy(i,j) = 0.
       end do
    end do
    name='Prec'
@@ -165,7 +164,7 @@ if(dopython) then
    do j=1,ny
       do i=1,nx
          tmp(i,j,1)=lhf_xy(i,j)  * coef
-         lhf_xy(i,j) = 0.
+         ! lhf_xy(i,j) = 0.
       end do
    end do
    name='LHF'

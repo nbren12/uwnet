@@ -152,6 +152,15 @@ contains
     tmp = tmp / 1.e3
     qp(1:nx, 1:ny, 1:nzm) = tmp
 
+    call get_state("Prec", tmp, nx*ny)
+    prec_xy(1:nx, 1:ny) = tmp(:,:,1)
+
+    call get_state("LHF", tmp, nx * ny)
+    lhf_xy(1:nx, 1:ny) = tmp(:,:,1)
+
+    call get_state("SHF", tmp, nx * ny)
+    shf_xy(1:nx, 1:ny) = tmp(:,:,1)
+
     ! call get_state("U", tmp, nx*ny*nzm)
     ! u(1:nx, 1:ny, 1:nzm) = tmp
 
