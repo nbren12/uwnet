@@ -42,8 +42,8 @@ data: ./nextflow
 
 ## train
 train:
-	./nextflow run train.nf --numEpochs=1 --trainingData data/training_data.nc -resume \
-		-with-docker nbren12/uwnet
+	./nextflow run train.nf --numEpochs=1 --trainingData data/training_data.nc -resume
+		-
 
 
 upload_reports:
