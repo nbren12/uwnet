@@ -19,18 +19,26 @@ case_ch = Channel.fromPath("$baseDir/assets/NG1/")
  Train the Neural network
  */
 
+process checkData {
+    input:
+        file x from training_data_ch
+    output:
+        file x into checked_data_ch
+    """
+    python -m uwnet.check_data $x
+    """
+
+}
 
 process trainModel {
   publishDir "data/models/"
   input:
-  file x from training_data_ch
+  file x from checked_data_ch
 
   output:
         file '*.pkl' into single_column_mode_ch, sam_run_ch
 
-
   """
-  python -m uwnet.check_data $x || \
   python -m uwnet.train  -n $params.numEpochs -lr .005 -s 5 -l 20 \
          $params.config $x
   """
@@ -113,6 +121,9 @@ process runSAMNeuralNetwork {
     output:
         set file('NG1/data.pkl'), file('*.pkl' ) into check_sam_dbg_ch
         file('output.txt')
+
+    when:
+        false
     """
     run_sam_nn_docker.sh $x $baseDir/assets/NG1 > output.txt
     """
@@ -124,9 +135,8 @@ process checkSAMNN {
         set file(model), file(x) from check_sam_dbg_ch
     output:
         file 'sam_nn.txt'
-    // when:
-    //     false
-
+    when:
+        false
     """
     for file in $x
     do
