@@ -7,6 +7,7 @@ import torch
 from torch import nn
 from uwnet import constraints, utils
 from uwnet.normalization import scaler
+from uwnet.modules import LinearDictIn, LinearDictOut
 
 
 def cat(seq):
@@ -189,9 +190,11 @@ class MLP(nn.Module, SaverMixin):
         self.scaler = scaler(scale, mean)
 
         self.mod = nn.Sequential(
-            nn.Linear(self.inputs.num, 256),
+            LinearDictIn([(x.name, x.num) for x in self.inputs], 256),
             nn.ReLU(),
-            nn.Linear(256, 256), nn.ReLU(), nn.Linear(256, self.outputs.num))
+            nn.Linear(256, 256), nn.ReLU(),
+            LinearDictOut(256, [(x.name, x.num) for x in self.outputs]),
+        )
 
     def init_hidden(self, *args, **kwargs):
         return None
@@ -226,16 +229,8 @@ class MLP(nn.Module, SaverMixin):
             for key, val in x.items()
         }
 
-        # zero out FSL in upper level
-        # TODO this needs to be refactored
-        # This routine should not know about FSL
-        if 'FSLI' in x:
-            x['FSLI'][:, -1] = 0.0
-
-        stacked = pipe(x, self.scaler, self.inputs.stack)
+        stacked = self.scaler(x)
         out = self.mod(stacked)
-
-        out = pipe(out, self.outputs.unstack)
 
         # handle prognostic variables
         sources = {}
