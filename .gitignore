@@ -254,3 +254,6 @@ nextflow
 .nextflow/
 runs.json
 tmp/
+/ext/sam/SRC/python_caller.f90.rej
+/assets/NG1/NG1/.gitignore
+/assets/NG1/NG1/grd

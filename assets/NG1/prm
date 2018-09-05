@@ -14,7 +14,7 @@
  
  dowally = .true.
  dosgs		= .false.,
- dodamping 	= .false.,
+ dodamping 	= .true.,
  doupperbound  	= .false.,
  docloud 	= .false.,
  doprecip 	= .false.,
@@ -52,7 +52,7 @@
  day0= 100.625
 
  ! 1 day, hourly output
- nstop 		=  288000, ! 100 day
+ nstop 		=  8640, ! 3 day
  nprint 	= 120, ! 1 hr
  nstat 		= 120,
  nstatfrq 	= 1,
