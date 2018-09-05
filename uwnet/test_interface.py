@@ -11,7 +11,7 @@ from .interface import (dataarray_to_numpy, numpy_dict_to_torch_dict,
 
 def test_step_with_numpy_inputs():
     def step(x, dt):
-        return {'x': x['x'], 'prec': x['x'][..., 0:1]}, None
+        return {'x': x['x'], 'prec': x['x'][..., 0:1]}
 
     nz = 10
     shape_3d = (nz, 3, 4)
@@ -70,7 +70,7 @@ def test_numpy_to_dataarray():
 
 def test_step_with_xarray_inputs():
     def step(x, t):
-        return {'a': x['a'], 'b': x['b'][..., 0:1]}, None
+        return {'a': x['a'], 'b': x['b'][..., 0:1]}
 
     nx, ny, nz = (10, 11, 12)
     a = xr.DataArray(np.ones((ny, nx, nz)), dims=['y', 'x', 'z'])

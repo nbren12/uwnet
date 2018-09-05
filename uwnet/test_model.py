@@ -65,12 +65,12 @@ def test_MLP_step(add_forcing):
             x[key] = val
 
     # a 0 second step should not change state
-    out, _ = mlp.step(x, 0.0)
+    out = mlp.step(x, 0.0)
     _assert_all_close(out[qt_name], x[qt_name])
 
     # a 30 second step should
     with pytest.raises(AssertionError):
-        out, _ = mlp.step(x, 30)
+        out = mlp.step(x, 30)
         _assert_all_close(out[qt_name], x[qt_name])
 
 
