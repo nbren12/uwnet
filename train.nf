@@ -119,29 +119,31 @@ process runSAMNeuralNetwork {
     file 'NG1' from case_ch
 
     output:
-        set file('NG1/data.pkl'), file('*.pkl' ) into check_sam_dbg_ch
-        file('output.txt')
+        file 'OUT_3D/*.nc'
+        file 'OUT_2D/*.nc'
+        file 'OUT_STAT/*.nc'
+        // set file('NG1/data.pkl'), file('*.pkl' ) into check_sam_dbg_ch
 
     """
     run_sam_nn_docker.sh $x $baseDir/assets/NG1
     """
 }
 
-process checkSAMNN {
-    publishDir "data/samNN/$workflow.runName/"
-    input:
-        set file(model), file(x) from check_sam_dbg_ch
-    output:
-        file 'sam_nn.txt'
-    when:
-        false
-    """
-    for file in $x
-    do
-        echo "Checking Water budget for \$file" >> sam_nn.txt
-        check_sam_nn_debugging.py \$file $model >> sam_nn.txt
-        echo
-    done
-    """
+// process checkSAMNN {
+//     publishDir "data/samNN/$workflow.runName/"
+//     input:
+//         set file(model), file(x) from check_sam_dbg_ch
+//     output:
+//         file 'sam_nn.txt'
+//     when:
+//         false
+//     """
+//     for file in $x
+//     do
+//         echo "Checking Water budget for \$file" >> sam_nn.txt
+//         check_sam_nn_debugging.py \$file $model >> sam_nn.txt
+//         echo
+//     done
+//     """
 
-}
+// }

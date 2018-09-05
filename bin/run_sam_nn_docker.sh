@@ -17,7 +17,7 @@ docker run \
        -v $(pwd):/case \
        -v /Users:/Users \
        -v /Users/noah/workspace/research/uwnet:/uwnet \
-       -v /Users/noah/workspace/models/SAMUWgh:/sam \
+       -v /Users/noah/workspace/research/uwnet/ext/sam:/opt/sam \
        -w /case \
        $image /case/NG1/run.sh $@
 

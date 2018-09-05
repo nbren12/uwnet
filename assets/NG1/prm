@@ -51,21 +51,23 @@
 
  day0= 100.625
 
- nstop 		=  20, ! 1 day
- nprint 	= 20, ! 1 hr
- nstat 		= 20,
+ ! 1 day, hourly output
+ nstop 		=  288000, ! 100 day
+ nprint 	= 120, ! 1 hr
+ nstat 		= 120,
  nstatfrq 	= 1,
 
  nsave2D	= 120,
- nsave2Dstart	= 1000000,
+ nsave2Dstart	= 0,
  nsave2Dend	= 99960480,
  save2Dbin = .true.,
 
- nsave3D	= 1,
- nsave3Dstart	= 00000,
+ nsave3D	= 120,
+ nsave3Dstart	= 0,
  nsave3Dend	= 99960480,
  save3Dbin = .true.,
 
+ ! debugging
  ! nstop 		=  4, ! 2 days
  ! nprint 	= 1,
  ! nstat 		= 1,
@@ -77,6 +79,21 @@
  ! save2Dbin = .true.,
 
  ! nsave3D	= 1,
+ ! nsave3Dstart	= 0,
+ ! nsave3Dend	= 99960480,
+ ! save3Dbin = .true.,
+
+ ! nstop 		=  20, ! 1 day
+ ! nprint 	= 10, ! 1 hr
+ ! nstat 		= 10,
+ ! nstatfrq 	= 1,
+
+ ! nsave2D	= 10,
+ ! nsave2Dstart	= 0,
+ ! nsave2Dend	= 99960480,
+ ! save2Dbin = .true.,
+
+ ! nsave3D	= 10,
  ! nsave3Dstart	= 0,
  ! nsave3Dend	= 99960480,
  ! save3Dbin = .true.,
