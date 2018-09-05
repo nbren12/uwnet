@@ -23,6 +23,8 @@ inputs:
 outputs:
   - [LHF, 1]
   - [SHF, 1]
+  - [U, 28]
+  - [V, 28]
   - [RADTOA, 1]
   - [RADSFC, 1]
   - [Prec, 1, True]
@@ -35,6 +37,8 @@ loss_scale:
   SHF: 10
   RADTOA: 600.0
   RADSFC: 600.0
+  U: 5.0
+  V: 5.0
   Prec: 8
   QP: .05
   QN: .05
