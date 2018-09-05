@@ -7,7 +7,6 @@ import torch
 from torch import nn
 from uwnet import constraints, utils
 from uwnet.normalization import scaler
-import inspect
 
 
 def cat(seq):
@@ -151,6 +150,11 @@ class VariableList(object):
         return tuple(x.num for x in self.variables)
 
     def stack(self, x):
+        for var in self.variables:
+            n = x[var.name].size(-1)
+            if n != var.num:
+                raise ValueError(
+                    f"{var.name} has {n} features. Expected {var.num}")
         return cat(get(self.names, x))[1]
 
     def unstack(self, x):
