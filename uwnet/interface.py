@@ -94,7 +94,7 @@ def step_with_numpy_inputs(step, x, dt):
     """
     with torch.no_grad():
         x_t = numpy_dict_to_torch_dict(x)
-        out, _ = step(x_t, dt)
+        out = step(x_t, dt)
 
     return torch_dict_to_numpy_dict(out, shape=get_xy_shape(x))
 

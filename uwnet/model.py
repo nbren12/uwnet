@@ -287,7 +287,7 @@ class MLP(nn.Module, SaverMixin):
         except KeyError:
             pass
 
-        return out, None
+        return out
 
     def forward(self, x, n=None):
         """
@@ -324,7 +324,7 @@ class MLP(nn.Module, SaverMixin):
             # This class should not know about layer_mass
             inputs['layer_mass'] = x['layer_mass']
 
-            out, _ = self.step(inputs, dt)
+            out = self.step(inputs, dt)
             progs = {key: out[key] for key in self.progs}
 
             output_fields.append(out)
