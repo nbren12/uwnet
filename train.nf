@@ -9,9 +9,29 @@
 params.numEpochs = 5
 params.config = "$baseDir/examples/all.yaml"
 params.trainingData =""
+params.checkData = false
 
 
 training_data_ch = Channel.fromPath(params.trainingData)
+
+if (! params.checkData) {
+
+    checked_data_ch = Channel.fromPath(params.trainingData)
+
+} else {
+
+    process checkData {
+        input:
+            file x from training_data_ch
+        output:
+            file x into checked_data_ch
+    """
+    python -m uwnet.check_data $x
+    """
+
+    }
+}
+
 scm_data_ch = Channel.fromPath(params.trainingData)
 case_ch = Channel.fromPath("$baseDir/assets/NG1/")
 
@@ -19,16 +39,6 @@ case_ch = Channel.fromPath("$baseDir/assets/NG1/")
  Train the Neural network
  */
 
-process checkData {
-    input:
-        file x from training_data_ch
-    output:
-        file x into checked_data_ch
-    """
-    python -m uwnet.check_data $x
-    """
-
-}
 
 process trainModel {
   publishDir "data/models/"
