@@ -61,3 +61,6 @@ docker:
 
 build_image:
 	docker build -t nbren12/uwnet .
+
+install_hooks:
+	cp -f git-hooks/* .git/hooks/
