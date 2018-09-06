@@ -25,7 +25,7 @@ def parse_arguments():
     parser.add_argument('-r', '--restart', default=False)
     parser.add_argument('-lr', '--lr', default=.001, type=float)
     parser.add_argument('-n', '--n-epochs', default=10, type=int)
-    parser.add_argument('-o', '--output-dir', default='.')
+    parser.add_argument('-d', '--model-dir', default='trained_models')
     parser.add_argument('-s', '--skip', default=1, type=int)
     parser.add_argument('-l', '--seq_length', default=20, type=int)
     parser.add_argument('-b', '--batch_size', default=200, type=int)
@@ -35,6 +35,11 @@ def parse_arguments():
     parser.add_argument("input")
 
     return parser.parse_args()
+
+
+def get_output_dir(run_id, base='.trained_models'):
+    id = str(run_id)
+    return f'{base}/{id[:2]}/{id[2:]}'
 
 
 def main():
@@ -49,8 +54,11 @@ def main():
     # load configuration
     config = yaml.load(open(args.config))
 
-    experiment.log_parameter('directory', os.path.abspath(args.output_dir))
+    # get output directory
     db.log_run(args, config)
+    output_dir = get_output_dir(db.run_id, base=args.model_dir)
+
+    experiment.log_parameter('directory', os.path.abspath(output_dir))
 
     n_epochs = args.n_epochs
     batch_size = args.batch_size
@@ -75,9 +83,9 @@ def main():
     constants = train_data.torch_constants()
 
     # switch to output directory
-    logger.info(f"Saving outputs in {args.output_dir}")
+    logger.info(f"Saving outputs in {output_dir}")
     try:
-        os.mkdir(args.output_dir)
+        os.makedirs(output_dir)
     except OSError:
         pass
 
@@ -116,7 +124,7 @@ def main():
     # initialize optimizer
     optimizer = torch.optim.Adam(lstm.parameters(), lr=args.lr)
 
-    os.chdir(args.output_dir)
+    os.chdir(output_dir)
     try:
         for i in range(i_start, n_epochs):
             logging.info(f"Epoch {i}")

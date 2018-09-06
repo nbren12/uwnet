@@ -19,9 +19,7 @@ def get_git_rev():
 
 class DBLogger(object):
     def log_run(self, args, config):
-        self.output_dir = os.path.abspath(args.output_dir)
         self.run_id = self.insert_run({
-            "run": self.output_dir,
             'start_timestamp': datetime.utcnow(),
             'training_data': os.path.abspath(args.input),
             "config": config,

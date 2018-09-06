@@ -45,9 +45,13 @@ data: ./nextflow
 train:
 	./nextflow run train.nf --numEpochs=2 --trainingData $(TRAINING_DATA) -resume
 
+
+data/subset.nc:
+	ncks -O -d y,32 -d z,0,27 -d time,0,100 data/training_data.nc $@
+
 ## train on a subset of thed data. This is useful for speeding up the training
-train_subset:
-	./nextflow run train.nf --numEpochs=10 --trainingData data/subset.nc -resume
+train_subset: data/subset.nc
+	python -m uwnet.train -n 20 -b 32 -lr .005 -s 5 -l 10 examples/all.yaml data/subset.nc
 
 upload_reports:
 	rsync -avz reports/ olympus:~/public_html/reports/uwnet/
