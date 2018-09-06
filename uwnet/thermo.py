@@ -91,3 +91,15 @@ def column_rh(QV, TABS, p):
     rh = metpy_wrapper(relative_humidity_from_mixing_ratio)(QV, TABS, p)
 
     return mass_integrate(p, rh/1000, average=True)
+
+
+def ngaqua_y_to_lat(y, y0=5120000):
+    rad_earth = 6371e3  # m
+    circumference_earth = rad_earth * 2 * np.pi
+    return (y-y0)/circumference_earth * 360
+
+
+def coriolis_ngaqua(y):
+    lat = ngaqua_y_to_lat(y)
+    omega = 2 * np.pi / 86400
+    return 2 * omega * np.sin(np.deg2rad(lat))
