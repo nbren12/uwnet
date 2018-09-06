@@ -44,6 +44,11 @@ class SaverMixin(object):
         mod.load_state_dict(d['state'])
         return mod
 
+    @classmethod
+    def from_path(cls, path):
+        d = torch.load(path)['dict']
+        return cls.from_dict(d)
+
 
 class MOE(nn.Module):
     def __init__(self, m, n, n_experts):
