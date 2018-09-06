@@ -11,7 +11,7 @@
 editedfiles=$(git diff-tree --no-commit-id --name-only -r HEAD)
 
 
-project_name=uwnet-sam
+project_name=uwnet
 report_server=olympus
 public_url=https://atmos.washington.edu/~nbren12/reports/$project_name
 report_dir=/home/disk/eos4/nbren12/public_html/reports/$project_name
@@ -22,16 +22,13 @@ do
     namenoext=${notebook%.*}
     if [ $ext == "ipynb" ]; then
         jupyter nbconvert $notebook
-        scp $namenoext.html $report_server:$report_dir/
+        html=$namenoext.html
+
+        # make readable
+        chmod 0644 $html
+        scp -p $html $report_server:$report_dir/
 
         url=$public_url/$(basename $namenoext).html
         echo "File URL: $url"
     fi
 done
-
-# fix permissisons of reports dir
-find reports/ -type d | xargs chmod 755
-find reports/ -type f | xargs chmod 644
-
-echo "Uploading to Olympus"
-rsync -avz reports/ $report_server:~/public_html/reports/$project_name
