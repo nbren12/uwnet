@@ -18,12 +18,9 @@ DEBUG = os.environ.get('UWNET_DEBUG', '')
 # open model data
 OUTPUT_INTERVAL = int(os.environ.get('UWNET_OUTPUT_INTERVAL', '0'))
 
-try:
-    model_dict = torch.load(os.environ['UWNET_MODEL'])
-    MODEL = MLP.from_dict(model_dict['dict'])
-    MODEL.eval()
-except FileNotFoundError:
-    pass
+model_dict = torch.load(os.environ['UWNET_MODEL'])
+MODEL = MLP.from_dict(model_dict['dict'])
+MODEL.eval()
 
 # open netcdf
 
