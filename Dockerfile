@@ -33,7 +33,7 @@ RUN conda install -y -c pytorch \
     cffi numpy pytorch-cpu \
     torchvision-cpu toolz \
     xarray dask
-RUN pip install zarr attrs
+RUN pip install zarr attrs tqdm
 
 
 # add callpy library
