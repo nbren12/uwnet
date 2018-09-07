@@ -211,7 +211,7 @@ do while(nstep.lt.nstop.and.nelapse.gt.0)
 
 !----------------------------------------------------------
 !	SGS effects on momentum:
-
+     if (dosgs) call boundaries(5)
      if(dosgs) call sgs_mom()
 
 !-----------------------------------------------------------

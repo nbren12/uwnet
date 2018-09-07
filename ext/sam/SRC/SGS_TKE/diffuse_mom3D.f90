@@ -8,7 +8,7 @@ use sgs, only: tk, grdf_x, grdf_y, grdf_z
 use params, only: docolumn, dowallx, dowally
 implicit none
 
-real rdx2,rdy2,rdz2,rdz,rdx25,rdy25
+real rdx2,rdy2,rdz2,rdz,rdx25,rdy25, rdx16, rdy16, khyp
 real rdx21,rdy21,rdx251,rdy251,rdz25
 real dxy,dxz,dyx,dyz,dzx,dzy
 
@@ -21,6 +21,14 @@ rdy2=1./(dy*dy)
 
 rdx25=0.25*rdx2
 rdy25=0.25*rdy2
+
+rdx16 = rdx25*rdx25
+rdy16 = rdy25*rdy25
+
+! standard value for 250m was 0.1e8
+! khyp = 1.5e4
+! make grid-scale hyperdiffusive Reynold's number order 1
+khyp = 0.5 * dx**4 /  dt
 
 dxy=dx/dy
 dxz=dx/dz
@@ -188,6 +196,36 @@ do j=1,ny
    end do
   end do
  end do ! k
+
+!  Add hyperdiffusive terms to the momentum
+
+do k=1,nzm
+ do j = 1,ny
+   do i=1,nx
+     dudt(i,j,k,na) =  dudt(i,j,k,na) - khyp * (rdx16 *  &
+       (u(i-2, j, k) - 4*u(i-1,j,k) + 6*u(i,j,k) - 4*u(i+1,j,k) + u(i+2,j,k)) + &
+         rdy16* & 
+       (u(i, j-2, k) - 4*u(i,j-1,k) + 6*u(i,j,k) - 4*u(i,j+1,k) + u(i,j+2,k)) )
+
+     dvdt(i,j,k,na) =  dvdt(i,j,k,na) - khyp * (rdx16 *  &
+       (v(i-2, j, k) - 4*v(i-1,j,k) + 6*v(i,j,k) - 4*v(i+1,j,k) + v(i+2,j,k)) + &
+          rdy16* & 
+       (v(i, j-2, k) - 4*v(i,j-1,k) + 6*v(i,j,k) - 4*v(i,j+1,k) + v(i,j+2,k)) )   
+    end do
+   end do
+end do  
+
+do k=2,nzm
+  do j = 1,ny
+    do i=1,nx
+     dwdt(i,j,k,na) =  dwdt(i,j,k,na) - khyp * (rdx16 *  &
+       (w(i-2, j, k) - 4*w(i-1,j,k) + 6*w(i,j,k) - 4*w(i+1,j,k) + w(i+2,j,k)) + &
+          rdy16* & 
+       (w(i, j-2, k) - 4*w(i,j-1,k) + 6*w(i,j,k) - 4*w(i,j+1,k) + w(i,j+2,k)) )     
+     end do
+   end do
+end do
+
 
 
 end subroutine diffuse_mom3D
