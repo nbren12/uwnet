@@ -113,7 +113,6 @@ default_parameters = {
         'donudging_tq': False,
         'donudging_uv': False,
         'doprecip': False,
-        'dopython': True,
         'doradforcing': False,
         'doradlat': True,
         'dosamconditionals': False,
@@ -133,7 +132,6 @@ default_parameters = {
         'latitude0': 0.72,
         'longitude0': 0.0,
         'nprint': 240,
-        'npython': 1,
         'nrad': 30,
         'nrestart': 0,
         'nsave2d': 120,
@@ -149,10 +147,16 @@ default_parameters = {
         'ocean_type': 3,
         'save2dbin': True,
         'save3dbin': True,
-        'usepython': False
     },
     'sgs_tke': {
         'dosmagor': True
+    },
+    'python': {
+        'dopython': False,
+        'usepython': False,
+        'npython': 1,
+        'function_name': 'call_neural_network',
+        'module_name': 'uwnet.sam_interface'
     }
 }
 
@@ -317,8 +321,7 @@ class InitialConditionCase(Case):
 
     def get_prm(self):
         path = os.path.relpath(self.initial_condition_path, self.path)
-        return assoc_in(self.prm, ['parameters', 'initial_condition_netcdf'],
-                        path)
+        self.prm['parameters']['initial_condition_netcdf'] = path
 
 
 def _rename_var(z, coords):
@@ -364,7 +367,7 @@ def pressure_correct(ic, path=None, sam_src="."):
 
     prm = default_parameters
 
-    for key, val in [('usepython', False), ('dopython', False), ('nstop', 0),
+    for key, val in [('nstop', 0),
                      ('nsave3d', 1), ('nstat', 0), ('nstatfrq', 1),
                      ('dt', .0001), ('nsave3dstart', 0)]:
         prm = assoc_in(prm, ['parameters', key], val)
