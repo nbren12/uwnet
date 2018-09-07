@@ -1,4 +1,4 @@
-.PHONY: data
+.PHONY: data docs
 
 TRAINING_DATA = data/training_data_lower_atmos.nc
 WORKDIR = ~/Data/0
@@ -65,6 +65,9 @@ docker:
 
 build_image:
 	docker build -t nbren12/uwnet .
+
+docs:
+	make -C docs html
 
 install_hooks:
 	cp -f git-hooks/* .git/hooks/
