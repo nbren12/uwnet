@@ -15,6 +15,7 @@ Welcome to UWNET's documentation!
    constraints
    sam
    api
+   smoother
 
 
 
