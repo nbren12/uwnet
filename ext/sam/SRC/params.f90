@@ -122,6 +122,7 @@ logical:: dotracers = .false.
 logical:: dosmoke = .false. 
 logical:: notracegases = .false.
 logical:: doseawater = .true. !bloss(Set UW default to true!!) .false.
+real :: khyp = 1.0e16 ! noah: hyper diffusion coefficient for coarse resolution
 
 ! Specify solar constant and zenith angle for perpetual insolation.
 ! Based onn Tompkins and Graig (1998)

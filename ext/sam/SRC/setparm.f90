@@ -47,7 +47,7 @@ NAMELIST /PARAMETERS/ dodamping, doupperbound, docloud, doprecip, &
                 ncycle_max, ncycle_min, ncycle0, cfl_safety_factor, &
                 doradlat, doradlon, doseawater, &
                 doDge_SnowAndIce, doThompsonReffIce, initial_condition_netcdf,&
-                doheldsuarez, doequinox
+                doheldsuarez, doequinox, khyp
 	
 NAMELIST /UWOPTIONS/ rad_simple_fluxdiv1, &
      rad_simple_fluxdiv2, rad_simple_kappa, &
