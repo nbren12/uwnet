@@ -27,8 +27,9 @@ rdy16 = rdy25*rdy25
 
 ! standard value for 250m was 0.1e8
 ! khyp = 1.5e4
-! make grid-scale hyperdiffusive Reynold's number order 1
-khyp = 0.5 * dx**4 /  dt
+! make grid-scale hyperdiffusive Reynold's number order 1 with velocity scale
+! U ~ 50 m/s
+khyp = 0.5 * dx**4 /  (dx / 50.0)
 
 dxy=dx/dy
 dxz=dx/dz
