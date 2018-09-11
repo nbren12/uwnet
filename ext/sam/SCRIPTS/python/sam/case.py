@@ -136,10 +136,10 @@ default_parameters = {
         'nrestart': 0,
         'nsave2d': 120,
         'nsave2dend': 99960480,
-        'nsave2dstart': 1000000,
+        'nsave2dstart': 000000,
         'nsave3d': 120,
         'nsave3dend': 99960480,
-        'nsave3dstart': 10000000,
+        'nsave3dstart': 0000000,
         'nstat': 240,
         'nstatfrq': 240,
         'nstop': 480,
@@ -157,6 +157,8 @@ default_parameters = {
         'npython': 1,
         'function_name': 'call_neural_network',
         'module_name': 'uwnet.sam_interface'
+    },
+    'uwoptions': {
     }
 }
 
@@ -322,6 +324,7 @@ class InitialConditionCase(Case):
     def get_prm(self):
         path = os.path.relpath(self.initial_condition_path, self.path)
         self.prm['parameters']['initial_condition_netcdf'] = path
+        return self.prm
 
 
 def _rename_var(z, coords):
