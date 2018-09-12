@@ -13,6 +13,11 @@ from toolz import assoc_in
 import f90nml
 import xarray as xr
 
+run_script = """#!/bin/sh
+ln -s /opt/sam/RUNDATA .
+/opt/sam/SAM* > out 2> err
+"""
+
 sounding_template = """ z[m] p[mb] tp[K] q[g/kg] u[m/s] v[m/s]
    0.000000              40   1012.22571
   -999.000000  1000.000000   300.125000    0.0     0.0    0.0
@@ -105,7 +110,6 @@ default_parameters = {
         'docloud': False,
         'docolumn': False,
         'docoriolis': True,
-        'dodamping': False,
         'doequinox': True,
         'dofplane': False,
         'dolargescale': False,
@@ -119,16 +123,15 @@ default_parameters = {
         'dosatupdnconditionals': False,
         'doseasons': False,
         'dosfcforcing': False,
-        'dosgs': False,
+        'dosgs': True,
+        'dodamping': True,
+        'dosurface': True,
         'doshortwave': False,
-        'dosurface': False,
         'doupperbound': False,
         'dowally': True,
         'dt': 30.0,
         'dx': 160000.0,
         'dy': 160000.0,
-        'perturb_type': 23,
-        'initial_condition_netcdf': 'NG1/ic.nc',
         'latitude0': 0.72,
         'longitude0': 0.0,
         'nprint': 240,
@@ -220,10 +223,13 @@ class Case(object):
     name = attr.ib(default='CASE')
     sam_src = attr.ib(default='/sam')
     prm = attr.ib(default=default_parameters)
-    exe = attr.ib(default="/sam/SAM_ADV_MPDATA_SGS_TKE_RAD_CAM_MICRO_SAM1MOM")
     path = attr.ib(factory=tempfile.mkdtemp, converter=os.path.abspath)
     docker_image = attr.ib(default="nbren12/samuwgh:latest")
     env = attr.ib(factory=dict)
+
+    @property
+    def exe(self):
+        return os.path.join(self.path, 'run.sh')
 
     @property
     def _z(self):
@@ -245,17 +251,13 @@ class Case(object):
         case_dir = os.path.join(path, self.name)
         prm = os.path.join(case_dir, 'prm')
         casename = os.path.join(path, 'CaseName')
-        rundata = os.path.join(path, 'RUNDATA')
         snd = os.path.join(case_dir, 'snd')
         grd = os.path.join(case_dir, 'grd')
 
         self.save_prm(prm)
         self.save_grd(self._z, grd)
         self.save_snd(snd)
-        try:
-            self.save_rundata(rundata)
-        except FileNotFoundError:
-            pass
+        self.save_script()
 
         with open(casename, "w") as f:
             f.write(self.name)
@@ -278,22 +280,27 @@ class Case(object):
         src = f"{self.sam_src}/RUNDATA"
         shutil.copytree(src, path)
 
+    def save_script(self):
+        with open(self.exe, 'w') as f:
+            f.write(run_script)
+        os.chmod(self.exe, 0o755)
+
     def run(self):
         self.save()
         subprocess.call([self.exe], cwd=self.path)
 
     def run_docker(self):
         self.save()
-
+        print("Running NGAqua")
         cmd = make_docker_cmd(image=self.docker_image,
-                              exe=self.exe,
+                              exe='/run/run.sh',
                               volumes=[(self.path, '/run')],
                               workdir="/run")
         return subprocess.call(cmd)
 
     def convert_files_to_netcdf(self):
         cmd = make_docker_cmd(image=self.docker_image,
-                              exe='/sam/docker/convert_files.sh',
+                              exe=self.sam_src + 'docker/convert_files.sh',
                               workdir="/run",
                               volumes=[(self.path, '/run')])
         return subprocess.call(cmd)
@@ -324,6 +331,7 @@ class InitialConditionCase(Case):
     def get_prm(self):
         path = os.path.relpath(self.initial_condition_path, self.path)
         self.prm['parameters']['initial_condition_netcdf'] = path
+        self.prm['parameters']['perturb_type'] = 23
         return self.prm
 
 
