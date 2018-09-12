@@ -1,3 +1,4 @@
 .git
 data
 .tmp*
+trained_models

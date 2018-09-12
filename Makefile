@@ -1,5 +1,19 @@
 .PHONY: data docs
 
+#################################################################################
+# GLOBALS                                                                       #
+#################################################################################
+
+PROJECT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+# BUCKET = {{ cookiecutter.s3_bucket }}
+# PROFILE = {{ cookiecutter.aws_profile }}
+PROJECT_NAME = uwnet
+PYTHON_INTERPRETER = python
+
+#################################################################################
+# COMMANDS                                                                      #
+#################################################################################
+
 TRAINING_DATA = data/training_data_lower_atmos.nc
 WORKDIR = ~/Data/0
 
@@ -38,8 +52,8 @@ print_sam_checks:
 	@grep Prec data/samNN/checks/sam_nn.txt
 
 ## Call nextflow to produce the training data.
-data: ./nextflow
-	./nextflow run data.nf -w $(WORKDIR)  --numTimePoints=640 -resume 
+data:
+	snakemake data/training.nc
 
 ## train
 train:
@@ -65,6 +79,17 @@ docker:
 
 build_image:
 	docker build -t nbren12/uwnet .
+
+setup:  create_environment install_hooks build_image
+
+create_environment:
+	@echo ">>> creating environment from file"
+	conda env create -f environment.yml || \
+	conda env update -f environment.yml
+	@echo ">>> Setting up uwnet in develop mode"
+	bash -c "source activate uwnet && python setup.py develop"
+	@echo ">>> New Environment created...activate by typing"
+	@echo "    source activate uwnet"
 
 docs:
 	make -C docs html
