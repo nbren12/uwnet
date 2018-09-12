@@ -24,11 +24,15 @@ do
         jupyter nbconvert $notebook
         html=$namenoext.html
 
+        output_dir=$(realpath --relative-to='.' $(dirname $notebook))
+
         # make readable
         chmod 0644 $html
-        scp -p $html $report_server:$report_dir/
+        ssh $report_server mkdir -p $report_dir/$output_dir
+        scp -p $html $report_server:$report_dir/$output_dir
 
-        url=$public_url/$(basename $namenoext).html
+        name=$(realpath --relative-to=$output_dir $namenoext.html)
+        url=$public_url/$output_dir/$name
         echo "File URL: $url"
     fi
 done
