@@ -1,5 +1,6 @@
 import numpy as np
 import xarray as xr
+from gnl.xarray import centderiv
 
 grav = 9.81
 cp = 1004
@@ -103,3 +104,37 @@ def coriolis_ngaqua(y):
     lat = ngaqua_y_to_lat(y)
     omega = 2 * np.pi / 86400
     return 2 * omega * np.sin(np.deg2rad(lat))
+
+
+def get_geostrophic_winds(p, rho, min_cor=1e-5):
+    """Compute geostrophic winds
+
+    Parameters
+    ----------
+    p : xr.DataArray
+        partial pressure in (Pa)
+    rho : xr.DataArray
+        density in (kg/m3)
+    min_cor : float
+        minimum coriolis paramter
+
+    Returns
+    -------
+    ug, vg : xr.DataArray
+        the geostropohc wind fields, with values masked for locations where the
+        absolute coriolis parameter is smaller than min_cor.
+
+    """
+    # get coriolis force
+    fcor = coriolis_ngaqua(p.y)
+    px = centderiv(p, dim='x')/rho
+    py = centderiv(p, dim='y')/rho
+
+    vg = px/fcor
+    vg = vg.where(np.abs(fcor) > min_cor)
+    vg.name = "VG"
+
+    ug = -py/fcor
+    ug = ug.where(np.abs(fcor) > min_cor)
+    ug.name="UG"
+    return ug, vg
