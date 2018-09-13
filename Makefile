@@ -87,7 +87,8 @@ create_environment:
 	conda env create -f environment.yml || \
 	conda env update -f environment.yml
 	@echo ">>> Setting up uwnet in develop mode"
-	bash -c "source activate uwnet && python setup.py develop"
+	bash -c "source activate uwnet && python setup.py develop && \
+					jupyter labextension install @pyviz/jupyterlab_pyviz"
 	@echo ">>> New Environment created...activate by typing"
 	@echo "    source activate uwnet"
 

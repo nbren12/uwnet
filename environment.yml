@@ -1,6 +1,7 @@
 name: uwnet
 channels:
   - pytorch
+  - ioam # needed for holoviews
   - conda-forge
   - defaults
 dependencies:
@@ -8,7 +9,9 @@ dependencies:
   - numpy
   - dask
   - xarray
+  - holoviews
   - matplotlib
+  - bokeh
   - ipython
   - jupyterlab
   - cython
