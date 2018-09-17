@@ -169,6 +169,14 @@ class VariableList(object):
 
 
 class MLP(nn.Module, SaverMixin):
+    """
+    Attributes
+    ----------
+    add_forcing : bool
+        If true, FQT, FU, etc in the inputs to MLP.forward will be added to the
+        produce the final tendencies.
+    """
+
     def __init__(self,
                  mean,
                  scale,
@@ -176,7 +184,8 @@ class MLP(nn.Module, SaverMixin):
                  inputs=(('LHF', 1), ('SHF', 1), ('SOLIN', 1), ('QT', 34),
                          ('SLI', 34), ('FQT', 34), ('FSLI', 34)),
                  outputs=(('SLI', 34), ('QT', 34)),
-                 add_forcing=False, **kwargs):
+                 add_forcing=False,
+                 **kwargs):
 
         "docstring"
         super(MLP, self).__init__()
@@ -197,9 +206,9 @@ class MLP(nn.Module, SaverMixin):
         self.mod = nn.Sequential(
             LinearDictIn([(x.name, x.num) for x in self.inputs], 256),
             nn.ReLU(),
-            nn.Linear(256, 256), nn.ReLU(),
-            LinearDictOut(256, [(x.name, x.num) for x in self.outputs]),
-        )
+            nn.Linear(256, 256),
+            nn.ReLU(),
+            LinearDictOut(256, [(x.name, x.num) for x in self.outputs]), )
 
     def init_hidden(self, *args, **kwargs):
         return None
@@ -241,8 +250,6 @@ class MLP(nn.Module, SaverMixin):
         sources = {}
         for key in progs:
             src = out[key] / 86400
-            if self.add_forcing:
-                src += x['F' + key]
             sources[key] = src
 
         diags = {key: val for key, val in out.items() if key not in progs}
@@ -278,7 +285,11 @@ class MLP(nn.Module, SaverMixin):
 
         out = {}
         for key in sources:
-            out[key] = x[key] + dt * sources[key]
+            if self.add_forcing:
+                forcing_key = 'F' + key
+                out[key] = x[key] + dt * (x[forcing_key] + sources[key])
+            else:
+                out[key] = x[key] + dt * sources[key]
 
         out = merge(out, diagnostics)
         out = constraints.apply_constraints(
