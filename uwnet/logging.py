@@ -3,7 +3,6 @@ import os
 
 import attr
 
-import tinydb
 import torch
 from pymongo import MongoClient
 from datetime import datetime
@@ -50,6 +49,7 @@ class TinyDBLogger(DBLogger):
 
     @property
     def db(self):
+        import tinydb
         return tinydb.TinyDB(self.path)
 
     # epoch_table = db.table('epochs')
