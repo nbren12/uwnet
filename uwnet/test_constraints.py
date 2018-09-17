@@ -31,7 +31,7 @@ def test_apply_linear_constraint():
 
 
 def test_fix_negative_moisture():
-    q = torch.arange(-4, 20) + .1
+    q = torch.arange(-4, 20).float() + .1
     layer_mass = torch.rand(len(q)) + .1
 
     q_new = fix_negative_moisture(q, layer_mass)

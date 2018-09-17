@@ -21,7 +21,7 @@ def _mock_batch(n, nt, nz, init=torch.rand):
         'SLI': init(n, nt, nz),
         'FQT': init(n, nt, nz),
         'FSLI': init(n, nt, nz),
-        'layer_mass': torch.arange(1, nz + 1) * 1.0,
+        'layer_mass': torch.arange(1, nz + 1).float(),
         # 'p': init(nz),
     }
 
