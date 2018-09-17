@@ -20,6 +20,7 @@ def run_column(model, ds):
     constants = data.torch_constants()
 
     print("Running model")
+    model.add_forcing = True
     # prepare input for mod
     outputs = []
     with torch.no_grad():

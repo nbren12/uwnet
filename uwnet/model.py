@@ -1,7 +1,7 @@
 from collections import OrderedDict
 
 import attr
-from toolz import first, get, merge, pipe
+from toolz import first, get, merge, pipe, assoc
 
 import torch
 from torch import nn
@@ -249,8 +249,7 @@ class MLP(nn.Module, SaverMixin):
         # handle prognostic variables
         sources = {}
         for key in progs:
-            src = out[key] / 86400
-            sources[key] = src
+            sources[key] = out[key] / 86400
 
         diags = {key: val for key, val in out.items() if key not in progs}
         return sources, diags
@@ -285,22 +284,21 @@ class MLP(nn.Module, SaverMixin):
 
         out = {}
         for key in sources:
+            forcing_key = 'F' + key
+            nn_forcing_key = 'F' + key + 'NN'
             if self.add_forcing:
-                forcing_key = 'F' + key
                 out[key] = x[key] + dt * (x[forcing_key] + sources[key])
             else:
                 out[key] = x[key] + dt * sources[key]
 
+            x = assoc(x, forcing_key, 0.0)
+            # store the NN forcing as a diagnostic
+            diagnostics[nn_forcing_key] = sources[key]
+
         out = merge(out, diagnostics)
+
         out = constraints.apply_constraints(
             x, out, dt, output_specs=self.outputs)
-
-        #  diagnostics
-        try:
-            out['Q2NN'] = (out['QT'] - x['QT']) / dt - x['FQT']
-            out['Q1NN'] = (out['SLI'] - x['SLI']) / dt - x['FSLI']
-        except KeyError:
-            pass
 
         return out
 

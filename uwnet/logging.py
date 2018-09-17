@@ -4,7 +4,6 @@ import os
 import attr
 
 import torch
-from pymongo import MongoClient
 from datetime import datetime
 
 
@@ -73,6 +72,7 @@ class MongoDBLogger(DBLogger):
 
     @property
     def db(self):
+        from pymongo import MongoClient
         return MongoClient()[self.database]
 
     def insert(self, collection, post):

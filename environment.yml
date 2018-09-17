@@ -31,3 +31,6 @@ dependencies:
       - torchnet
       - pymongo
       - comet_ml
+      - click
+      - zarr
+      - f90nml
