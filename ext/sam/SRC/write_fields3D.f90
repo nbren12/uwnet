@@ -8,6 +8,7 @@ use microphysics, only: nmicro_fields, micro_field, flag_number, &
      flag_micro3Dout, mkname, mklongname, mkunits, mkoutputscale, &
      index_water_vapor, GET_reffc, Get_reffi, &
      nfields3D_micro, micro_write_fields3D, micro_diagnose
+use python_caller, only: FQTNN, FSLINN
 implicit none
 character *120 filename
 character *80 long_name
@@ -25,6 +26,10 @@ integer, external :: lenstr
 nfields=10 + nfields3D_micro ! number of 3D fields to save
 if(.not. (docloud .or. dopython))  nfields=nfields-1
 if(.not.(doprecip .or. dopython)) nfields=nfields-1
+
+! add 3D outputs for the neural network parametrized sources
+if (dopython) nfields = nfields + 2
+
 !bloss: add 3D outputs for microphysical fields specified by flag_micro3Dout
 !       except for water vapor (already output as a SAM default).
 if(docloud) nfields=nfields+SUM(flag_micro3Dout)-flag_micro3Dout(index_water_vapor)
@@ -332,6 +337,25 @@ do n = 1,nmicro_fields
            save3Dbin,dompi,rank,nsubdomains)
    end if
 end do
+
+
+! Output Neural network source terms
+if (dopython) then
+   nfields1=nfields1+1
+   name='FQTNN'
+   long_name='Parametrized source of QT from the neural network'
+   units='kg/kg/s'
+   call compress3D(FQTNN,nx,ny,nzm,name,long_name,units, &
+        save3Dbin,dompi,rank,nsubdomains)
+
+   nfields1=nfields1+1
+   name='FSLINN'
+   long_name='Parametrized source of SLI from the neural network'
+   units='K/s'
+   call compress3D(FSLINN,nx,ny,nzm,name,long_name,units, &
+        save3Dbin,dompi,rank,nsubdomains)
+
+end if
 
 !=====================================================
 ! UW ADDITIONS

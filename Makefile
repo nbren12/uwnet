@@ -75,6 +75,7 @@ docker:
 	docker run -it \
 		-v /Users:/Users  \
 		-v $(shell pwd)/uwnet:/opt/uwnet \
+		-v $(shell pwd)/ext/sam:/opt/sam \
 		-w $(shell pwd) nbren12/uwnet bash
 
 build_image:

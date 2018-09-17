@@ -40,6 +40,7 @@ call t_stampf(init_time,usrtime,systime)
 
 call init()                    ! initialize some statistics arrays
 call setparm()                 ! set all parameters and constants
+if (dopython) call initialize_python_caller()
 
 !------------------------------------------------------------------
 ! Initialize or restart from the save-dataset:
@@ -73,7 +74,6 @@ call stat_2Dinit(1) ! argument of 1 means storage terms in stats are reset
 call tracers_init() ! initialize tracers
 call setforcing()
 
-if (dopython) call initialize_python_caller()
 
 if(masterproc) call printout()
 !------------------------------------------------------------------

@@ -7,16 +7,24 @@ import subprocess
 import tempfile
 
 import attr
+from jinja2 import Template
 import numpy as np
 from toolz import assoc_in
 
 import f90nml
 import xarray as xr
 
-run_script = """#!/bin/sh
+
+run_script = Template("""#!/bin/sh
+{% for key, val in env.items() %}
+export {{key}}={{val}}
+{% endfor %}
+
 ln -s /opt/sam/RUNDATA .
-/opt/sam/SAM* > out 2> err
-"""
+/opt/sam/docker/cleancase.sh CASE
+/opt/sam/SAM*
+/opt/sam/docker/convert_files.sh
+""")
 
 sounding_template = """ z[m] p[mb] tp[K] q[g/kg] u[m/s] v[m/s]
    0.000000              40   1012.22571
@@ -173,7 +181,7 @@ default_grd = np.array([
 ])
 
 
-def make_docker_cmd(image, exe, **kwargs):
+def make_docker_cmd(image, exe,  flags='', **kwargs):
     """Create command list to pass to subprocess
 
     Parameters
@@ -192,7 +200,7 @@ def make_docker_cmd(image, exe, **kwargs):
     cmd : list
         list of arguments which can be passed to subprocess
     """
-    cmd = ['docker', 'run']
+    cmd = ['docker', 'run', flags]
 
     # add workdir
     try:
@@ -215,6 +223,10 @@ def make_docker_cmd(image, exe, **kwargs):
     return cmd
 
 
+def _path_factory():
+    return tempfile.mkdtemp(dir=os.path.abspath(os.getcwd()), prefix='.tmp')
+
+
 @attr.s
 class Case(object):
     """A configuration of the System for Atmospheric Modeling,
@@ -223,7 +235,7 @@ class Case(object):
     name = attr.ib(default='CASE')
     sam_src = attr.ib(default='/sam')
     prm = attr.ib(default=default_parameters)
-    path = attr.ib(factory=tempfile.mkdtemp, converter=os.path.abspath)
+    path = attr.ib(factory=_path_factory, converter=os.path.abspath)
     docker_image = attr.ib(default="nbren12/samuwgh:latest")
     env = attr.ib(factory=dict)
 
@@ -235,15 +247,16 @@ class Case(object):
     def _z(self):
         return self.z
 
-    def save(self):
-
-        path = self.path
-
+    def mkdir(self):
         try:
-            os.mkdir(path)
+            os.mkdir(self.path)
         except FileExistsError:
             pass
 
+    def save(self):
+
+        self.mkdir()
+        path = self.path
         for out_dir in f'OUT_3D OUT_2D OUT_STAT RESTART {self.name}'.split():
             os.mkdir(os.path.join(path, out_dir))
 
@@ -282,7 +295,7 @@ class Case(object):
 
     def save_script(self):
         with open(self.exe, 'w') as f:
-            f.write(run_script)
+            f.write(run_script.render(env=self.env))
         os.chmod(self.exe, 0o755)
 
     def run(self):
@@ -290,12 +303,17 @@ class Case(object):
         subprocess.call([self.exe], cwd=self.path)
 
     def run_docker(self):
-        self.save()
-        print("Running NGAqua")
+        print(f"Running NGAqua in {self.path}")
         cmd = make_docker_cmd(image=self.docker_image,
                               exe='/run/run.sh',
+                              flags='-i',
                               volumes=[(self.path, '/run')],
                               workdir="/run")
+
+        # Write docker script to disk
+        with open(os.path.join(self.path, "run_with_docker.sh"), "w") as f:
+            f.write(' '.join(cmd))
+
         return subprocess.call(cmd)
 
     def convert_files_to_netcdf(self):
@@ -307,6 +325,11 @@ class Case(object):
 
     def get_prm(self):
         return self.prm
+
+    def add(self, src, dest):
+        dest = os.path.join(self.path, dest)
+        shutil.copy(src, dest)
+        return dest
 
 
 @attr.s

@@ -33,7 +33,7 @@ RUN conda install -y -c pytorch \
     cffi numpy pytorch-cpu \
     torchvision-cpu toolz \
     xarray dask
-RUN pip install zarr attrs tqdm
+RUN pip install zarr attrs tqdm jinja2
 
 
 # add callpy library
@@ -52,3 +52,7 @@ RUN cd /opt/sam && ./Build
 # Install SAM Python modules
 ENV PYTHONPATH=/opt/sam/SRC/python:${PYTHONPATH}
 RUN pip install -e /opt/sam/SCRIPTS/python/
+
+# ADD UWNET to path
+ENV PYTHONPATH=/opt/:${PYTHONPATH}
+ADD uwnet /opt/uwnet

@@ -9,7 +9,7 @@ module python_caller
   character(len=256) :: module_name, function_name
 
   real :: last_time_called
-  real, allocatable, dimension(:,:,:) :: sl_last, qt_last
+  real, allocatable, dimension(:,:,:) :: sl_last, qt_last, FQTNN, FSLINN
 
   integer ntop
 contains
@@ -19,6 +19,8 @@ contains
     use microphysics, only: micro_field
     allocate(sl_last(nx, ny, nzm))
     allocate(qt_last(nx, ny, nzm))
+    allocate(FQTNN(nx, ny, nzm))
+    allocate(FSLINN(nx, ny, nzm))
 
     sl_last = t(1:nx, 1:ny, 1:nzm)
     qt_last = micro_field(1:nx, 1:ny, 1:nzm, 1)
@@ -100,8 +102,8 @@ contains
     call set_state("QT", tmp*1.e3)
     call set_state("TABS", tabs(1:nx,1:ny,1:nzm))
     call set_state("W", w(1:nx,1:ny,1:nzm))
-    call set_state("FQT", fqt*0.e3)
-    call set_state("FSLI", fsl*0.e3)
+    call set_state("FQT", fqt)
+    call set_state("FSLI", fsl)
     call set_state("U", u(1:nx,1:ny,1:nzm))
     call set_state("V", v(1:nx,1:ny,1:nzm))
     call set_state2d("lat", latitude)
@@ -143,6 +145,15 @@ contains
     tmp = tmp / 1.e3
     ! tmp(:,:,ntop:nzm) = micro_field(1:nx,1:ny, ntop:nzm, 1)
     micro_field(1:nx, 1:ny, 1:nzm, 1) = tmp
+
+
+    call get_state("FQTNN", tmp, nx * ny * nzm)
+    ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
+    fqtnn(1:nx, 1:ny, 1:nzm) = tmp
+
+    call get_state("FSLINN", tmp, nx * ny * nzm)
+    ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
+    fslinn(1:nx, 1:ny, 1:nzm) = tmp
 
     call get_state("QN", tmp, nx*ny*nzm)
     tmp = tmp / 1.e3
