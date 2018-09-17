@@ -27,3 +27,7 @@ dependencies:
       - metpy
       - flake8
       - f90nml
+      - pytest
+      - torchnet
+      - pymongo
+      - comet_ml
