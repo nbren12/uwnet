@@ -77,7 +77,9 @@ def main():
         ds = xr.open_zarr(args.input)
     except ValueError:
         ds = xr.open_dataset(args.input)
+
     nt = len(ds.time)
+    ds = ds.isel(z=slice(0, config['vertical_grid_size']))
     train_data = XRTimeSeries(ds.load(), [['time'], ['x', 'y'], ['z']])
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     constants = train_data.torch_constants()

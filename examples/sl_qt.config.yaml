@@ -1,11 +1,12 @@
+vertical_grid_size: 28
 inputs:
-  - [QT, 34]
-  - [SLI, 34]
+  - [QT, 28]
+  - [SLI, 28]
   - [SST, 1]
   - [SOLIN, 1]
 outputs:
-  - [QT, 34]
-  - [SLI, 34]
+  - [QT, 28]
+  - [SLI, 28]
 loss_scale:
   QT: 1.0
   SLI: 2.5
