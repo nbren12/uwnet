@@ -46,8 +46,9 @@ def run_sam_nsteps(ic, n=10, dt=30.0):
         docker_image='nbren12/uwnet',
         sam_src='/opt/sam/')
 
+    case.save()
     case.run_docker()
-    case.convert_files_to_netcdf()
+    # case.convert_files_to_netcdf()
 
     return path
 
