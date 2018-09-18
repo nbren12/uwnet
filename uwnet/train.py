@@ -118,6 +118,7 @@ def main():
             inputs=config['inputs'],
             outputs=config['outputs'])
         i_start = 0
+        lstm.train()
 
     logger.info(f"Training with {lstm}")
 

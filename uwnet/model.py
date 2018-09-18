@@ -265,6 +265,10 @@ class MLP(nn.Module, SaverMixin):
         out = merge(out, diagnostics)
         return out
 
+    def train(self):
+        super(MLP, self).train()
+        self.add_forcing = True
+
     def forward(self, x, n=None):
         """
         Parameters
