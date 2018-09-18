@@ -6,7 +6,7 @@ Energy and moisture are conserved if the following vertically integrated quantit
 
 """
 import torch
-from toolz import curry
+from toolz import curry, assoc
 import torch.nn.functional as F
 
 
@@ -45,6 +45,69 @@ def apply_linear_constraint(lin, a, x, *args, inequality=False, v=None,
         alpha = alpha.clamp(max=0)
 
     return x - v * (alpha / val_v)
+
+
+@curry
+def constrain_moisture_tendency(fqt, precip, lhf, layer_mass):
+    """Make moisture tendency conservative
+
+
+    <QT_dot> = E - P
+
+    Parameters
+    ----------
+    fqt : (g/kg/s)
+        the first-guess moisture tendency from the neural network
+    precip (mm/d)
+        sfc flux over time step
+    lhf  (W/m2)
+    layer_mass
+
+    Returns
+    -------
+    adjusted_fqt (g/kg/s)
+
+    """
+    Lv = 2.51e6
+    density_liquid = 1000.0
+
+    fqt_int = mass_integrate(fqt, layer_mass) / 1000.0  # kg/s
+    net_evap = lhf / Lv - precip / 1000.0 * density_liquid / 86400  # kg/s
+    return (net_evap / fqt_int) * fqt
+
+
+def constrain_temperature_tendency(fsl, prec, shf, radtoa, radsfc, layer_mass):
+    """Expected column average SLI to conserve energy
+
+    cp <Q1> = L_v Prec + SHF + RADSFC - RADTOP
+
+    Parameters
+    ----------
+    fsl (K/s)
+        heat transport without surface fluxes
+    prec (mm/day)
+        change in precipitable water over time step
+    shf, radtoa, radsfc (W/m2)
+        surface and toa fields (upward)
+    layer_mass (kg/m2)
+
+    Returns
+    -------
+    sl0, sl_int (K / kg / m^2)
+        integrals of before/after SLI
+
+    """
+    cp = 1004
+
+    fsl_int = cp * mass_integrate(fsl, layer_mass)  # W /m2
+    energy_rate_of_change = precip_to_energy(prec) + shf + radsfc - radtoa
+    return (energy_rate_of_change/fsl_int) * fsl
+
+
+def constrain_tendencies(sources, diagnostics):
+    fqt = constrain_moisture_tendency(x)
+    fsl = constrain_temperature_tendency(x)
+
 
 
 @curry
