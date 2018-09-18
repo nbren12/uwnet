@@ -263,10 +263,6 @@ class MLP(nn.Module, SaverMixin):
             diagnostics[nn_forcing_key] = sources[key]
 
         out = merge(out, diagnostics)
-
-        out = constraints.apply_constraints(
-            x, out, dt, output_specs=self.outputs)
-
         return out
 
     def forward(self, x, n=None):

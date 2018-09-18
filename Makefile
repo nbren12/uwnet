@@ -11,12 +11,13 @@ PROJECT_NAME = uwnet
 PYTHON_INTERPRETER = python
 GOOGLE_DRIVE_DIR = uwnet-c4290214-d72d-4e2f-943a-d63010a7ecf2
 RCLONE_REMOTE ?= uwgoogledrive
+TRAINING_CONFIG=examples/sl_qt.config.yaml
+TRAINING_DATA ?=data/processed/tropics.nc
 
 #################################################################################
 # COMMANDS                                                                      #
 #################################################################################
 
-TRAINING_DATA ?= data/processed/tropics.nc
 WORKDIR = ~/Data/0
 
 ./nextflow:
@@ -59,7 +60,7 @@ ${TRAINING_DATA}:
 
 ## train
 train: ${TRAINING_DATA}
-	python -m uwnet.train  -n 2 -lr .001 -s 5 -l 10 examples/all.yaml ${TRAINING_DATA}
+	python -m uwnet.train  -n 2 -lr .001 -s 5 -l 10 ${TRAINING_CONFIG} ${TRAINING_DATA}
 
 
 sync_data_to_drive:
