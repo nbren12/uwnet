@@ -75,39 +75,6 @@ class MOE(nn.Module):
         return ans
 
 
-class AbstractApparentSource(nn.Module):
-    """Class for computing the apparent sources of variables
-
-    Attributes
-    ----------
-    mean : dict
-        dict of means to use for centering variables
-    scales : dict
-        dict of scales to use for scaling variables
-    """
-
-    def forward(self, h, aux, prog):
-        """Compute the apparent tendencies of the prognostic variables
-
-        Parameters
-        ----------
-        h : float
-            time step
-        aux : dict
-            dict of auxiliary inputs
-        prog : dict
-             dict of prognostic variables
-
-        Returns
-        -------
-        sources : dict
-            apparent sources of prognostic variables
-        diags : dict
-            diagnostic quantities (e.g. precipitation, latent heat flux, etc)
-        """
-        raise NotImplementedError
-
-
 @attr.s
 class VariableSpec(object):
     """Specification data for variable inputs
