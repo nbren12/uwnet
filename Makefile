@@ -1,4 +1,4 @@
-.PHONY: data docs
+.PHONY: data docs train
 
 #################################################################################
 # GLOBALS                                                                       #
@@ -9,12 +9,14 @@ PROJECT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 # PROFILE = {{ cookiecutter.aws_profile }}
 PROJECT_NAME = uwnet
 PYTHON_INTERPRETER = python
+GOOGLE_DRIVE_DIR = uwnet-c4290214-d72d-4e2f-943a-d63010a7ecf2
+RCLONE_REMOTE ?= uwgoogledrive
 
 #################################################################################
 # COMMANDS                                                                      #
 #################################################################################
 
-TRAINING_DATA = data/training_data_lower_atmos.nc
+TRAINING_DATA ?= data/processed/tropics.nc
 WORKDIR = ~/Data/0
 
 ./nextflow:
@@ -52,24 +54,19 @@ print_sam_checks:
 	@grep Prec data/samNN/checks/sam_nn.txt
 
 ## Call nextflow to produce the training data.
-data:
-	snakemake data/training.nc
+${TRAINING_DATA}:
+	snakemake data/processed/training.nc
 
 ## train
-train:
-	./nextflow run train.nf --numEpochs=2 --trainingData $(TRAINING_DATA) -resume
+train: ${TRAINING_DATA}
+	python -m uwnet.train  -n 2 -lr .001 -s 5 -l 10 examples/all.yaml ${TRAINING_DATA}
 
 
-data/subset.nc:
-	ncks -O -d y,32 -d z,0,27 -d time,0,100 data/training_data.nc $@
-
-## train on a subset of thed data. This is useful for speeding up the training
-train_subset: data/subset.nc
-	python -m uwnet.train -n 20 -b 32 -lr .005 -s 5 -l 10 examples/all.yaml data/subset.nc
+sync_data_to_drive:
+	rclone sync --stats 5s data/processed $(RCLONE_REMOTE):$(GOOGLE_DRIVE_DIR)/data/processed
 
 upload_reports:
 	rsync -avz reports/ olympus:~/public_html/reports/uwnet/
-
 
 docker:
 	docker run -it \
