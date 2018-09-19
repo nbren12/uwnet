@@ -36,3 +36,4 @@ dependencies:
       - click
       - zarr
       - f90nml
+      - sacred
