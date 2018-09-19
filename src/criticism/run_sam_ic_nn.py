@@ -23,17 +23,17 @@ def main(model, ngaqua_root, t):
         docker_image='nbren12/uwnet')
 
     case.prm['parameters']['dodamping'] = True
-    case.prm['parameters']['khyp'] = 1e16
+    case.prm['parameters']['khyp'] = 5e16
 
-    dt = 100.0
+    dt = 120.0
     day = 86400
     hour = 3600
     minute = 60
-    time_stop = 1 * hour
+    time_stop = 20 * day
 
-    output_interval_stat = 300.0
-    output_interval_2d = 300.0
-    output_interval_3d = 300.0
+    output_interval_stat = 30 * minute
+    output_interval_2d = 2 * hour
+    output_interval_3d = 6 * hour
 
     case.prm['parameters']['dt'] = dt
     case.prm['parameters']['nstop'] = int(time_stop // dt)

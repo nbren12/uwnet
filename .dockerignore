@@ -3,3 +3,4 @@ data
 .tmp*
 trained_models
 ext/sam/OBJ
+notebooks
