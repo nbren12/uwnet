@@ -210,6 +210,9 @@ class MLP(nn.Module, SaverMixin):
             for key, val in x.items()
         }
 
+        for spec in self.inputs:
+            x[spec.name] = x[spec.name][..., :spec.num]
+
         stacked = self.scaler(x)
         out = self.mod(stacked)
 
@@ -265,9 +268,9 @@ class MLP(nn.Module, SaverMixin):
         out = merge(out, diagnostics)
         return out
 
-    def train(self):
+    def train(self, val):
         super(MLP, self).train()
-        self.add_forcing = True
+        self.add_forcing = val
 
     def forward(self, x, n=None):
         """

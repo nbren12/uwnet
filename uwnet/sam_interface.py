@@ -121,7 +121,10 @@ def call_neural_network(state):
         zarr_logger.append_all(out)
         zarr_logger.append('time', np.array([state['day']]))
 
-    logger.info("Mean Precip: %f" % out['Prec'].mean())
+    try:
+        logger.info("Mean Precip: %f" % out['Prec'].mean())
+    except KeyError:
+        pass
     # store output to be read by the fortran function
     # sl and qt change names unfortunately
     # logger = get_zarr_logger()
