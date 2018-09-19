@@ -29,7 +29,7 @@ def main(model, ngaqua_root, t):
     day = 86400
     hour = 3600
     minute = 60
-    time_stop = 20 * day
+    time_stop = 10 * day
 
     output_interval_stat = 30 * minute
     output_interval_2d = 2 * hour
