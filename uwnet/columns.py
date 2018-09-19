@@ -14,6 +14,7 @@ from uwnet.utils import concat_dicts
 
 def run_column(model, ds):
     """Run column simulation with prescribed forcings"""
+    ds = ds.isel(z=model.z)
     data = XRTimeSeries(ds.load(), [['time'], ['x', 'y'], ['z']])
     loader = DataLoader(data, batch_size=128, shuffle=False)
 

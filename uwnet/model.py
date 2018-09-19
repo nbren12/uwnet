@@ -268,7 +268,7 @@ class MLP(nn.Module, SaverMixin):
         out = merge(out, diagnostics)
         return out
 
-    def train(self, val):
+    def train(self, val=True):
         super(MLP, self).train()
         self.add_forcing = val
 
@@ -313,6 +313,11 @@ class MLP(nn.Module, SaverMixin):
             output_fields.append(out)
 
         return utils.stack_dicts(output_fields)
+
+    @property
+    def z(self):
+        nz = max(spec.num for spec in self.inputs)
+        return range(nz)
 
     def __repr__(self):
         return f"MLP({self.inputs.names}, {self.outputs.names})"
