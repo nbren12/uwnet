@@ -7,6 +7,3 @@ inputs:
 outputs:
   - [QT, 28]
   - [SLI, 28]
-loss_scale:
-  QT: 1.0
-  SLI: 2.5

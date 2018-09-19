@@ -1,9 +1,10 @@
-import argparse
 import logging
 import os
+import re
+from os.path import join
 from time import time
 
-import yaml
+from sacred import Experiment
 from toolz import merge
 
 import torch
@@ -12,57 +13,84 @@ import xarray as xr
 from torch.utils.data import DataLoader
 from uwnet import model
 from uwnet.datasets import XRTimeSeries
-from uwnet.logging import MongoDBLogger
 from uwnet.loss import MVLoss
 from uwnet.utils import select_time
 
-from comet_ml import Experiment
+ex = Experiment()
 
 
+def get_output_dir(tag=None, base='.trained_models'):
+    """Get a unique output directory name"""
 
-def parse_arguments():
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument('-r', '--restart', default=False)
-    parser.add_argument('-lr', '--lr', default=.001, type=float)
-    parser.add_argument('-n', '--n-epochs', default=10, type=int)
-    parser.add_argument('-d', '--model-dir', default='trained_models')
-    parser.add_argument('-s', '--skip', default=1, type=int)
-    parser.add_argument('-l', '--seq_length', default=20, type=int)
-    parser.add_argument('-b', '--batch_size', default=200, type=int)
-    parser.add_argument('-f', '--forcing-data', type=str, default='')
-    parser.add_argument('-db', default='runs.json')
-    parser.add_argument('config')
-    parser.add_argument("input")
+    pat = re.compile(r'^(\d+)-?')
+    files = os.listdir(base)
 
-    return parser.parse_args()
+    if len(files) == 0:
+        id = '0'
+    else:
+        last_id = max(int(pat.search(file).group(1)) for file in files)
+        id = last_id + 1
 
+    if not tag:
+        file_name = str(id)
+    else:
+        if re.search(r'\s', tag):
+            raise ValueError("Tag has whitespace")
+        file_name = str(id) + '-' + tag
 
-def get_output_dir(run_id, base='.trained_models'):
-    id = str(run_id)
-    return f'{base}/{id[:2]}/{id[2:]}'
+    return join(base, file_name)
 
 
-def main():
+@ex.config
+def my_config():
+    restart = False
+    lr = .001
+    n_epochs = 2
+    model_dir = 'models'
+    skip = 5
+    seq_length = 10
+    batch_size = 256
+    tag = ''
+    vertical_grid_size = 34
+    loss_scale = {
+        'LHF': 150,
+        'SHF': 10,
+        'RADTOA': 600.0,
+        'RADSFC': 600.0,
+        'U': 5.0,
+        'V': 5.0,
+        'Prec': 8,
+        'QP': 0.05,
+        'QN': 0.05,
+        'QT': 1.0,
+        'SLI': 2.5
+    }
 
+
+@ex.automain
+def main(inputs, outputs, restart, lr, n_epochs, model_dir, skip, seq_length,
+         batch_size, tag, data, vertical_grid_size, loss_scale):
     # setup logging
     logging.basicConfig(level=logging.INFO)
-    experiment = Experiment(api_key="fEusCnWmzAtmrB0FbucyEggW2")
-    db = MongoDBLogger()
+
+    # db = MongoDBLogger()
+    # experiment = Experiment(api_key="fEusCnWmzAtmrB0FbucyEggW2")
     logger = logging.getLogger(__name__)
 
-    args = parse_arguments()
-    # load configuration
-    config = yaml.load(open(args.config))
-
     # get output directory
-    db.log_run(args, config)
-    output_dir = get_output_dir(db.run_id, base=args.model_dir)
+    # db.log_run(args, config)
+    output_dir = get_output_dir(tag, base=model_dir)
+    # switch to output directory
+    logger.info(f"Saving outputs in {output_dir}")
+    try:
+        os.makedirs(output_dir)
+    except OSError:
+        pass
 
-    experiment.log_parameter('directory', os.path.abspath(output_dir))
-
-    n_epochs = args.n_epochs
-    batch_size = args.batch_size
-    seq_length = args.seq_length
+    # experiment.log_parameter('directory', os.path.abspath(output_dir))
+    n_epochs = n_epochs
+    batch_size = batch_size
+    seq_length = seq_length
 
     # set up meters
     meter_loss = tnt.meter.AverageValueMeter()
@@ -74,22 +102,15 @@ def main():
 
     logger.info("Opening Training Data")
     try:
-        ds = xr.open_zarr(args.input)
+        ds = xr.open_zarr(data)
     except ValueError:
-        ds = xr.open_dataset(args.input)
+        ds = xr.open_dataset(data)
 
     nt = len(ds.time)
-    ds = ds.isel(z=model.z)
+    ds = ds.isel(z=slice(0, vertical_grid_size))
     train_data = XRTimeSeries(ds.load(), [['time'], ['x', 'y'], ['z']])
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     constants = train_data.torch_constants()
-
-    # switch to output directory
-    logger.info(f"Saving outputs in {output_dir}")
-    try:
-        os.makedirs(output_dir)
-    except OSError:
-        pass
 
     # compute standard deviation
     logger.info("Computing Standard Deviation")
@@ -104,8 +125,8 @@ def main():
     logger.info(f"Training with {cls}")
 
     # restart
-    if args.restart:
-        path = os.path.abspath(args.restart)
+    if restart:
+        path = os.path.abspath(restart)
         logger.info(f"Restarting from checkpoint at {path}")
         d = torch.load(path)
         lstm = cls.from_dict(d['dict'])
@@ -117,15 +138,18 @@ def main():
             mean,
             scale,
             time_step=train_data.timestep(),
-            inputs=config['inputs'],
-            outputs=config['outputs'])
+            inputs=inputs,
+            outputs=outputs)
         i_start = 0
         lstm.train()
 
     logger.info(f"Training with {lstm}")
 
     # initialize optimizer
-    optimizer = torch.optim.Adam(lstm.parameters(), lr=args.lr)
+    optimizer = torch.optim.Adam(lstm.parameters(), lr=lr)
+
+    # set up loss function
+    criterion = MVLoss(lstm.outputs.names, constants['layer_mass'], loss_scale)
 
     os.chdir(output_dir)
     try:
@@ -134,13 +158,9 @@ def main():
             for k, batch in enumerate(train_loader):
                 logging.info(f"Batch {k} of {len(train_loader)}")
 
-                # set up loss function
-                criterion = MVLoss(constants['layer_mass'],
-                                   config['loss_scale'])
-
                 time_batch_start = time()
 
-                for t in range(0, nt - seq_length, args.skip):
+                for t in range(0, nt - seq_length, skip):
 
                     # select window
                     window = select_time(batch, slice(t, t + seq_length))
@@ -177,21 +197,23 @@ def main():
                     'avg_loss': meter_avg_loss.value()[0],
                     'time_elapsed': time_elapsed_batch,
                 }
-                experiment.log_metric('loss', batch_info['loss'])
-                experiment.log_metric('avg_loss', batch_info['avg_loss'])
-                db.log_batch(batch_info)
+                # experiment.log_metric('loss', batch_info['loss'])
+                # experiment.log_metric('avg_loss', batch_info['avg_loss'])
+                # db.log_batch(batch_info)
+
+                ex.log_scalar('loss', batch_info['loss'])
+                ex.log_scalar('avg_loss', batch_info['avg_loss'])
+                ex.log_scalar('time_elapsed', batch_info['time_elapsed'])
+
                 logger.info(f"Batch {k},  Loss: {meter_loss.value()[0]}; "
                             f"Avg {meter_avg_loss.value()[0]}; "
                             f"Time Elapsed {time_elapsed_batch} ")
                 meter_loss.reset()
                 meter_avg_loss.reset()
 
-            experiment.log_epoch_end(i)
-            db.log_epoch(i, lstm)
+            epoch_file = f"{i}.pkl"
+            torch.save({"epoch": i, 'dict': lstm.to_dict()}, epoch_file)
+            ex.add_artifact(epoch_file)
 
     except KeyboardInterrupt:
         torch.save({'epoch': i, 'dict': lstm.to_dict()}, "interrupt.pkl")
-
-
-if __name__ == '__main__':
-    main()

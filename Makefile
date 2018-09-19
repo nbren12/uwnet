@@ -60,7 +60,7 @@ ${TRAINING_DATA}:
 
 ## train
 train: ${TRAINING_DATA}
-	python -m uwnet.train  -n 2 -lr .001 -s 5 -l 10 ${TRAINING_CONFIG} ${TRAINING_DATA}
+	python -m uwnet.train with data=${TRAINING_DATA} examples/sl_qt.config.yaml -m uwnet
 
 
 sync_data_to_drive:

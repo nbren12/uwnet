@@ -21,11 +21,13 @@ def mse(x, y, layer_mass):
 
 
 @curry
-def MVLoss(layer_mass, scale, x, y):
+def MVLoss(keys, layer_mass, scale, x, y):
     """MSE loss
 
     Parameters
     ----------
+    keys
+        list of keys to compute loss with
     x : truth
     y : prediction
     """
@@ -33,6 +35,6 @@ def MVLoss(layer_mass, scale, x, y):
     losses = {
         key:
         mse(x[key], y[key], layer_mass) / torch.tensor(scale[key]**2).float()
-        for key in scale
+        for key in keys
     }
     return sum(losses.values())
