@@ -12,13 +12,17 @@ from uwnet.datasets import XRTimeSeries
 from uwnet.utils import concat_dicts
 
 
-def run_column(model, ds):
+def run_column(model, ds, tqdm=tqdm):
     """Run column simulation with prescribed forcings"""
     ds = ds.isel(z=model.z)
     data = XRTimeSeries(ds.load(), [['time'], ['x', 'y'], ['z']])
-    loader = DataLoader(data, batch_size=128, shuffle=False)
+    loader = DataLoader(data, batch_size=1024, shuffle=False)
 
     constants = data.torch_constants()
+
+    if not tqdm:
+        def tqdm(x):
+            return x
 
     print("Running model")
     model.add_forcing = True
