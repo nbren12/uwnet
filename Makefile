@@ -1,4 +1,4 @@
-.PHONY: data docs train
+.PHONY: data docs train reports
 
 #################################################################################
 # GLOBALS                                                                       #
@@ -61,7 +61,6 @@ ${TRAINING_DATA}:
 ## train
 train: ${TRAINING_DATA}
 	python -m uwnet.train with data=${TRAINING_DATA} examples/sl_qt.config.yaml -m uwnet
-
 
 sync_data_to_drive:
 	rclone sync --stats 5s data/processed $(RCLONE_REMOTE):$(GOOGLE_DRIVE_DIR)/data/processed

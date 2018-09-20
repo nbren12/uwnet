@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import os
 from os.path import relpath, dirname, join, exists, abspath
 import sys
@@ -9,6 +10,7 @@ folder = dirname(model)
 model = relpath(model, start=folder)
 
 sam_directory = abspath(join(folder, 'test'))
+notebook_output_dir = join('reports', folder)
 
 # Run SAM with the neural network
 if not exists(sam_directory):
@@ -33,8 +35,15 @@ if not exists(sam_directory):
         print(open(stderr_path).read())
 
 # make the report
+try:
+    os.makedirs(dirname(notebook_output_dir))
+except FileExistsError:
+    pass
+
 cmd = [
-    'jupyter', 'nbconvert', '--output-dir', folder, '--execute',
+    'jupyter', 'nbconvert',
+    '--output-dir', notebook_output_dir,
+    '--execute',
     'notebooks/templates/sam-run.ipynb'
 ]
 os.environ['RUN'] = sam_directory
