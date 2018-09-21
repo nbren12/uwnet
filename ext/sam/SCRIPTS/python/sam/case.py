@@ -14,7 +14,6 @@ from toolz import assoc_in
 import f90nml
 import xarray as xr
 
-
 run_script = Template("""#!/bin/sh
 {% for key, val in env.items() %}
 export {{key}}={{val}}
@@ -111,67 +110,69 @@ sounding_template = """ z[m] p[mb] tp[K] q[g/kg] u[m/s] v[m/s]
   -999.000000    25.000000   608.551453    0.0    -0.0    0.0
 """
 
-default_parameters = {
-    'parameters': {
-        'cem': True,
-        'day0': 100.625,
-        'docloud': False,
-        'docolumn': False,
-        'docoriolis': True,
-        'doequinox': True,
-        'dofplane': False,
-        'dolargescale': False,
-        'dolongwave': False,
-        'donudging_tq': False,
-        'donudging_uv': False,
-        'doprecip': False,
-        'doradforcing': False,
-        'doradlat': True,
-        'dosamconditionals': False,
-        'dosatupdnconditionals': False,
-        'doseasons': False,
-        'dosfcforcing': False,
-        'dosgs': True,
-        'dodamping': True,
-        'dosurface': True,
-        'doshortwave': False,
-        'doupperbound': False,
-        'dowally': True,
-        'dt': 30.0,
-        'dx': 160000.0,
-        'dy': 160000.0,
-        'latitude0': 0.72,
-        'longitude0': 0.0,
-        'nprint': 240,
-        'nrad': 30,
-        'nrestart': 0,
-        'nsave2d': 120,
-        'nsave2dend': 99960480,
-        'nsave2dstart': 000000,
-        'nsave3d': 120,
-        'nsave3dend': 99960480,
-        'nsave3dstart': 0000000,
-        'nstat': 240,
-        'nstatfrq': 240,
-        'nstop': 480,
-        'ocean': True,
-        'ocean_type': 3,
-        'save2dbin': True,
-        'save3dbin': True,
-    },
-    'sgs_tke': {
-        'dosmagor': True
-    },
-    'python': {
-        'dopython': False,
-        'usepython': False,
-        'npython': 1,
-        'function_name': 'call_neural_network',
-        'module_name': 'uwnet.sam_interface'
-    },
-    'uwoptions': {
+
+def default_parameters():
+    return {
+        'parameters': {
+            'cem': True,
+            'day0': 100.625,
+            'docloud': False,
+            'docolumn': False,
+            'docoriolis': True,
+            'doequinox': True,
+            'dofplane': False,
+            'dolargescale': False,
+            'dolongwave': False,
+            'donudging_tq': False,
+            'donudging_uv': False,
+            'doprecip': False,
+            'doradforcing': False,
+            'doradlat': True,
+            'dosamconditionals': False,
+            'dosatupdnconditionals': False,
+            'doseasons': False,
+            'dosfcforcing': False,
+            'dosgs': True,
+            'dodamping': True,
+            'dosurface': True,
+            'doshortwave': False,
+            'doupperbound': False,
+            'dowally': True,
+            'dt': 30.0,
+            'dx': 160000.0,
+            'dy': 160000.0,
+            'latitude0': 0.72,
+            'longitude0': 0.0,
+            'nprint': 240,
+            'nrad': 30,
+            'nrestart': 0,
+            'nsave2d': 120,
+            'nsave2dend': 99960480,
+            'nsave2dstart': 000000,
+            'nsave3d': 120,
+            'nsave3dend': 99960480,
+            'nsave3dstart': 0000000,
+            'nstat': 240,
+            'nstatfrq': 240,
+            'nstop': 480,
+            'ocean': True,
+            'ocean_type': 3,
+            'save2dbin': True,
+            'save3dbin': True,
+        },
+        'sgs_tke': {
+            'dosmagor': True
+        },
+        'python': {
+            'dopython': False,
+            'usepython': False,
+            'npython': 1,
+            'function_name': 'call_neural_network',
+            'module_name': 'uwnet.sam_interface'
+        },
+        'uwoptions': {}
     }
-}
+
 
 default_grd = np.array([
     37., 112., 194., 288., 395., 520., 667., 843., 1062., 1331., 1664., 2274.,
@@ -181,7 +182,7 @@ default_grd = np.array([
 ])
 
 
-def make_docker_cmd(image, exe,  flags='', **kwargs):
+def make_docker_cmd(image, exe, flags='', **kwargs):
     """Create command list to pass to subprocess
 
     Parameters
@@ -234,7 +235,7 @@ class Case(object):
     z = attr.ib(default=None)
     name = attr.ib(default='CASE')
     sam_src = attr.ib(default='/sam')
-    prm = attr.ib(default=default_parameters)
+    prm = attr.ib(factory=default_parameters)
     path = attr.ib(factory=_path_factory, converter=os.path.abspath)
     docker_image = attr.ib(default="nbren12/samuwgh:latest")
     env = attr.ib(factory=dict)
@@ -304,11 +305,12 @@ class Case(object):
 
     def run_docker(self):
         print(f"Running NGAqua in {self.path}")
-        cmd = make_docker_cmd(image=self.docker_image,
-                              exe='/run/run.sh',
-                              flags='-i',
-                              volumes=[(self.path, '/run')],
-                              workdir="/run")
+        cmd = make_docker_cmd(
+            image=self.docker_image,
+            exe='/run/run.sh',
+            flags='-i',
+            volumes=[(self.path, '/run')],
+            workdir="/run")
 
         # Write docker script to disk
         with open(os.path.join(self.path, "run_with_docker.sh"), "w") as f:
@@ -317,10 +319,11 @@ class Case(object):
         return subprocess.call(cmd)
 
     def convert_files_to_netcdf(self):
-        cmd = make_docker_cmd(image=self.docker_image,
-                              exe=self.sam_src + 'docker/convert_files.sh',
-                              workdir="/run",
-                              volumes=[(self.path, '/run')])
+        cmd = make_docker_cmd(
+            image=self.docker_image,
+            exe=self.sam_src + 'docker/convert_files.sh',
+            workdir="/run",
+            volumes=[(self.path, '/run')])
         return subprocess.call(cmd)
 
     def get_prm(self):
@@ -399,11 +402,10 @@ def pressure_correct(ic, path=None, sam_src="."):
     if path is None:
         path = tempfile.mkdtemp(dir=".")
 
-    prm = default_parameters
+    prm = default_parameters()
 
-    for key, val in [('nstop', 0),
-                     ('nsave3d', 1), ('nstat', 0), ('nstatfrq', 1),
-                     ('dt', .0001), ('nsave3dstart', 0)]:
+    for key, val in [('nstop', 0), ('nsave3d', 1), ('nstat', 0),
+                     ('nstatfrq', 1), ('dt', .0001), ('nsave3dstart', 0)]:
         prm = assoc_in(prm, ['parameters', key], val)
 
     case = InitialConditionCase(ic=ic, path=path, sam_src=sam_src, prm=prm)
