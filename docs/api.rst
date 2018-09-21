@@ -19,3 +19,11 @@ Models
 
 .. automodule:: uwnet.model
     :members:
+
+Custom PyTorch Modules
+----------------------
+
+This project includes some modules with a more general purpose.
+
+.. automodule:: uwnet.modules
+      :members:
