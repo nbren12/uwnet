@@ -42,7 +42,7 @@ def test_fix_negative_moisture():
     # water is conserved
     q1 = (q_new * layer_mass).sum(-1)
     q0 = (q * layer_mass).sum(-1)
-    np.testing.assert_allclose(q1.numpy(), q0.numpy())
+    np.testing.assert_allclose(q1.numpy(), q0.numpy(), rtol=1e-5)
 
 
 def test_fix_expected_moisture():
