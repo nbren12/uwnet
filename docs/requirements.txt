@@ -1,7 +1,0 @@
--e .
-torch
-xarray
-numpy
-toolz
-attrs
-matplotlib
