@@ -4,7 +4,7 @@ Status](https://travis-ci.org/nbren12/uwnet.svg?branch=master)](https://travis-c
 
 ## Documentation
 
-The documentation can be viewed on the ReadTheDocs: https://uwnet.readthedocs.io/en/latest/
+The documentation is hosted on github pages: https://nbren12.github.io/uwnet/
 
 ## Setup
 
