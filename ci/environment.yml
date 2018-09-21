@@ -1,0 +1,32 @@
+name: uwnet
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.6
+  - numpy
+  - dask
+  - xarray
+  - holoviews
+  - torchvision
+  - pytorch
+  - attrs
+  - pip
+  - pip:
+      - git+https://github.com/nbren12/gnl@master#subdirectory=python
+      - tqdm
+      - metpy
+      - flake8
+      - f90nml
+      - pytest
+      - torchnet
+      - pymongo
+      - click
+      - zarr
+      - f90nml
+      - sacred
+      - recommonmark
+      - sphinx
+      - sphinx_rtd_theme
+
