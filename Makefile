@@ -91,6 +91,9 @@ create_environment:
 	@echo ">>> New Environment created...activate by typing"
 	@echo "    source activate uwnet"
 
+jupyter:
+	docker run -p 8888:8888 -v $(shell pwd):/pwd -w /pwd -v /Users:/Users nbren12/uwnet jupyter lab  --port 8888 --ip=0.0.0.0  --allow-root
+
 docs:
 	make -C docs html
 
