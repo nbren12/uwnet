@@ -37,3 +37,7 @@ dependencies:
       - zarr
       - f90nml
       - sacred
+      - recommonmark
+      - sphinx
+      - sphinx_rtd_theme
+
