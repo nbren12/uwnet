@@ -1,4 +1,6 @@
 # Machine learning approaches to convective parametrization
+[![Build
+Status](https://travis-ci.org/nbren12/uwnet.svg?branch=master)](https://travis-ci.org/nbren12/uwnet)
 
 ## Documentation
 
