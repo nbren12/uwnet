@@ -13,6 +13,7 @@ GOOGLE_DRIVE_DIR = uwnet-c4290214-d72d-4e2f-943a-d63010a7ecf2
 RCLONE_REMOTE ?= uwgoogledrive
 TRAINING_CONFIG=examples/sl_qt.config.yaml
 TRAINING_DATA ?=data/processed/tropics.nc
+DOCKER_IMAGE ?= nbren12/uwnet:latest
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -92,7 +93,7 @@ create_environment:
 	@echo "    source activate uwnet"
 
 jupyter:
-	docker run -p 8888:8888 -v $(shell pwd):/pwd -w /pwd -v /Users:/Users nbren12/uwnet jupyter lab  --port 8888 --ip=0.0.0.0  --allow-root
+	docker run -p 8888:8888 -v $(shell pwd):/pwd -w /pwd -v /Users:/Users $(DOCKER_IMAGE) jupyter lab  --port 8888 --ip=0.0.0.0  --allow-root
 
 docs:
 	make -C docs html
