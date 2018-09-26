@@ -15,8 +15,12 @@ module python_caller
 contains
 
   subroutine initialize_python_caller()
-    use vars, only: nx, ny, nzm, rho, pres, presi, caseid, case, adz, dz, t, time
+    use vars, only: nx, ny, nz, nzm, rho, pres, presi, caseid, case, adz, dz, t, time
     use microphysics, only: micro_field
+
+    ! locals
+    real(4) :: tmp(1:nzm), tmpw(1:nz)
+
     allocate(sl_last(nx, ny, nzm))
     allocate(qt_last(nx, ny, nzm))
     allocate(FQTNN(nx, ny, nzm))
@@ -27,9 +31,15 @@ contains
     last_time_called = time
     print *, 'python_caller.f90::initialize_python_caller: storing sl and qt to sl_last and qt_last at time', time
 
-    call set_state_1d("layer_mass", rho * adz * dz)
-    call set_state_1d("p", pres)
-    call set_state_1d("pi", presi)
+    tmp = rho * adz * dz
+    call set_state_1d("layer_mass", tmp)
+
+    tmp = pres
+    call set_state_1d("p", tmp)
+
+    tmpw = presi
+    call set_state_1d("pi", tmpw)
+
     call set_state_char("caseid", caseid)
     call set_state_char("case", case)
   end subroutine initialize_python_caller
@@ -42,7 +52,7 @@ contains
     ! use rad, only: solinxy
     ! use grid, only: day, caseid, case
     use microphysics, only: micro_field
-    real :: tmp(1:nx, 1:ny, 1:nzm)
+    real(4) :: tmp(1:nx, 1:ny, 1:nzm)
     ! locals
 
     print *, 'Initializing state from target'
@@ -78,12 +88,12 @@ contains
     use vars, only: t, u, v,w, tabs,&
          shf_xy, lhf_xy, sstxy, t00, prec_xy,&
          latitude, longitude,&
-         nx, ny, nzm, rho, adz, dz, pres, presi, time, nstep, day, caseid, case
+         nx, ny, nzm, rho, adz, dz, pres, presi, time, nstep, day, caseid, case, nz
     use microphysics, only: micro_field
     use rad, only: solinxy
     ! compute derivatives
     real, dimension(nx,ny,nzm) :: fqt, fsl
-    real :: tmp(1:nx, 1:ny, 1:nzm)
+    real(4) :: tmp(1:nx, 1:ny, 1:nzm), tmp_vert(1:nzm), tmp_vertw(1:nz), tmp_scalar
     real :: dt
 
     ntop = nzm
@@ -98,30 +108,61 @@ contains
     tmp = t(1:nx,1:ny,1:nzm)
     call set_state("SLI", tmp)
 
-    tmp = micro_field(1:nx,1:ny,1:nzm, 1)
-    call set_state("QT", tmp*1.e3)
-    call set_state("TABS", tabs(1:nx,1:ny,1:nzm))
-    call set_state("W", w(1:nx,1:ny,1:nzm))
-    call set_state("FQT", fqt)
-    call set_state("FSLI", fsl)
-    call set_state("U", u(1:nx,1:ny,1:nzm))
-    call set_state("V", v(1:nx,1:ny,1:nzm))
-    call set_state2d("lat", latitude)
-    call set_state2d("lon", longitude)
+    tmp = micro_field(1:nx,1:ny,1:nzm, 1) * 1.e3
+    call set_state("QT", tmp)
+
+    tmp =  tabs(1:nx,1:ny,1:nzm)
+    call set_state("TABS", tmp)
+    tmp =  w(1:nx,1:ny,1:nzm)
+    call set_state("W", tmp)
+
+    tmp =  fqt
+    call set_state("FQT", tmp)
+
+    tmp =  fsl
+    call set_state("FSLI", tmp)
+
+    tmp =  u(1:nx,1:ny,1:nzm)
+    call set_state("U", tmp)
+
+    tmp =  v(1:nx,1:ny,1:nzm)
+    call set_state("V", tmp)
+
+    ! call set_state2d("lat", latitude)
+    ! call set_state2d("lon", longitude)
 
     ! for some reason set_state2d has some extremee side ffects
     ! that can cause the model to crash
     tmp(:,:,1) = sstxy(1:nx, 1:ny) + t00
     call set_state2d("SST", tmp(:,:,1))
-    call set_state2d("SOLIN",solinxy(1:nx,1:ny))
-    call set_state_1d("layer_mass", rho * adz * dz)
-    call set_state_1d("p", pres)
-    call set_state_1d("pi", presi)
-    call set_state_scalar("p0", dt)
-    call set_state_scalar("dt", dt)
-    call set_state_scalar("time", real(time))
-    call set_state_scalar("day", real(day))
-    call set_state_scalar("nstep", real(nstep))
+
+
+    tmp(:,:,1) = solinxy(1:nx, 1:ny)
+    call set_state2d("SOLIN", tmp(:,:,1))
+
+
+    tmp_vert = rho * adz * dz
+    call set_state_1d("layer_mass", tmp_vert)
+
+    tmp_vert = pres
+    call set_state_1d("p", tmp_vert)
+
+    tmp_vertw = presi
+    call set_state_1d("pi", tmp_vertw)
+
+
+    tmp_scalar = dt
+    call set_state_scalar("p0", tmp_scalar)
+    call set_state_scalar("dt", tmp_scalar)
+
+    tmp_scalar = time
+    call set_state_scalar("time", tmp_scalar)
+
+    tmp_scalar = day
+    call set_state_scalar("day", tmp_scalar)
+
+    tmp_scalar = real(nstep)
+    call set_state_scalar("nstep", tmp_scalar)
     call set_state_char("caseid", caseid)
     call set_state_char("case", case)
 
@@ -134,7 +175,7 @@ contains
          nx, ny, nzm, rho, adz, dz, pres, presi, time, nstep
     use microphysics, only: micro_field, qn, qp, micro_diagnose
     ! locals
-    real :: tmp(1:nx, 1:ny, 1:nzm)
+    real(4) :: tmp(1:nx, 1:ny, 1:nzm)
     ! read in state from python
     print *, 'python_caller.f90::state_to_python retreiving state from python module'
     call get_state("SLI", tmp, nx * ny * nzm)

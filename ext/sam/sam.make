@@ -1,6 +1,6 @@
 # Makefile for various platforms
 # Execute using Build csh-script only!
-# Used together with Perl scripts in SRC/SCRIPT 
+# Used together with Perl scripts in SRC/SCRIPT
 # (C) 2005 Marat Khairoutdinov
 #------------------------------------------------------------------
 # uncomment to disable timers:
@@ -10,7 +10,7 @@
 
 SAM = SAM_$(ADV_DIR)_$(SGS_DIR)_$(RAD_DIR)_$(MICRO_DIR)
 
-# Determine platform 
+# Determine platform
 PLATFORM := $(shell uname -s)
 
 # Docker platform  compiler flags
@@ -20,13 +20,13 @@ LIB_NETCDF := /usr/lib
 
 DEBUG_FLAGS= -g -fbacktrace -ffpe-trap=invalid,denormal,zero,overflow,underflow
 
-FF77 = mpif77 -c -ffixed-form -ffixed-line-length-0
-FF90 = mpif90  -ffree-form -ffree-line-length-0
+FF77 = mpif77 -c -ffixed-form -ffixed-line-length-0 -fdefault-real-8
+FF90 = mpif90  -ffree-form -ffree-line-length-0 -fdefault-real-8
 CC = mpicc -c -DLINUX
 
 CPPFLAGS = -DNZ=$(NZ) -DNX=$(NX) -DNY=$(NZ)
 
-FFLAGS = -O3 
+FFLAGS = -O3
 #FFLAGS = -g -fcheck=all
 
 PYTHON_LIB_DIR=/sam/SRC/python
@@ -45,7 +45,7 @@ LDFLAGS = -L${LIB_NETCDF} -lnetcdf -lnetcdff -lcallpy -lplugin
 
 #compute the search path
 dirs := . $(shell cat Filepath)
-VPATH    := $(foreach dir,$(dirs),$(wildcard $(dir))) 
+VPATH    := $(foreach dir,$(dirs),$(wildcard $(dir)))
 
 .SUFFIXES:
 .SUFFIXES: .f .f90 .c .o
@@ -63,12 +63,12 @@ Depends: Srcfiles Filepath
 Srcfiles: Filepath
 	$(SAM_SRC)/SCRIPT/mkSrcfiles > $@
 
-OBJS      := $(addsuffix .o, $(basename $(SOURCES))) 
+OBJS      := $(addsuffix .o, $(basename $(SOURCES)))
 
 $(SAM_DIR)/$(SAM): $(OBJS)
 	$(LD) -o $@ $(OBJS) $(LDFLAGS)
 
-tests : 
+tests :
 
 test_read_sound: $(SAM_SRC)/TESTS/test_read_sound.f90 read_netcdf_3d.o grid.o task_util_MPI.o
 	$(FF90)  $(LDFLAGS) -I${INC_NETCDF} -o $@  $^
@@ -87,7 +87,5 @@ include Depends
 
 
 
-clean: 
+clean:
 	rm ./OBJ/*
-
-
