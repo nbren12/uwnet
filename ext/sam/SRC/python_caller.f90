@@ -128,8 +128,11 @@ contains
     tmp =  v(1:nx,1:ny,1:nzm)
     call set_state("V", tmp)
 
-    ! call set_state2d("lat", latitude)
-    ! call set_state2d("lon", longitude)
+    tmp(1:nx,1:ny,1) = latitude
+    call set_state2d("lat", tmp(1:nx,1:ny,1))
+
+    tmp(1:nx,1:ny,1) = longitude
+    call set_state2d("lon", tmp(1:nx,1:ny,1))
 
     ! for some reason set_state2d has some extremee side ffects
     ! that can cause the model to crash
