@@ -27,13 +27,6 @@ RUN cd /tmp && \
     make &&\
     make install INSTALL_DIR=${PFUNIT}
 
-# add callpy library
-ADD ext/sam/ext/call_py_fort /opt/call_py_fort
-ENV PYTHONPATH=/opt/call_py_fort/src/:/opt/call_py_fort/test:$PYTHONPATH
-ENV CALLPY=/opt/call_py_fort
-RUN cd /opt/call_py_fort/ && make install
-ENV LD_LIBRARY_PATH=/usr/local/lib
-
 # add conda packages
 RUN conda update -y conda
 ADD environment.yml /opt/environment.yml
@@ -41,6 +34,13 @@ RUN cd /opt && conda env create
 ENV PATH=/miniconda/envs/uwnet/bin:${PATH}
 RUN conda install nodejs
 RUN jupyter labextension install @pyviz/jupyterlab_pyviz
+
+# add callpy library
+ADD ext/sam/ext/call_py_fort /opt/call_py_fort
+ENV PYTHONPATH=/opt/call_py_fort/src/:/opt/call_py_fort/test:$PYTHONPATH
+ENV CALLPY=/opt/call_py_fort
+RUN cd /opt/call_py_fort/ && make install
+ENV LD_LIBRARY_PATH=/usr/local/lib
 
 # add SAM
 ADD ext/sam /opt/sam
