@@ -24,7 +24,7 @@ def pushd(new_dir):
 
 
 def get_parameters(n, dt=30.0):
-    prm = default_parameters.copy()
+    prm = default_parameters()
 
     prm['parameters']['nstop'] = n
     prm['parameters']['nsave3d'] = n
