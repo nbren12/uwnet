@@ -1,4 +1,5 @@
 import os
+import sys
 from os.path import join
 
 ## VARIABLES
@@ -86,7 +87,7 @@ rule process_with_sam_once:
     log: SAM_PROCESSED_LOG
     shell:
         """
-        process_ngaqua.py -n {input} {wildcards.step} {output} > {log} 2> {log}
+        {sys.executable} -m src.data.process_ngaqua -n {input} {wildcards.step} {output} > {log} 2> {log}
         ncks -O --mk_rec_dmn time {output} {output}
         """
 
