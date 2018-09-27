@@ -345,14 +345,16 @@ if (dopython) then
    name='FQTNN'
    long_name='Parametrized source of QT from the neural network'
    units='kg/kg/s'
-   call compress3D(FQTNN,nx,ny,nzm,name,long_name,units, &
+   tmp(1:nx,1:ny,1:nzm) = fqtnn(1:nx,1:ny,1:nzm)
+   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
         save3Dbin,dompi,rank,nsubdomains)
 
    nfields1=nfields1+1
    name='FSLINN'
    long_name='Parametrized source of SLI from the neural network'
    units='K/s'
-   call compress3D(FSLINN,nx,ny,nzm,name,long_name,units, &
+   tmp(1:nx,1:ny,1:nzm) = fslinn(1:nx,1:ny,1:nzm)
+   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
         save3Dbin,dompi,rank,nsubdomains)
 
 end if
