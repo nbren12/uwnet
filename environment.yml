@@ -17,8 +17,8 @@ dependencies:
   - bokeh
   - jupyterlab
   - cython
-  - torchvision-cpu
-  - pytorch-cpu
+  - torchvision
+  - pytorch
   - attrs
   - scikit-learn
   - pip
