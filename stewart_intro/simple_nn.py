@@ -49,7 +49,7 @@ def get_formatted_training_data_from_batch(data, batch):
     ]
     for i in range(1, n_time_steps + 1):
         batch_values = [
-            data.sel(x=row.x, y=row.y, time=int(row.time + (dt * i)))
+            data.sel(x=row.x, y=row.y, time=row.time + (dt * i))
             for _, row in batch.iterrows()
         ]
         if i == n_time_steps:
@@ -82,9 +82,14 @@ def predict(w1, w2, n_time_steps, x_data, fqts_fslis):
     prediction = x_data[:, :-3]
     for i in range(n_time_steps):
         prediction = prediction + (dt * fqts_fslis[i])
-        layer_one_out = F.relu(x_data.matmul(w1))
+        to_predict_from = torch.transpose(torch.cat(
+            (
+                torch.transpose(prediction, 0, 1),
+                torch.transpose(x_data[:, -3:], 0, 1),
+            )
+        ), 0, 1)
+        layer_one_out = F.relu(to_predict_from.matmul(w1))
         prediction = layer_one_out.matmul(w2)
-        x_data[:, :-3] = prediction
     return prediction
 
 
@@ -106,8 +111,10 @@ def train_model():
     data = normalize_data()
     batches = get_batches(data)
     w1, w2 = initialize_weights(data)
-    for _ in range(n_epochs):
-        for batch in batches:
+    n_batches = len(batches)
+    for epoch_num in range(n_epochs):
+        for idx, batch in enumerate(batches):
+            print(f'{idx} of {n_batches} for epoch {epoch_num}')
             x_data, target, fqts_fslis = \
                 get_formatted_training_data_from_batch(data, batch)
             err_est = compute_error(w1, w2, x_data, target, fqts_fslis)
