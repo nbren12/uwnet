@@ -1,7 +1,11 @@
-import torch
 import numpy as np
-from toolz import curry, valmap, first
+import torch
+from toolz import curry, valmap
+from torch.utils.data import DataLoader
+
 import xarray as xr
+from uwnet.datasets import XRTimeSeries
+from uwnet.utils import concat_dicts
 
 
 def load_model_from_path(path):
@@ -146,3 +150,69 @@ def step_with_xarray_inputs(step, x, dt):
     y = dataset_to_numpy_dict(x)
     out = step_with_numpy_inputs(step, y, dt)
     return xr.Dataset(valmap(numpy_to_dataarray, out), coords=x.coords)
+
+
+def call_with_xr(model, ds: xr.Dataset, **kwargs) -> xr.Dataset:
+    """Call a torch module with an Xarray dataset
+
+    Parameters
+    ----------
+    model
+        a torch module which takes a dictionary of tensors as its input. In
+        other words, model({'a': ...., 'b': ...}) should return a dictionary of outputs.
+    ds
+        an xarray dataset which only has the dimensions x, y, z, and time.
+    kwargs : dict
+        optional arguments passed on to `model`.
+
+    Returns
+    -------
+    output : xr.Dataset
+        a dataset of the outputs of model
+    """
+    ds = ds.isel(z=model.z)
+    data = XRTimeSeries(ds.load(), [['time'], ['x', 'y'], ['z']])
+    loader = DataLoader(data, batch_size=1024, shuffle=False)
+
+    constants = data.torch_constants()
+
+    print("Running model")
+    model.add_forcing = True
+    # prepare input for mod
+    outputs = []
+    with torch.no_grad():
+        for batch in loader:
+            batch.update(constants)
+            out = model(batch, **kwargs)
+            outputs.append(out)
+
+    # concatenate outputs
+    out = concat_dicts(outputs, dim=0)
+
+    def unstack(val):
+        val = val.detach().numpy()
+        dims = ['xbatch', 'xtime', 'xfeat'][:val.ndim]
+        coords = {key: data._ds.coords[key] for key in dims}
+
+        if val.shape[-1] == 1:
+            dims.pop()
+            coords.pop('xfeat')
+            val = val[..., 0]
+        ds = xr.DataArray(val, dims=dims, coords=coords)
+        for dim in dims:
+            ds = ds.unstack(dim)
+
+        # transpose dims
+        dim_order = [dim for dim in ['time', 'z', 'y', 'x'] if dim in ds.dims]
+        ds = ds.transpose(*dim_order)
+
+        return ds
+
+    print("Reshaping and saving outputs")
+    out_da = {key: unstack(val) for key, val in out.items()}
+
+    truth_vars = set(out) & set(data.data)
+    rename_dict = {key: key + 'OBS' for key in truth_vars}
+
+    ds = xr.Dataset(out_da).merge(data.data.rename(rename_dict))
+    return ds
