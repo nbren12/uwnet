@@ -12,7 +12,7 @@ PYTHON_INTERPRETER = python
 GOOGLE_DRIVE_DIR = uwnet-c4290214-d72d-4e2f-943a-d63010a7ecf2
 RCLONE_REMOTE ?= uwgoogledrive
 TRAINING_CONFIG=examples/sl_qt.config.yaml
-TRAINING_DATA ?=data/processed/tropics.nc
+TRAINING_DATA ?= data/processed/2018-10-02-ngaqua-subset.nc
 DOCKER_IMAGE ?= nbren12/uwnet:latest
 
 #################################################################################
@@ -62,6 +62,10 @@ ${TRAINING_DATA}:
 ## train
 train: ${TRAINING_DATA}
 	python -m uwnet.train with data=${TRAINING_DATA} examples/sl_qt.config.yaml -m uwnet
+
+train_momentum: ${TRAINING_DATA}
+	python -m uwnet.train with data=${TRAINING_DATA} examples/momentum.yaml
+
 
 sync_data_to_drive:
 	rclone sync --stats 5s data/processed $(RCLONE_REMOTE):$(GOOGLE_DRIVE_DIR)/data/processed
