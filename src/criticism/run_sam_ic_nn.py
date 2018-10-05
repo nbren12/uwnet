@@ -15,11 +15,24 @@ NGAQUA_ROOT = "/Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX"
     '--neural-network',
     type=click.Path(),
     help='use the neural network in this pickled model file.')
+@click.option(
+    '-mom-nn',
+    '--momentum-neural-network',
+    type=click.Path(),
+    help='use the neural network in this pickled model file.')
 @click.option('-n', '--ngaqua-root', type=click.Path(), default=NGAQUA_ROOT)
 @click.option('-t', type=int, default=0)
 @click.option('-r', '--run', is_flag=True)
 @click.option('-d', '--docker-image', type=str, default='nbren12/uwnet')
-def main(path, neural_network, ngaqua_root, t, run, docker_image):
+def main(path,
+         neural_network,
+         momentum_neural_network,
+         ngaqua_root,
+         t,
+         run,
+         docker_image,
+         model_run_path='model.pkl',
+         momentum_model_run_path='momentum.pkl'):
     """Create SAM case directory for an NGAqua initial value problem and optionally
     run the model with docker.
 
@@ -68,11 +81,15 @@ def main(path, neural_network, ngaqua_root, t, run, docker_image):
                 function_name='call_neural_network',
                 module_name='uwnet.sam_interface'))
 
-        print(f"Copying {neural_network} to model directory")
         case.mkdir()
-        model_run_path = 'model.pkl'
+
+        print(f"Copying neural networks to model directory")
         case.add(neural_network, model_run_path)
         case.env.update(dict(UWNET_MODEL=model_run_path))
+
+        if momentum_neural_network:
+            case.add(momentum_neural_network, momentum_model_run_path)
+            case.env.update(dict(UWNET_MOMENTUM_MODEL=momentum_model_run_path))
 
     case.save()
 
