@@ -44,7 +44,7 @@ def main(path,
         path=path, ic=ic, sam_src="ext/sam/", docker_image=docker_image)
 
     case.prm['parameters']['dodamping'] = True
-    case.prm['parameters']['khyp'] = 1e16
+    case.prm['parameters']['khyp'] = 5e16
 
     dt = 120.0
     day = 86400
