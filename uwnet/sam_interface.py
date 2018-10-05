@@ -7,22 +7,46 @@ import torch
 import debug
 import logging
 
+
+def get_models():
+    """Load the specified torch models
+
+    The environmental variable UWNET_MODEL should point to the model for Q1 and
+    Q2. If present MOM_MODEL should point to the momentum source model.
+    """
+    models = []
+
+    # Load Q1/Q2 model
+    model_dict = torch.load(os.environ['UWNET_MODEL'])
+    MODEL = MLP.from_dict(model_dict['dict'])
+    MODEL.eval()
+    models.append(MODEL)
+
+    # Load Q3 model
+    try:
+        model_dict = torch.load(os.environ['UWNET_MOMENTUM_MODEL'])
+        MOM_MODEL = MLP.from_dict(model_dict['dict'])
+        logging.info("Loaded momentum source model")
+        MOM_MODEL.eval()
+        models.append(MOM_MODEL)
+    except:
+        logging.info("Momentum source model not loaded")
+        pass
+
+    return models
+
+
 zarr_logger = debug.ZarrLogger(os.environ.get('UWNET_ZARR_PATH', 'dbg.zarr'))
 
 # global variables
 STEP = 0
+MODELS = get_models()
 
 # FLAGS
 DEBUG = os.environ.get('UWNET_DEBUG', '')
 
 # open model data
 OUTPUT_INTERVAL = int(os.environ.get('UWNET_OUTPUT_INTERVAL', '0'))
-
-model_dict = torch.load(os.environ['UWNET_MODEL'])
-MODEL = MLP.from_dict(model_dict['dict'])
-MODEL.eval()
-
-# open netcdf
 
 
 def save_debug(obj, state):
@@ -92,6 +116,8 @@ def call_neural_network(state):
 
     logger = logging.getLogger(__name__)
 
+    # Pre-process the inputs
+    # ----------------------
     kwargs = {}
     dt = state.pop('dt')
     for key, val in state.items():
@@ -100,38 +126,58 @@ def call_neural_network(state):
 
     state['SOLIN'] = compute_insolation(state['lat'], state['day'])
 
-    nz = MODEL.inputs.to_dict()['QT']
-    kwargs = get_lower_atmosphere(kwargs, nz)
+    # Compute the output of all the models
+    # ------------------------------------
+    merged_outputs = {}
+    for model in MODELS:
+        logger.info(f"Calling {model}")
+        nz = model.inputs.to_dict()['QT']
+        lower_atmos_kwargs = get_lower_atmosphere(kwargs, nz)
 
-    out = uwnet.interface.step_with_numpy_inputs(MODEL.step, kwargs, dt)
+        out = uwnet.interface.step_with_numpy_inputs(model.step,
+                                                     lower_atmos_kwargs, dt)
 
-    out = expand_lower_atmosphere(
-        state, out, n_in=nz, n_out=state['QT'].shape[0])
+        out = expand_lower_atmosphere(
+            state, out, n_in=nz, n_out=state['QT'].shape[0])
 
+        merged_outputs.update(out)
+
+    # update the state
+    state.update(merged_outputs)
+
+    # Debugging info below here
+    # -------------------------
     nstep = int(state['nstep'])
     output_this_step = OUTPUT_INTERVAL and (nstep - 1) % OUTPUT_INTERVAL == 0
     if DEBUG:
         save_debug({
             'args': (kwargs, dt),
-            'out': out,
+            'out': merged_outputs,
         }, state)
-
-    if output_this_step:
-        zarr_logger.append_all(kwargs)
-        zarr_logger.append_all(out)
-        zarr_logger.append('time', np.array([state['day']]))
 
     try:
         logger.info("Mean Precip: %f" % out['Prec'].mean())
     except KeyError:
         pass
+
+    if output_this_step:
+        zarr_logger.append_all(kwargs)
+        zarr_logger.append_all(merged_outputs)
+        zarr_logger.append('time', np.array([state['day']]))
+
     # store output to be read by the fortran function
     # sl and qt change names unfortunately
     # logger = get_zarr_logger()
     # for key in logger.root:
     #     logger.set_dims(key, meta.dims[key])
-    state.update(out)
 
 
 def call_save_debug(state):
+    """This simple function can be called in SAM using the following namelist
+    entries:
+
+    module_name = <this modules name>,
+    function_name = 'call_save_debug'
+
+    """
     save_debug({'args': (state, state['dt'])}, state)
