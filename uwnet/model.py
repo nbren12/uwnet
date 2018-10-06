@@ -1,7 +1,7 @@
 from collections import OrderedDict
 
 import attr
-from toolz import first, get, merge, pipe, assoc
+from toolz import first, get, merge, pipe, assoc, merge_with
 
 import torch
 from torch import nn
@@ -142,6 +142,10 @@ class MLP(nn.Module, SaverMixin):
     add_forcing : bool
         If true, FQT, FU, etc in the inputs to MLP.forward will be added to the
         produce the final tendencies.
+    forcings
+        List of tuples of the form (prognostic_var_name, num), where
+        prognostic_var_name is one of the inputs. The input batch dictionary
+        should contain the key 'F<prognostic_var_name>'
     """
 
     def __init__(self,
@@ -151,6 +155,7 @@ class MLP(nn.Module, SaverMixin):
                  inputs=(('LHF', 1), ('SHF', 1), ('SOLIN', 1), ('QT', 34),
                          ('SLI', 34), ('FQT', 34), ('FSLI', 34)),
                  outputs=(('SLI', 34), ('QT', 34)),
+                 forcings=(),
                  add_forcing=False,
                  **kwargs):
 
@@ -161,6 +166,7 @@ class MLP(nn.Module, SaverMixin):
         self.kwargs.pop('self')
         self.kwargs.pop('__class__')
 
+        self.forcings = forcings
         self.add_forcing = add_forcing
         self.inputs = VariableList.from_tuples(inputs)
         self.outputs = VariableList.from_tuples(outputs)
@@ -193,30 +199,45 @@ class MLP(nn.Module, SaverMixin):
 
     @property
     def aux(self):
-        return set(self.inputs.names) - set(self.outputs.names)
+        return (set(self.inputs.names) - set(self.outputs.names))\
+            .union({'F' + key for key, num in self.forcings})
 
     @property
     def args(self):
         return (self.mean, self.scale, self.time_step)
 
     def rhs(self, aux, progs):
-        """Estimated source terms and diagnostics"""
+        """Estimated source terms and diagnostics
+
+        All inputs have shape (*, z, y, x) or (*, y, x)
+
+        """
+        z_axis = -3
         x = {}
         x.update(aux)
         x.update(progs)
 
-        x = {
-            key: val if val.dim() == 2 else val.unsqueeze(-1)
-            for key, val in x.items()
-        }
-
+        # make the inputs have the right shape
+        inputs = {}
         for spec in self.inputs:
-            x[spec.name] = x[spec.name][..., :spec.num]
+            val = x[spec.name]
+            if spec.num == 1:
+                val = val.unsqueeze(z_axis)
 
-        stacked = self.scaler(x)
-        out = self.mod(stacked)
+            val = val.transpose(z_axis, -1)
+            inputs[spec.name] = val
 
-        # handle prognostic variables
+        scaled = self.scaler(inputs)
+        out = self.mod(scaled)
+
+        # make the outputs have the right shape
+        for spec in self.outputs:
+            if spec.num == 1:
+                out[spec.name] = out[spec.name].squeeze(-1)
+            else:
+                out[spec.name] = out[spec.name].transpose(z_axis, -1)
+
+        # scale the derivative terms
         sources = {}
         for key in progs:
             sources[key] = out[key] / 86400
@@ -272,7 +293,7 @@ class MLP(nn.Module, SaverMixin):
         super(MLP, self).train()
         self.add_forcing = val
 
-    def forward(self, x, n=None):
+    def forward(self, x, n=None, dt=None):
         """
         Parameters
         ----------
@@ -282,6 +303,8 @@ class MLP(nn.Module, SaverMixin):
         n : int
             number of time steps of prognostic varibles to use before starting
             prediction
+        dt : float
+           time step, defaults to self.time_step
 
         Returns
         -------
@@ -290,34 +313,68 @@ class MLP(nn.Module, SaverMixin):
             diagnostics
 
         """
-        dt = torch.tensor(self.time_step, requires_grad=False)
-        nt = x[first(self.inputs.names)].size(1)
+        if dt is None:
+            dt = torch.tensor(self.time_step, requires_grad=False).float()
+        else:
+            dt = torch.tensor(dt, requires_grad=False).float()
+
+        nt = x[first(self.inputs.names)].size(0)
         if n is None:
             n = nt
         output_fields = []
 
-        aux = {key: x[key] for key in set(x) - set(self.outputs.names)}
+        aux = {key: x[key] for key in self.aux}
 
         for t in range(0, nt):
+
+            # make the correct inputs
             if t < n:
-                progs = {key: x[key][:, t] for key in self.progs}
+                progs = {key: x[key][t] for key in self.progs}
 
-            inputs = merge(utils.select_time(aux, t), progs)
-            # This hardcoded string will cause trouble
-            # This class should not know about layer_mass
-            inputs['layer_mass'] = x['layer_mass']
+            aux_t = {key: val[t] for key, val in aux.items()}
+            inputs = merge(aux_t, progs)
 
+            # Call the network
             out = self.step(inputs, dt)
-            progs = {key: out[key] for key in self.progs}
 
+            # save outputs for the next step
+            progs = {key: out[key] for key in self.progs}
             output_fields.append(out)
 
-        return utils.stack_dicts(output_fields)
+        # stack the outputs
+        return merge_with(torch.stack, output_fields)
 
     @property
     def z(self):
         nz = max(spec.num for spec in self.inputs)
         return range(nz)
+
+    def call_with_xr(self, ds, **kwargs):
+        """Call the neural network with xarray inputs"""
+        import xarray as xr
+        d = {key: torch.from_numpy(ds[key].values) for key in ds.data_vars}
+        with torch.no_grad():
+            output = self(d, **kwargs)
+
+        # parse output
+        data_vars = {}
+        for key, val in output.items():
+            if val.size(1) == 1:
+                data_vars[key] = (['time', 'y', 'x'],
+                                  output[key].numpy().squeeze())
+            else:
+                data_vars[key] = (['time', 'z', 'y', 'x'],
+                                  output[key].numpy())
+
+        return xr.Dataset(data_vars, coords=ds.coords)
+
+    def call_with_numpy_dict(self, inputs, **kwargs):
+        """Call the neural network with numpy inputs"""
+
+        with torch.no_grad():
+            d = {key: torch.from_numpy(val) for key, val in inputs.items()}
+            output = self(d, **kwargs)
+            return {key: val.numpy() for key, val in output.items()}
 
     def __repr__(self):
         return f"MLP({self.inputs.names}, {self.outputs.names})"

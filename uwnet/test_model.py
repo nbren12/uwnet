@@ -1,9 +1,10 @@
 import numpy as np
 import torch
 from uwnet.model import MLP, MOE, VariableList
-from uwnet.utils import select_time, get_batch_size, stack_dicts
+from uwnet.utils import stack_dicts
 
 import pytest
+from pytest import approx
 
 sl_name = 'SLI'
 
@@ -12,55 +13,29 @@ def _assert_all_close(x, y):
     np.testing.assert_allclose(y.detach().numpy(), x.detach().numpy())
 
 
-def _mock_batch(n, nt, nz, init=torch.rand):
+def _mock_batch(t, z, y, x, init=torch.rand):
     return {
-        'LHF': init(n, nt),
-        'SHF': init(n, nt),
-        'SOLIN': init(n, nt),
-        'QT': init(n, nt, nz),
-        'SLI': init(n, nt, nz),
-        'FQT': init(n, nt, nz),
-        'FSLI': init(n, nt, nz),
-        'layer_mass': torch.arange(1, nz + 1).float(),
+        'LHF': init(t,y,x),
+        'SHF': init(t,y,x),
+        'SOLIN': init(t,y,x),
+        'QT': init(t, z, y, x),
+        'SLI': init(t, z, y, x),
+        'FQT': init(t, z, y, x),
+        'FSLI': init(t, z, y, x),
+        'layer_mass': torch.arange(1, z + 1).float(),
         # 'p': init(nz),
     }
-
-
-def test_select_time():
-    batch = _mock_batch(100, 10, 11)
-    ibatch = select_time(batch, 0)
-
-    assert ibatch[sl_name].size() == (100, 11)
-    assert ibatch['SHF'].size() == (100, )
-
-
-def test_get_batch_size():
-    batch = _mock_batch(100, 10, 11)
-    assert get_batch_size(batch) == 100
-
-
-def test_stack_dicts():
-    batches = _mock_batch(3, 4, 5)
-
-    seq = [select_time(batches, i) for i in range(4)]
-    out = stack_dicts(seq)
-
-    assert out[sl_name].size() == batches[sl_name].size()
-    print(out.keys())
-    for key in out:
-        if key != 'layer_mass':
-            _assert_all_close(out[key], batches[key])
 
 
 @pytest.mark.parametrize('add_forcing', [True, False])
 def test_MLP_step(add_forcing):
     qt_name = 'QT'
-    batch = _mock_batch(1, 1, 34)
+    batch = _mock_batch(100, 34, 4, 5)
     mlp = MLP({}, {}, time_step=.125, add_forcing=add_forcing)
     x = {}
     for key, val in batch.items():
         try:
-            x[key] = val[:, 0]
+            x[key] = val[ 0]
         except IndexError:
             x[key] = val
 
@@ -75,7 +50,7 @@ def test_MLP_step(add_forcing):
 
 
 def test_mlp_forward():
-    batch = _mock_batch(1, 4, 34)
+    batch = _mock_batch(1, 34, 10, 10)
 
     mlp = MLP({}, {}, time_step=.125)
 
@@ -97,26 +72,6 @@ def test_moe():
     return out.size() == (100, n)
 
 
-def test_variable_input():
-    nz = 5
-    batch = _mock_batch(3, 4, nz)
-
-    # rename LHF to a
-    batch['a'] = batch.pop('LHF')
-
-    mlp = MLP(
-        {}, {},
-        time_step=.125,
-        inputs=[('a', 1), ('SLI', nz), ('QT', nz)],
-        outputs=[('SLI', nz), ('QT', nz), ('SHF', 1)])
-
-    outputs = mlp(batch)
-    assert outputs['SLI'].size(-1) == nz
-
-    for var in mlp.outputs:
-        assert outputs[var.name].size(-1) == var.num
-
-
 def test_to_dict():
     mlp = MLP({}, {}, time_step=.125, inputs=(('LHF', 1), ))
     a = mlp.to_dict()
@@ -130,9 +85,14 @@ def test_to_dict():
 def test_mlp_no_cheating(n):
     """Make sure that MLP only uses the initial point"""
 
-    batch = _mock_batch(3, 10, 34)
+    batch = _mock_batch(10, 34, 10,10)
 
     mlp = MLP({}, {}, time_step=.125)
+
+    # mock out the step method
+    def mock_step(x, dt, *args):
+        return {key: val + 1.0 for key, val in x.items()}
+    mlp.step = mock_step
 
     for key, val in batch.items():
         if key not in {'FSLI', 'FQT'}:
@@ -142,13 +102,13 @@ def test_mlp_no_cheating(n):
 
     # backprop
     sl = pred['SLI']
-    sl[0, -1, 0].backward()
+    sl[-1, 0, 0, 0].backward()
 
     sl_true = batch['SLI']
     # the gradient of sl_true should only be nonzero for the first n points
-    # of the data
-    grad_t = torch.norm(sl_true.grad[0, :, :], dim=1)
-    assert torch.sum(grad_t[n:]).item() == 0
+    # of the dat
+    grad_t = (sl_true.grad**2).mean(-1).mean(-1).mean(-1)
+    assert torch.sum(grad_t[n:]).item() == approx(0)
     assert torch.sum(grad_t[0:n]).item() > 0
 
 

@@ -2,10 +2,10 @@ import os
 import numpy as np
 
 from uwnet.model import MLP
-import uwnet.interface
 import torch
 import debug
 import logging
+from toolz import valmap
 
 
 def get_models():
@@ -134,9 +134,13 @@ def call_neural_network(state):
         nz = model.inputs.to_dict()['QT']
         lower_atmos_kwargs = get_lower_atmosphere(kwargs, nz)
 
-        out = uwnet.interface.step_with_numpy_inputs(model.step,
-                                                     lower_atmos_kwargs, dt)
-
+        # add a singleton dimension and convert to float32
+        lower_atmos_kwargs = {key: val[np.newaxis].astype(np.float32) for key,
+                              val in lower_atmos_kwargs.items()}
+        # call the neural network
+        out = model.call_with_numpy_dict(lower_atmos_kwargs, n=1, dt=float(dt))
+        # remove the singleton first dimension
+        out = valmap(np.squeeze, out)
         out = expand_lower_atmosphere(
             state, out, n_in=nz, n_out=state['QT'].shape[0])
 

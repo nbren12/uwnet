@@ -4,6 +4,9 @@ inputs:
   - [SLI, 28]
   - [SST, 1]
   - [SOLIN, 1]
+forcings:
+  - [QT, 28]
+  - [SLI, 28]
 outputs:
   - [QT, 28]
   - [SLI, 28]
