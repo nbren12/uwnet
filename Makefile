@@ -71,7 +71,13 @@ run_momentum:
        -mom-nn models/18/4.pkl \
        -nn models/17/1.pkl \
 	     -r \
-       data/runs/2018-10-05-q1_q2_and_q3
+       data/runs/2018-10-05-q1_q2_and_q3_masked_bndy > 
+
+run_sam_no_momentum:
+	python src/criticism/run_sam_ic_nn.py \
+       -nn models/17/1.pkl \
+	     -r \
+       data/runs/2018-10-05-q1_q2
 
 sync_data_to_drive:
 	rclone sync --stats 5s data/processed $(RCLONE_REMOTE):$(GOOGLE_DRIVE_DIR)/data/processed
