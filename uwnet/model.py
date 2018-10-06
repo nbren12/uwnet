@@ -1,7 +1,7 @@
 from collections import OrderedDict
 
 import attr
-from toolz import first, get, merge, pipe, assoc
+from toolz import first, get, merge, pipe, assoc, merge_with
 
 import torch
 from torch import nn
@@ -200,23 +200,36 @@ class MLP(nn.Module, SaverMixin):
         return (self.mean, self.scale, self.time_step)
 
     def rhs(self, aux, progs):
-        """Estimated source terms and diagnostics"""
+        """Estimated source terms and diagnostics
+
+        All inputs have shape (*, z, y, x) or (*, y, x)
+
+        """
+        z_axis = -3
         x = {}
         x.update(aux)
         x.update(progs)
 
-        x = {
-            key: val if val.dim() == 2 else val.unsqueeze(-1)
-            for key, val in x.items()
-        }
-
+        # make the inputs have the right shape
         for spec in self.inputs:
-            x[spec.name] = x[spec.name][..., :spec.num]
+            val = x[spec.name]
+            if spec.num == 1:
+                val = val.unsqueeze(z_axis)
 
-        stacked = self.scaler(x)
-        out = self.mod(stacked)
+            val = val.transpose(z_axis, -1)
+            x[spec.name] = val
 
-        # handle prognostic variables
+        scaled = self.scaler(x)
+        out = self.mod(scaled)
+
+        # make the outputs have the right shape
+        for spec in self.outputs:
+            if spec.num == 1:
+                out[spec.name] = out[spec.name].squeeze(-1)
+            else:
+                out[spec.name] = out[spec.name].transpose(z_axis, -1)
+
+        # scale the derivative terms
         sources = {}
         for key in progs:
             sources[key] = out[key] / 86400
@@ -291,7 +304,7 @@ class MLP(nn.Module, SaverMixin):
 
         """
         dt = torch.tensor(self.time_step, requires_grad=False)
-        nt = x[first(self.inputs.names)].size(1)
+        nt = x[first(self.inputs.names)].size(0)
         if n is None:
             n = nt
         output_fields = []
@@ -299,20 +312,23 @@ class MLP(nn.Module, SaverMixin):
         aux = {key: x[key] for key in set(x) - set(self.outputs.names)}
 
         for t in range(0, nt):
+
+            # make the correct inputs
             if t < n:
-                progs = {key: x[key][:, t] for key in self.progs}
+                progs = {key: x[key][t] for key in self.progs}
 
-            inputs = merge(utils.select_time(aux, t), progs)
-            # This hardcoded string will cause trouble
-            # This class should not know about layer_mass
-            inputs['layer_mass'] = x['layer_mass']
+            aux_t = {key: val[t] for key, val in aux.items()}
+            inputs = merge(aux_t, progs)
 
+            # Call the network
             out = self.step(inputs, dt)
-            progs = {key: out[key] for key in self.progs}
 
+            # save outputs for the next step
+            progs = {key: out[key] for key in self.progs}
             output_fields.append(out)
 
-        return utils.stack_dicts(output_fields)
+        # stack the outputs
+        return merge_with(torch.stack, output_fields)
 
     @property
     def z(self):
