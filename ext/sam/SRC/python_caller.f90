@@ -12,6 +12,8 @@ module python_caller
   real, allocatable, dimension(:,:,:) :: sl_last, qt_last, FQTNN, FSLINN
 
   integer ntop
+  ! Do not apply neural network within this boundary region
+  integer, parameter :: meridional_bndy_size = 3
 contains
 
   subroutine initialize_python_caller()
@@ -179,6 +181,13 @@ contains
     use microphysics, only: micro_field, qn, qp, micro_diagnose
     ! locals
     real(4) :: tmp(1:nx, 1:ny, 1:nzm)
+
+    integer js, jn
+
+    ! get furthest north and south grid points to use NN output from
+    js = 1 + meridional_bndy_size
+    jn = ny - meridional_bndy_size
+
     ! read in state from python
     print *, 'python_caller.f90::state_to_python retreiving state from python module'
     call get_state("SLI", tmp, nx * ny * nzm)
@@ -193,19 +202,19 @@ contains
 
     call get_state("FQTNN", tmp, nx * ny * nzm)
     ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
-    fqtnn(1:nx, 1:ny, 1:nzm) = tmp
+    fqtnn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
     call get_state("FSLINN", tmp, nx * ny * nzm)
     ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
-    fslinn(1:nx, 1:ny, 1:nzm) = tmp
+    fslinn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
     call get_state("QN", tmp, nx*ny*nzm)
     tmp = tmp / 1.e3
-    qn(1:nx, 1:ny, 1:nzm) = tmp
+    qn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
     call get_state("QP", tmp, nx*ny*nzm)
     tmp = tmp / 1.e3
-    qp(1:nx, 1:ny, 1:nzm) = tmp
+    qp(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
     call get_state("Prec", tmp, nx*ny)
     prec_xy(1:nx, 1:ny) = tmp(:,:,1)
@@ -217,10 +226,10 @@ contains
     shf_xy(1:nx, 1:ny) = tmp(:,:,1)
 
     call get_state("U", tmp, nx*ny*nzm)
-    u(1:nx, 1:ny, 1:nzm) = tmp
+    u(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
     call get_state("V", tmp, nx*ny*nzm)
-    v(1:nx, 1:ny, 1:nzm) = tmp
+    v(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
     ! call get_state("W", tmp, nx*ny*nzm)
     ! w(1:nx, 1:ny, 1:nzm) = tmp
