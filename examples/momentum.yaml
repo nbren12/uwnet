@@ -9,3 +9,6 @@ inputs:
 outputs:
   - [U, 28]
   - [V, 28]
+forcings:
+  - [U, 28]
+  - [V, 28]

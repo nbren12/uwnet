@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 from uwnet import model
 from uwnet.datasets import XRTimeSeries
 from uwnet.loss import MVLoss
-from uwnet.utils import select_time
+from uwnet.utils import select_time, batch_to_model_inputs
 
 ex = Experiment()
 
@@ -68,7 +68,7 @@ def my_config():
 
 
 @ex.automain
-def main(inputs, outputs, restart, lr, n_epochs, model_dir, skip, seq_length,
+def main(inputs, forcings, outputs, restart, lr, n_epochs, model_dir, skip, seq_length,
          batch_size, tag, data, vertical_grid_size, loss_scale):
     # setup logging
     logging.basicConfig(level=logging.INFO)
@@ -139,6 +139,7 @@ def main(inputs, outputs, restart, lr, n_epochs, model_dir, skip, seq_length,
             scale,
             time_step=train_data.timestep(),
             inputs=inputs,
+            forcings=forcings,
             outputs=outputs)
         i_start = 0
         lstm.train()
@@ -156,19 +157,15 @@ def main(inputs, outputs, restart, lr, n_epochs, model_dir, skip, seq_length,
         for i in range(i_start, n_epochs):
             logging.info(f"Epoch {i}")
             for k, batch in enumerate(train_loader):
+                batch = batch_to_model_inputs(
+                    batch, inputs, forcings, outputs, constants)
                 logging.info(f"Batch {k} of {len(train_loader)}")
-
                 time_batch_start = time()
-
                 for t in range(0, nt - seq_length, skip):
 
                     # select window
                     window = select_time(batch, slice(t, t + seq_length))
                     x = select_time(window, slice(0, -1))
-
-                    # patch the constants back in
-                    x = merge(x, constants)
-
                     y = select_time(window, slice(1, None))
 
                     # make prediction
