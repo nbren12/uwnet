@@ -134,6 +134,7 @@ def main(_run, inputs, forcings, outputs, restart, lr, n_epochs, model_dir, skip
         d = torch.load(path)
         lstm = cls.from_dict(d['dict'])
         i_start = d['epoch'] + 1
+        lstm.train()
     else:
 
         # initialize model
