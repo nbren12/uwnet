@@ -8,13 +8,12 @@ def mse(x, y, layer_mass):
     layer_mass = layer_mass.float()
     w = layer_mass / layer_mass.mean()
 
-    if x.dim() == 2:
-        x = x[..., None]
+    if x.dim() == 3:
+        x = x.unsqueeze(1)
 
-    if x.size(-1) > 1:
-        if layer_mass.size(-1) != x.size(-1):
+    if x.size(1) > 1:
+        if layer_mass.size(0) != x.size(1):
             raise ValueError
-
         return torch.mean(torch.pow(x - y, 2) * w)
     else:
         return torch.mean(torch.pow(x - y, 2))
