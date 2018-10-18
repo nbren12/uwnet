@@ -4,6 +4,7 @@ import re
 from os.path import join
 from time import time
 
+import matplotlib.pyplot as plt
 from sacred import Experiment
 from toolz import merge
 
@@ -11,33 +12,35 @@ import torch
 import torchnet as tnt
 import xarray as xr
 from torch.utils.data import DataLoader
-from uwnet import model
+from uwnet import criticism, model
 from uwnet.datasets import XRTimeSeries
 from uwnet.loss import MVLoss
-from uwnet.utils import select_time, batch_to_model_inputs
+from uwnet.utils import batch_to_model_inputs, select_time
 
 ex = Experiment()
 
 
-def get_output_dir(tag=None, base='.trained_models'):
+def after_epoch(model, dataset, i):
+    """Tasks to perform after an epoch is complete
+
+    These include making plots of the performance. Saving files
+
+    Yields
+    ------
+    artifacts : str
+        list of paths to saved artifacts
+    """
+    water_imbalance_pth = f"water_imbalance_{i}.pdf"
+    plt.figure()
+    criticism.plot_water_imbalance(dataset, model)
+    plt.savefig(water_imbalance_pth)
+    return [water_imbalance_pth]
+
+
+@ex.capture
+def get_output_dir(_run=None, base='.trained_models'):
     """Get a unique output directory name"""
-
-    pat = re.compile(r'^(\d+)-?')
-    files = os.listdir(base)
-
-    if len(files) == 0:
-        id = '0'
-    else:
-        last_id = max(int(pat.search(file).group(1)) for file in files)
-        id = last_id + 1
-
-    if not tag:
-        file_name = str(id)
-    else:
-        if re.search(r'\s', tag):
-            raise ValueError("Tag has whitespace")
-        file_name = str(id) + '-' + tag
-
+    file_name = str(_run._id)
     return join(base, file_name)
 
 
@@ -68,8 +71,8 @@ def my_config():
 
 
 @ex.automain
-def main(inputs, forcings, outputs, restart, lr, n_epochs, model_dir, skip, seq_length,
-         batch_size, tag, data, vertical_grid_size, loss_scale):
+def main(_run, inputs, forcings, outputs, restart, lr, n_epochs, model_dir, skip,
+         seq_length, batch_size, tag, data, vertical_grid_size, loss_scale):
     # setup logging
     logging.basicConfig(level=logging.INFO)
 
@@ -78,8 +81,8 @@ def main(inputs, forcings, outputs, restart, lr, n_epochs, model_dir, skip, seq_
     logger = logging.getLogger(__name__)
 
     # get output directory
-    # db.log_run(args, config)
-    output_dir = get_output_dir(tag, base=model_dir)
+    output_dir = get_output_dir(base=model_dir)
+
     # switch to output directory
     logger.info(f"Saving outputs in {output_dir}")
     try:
@@ -157,8 +160,8 @@ def main(inputs, forcings, outputs, restart, lr, n_epochs, model_dir, skip, seq_
         for i in range(i_start, n_epochs):
             logging.info(f"Epoch {i}")
             for k, batch in enumerate(train_loader):
-                batch = batch_to_model_inputs(
-                    batch, inputs, forcings, outputs, constants)
+                batch = batch_to_model_inputs(batch, inputs, forcings, outputs,
+                                              constants)
                 logging.info(f"Batch {k} of {len(train_loader)}")
                 time_batch_start = time()
                 for t in range(0, nt - seq_length, skip):
@@ -208,9 +211,13 @@ def main(inputs, forcings, outputs, restart, lr, n_epochs, model_dir, skip, seq_
                 meter_loss.reset()
                 meter_avg_loss.reset()
 
+            # save artifacts
             epoch_file = f"{i}.pkl"
             torch.save({"epoch": i, 'dict': lstm.to_dict()}, epoch_file)
             ex.add_artifact(epoch_file)
+
+            for artifact in after_epoch(lstm, ds, i):
+                ex.add_artifact(artifact)
 
     except KeyboardInterrupt:
         torch.save({'epoch': i, 'dict': lstm.to_dict()}, "interrupt.pkl")
