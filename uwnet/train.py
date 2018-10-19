@@ -34,7 +34,40 @@ def after_epoch(model, dataset, i):
     plt.figure()
     criticism.plot_water_imbalance(dataset, model)
     plt.savefig(water_imbalance_pth)
-    return [water_imbalance_pth]
+    yield water_imbalance_pth
+
+    # compute
+    output = model.call_with_xr(dataset)
+    fqtnn_path = f"fqtnn_{i}.png"
+    plt.figure()
+    (86400*output.FQTNN.isel(x=0, y=0, z=10)).plot()
+    # plt.savefig(fqtnn_path)
+    # yield fqtnn_path
+
+
+
+    # compute
+    time = dataset.time
+    dt = float(time[1]-time[0])
+    q2 = dataset.QT.diff('time')/dt - dataset.FQT * 86400
+    q2_path = f"q2_{i}.png"
+    # plt.figure()
+    q2.isel(x=0, y=0, z=10).plot(x='time')
+    plt.savefig(q2_path)
+    yield q2_path
+    plt.close()
+
+
+    x, y, c = [ x.values.ravel() for x in 
+                xr.broadcast(q2, 86400 * output.FQTNN, q2.z)]
+
+    scatter_path=  f"scatter_{i}.png"
+    from matplotlib.colors import LogNorm
+    plt.figure()
+    plt.scatter(x, y, c=c, norm=LogNorm())
+    plt.colorbar()
+    plt.savefig(scatter_path)
+    yield scatter_path
 
 
 @ex.capture
@@ -69,10 +102,15 @@ def my_config():
         'SLI': 2.5
     }
 
+    # y indices to use for training
+    y = (None, None)
+    x= (None, None)
+    time_sl = (None, None)
+
 
 @ex.automain
 def main(_run, inputs, forcings, outputs, restart, lr, n_epochs, model_dir, skip,
-         seq_length, batch_size, tag, data, vertical_grid_size, loss_scale):
+         seq_length, batch_size, tag, data, vertical_grid_size, loss_scale, y, x, time_sl):
     # setup logging
     logging.basicConfig(level=logging.INFO)
 
@@ -109,8 +147,9 @@ def main(_run, inputs, forcings, outputs, restart, lr, n_epochs, model_dir, skip
     except ValueError:
         ds = xr.open_dataset(data)
 
+    ds = ds.isel(z=slice(0, vertical_grid_size), y=slice(*y), x=slice(*x), time=slice(*time_sl))
     nt = len(ds.time)
-    ds = ds.isel(z=slice(0, vertical_grid_size))
+    
     train_data = XRTimeSeries(ds.load(), [['time'], ['x', 'y'], ['z']])
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     constants = train_data.torch_constants()
@@ -156,16 +195,20 @@ def main(_run, inputs, forcings, outputs, restart, lr, n_epochs, model_dir, skip
     # set up loss function
     criterion = MVLoss(lstm.outputs.names, constants['layer_mass'], loss_scale)
 
+    min_ouput_interval = 10
+    steps_out = 0
+
     os.chdir(output_dir)
     try:
         for i in range(i_start, n_epochs):
             logging.info(f"Epoch {i}")
             for k, batch in enumerate(train_loader):
+                steps_out += 1
                 batch = batch_to_model_inputs(batch, inputs, forcings, outputs,
                                               constants)
                 logging.info(f"Batch {k} of {len(train_loader)}")
                 time_batch_start = time()
-                for t in range(0, nt - seq_length, skip):
+                for t in range(0, nt - seq_length+1, skip):
 
                     # select window
                     window = select_time(batch, slice(t, t + seq_length))
@@ -213,12 +256,15 @@ def main(_run, inputs, forcings, outputs, restart, lr, n_epochs, model_dir, skip
                 meter_avg_loss.reset()
 
             # save artifacts
-            epoch_file = f"{i}.pkl"
-            torch.save({"epoch": i, 'dict': lstm.to_dict()}, epoch_file)
-            ex.add_artifact(epoch_file)
+            if steps_out > min_ouput_interval:
+                print("Saving")
+                steps_out = 0
+                epoch_file = f"{i}.pkl"
+                torch.save({"epoch": i, 'dict': lstm.to_dict()}, epoch_file)
+                ex.add_artifact(epoch_file)
 
-            for artifact in after_epoch(lstm, ds, i):
-                ex.add_artifact(artifact)
+                for artifact in after_epoch(lstm, ds, i):
+                    ex.add_artifact(artifact)
 
     except KeyboardInterrupt:
         torch.save({'epoch': i, 'dict': lstm.to_dict()}, "interrupt.pkl")
