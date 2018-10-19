@@ -175,13 +175,14 @@ class MLP(nn.Module, SaverMixin):
         self.scale = scale
         self.time_step = time_step
         self.scaler = scaler(scale, mean)
+        n = 1024
 
         self.mod = nn.Sequential(
-            LinearDictIn([(x.name, x.num) for x in self.inputs], 256),
+            LinearDictIn([(x.name, x.num) for x in self.inputs], n),
             nn.ReLU(),
-            nn.Linear(256, 256),
+            nn.Linear(n, n),
             nn.ReLU(),
-            LinearDictOut(256, [(x.name, x.num) for x in self.outputs]), )
+            LinearDictOut(n, [(x.name, x.num) for x in self.outputs]), )
 
     def init_hidden(self, *args, **kwargs):
         return None
