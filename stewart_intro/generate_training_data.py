@@ -7,21 +7,23 @@ def get_initial_shape():
     return load_data().QT.shape
 
 
-def get_target_normalization(variable):
-    data = load_data()
+def get_target_normalization_with_z(variable, data):
     mean_by_vertical_slice = data[variable].mean(axis=(0, 2, 3)).values
-    std_by_vertical_slice = data[variable].mean(axis=(0, 2, 3)).values
-    unnormalized = data[variable].values.reshape(
-        (
-            len(data.time),
-            len(data.x),
-            len(data.y),
-            len(data.z),
-        )
-    )
-    normalized = (
-        unnormalized - mean_by_vertical_slice) / std_by_vertical_slice.mean()
-    return normalized.reshape(get_initial_shape())
+    std = data[variable].std(axis=(0, 2, 3)).values.mean(axis=0)
+    array_values = data[variable].values
+    for idx, mean in enumerate(mean_by_vertical_slice):
+        array_values[:, idx, :, :] = (
+            array_values[:, idx, :, :] - mean_by_vertical_slice[idx]) / std
+    return array_values
+
+
+def get_target_normalization(variable, data):
+    if len(data[variable].shape) == 4:
+        return get_target_normalization_with_z(variable, data)
+    else:
+        mean = data[variable].values.mean()
+        std = data[variable].values.std()
+        return (data[variable].values - mean) / std
 
 
 def normalize_data():
@@ -30,6 +32,7 @@ def normalize_data():
     with it, for a given time point. The 2 variables are SLI and QT.
     """
     data = load_data()
-    data.QT.values = get_target_normalization('QT')
-    data.SLI.values = get_target_normalization('SLI')
+    data = data.isel(y=list(range(30, 35)))
+    for varaible in ['QT', 'SLI', 'FQT', 'FSLI', 'SOLIN', 'LHF', 'SHF']:
+        data[varaible].values = get_target_normalization(varaible, data)
     return data

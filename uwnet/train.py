@@ -43,6 +43,10 @@ def get_output_dir(tag=None, base='.trained_models'):
 
 @ex.config
 def my_config():
+    inputs = (('LHF', 1), ('SHF', 1), ('SOLIN', 1), ('QT', 34),
+              ('SLI', 34), ('FQT', 34), ('FSLI', 34))
+    outputs = (('SLI', 34), ('QT', 34))
+    data = '/Users/stewart/projects/2018-09-18-NG_5120x2560x34_4km_10s_QOBS_EQX-SAM_Processed.nc'
     restart = False
     lr = .001
     n_epochs = 2
