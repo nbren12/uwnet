@@ -13,6 +13,7 @@ import torchnet as tnt
 import xarray as xr
 from torch.utils.data import DataLoader
 from uwnet import criticism, model
+from uwnet.model import call_with_xr
 from uwnet.datasets import XRTimeSeries
 from uwnet.loss import MVLoss
 from uwnet.utils import batch_to_model_inputs, select_time
@@ -32,42 +33,48 @@ def after_epoch(model, dataset, i):
     """
     water_imbalance_pth = f"water_imbalance_{i}.pdf"
     plt.figure()
-    criticism.plot_water_imbalance(dataset, model)
+    # criticism.plot_water_imbalance(dataset, model)
     plt.savefig(water_imbalance_pth)
     yield water_imbalance_pth
 
     # compute
-    output = model.call_with_xr(dataset)
+    output =call_with_xr(model, dataset)
     fqtnn_path = f"fqtnn_{i}.png"
     plt.figure()
-    (86400*output.FQTNN.isel(x=0, y=0, z=10)).plot()
-    # plt.savefig(fqtnn_path)
-    # yield fqtnn_path
-
-
+    (86400 * output.FQTNN.isel(x=0, y=0)).plot(x='time')
+    plt.savefig(fqtnn_path)
+    yield fqtnn_path
 
     # compute
     time = dataset.time
-    dt = float(time[1]-time[0])
-    q2 = dataset.QT.diff('time')/dt - dataset.FQT * 86400
+    dt = float(time[1] - time[0])
+    q2 = dataset.QT.diff('time') / dt - dataset.FQT * 86400
     q2_path = f"q2_{i}.png"
-    # plt.figure()
-    q2.isel(x=0, y=0, z=10).plot(x='time')
+    plt.figure()
+    q2.isel(x=0, y=0).plot(x='time')
     plt.savefig(q2_path)
     yield q2_path
     plt.close()
 
+    # x, y, c = [
+    #     x.values.ravel() for x in xr.broadcast(q2, 86400 * output.FQTNN, q2.z)
+    # ]
 
-    x, y, c = [ x.values.ravel() for x in 
-                xr.broadcast(q2, 86400 * output.FQTNN, q2.z)]
-
-    scatter_path=  f"scatter_{i}.png"
-    from matplotlib.colors import LogNorm
-    plt.figure()
-    plt.scatter(x, y, c=c, norm=LogNorm())
-    plt.colorbar()
-    plt.savefig(scatter_path)
-    yield scatter_path
+    # scatter_path = f"scatter_{i}.png"
+    # from matplotlib.colors import LogNorm
+    # plt.figure()
+    # plt.scatter(x, y, c=c, norm=LogNorm(), rasterized=True, alpha=.1)
+    # plt.xlabel("Q2 Obs", "FQTNN")
+    # plt.xlim([a, b])
+    # a = min(x.min(), y.min())
+    # b = max(x.max(), y.max())
+    # plt.xlim([a, b])
+    # plt.ylim([a, b])
+    # plt.plot([a,b], [a,b], c='k')
+    # plt.colorbar()
+    # plt.savefig(scatter_path)
+    # yield scatter_path
+    # plt.close('all')
 
 
 @ex.capture
@@ -104,13 +111,19 @@ def my_config():
 
     # y indices to use for training
     y = (None, None)
-    x= (None, None)
+    x = (None, None)
     time_sl = (None, None)
+    auxiliary = [('LHF', 1), ('SHF', 1)]
+    prognostic = [('QT', 34), ('SLI', 34)]
+    diagnostic = []
+    forcing = ['QT', 'SLI']
 
+    min_output_interval = 10
 
 @ex.automain
-def main(_run, inputs, forcings, outputs, restart, lr, n_epochs, model_dir, skip,
-         seq_length, batch_size, tag, data, vertical_grid_size, loss_scale, y, x, time_sl):
+def main(_run, auxiliary, prognostic, diagnostic, forcing, restart,
+         lr, n_epochs, model_dir, skip, seq_length, batch_size, tag, data,
+         vertical_grid_size, loss_scale, y, x, time_sl, min_output_interval):
     # setup logging
     logging.basicConfig(level=logging.INFO)
 
@@ -147,9 +160,13 @@ def main(_run, inputs, forcings, outputs, restart, lr, n_epochs, model_dir, skip
     except ValueError:
         ds = xr.open_dataset(data)
 
-    ds = ds.isel(z=slice(0, vertical_grid_size), y=slice(*y), x=slice(*x), time=slice(*time_sl))
+    ds = ds.isel(
+        z=slice(0, vertical_grid_size),
+        y=slice(*y),
+        x=slice(*x),
+        time=slice(*time_sl))
     nt = len(ds.time)
-    
+
     train_data = XRTimeSeries(ds.load(), [['time'], ['x', 'y'], ['z']])
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     constants = train_data.torch_constants()
@@ -162,7 +179,7 @@ def main(_run, inputs, forcings, outputs, restart, lr, n_epochs, model_dir, skip
     logger.info("Computing Mean")
     mean = train_data.mean
 
-    cls = model.MLP
+    cls = model.ForcedStepper
 
     logger.info(f"Training with {cls}")
 
@@ -178,12 +195,13 @@ def main(_run, inputs, forcings, outputs, restart, lr, n_epochs, model_dir, skip
 
         # initialize model
         lstm = cls(
-            mean,
-            scale,
-            time_step=train_data.timestep(),
-            inputs=inputs,
-            forcings=forcings,
-            outputs=outputs)
+            train_data.mean,
+            train_data.scale,
+            train_data.timestep(),
+            auxiliary=auxiliary,
+            prognostic=prognostic,
+            diagnostic=diagnostic,
+            forcing=forcing)
         i_start = 0
         lstm.train()
 
@@ -193,9 +211,9 @@ def main(_run, inputs, forcings, outputs, restart, lr, n_epochs, model_dir, skip
     optimizer = torch.optim.Adam(lstm.parameters(), lr=lr)
 
     # set up loss function
-    criterion = MVLoss(lstm.outputs.names, constants['layer_mass'], loss_scale)
+    loss_keys = [x[0] for x in diagnostic + prognostic]
+    criterion = MVLoss(loss_keys, constants['layer_mass'], loss_scale)
 
-    min_ouput_interval = 10
     steps_out = 0
 
     os.chdir(output_dir)
@@ -204,19 +222,19 @@ def main(_run, inputs, forcings, outputs, restart, lr, n_epochs, model_dir, skip
             logging.info(f"Epoch {i}")
             for k, batch in enumerate(train_loader):
                 steps_out += 1
-                batch = batch_to_model_inputs(batch, inputs, forcings, outputs,
-                                              constants)
+                batch = batch_to_model_inputs(batch, auxiliary, prognostic,
+                                              diagnostic, forcing, constants)
                 logging.info(f"Batch {k} of {len(train_loader)}")
                 time_batch_start = time()
-                for t in range(0, nt - seq_length+1, skip):
+                for t in range(0, nt - seq_length + 1, skip):
 
                     # select window
                     window = select_time(batch, slice(t, t + seq_length))
                     x = select_time(window, slice(0, -1))
-                    y = select_time(window, slice(1, None))
+                    y = select_time(window, slice(1, -1))
 
                     # make prediction
-                    pred = lstm(x, n=1)
+                    pred = lstm(x, n_prog=1)
 
                     # compute loss
                     loss = criterion(y, pred)
@@ -256,7 +274,7 @@ def main(_run, inputs, forcings, outputs, restart, lr, n_epochs, model_dir, skip
                 meter_avg_loss.reset()
 
             # save artifacts
-            if steps_out > min_ouput_interval:
+            if steps_out > min_output_interval:
                 print("Saving")
                 steps_out = 0
                 epoch_file = f"{i}.pkl"

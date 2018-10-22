@@ -1,13 +1,13 @@
 from collections import OrderedDict
 
 import attr
-from toolz import first, get, merge, pipe, assoc, merge_with
-
 import torch
+from toolz import first, get, merge, merge_with, pipe
 from torch import nn
-from uwnet import constraints, utils
-from uwnet.normalization import scaler
+
+import xarray as xr
 from uwnet.modules import LinearDictIn, LinearDictOut
+from uwnet.normalization import scaler
 
 
 def cat(seq):
@@ -25,6 +25,49 @@ def uncat(sizes, x):
     return x.split(sizes, dim=-1)
 
 
+def _dataset_to_torch_dict(ds):
+    return {key: torch.from_numpy(ds[key].values) for key in ds.data_vars}
+
+
+def _torch_dict_to_dataset(output, coords, drop_times):
+    # parse output
+    data_vars = {}
+    for key, val in output.items():
+        if val.size(1) == 1:
+            data_vars[key] = (['time', 'y', 'x'],
+                              output[key].numpy().squeeze())
+        else:
+            data_vars[key] = (['time', 'z', 'y', 'x'], output[key].numpy())
+    # prepare coordinates
+    coords = dict(coords.items())
+    # because of the trapezoid rule the coords dimension is small
+    coords['time'] = coords['time'][drop_times:]
+    return xr.Dataset(data_vars, coords=coords)
+
+
+def call_with_xr(self, ds, drop_times=1, **kwargs):
+    """Call the neural network with xarray inputs"""
+    tensordict = _dataset_to_torch_dict(ds)
+    with torch.no_grad():
+        output = self(tensordict, **kwargs)
+    return _torch_dict_to_dataset(output, ds.coords, drop_times)
+
+
+def _numpy_dict_to_torch_dict(inputs):
+    return {key: torch.from_numpy(val) for key, val in inputs.items()}
+
+
+def _torch_dict_to_numpy_dict(output):
+    return {key: val.numpy() for key, val in output.items()}
+
+
+def call_with_numpy_dict(self, inputs, **kwargs):
+    """Call the neural network with numpy inputs"""
+    with torch.no_grad():
+        return pipe(inputs, _numpy_dict_to_torch_dict, self,
+                    _torch_dict_to_numpy_dict)
+
+
 class SaverMixin(object):
     """Mixin for output and initializing models from dictionaries of the state
     and arguments
@@ -33,6 +76,16 @@ class SaverMixin(object):
     ----------
     args
     kwargs
+
+    Notes
+    -----
+    To easily get this to work with a new class add these lines at the top of
+    the __init__ method::
+
+        self.kwargs = locals()
+        self.kwargs.pop('self')
+        self.kwargs.pop('__class__')
+
     """
 
     def to_dict(self):
@@ -87,6 +140,12 @@ class VariableSpec(object):
     positive = attr.ib(default=False)
     conserved = attr.ib(default=False)
     units = attr.ib(default='')
+    z_axis = attr.ib(default=-3)
+
+    def move_height_to_last_dim(self, val):
+        if self.num == 1:
+            val = val.unsqueeze(self.z_axis)
+        return val.transpose(self.z_axis, -1)
 
 
 @attr.s
@@ -135,247 +194,164 @@ class VariableList(object):
         return dict(zip(self.names, x))
 
 
-class MLP(nn.Module, SaverMixin):
-    """
-    Attributes
-    ----------
-    add_forcing : bool
-        If true, FQT, FU, etc in the inputs to MLP.forward will be added to the
-        produce the final tendencies.
-    forcings
-        List of tuples of the form (prognostic_var_name, num), where
-        prognostic_var_name is one of the inputs. The input batch dictionary
-        should contain the key 'F<prognostic_var_name>'
+def _height_to_last_dim(x, input_specs, z_axis=-3):
+    # make the inputs have the right shape
+    return {spec.name: spec.move_height_to_last_dim(x[spec.name])
+            for spec in input_specs}
+
+
+def _height_to_original_dim(out, specs, z_axis=-3):
+    # make the outputs have the right shape
+    for spec in specs:
+        if spec.num == 1:
+            out[spec.name] = out[spec.name].squeeze(-1)
+        else:
+            out[spec.name] = out[spec.name].transpose(z_axis, -1)
+    return out
+
+
+class ApparentSource(nn.Module):
+    """PyTorch module for predicting Q1, Q2 and maybe Q3"""
+
+    def __init__(self,
+                 mean,
+                 scale,
+                 inputs=(('LHF', 1), ('SHF', 1), ('SOLIN', 1), ('QT', 34),
+                         ('SLI', 34), ('FQT', 34), ('FSLI', 34)),
+                 outputs=(('SLI', 34), ('QT', 34))):
+
+        "docstring"
+        super(ApparentSource, self).__init__()
+
+        self.inputs = VariableList.from_tuples(inputs)
+        self.outputs = VariableList.from_tuples(outputs)
+
+        self.mean = mean
+        self.scale = scale
+        self.scaler = scaler(scale, mean)
+        n = 1024
+
+        self.model = nn.Sequential(
+            LinearDictIn([(x.name, x.num) for x in self.inputs], n),
+            nn.ReLU(),
+            nn.Linear(n, n),
+            nn.ReLU(),
+            LinearDictOut(n, [(x.name, x.num) for x in self.outputs]))
+
+    def forward(self, x):
+        """Estimated source terms and diagnostics
+
+        All inputs have shape (*, z, y, x) or (*, y, x)
+
+        """
+        reshaped_inputs = _height_to_last_dim(x, input_specs=self.inputs)
+        scaled = self.scaler(reshaped_inputs)
+        out = self.model(scaled)
+        return _height_to_original_dim(out, self.outputs)
+
+
+class ForcedStepper(nn.Module, SaverMixin):
+    """Single Column Model Stepper
+
+    Integrates the single column equations with the trapezoid rule:
+
+        x_n+1 = x_n + f(x_n) dt + (g(t_n) + g(t_n+1)) dt / 2
+
     """
 
     def __init__(self,
                  mean,
                  scale,
                  time_step,
-                 inputs=(('LHF', 1), ('SHF', 1), ('SOLIN', 1), ('QT', 34),
-                         ('SLI', 34), ('FQT', 34), ('FSLI', 34)),
-                 outputs=(('SLI', 34), ('QT', 34)),
-                 forcings=(),
-                 add_forcing=False,
-                 **kwargs):
+                 auxiliary=(),
+                 prognostic=(),
+                 diagnostic=(),
+                 forcing=()):
+        super(ForcedStepper, self).__init__()
 
-        "docstring"
-        super(MLP, self).__init__()
-
+        # store arguments for saver mixin
         self.kwargs = locals()
         self.kwargs.pop('self')
         self.kwargs.pop('__class__')
 
-        self.forcings = forcings
-        self.add_forcing = add_forcing
-        self.inputs = VariableList.from_tuples(inputs)
-        self.outputs = VariableList.from_tuples(outputs)
+        self.time_step = torch.tensor(float(time_step), requires_grad=False)
+        self.auxiliary = auxiliary
+        self.prognostic = prognostic
+        self.diagnostic = diagnostic
+        self.forcing = forcing
 
-        self.mean = mean
-        self.scale = scale
-        self.time_step = time_step
-        self.scaler = scaler(scale, mean)
-        n = 1024
+        self.rhs = ApparentSource(
+            mean,
+            scale,
+            inputs=auxiliary + prognostic,
+            outputs=prognostic + diagnostic)
 
-        self.mod = nn.Sequential(
-            LinearDictIn([(x.name, x.num) for x in self.inputs], n),
-            nn.ReLU(),
-            nn.Linear(n, n),
-            nn.ReLU(),
-            LinearDictOut(n, [(x.name, x.num) for x in self.outputs]), )
+    def _get_sequence_length(self, x):
+        return x[first(self.prognostic)[0]].size(0) - 1
 
-    def init_hidden(self, *args, **kwargs):
-        return None
+    def _get_auxiliary_for_step(self, x, t):
+        return {key: x[key][t] for key, _ in self.auxiliary}
+
+    def _get_prognostic_for_step(self, x, t):
+        return {key: x[key][t] for key, _ in self.prognostic}
+
+    def _get_forcing_for_step(self, x, t):
+        """Use trapezoid rule to get the forcing"""
+        return {
+            key: (x['F' + key][t] + x['F' + key][t + 1]) / 2
+            for key in self.forcing
+        }
+
+    def _update_prognostics_and_diagnostics(self, prog, forcing, nn_output):
+        for key, num in self.prognostic:
+            # apparent source should be units [key]/seconds
+            apparent_src = nn_output.pop(key) / 86400
+            prog[key] = prog[key] + apparent_src * self.time_step
+            # store neural network diagnostics for layer
+            nn_output['F' + key + 'NN'] = apparent_src
+            # add the large-scale forcing
+            for key in forcing:
+                prog[key] = prog[key] + self.time_step * forcing[key]
 
     @property
-    def progs(self):
-        """Prognostic variables are shared between the input and output
-        sets
-        """
-        return set(self.outputs.names) & set(self.inputs.names)
+    def heights(self):
+        n = max(self.rhs.inputs.nums)
+        return range(n)
 
-    @property
-    def diags(self):
-        return set(self.outputs.names) - set(self.inputs.names)
-
-    @property
-    def aux(self):
-        return (set(self.inputs.names) - set(self.outputs.names))\
-            .union({'F' + key for key, num in self.forcings})
-
-    @property
-    def args(self):
-        return (self.mean, self.scale, self.time_step)
-
-    def rhs(self, aux, progs):
-        """Estimated source terms and diagnostics
-
-        All inputs have shape (*, z, y, x) or (*, y, x)
-
-        """
-        z_axis = -3
-        x = {}
-        x.update(aux)
-        x.update(progs)
-
-        # make the inputs have the right shape
-        inputs = {}
-        for spec in self.inputs:
-            val = x[spec.name]
-            if spec.num == 1:
-                val = val.unsqueeze(z_axis)
-
-            val = val.transpose(z_axis, -1)
-            inputs[spec.name] = val
-
-        scaled = self.scaler(inputs)
-        out = self.mod(scaled)
-
-        # make the outputs have the right shape
-        for spec in self.outputs:
-            if spec.num == 1:
-                out[spec.name] = out[spec.name].squeeze(-1)
-            else:
-                out[spec.name] = out[spec.name].transpose(z_axis, -1)
-
-        # scale the derivative terms
-        sources = {}
-        for key in progs:
-            sources[key] = out[key] / 86400
-
-        diags = {key: val for key, val in out.items() if key not in progs}
-        return sources, diags
-
-    def step(self, x, dt, *args):
-        """Perform one time step using the neural network
+    def forward(self, x, n=None, n_prog=None):
+        """Produce an n-step prediction for single column mode
 
         Parameters
         ----------
         x : dict
-            dict of torch arrays (input variables)
-        dt : float
-            the timestep in seconds
-        *args
-            not used
-
-        Returns
-        -------
-        out : dict of torch arrays
-            dict of the predictands. Either the next time step for the
-            prognostic variables, or the predicted value for the
-            non-prognostics (e.g. LHF, SHF, Prec).
-        None
-            placeholder to work with legacy code.
-
-        """
-
-        aux = {key: val for key, val in x.items() if key in self.aux}
-        progs = {key: val for key, val in x.items() if key in self.progs}
-
-        sources, diagnostics = self.rhs(aux, progs)
-
-        out = {}
-        for key in sources:
-            forcing_key = 'F' + key
-            nn_forcing_key = 'F' + key + 'NN'
-            if self.add_forcing:
-                out[key] = x[key] + dt * (x[forcing_key] + sources[key])
-            else:
-                out[key] = x[key] + dt * sources[key]
-
-            x = assoc(x, forcing_key, 0.0)
-            # store the NN forcing as a diagnostic
-            diagnostics[nn_forcing_key] = sources[key]
-
-        out = merge(out, diagnostics)
-        return out
-
-    def train(self, val=True):
-        super(MLP, self).train()
-        self.add_forcing = val
-
-    def forward(self, x, n=None, dt=None):
-        """
-        Parameters
-        ----------
-        x
-            variables. predictions will be made for all time points not
-            included in the prognostic varibles in  x.
+            a dict of torch tensors containing all the keys in the prognostic, diagnostic, and forcing attributes
         n : int
-            number of time steps of prognostic varibles to use before starting
-            prediction
-        dt : float
-           time step, defaults to self.time_step
-
-        Returns
-        -------
-        outputs
-            dictionary of output_fields variables including prognostics and
-            diagnostics
-
+            the number of time steps to produce a prediction for
+        n_prog : int
+            the number of burn-in-steps. The prediction only begins after n_prog steps.
         """
-        if dt is None:
-            dt = torch.tensor(self.time_step, requires_grad=False).float()
-        else:
-            dt = torch.tensor(dt, requires_grad=False).float()
+        x = x.copy()
 
-        nt = x[first(self.inputs.names)].size(0)
+
         if n is None:
-            n = nt
-        output_fields = []
+            n = self._get_sequence_length(x)
 
-        aux = {key: x[key] for key in self.aux}
+        if n_prog is None:
+            n_prog = n
 
-        for t in range(0, nt):
+        predictions = []
+        for t in range(n):
+            if t < n_prog:
+                prog = self._get_prognostic_for_step(x, t)
+            aux = self._get_auxiliary_for_step(x, t)
+            forcing = self._get_forcing_for_step(x, t)
+            # call neural network
+            nn_output = self.rhs(merge(aux, prog))
+            self._update_prognostics_and_diagnostics(prog, forcing, nn_output)
+            predictions.append(merge(nn_output, prog))
 
-            # make the correct inputs
-            if t < n:
-                progs = {key: x[key][t] for key in self.progs}
+        return merge_with(torch.stack, predictions)
 
-            aux_t = {key: val[t] for key, val in aux.items()}
-            inputs = merge(aux_t, progs)
 
-            # Call the network
-            out = self.step(inputs, dt)
-
-            # save outputs for the next step
-            progs = {key: out[key] for key in self.progs}
-            output_fields.append(out)
-
-        # stack the outputs
-        return merge_with(torch.stack, output_fields)
-
-    @property
-    def z(self):
-        nz = max(spec.num for spec in self.inputs)
-        return range(nz)
-
-    def call_with_xr(self, ds, **kwargs):
-        """Call the neural network with xarray inputs"""
-        import xarray as xr
-        d = {key: torch.from_numpy(ds[key].values) for key in ds.data_vars}
-        with torch.no_grad():
-            output = self(d, **kwargs)
-
-        # parse output
-        data_vars = {}
-        for key, val in output.items():
-            if val.size(1) == 1:
-                data_vars[key] = (['time', 'y', 'x'],
-                                  output[key].numpy().squeeze())
-            else:
-                data_vars[key] = (['time', 'z', 'y', 'x'],
-                                  output[key].numpy())
-
-        return xr.Dataset(data_vars, coords=ds.coords)
-
-    def call_with_numpy_dict(self, inputs, **kwargs):
-        """Call the neural network with numpy inputs"""
-
-        with torch.no_grad():
-            d = {key: torch.from_numpy(val) for key, val in inputs.items()}
-            output = self(d, **kwargs)
-            return {key: val.numpy() for key, val in output.items()}
-
-    def __repr__(self):
-        return f"MLP({self.inputs.names}, {self.outputs.names})"
+def model_factory():
+    return ForcedStepper
