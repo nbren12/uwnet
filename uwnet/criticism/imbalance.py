@@ -1,15 +1,15 @@
 import matplotlib.pyplot as plt
 import xarray as xr
 import click
-from uwnet.model import MLP
+from uwnet.model import call_with_xr, model_factory
 
 
 def plot_water_imbalance(ds, mod):
 
-    ds = ds.isel(z=mod.z)
+    ds = ds.isel(z=mod.heights)
 
     # this call computes FQTNN and FSLINN for each ds snapshot
-    output = mod.call_with_xr(ds)
+    output = call_with_xr(mod, ds)
 
     # compute water budget diagnostics
     PW_dot = ((output.FQTNN * ds.layer_mass).sum('z') +
@@ -25,13 +25,19 @@ def plot_water_imbalance(ds, mod):
     plt.ylabel("(mm/day)")
     plt.legend()
 
+    plt.figure()
+    cfqtnn = (output.FQTNN * ds.layer_mass).sum('z').mean(['x', 'time'])
+    cfqt = (ds.FQT * ds.layer_mass).sum('z').mean(['x', 'time'])
+    (ds.FQT * ds.layer_mass).sum('z').mean(['x', 'time']).plot()
+    from IPython import embed; embed()
+
 
 @click.command()
 @click.argument('dataset')
 @click.argument('model')
 def main(dataset, model):
     ds = xr.open_dataset(dataset).isel(time=slice(0, 120))
-    mod = MLP.from_path(model)
+    mod = model_factory().from_path(model)
     plot_water_imbalance(ds, mod)
     plt.show()
 

@@ -24,7 +24,7 @@ def concat_dicts(seq, dim=1):
     return merge_with(lambda x: torch.cat(x, dim=dim), *seq)
 
 
-def batch_to_model_inputs(batch, inputs, forcings, outputs, constants):
+def batch_to_model_inputs(batch, aux, prog, diag, forcing, constants):
     """Prepare batch for input into model
 
     This function reshapes the inputs from (batch, time, feat) to (time, z, x,
@@ -41,12 +41,12 @@ def batch_to_model_inputs(batch, inputs, forcings, outputs, constants):
             return val.permute(1, 2, 0).unsqueeze(-1)
 
     # entries in inputs and outputs need to be tuples
-    inputs = list(map(tuple, inputs))
-    outputs = list(map(tuple, outputs))
+    data_fields = set(map(tuple, aux + prog + diag))
 
-    out = {key: redim(batch[key], num) for key, num in set(inputs + outputs)}
+    out = {key: redim(batch[key], num) for key, num in data_fields}
 
-    for key, num in forcings:
-        out['F' + key] = redim(batch['F'+ key], num)
+    for key, num in prog:
+        if key in forcing:
+            out['F' + key] = redim(batch['F' + key], num)
 
     return out
