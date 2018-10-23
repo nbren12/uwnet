@@ -36,37 +36,37 @@ def _ds_slice_to_torch(ds):
 class XRTimeSeries(Dataset):
     """A pytorch Dataset class for time series data in xarray format
 
-    Parameters
+    This function assumes the data has dimensions ['time', 'z', 'y', 'x'], and
+    that the axes of the data arrays are all stored in that order.
+
+    Attributes
     ----------
     data : xr.Dataset
-        input data
-    dims : seq
-        list of dimensions used to reshape the data. Format::
-
-            (time_dims, batch_dims, feature_dims)
 
     Examples
     --------
     >>> ds = xr.open_dataset("in.nc")
-    >>> XRTimeSeries(ds, [['time'], ['x', 'y'], ['z']])
+    >>> dataset = XRTimeSeries(ds)
+    >>> dataset[0]
 
-    """
+"""
+    dims = ['time', 'z', 'x', 'y']
+    batch_dims = ['y', 'x']
 
-    def __init__(self, data, dims):
+    def __init__(self, data):
         """Initialize XRTimeSeries.
 
         """
         self.data = data
-        self.dims = dims
-        self._ds = _stack_or_rename(
-            self.data,
-            xtime=self.dims[0],
-            xbatch=self.dims[1],
-            xfeat=self.dims[2])
+        self.numpy_data = {key: data[key].values for key in data.data_vars}
+        self.data_vars = set(data.data_vars)
+        self.dims = {key: data[key].dims for key in data.data_vars}
+        self.constants = {key for key in data.data_vars
+                          if len({'x', 'y', 'time'} & set(data[key].dims)) == 0}
 
     def __len__(self):
         res = 1
-        for dim in self.dims[1]:
+        for dim in self.batch_dims:
             res *= len(self.data[dim])
         return res
 
@@ -75,67 +75,47 @@ class XRTimeSeries(Dataset):
         # convert i to an array
         # this code should handle i = slice, list, etc
         i = np.arange(len(self))[i]
-        scalar_idx = i.ndim == 0
-        if scalar_idx:
-            i = [i]
 
         # get coordinates using np.unravel_index
         # this code should probably be refactored
-        batch_dims = self.dims[1]
-        batch_shape = [len(self.data[dim]) for dim in batch_dims]
+        batch_shape = [len(self.data[dim]) for dim in self.batch_dims]
 
         idxs = np.unravel_index(i, batch_shape)
-        coords = {}
-        for key, idx in zip(batch_dims, idxs):
-            coords[key] = xr.DataArray(idx, dims='xbatch')
-
-        # select, load, and stack the batch
-        batch_ds = self.data.isel(**coords).load()
-        ds_r = _stack_or_rename(
-            batch_ds, xtime=self.dims[0], xfeat=self.dims[2])
-
-        # prepare for output
-        out = {}
-        for key in ds_r.data_vars:
-            if key in self.constants():
+        output_tensors = {}
+        for key in self.data_vars:
+            if key in self.constants:
                 continue
 
-            arr = _to_numpy(ds_r[key])
-            arr = torch.from_numpy(arr)
-            arr.requires_grad = False
-            if scalar_idx:
-                arr = arr[0]
+            data_array = self.numpy_data[key]
+            if 'z' in self.dims[key]:
+                this_array_index = (slice(None), slice(None)) + idxs
+            else:
+                this_array_index = (slice(None),) + idxs
+            output_tensors[key] = data_array[this_array_index]
 
-            out[key] = arr.float()
-
-        return out
+        return output_tensors
 
     @property
     def time_dim(self):
         return self.dims[0][0]
 
-    def constants(self):
-        for key in self.data.data_vars:
-            if self.time_dim not in self.data[key].dims:
-                yield key
-
     def torch_constants(self):
         return {
             key: torch.tensor(self.data[key].values, requires_grad=False)
             .float()
-            for key in self.constants()
+            for key in self.constants
         }
 
     @property
     def mean(self):
         """Mean of the contained variables"""
-        ds = self._ds.mean(['xbatch', 'xtime'])
+        ds = self.data.mean(['x', 'y', 'time'])
         return _ds_slice_to_torch(ds)
 
     @property
     def std(self):
         """Standard deviation of the contained variables"""
-        ds = self._ds.std(['xbatch', 'xtime'])
+        ds = self.data.std(['x', 'y', 'time'])
         return _ds_slice_to_torch(ds)
 
     @property
@@ -144,7 +124,7 @@ class XRTimeSeries(Dataset):
         return valmap(lambda x: x.max(), std)
 
     def timestep(self):
-        time_dim = self.dims[0][0]
+        time_dim = 'time'
         time = self.data[time_dim]
         dt = np.diff(time)
 

@@ -167,7 +167,7 @@ def main(_run, auxiliary, prognostic, diagnostic, forcing, restart,
         time=slice(*time_sl))
     nt = len(ds.time)
 
-    train_data = XRTimeSeries(ds.load(), [['time'], ['x', 'y'], ['z']])
+    train_data = XRTimeSeries(ds)
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     constants = train_data.torch_constants()
 
