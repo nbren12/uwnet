@@ -55,7 +55,7 @@ def test_datasets_model_integration():
     # load the data
     prognostic, auxiliary, diagnostic, forcing, loss_scale, ds = _mock_dataset(
     )
-    train_data = XRTimeSeries(ds.load(), [['time'], ['x', 'y'], ['z']])
+    train_data = XRTimeSeries(ds.load())
     train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     constants = train_data.torch_constants()
 
