@@ -118,7 +118,7 @@ def my_config():
     diagnostic = []
     forcing = ['QT', 'SLI']
 
-    min_output_interval = 10
+    min_output_interval = 0
 
 @ex.automain
 def main(_run, auxiliary, prognostic, diagnostic, forcing, restart,
