@@ -229,7 +229,7 @@ class ApparentSource(nn.Module):
         self.mean = mean
         self.scale = scale
         self.scaler = scaler(scale, mean)
-        n = 1024
+        n = 256
 
         self.model = nn.Sequential(
             LinearDictIn([(x.name, x.num) for x in self.inputs], n),

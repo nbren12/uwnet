@@ -1,0 +1,10 @@
+vertical_grid_size: 28
+prognostic:
+  - [QT, 28]
+  - [SLI, 28]
+auxiliary:
+  - [SST, 1]
+  - [SOLIN, 1]
+forcing:
+  - QT
+  - SLI
