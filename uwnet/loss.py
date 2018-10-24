@@ -1,5 +1,6 @@
 import torch
 from toolz import curry
+from .timestepper import Batch, predict_multiple_steps
 
 
 def mse(x, y, layer_mass):
@@ -37,3 +38,31 @@ def MVLoss(keys, layer_mass, scale, x, y):
         for key in keys
     }
     return sum(losses.values())
+
+
+def select_keys_time(x, keys, t):
+    return {key: x[key][t] for key in keys}
+
+
+def compute_loss(criterion, prognostics, y):
+    return sum(criterion(prognostics[key], y[key]) for key in prognostics)
+
+
+def compute_multiple_step_loss(criterion, model, batch, prognostics, *args,
+                               **kwargs):
+    """Compute the loss across multiple time steps with an Euler stepper
+
+    Yields
+    ------
+    t: int
+       the time step of the prediction
+    prediction: dict
+       the predicted state
+
+    """
+    batch = Batch(batch, prognostics)
+    prediction_generator = predict_multiple_steps(model, batch, *args,
+                                                  **kwargs)
+    return sum(
+        compute_loss(criterion, prediction, batch.get_prognostics_at_time(t))
+        for t, prediction in prediction_generator)

@@ -137,6 +137,7 @@ def test_ApparentSource():
     assert a.shape == batch['a'].shape
 
 
+@pytest.mark.skip()
 @pytest.mark.parametrize('drop_time', [0, 1, 2])
 def test_call_with_xr(drop_time):
     def model(d):

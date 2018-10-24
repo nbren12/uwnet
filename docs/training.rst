@@ -20,3 +20,8 @@ Sequence Prediction
 
 The neural network is trained to produce good predictions over multiple time
 steps.
+
+Script
+------
+
+.. automodule:: uwnet.train
