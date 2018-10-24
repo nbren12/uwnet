@@ -77,7 +77,7 @@ def my_config():
     n_epochs = 2
     model_dir = 'models'
     skip = 5
-    seq_length = 10
+    seq_length = 1
     batch_size = 256
     tag = ''
     vertical_grid_size = 34
@@ -115,6 +115,39 @@ def redimension_torch_loader_output(val):
 
 def get_model_inputs_from_batch(batch):
     return valmap(redimension_torch_loader_output, batch)
+
+
+def compute_multiple_step_loss(criterion, model, batch, initial_time,
+                               prediction_length, time_step):
+    loss = 0.0
+    for t in range(initial_time, initial_time + prediction_length):
+        # Load the initial condition
+        initial_condition = {}
+        for key in batch:
+            is_first_step = initial_time == t
+            is_prognostic = key in ['QT', 'SLI']
+            if is_prognostic:
+                if is_first_step:
+                    initial_condition[key] = batch[key][t]
+                else:
+                    initial_condition[key] = one_step_prediction[key]
+            else:
+                initial_condition[key] = batch[key][t]
+
+        # make a one step prediction
+        apparent_sources = model(initial_condition)
+        one_step_truth = select_time(batch, t + 1)
+        one_step_prediction = {}
+
+        for key in ['QT', 'SLI']:
+            total_source_term = (apparent_sources[key] / 86400 +
+                                    initial_condition['F' + key])
+            one_step_prediction[
+                key] = initial_condition[key] + time_step * total_source_term
+
+            loss += criterion(one_step_prediction[key],
+                                one_step_truth[key])
+    return loss
 
 
 @ex.automain
@@ -198,27 +231,11 @@ def main(_run, restart, lr, n_epochs, model_dir, skip, seq_length, batch_size,
                 time_batch_start = time()
 
                 batch = get_model_inputs_from_batch(batch)
-                for t in range(0, nt - seq_length + 1, skip):
-
-                    # select window
-                    initial_condition = select_time(batch, t)
-                    apparent_sources = lstm(initial_condition)
-
-                    one_step_truth = select_time(batch, t + 1)
-                    one_step_prediction = {}
-
-                    loss = 0.0
-                    for key in ['QT', 'SLI']:
-                        total_source_term = (apparent_sources[key] / 86400 +
-                                             initial_condition['F' + key])
-                        one_step_prediction[
-                            key] = initial_condition[key] + dt * total_source_term
-
-                        loss += criterion(one_step_prediction[key],
-                                          one_step_truth[key])
-
-                    # Back propagate
+                for initial_time in range(0, nt - seq_length, skip):
                     optimizer.zero_grad()
+                    loss = compute_multiple_step_loss(criterion, lstm, batch,
+                                                      initial_time, seq_length,
+                                                      dt)
                     loss.backward()
 
                     # take step
