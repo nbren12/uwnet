@@ -42,7 +42,8 @@ def _torch_dict_to_dataset(output, coords, drop_times):
     # prepare coordinates
     coords = dict(coords.items())
     # because of the trapezoid rule the coords dimension is small
-    coords['time'] = coords['time'][drop_times:]
+    if 'time' in coords:
+        coords['time'] = coords['time'][drop_times:]
     return xr.Dataset(data_vars, coords=coords)
 
 
