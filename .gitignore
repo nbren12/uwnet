@@ -258,3 +258,7 @@ tmp/
 /assets/NG1/NG1/.gitignore
 /assets/NG1/NG1/grd
 models/
+*.swp
+*.tmp
+*.pdf
+*.h5
