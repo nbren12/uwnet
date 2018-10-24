@@ -90,7 +90,7 @@ contains
     use vars, only: t, u, v,w, tabs,&
          shf_xy, lhf_xy, sstxy, t00, prec_xy,&
          latitude, longitude,&
-         nx, ny, nzm, rho, adz, dz, pres, presi, time, nstep, day, caseid, case, nz
+         nx, ny, nzm, rho, adz, dz, pres, presi, time, nstep, day, caseid, case, nz, dtn
     use microphysics, only: micro_field
     use rad, only: solinxy
     ! compute derivatives
@@ -156,7 +156,7 @@ contains
     call set_state_1d("pi", tmp_vertw)
 
 
-    tmp_scalar = dt
+    tmp_scalar = dtn
     call set_state_scalar("p0", tmp_scalar)
     call set_state_scalar("dt", tmp_scalar)
 

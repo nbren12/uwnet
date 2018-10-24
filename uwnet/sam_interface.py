@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-from uwnet.model import MLP
+from uwnet.model import model_factory, call_with_numpy_dict
 import torch
 import debug
 import logging
@@ -17,15 +17,16 @@ def get_models():
     models = []
 
     # Load Q1/Q2 model
-    model_dict = torch.load(os.environ['UWNET_MODEL'])
-    MODEL = MLP.from_dict(model_dict['dict'])
+    model_path = os.environ['UWNET_MODEL']
+    MODEL = model_factory().from_path(model_path)
     MODEL.eval()
+    MODEL.disable_forcing()
     models.append(MODEL)
 
     # Load Q3 model
     try:
-        model_dict = torch.load(os.environ['UWNET_MOMENTUM_MODEL'])
-        MOM_MODEL = MLP.from_dict(model_dict['dict'])
+        model_path = os.environ['UWNET_MOMENTUM_MODEL']
+        MOM_MODEL = model_factory().from_path(model_path)
         logging.info("Loaded momentum source model")
         MOM_MODEL.eval()
         models.append(MOM_MODEL)
@@ -87,8 +88,7 @@ def get_lower_atmosphere(kwargs, nz):
         if field in fields_3d + fields_z:
             out[field] = kwargs[field][:nz]
         else:
-            out[field] = kwargs[field]
-
+            out[field] = kwargs[field][0]
     return out
 
 
@@ -96,6 +96,7 @@ def expand_lower_atmosphere(sam_state, nn_output, n_in, n_out):
     out = {}
     for key in nn_output:
         if nn_output[key].shape[0] == n_in:
+            lower_atmos = nn_output[key]
             if key in sam_state:
                 upper_atmos = sam_state[key][n_in:]
                 lower_atmos = nn_output[key]
@@ -131,14 +132,14 @@ def call_neural_network(state):
     merged_outputs = {}
     for model in MODELS:
         logger.info(f"Calling {model}")
-        nz = model.inputs.to_dict()['QT']
+        nz = len(model.heights)
         lower_atmos_kwargs = get_lower_atmosphere(kwargs, nz)
 
         # add a singleton dimension and convert to float32
         lower_atmos_kwargs = {key: val[np.newaxis].astype(np.float32) for key,
                               val in lower_atmos_kwargs.items()}
         # call the neural network
-        out = model.call_with_numpy_dict(lower_atmos_kwargs, n=1, dt=float(dt))
+        out = call_with_numpy_dict(model, lower_atmos_kwargs, n=1, n_prog=1, dt=dt)
         # remove the singleton first dimension
         out = valmap(np.squeeze, out)
         out = expand_lower_atmosphere(

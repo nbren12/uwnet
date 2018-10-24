@@ -67,6 +67,7 @@ def main(path,
 
     case.prm['parameters']['dosgs'] = True
     case.prm['parameters']['dosurface'] = True
+    case.prm['parameters']['ncycle_max'] = 20
 
     # configure neural network run
     if neural_network:

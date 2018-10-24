@@ -3,6 +3,7 @@ from collections import OrderedDict
 import attr
 import torch
 from toolz import first, get, merge, merge_with, pipe
+from functools import partial
 from torch import nn
 
 import xarray as xr
@@ -64,7 +65,9 @@ def _torch_dict_to_numpy_dict(output):
 def call_with_numpy_dict(self, inputs, **kwargs):
     """Call the neural network with numpy inputs"""
     with torch.no_grad():
-        return pipe(inputs, _numpy_dict_to_torch_dict, self,
+        return pipe(inputs,
+                    _numpy_dict_to_torch_dict,
+                    partial(self, **kwargs),
                     _torch_dict_to_numpy_dict)
 
 
@@ -302,23 +305,32 @@ class ForcedStepper(nn.Module, SaverMixin):
             for key in self.forcing
         }
 
-    def _update_prognostics_and_diagnostics(self, prog, forcing, nn_output):
+    def _update_prognostics_and_diagnostics(self, prog, forcing, nn_output, dt=None):
+        if dt is None:
+            dt = self.time_step
+        else:
+            dt = torch.tensor(float(dt)).float()
+
         for key, num in self.prognostic:
             # apparent source should be units [key]/seconds
             apparent_src = nn_output.pop(key) / 86400
-            prog[key] = prog[key] + apparent_src * self.time_step
+            prog[key] = prog[key] + apparent_src * dt
             # store neural network diagnostics for layer
             nn_output['F' + key + 'NN'] = apparent_src
             # add the large-scale forcing
             for key in forcing:
                 prog[key] = prog[key] + self.time_step * forcing[key]
 
+    def disable_forcing(self):
+        self._forcing = self.forcing
+        self.forcing = ()
+
     @property
     def heights(self):
         n = max(self.rhs.inputs.nums)
         return range(n)
 
-    def forward(self, x, n=None, n_prog=None):
+    def forward(self, x, n=None, n_prog=None, dt=None):
         """Produce an n-step prediction for single column mode
 
         Parameters
@@ -347,10 +359,13 @@ class ForcedStepper(nn.Module, SaverMixin):
             forcing = self._get_forcing_for_step(x, t)
             # call neural network
             nn_output = self.rhs(merge(aux, prog))
-            self._update_prognostics_and_diagnostics(prog, forcing, nn_output)
+            self._update_prognostics_and_diagnostics(prog, forcing, nn_output, dt=dt)
             predictions.append(merge(nn_output, prog))
 
         return merge_with(torch.stack, predictions)
+
+    def __repr__(self):
+        return 'ForcedStepper'
 
 
 def model_factory():
