@@ -14,6 +14,7 @@ from torch import nn
 from uwnet import model
 from uwnet.datasets import XRTimeSeries
 from uwnet.utils import batch_to_model_inputs, select_time
+from uwnet.loss import compute_multiple_step_loss
 import matplotlib.pyplot as plt
 
 ex = Experiment("Q1")
@@ -115,39 +116,6 @@ def redimension_torch_loader_output(val):
 
 def get_model_inputs_from_batch(batch):
     return valmap(redimension_torch_loader_output, batch)
-
-
-def compute_multiple_step_loss(criterion, model, batch, initial_time,
-                               prediction_length, time_step):
-    loss = 0.0
-    for t in range(initial_time, initial_time + prediction_length):
-        # Load the initial condition
-        initial_condition = {}
-        for key in batch:
-            is_first_step = initial_time == t
-            is_prognostic = key in ['QT', 'SLI']
-            if is_prognostic:
-                if is_first_step:
-                    initial_condition[key] = batch[key][t]
-                else:
-                    initial_condition[key] = one_step_prediction[key]
-            else:
-                initial_condition[key] = batch[key][t]
-
-        # make a one step prediction
-        apparent_sources = model(initial_condition)
-        one_step_truth = select_time(batch, t + 1)
-        one_step_prediction = {}
-
-        for key in ['QT', 'SLI']:
-            total_source_term = (apparent_sources[key] / 86400 +
-                                    initial_condition['F' + key])
-            one_step_prediction[
-                key] = initial_condition[key] + time_step * total_source_term
-
-            loss += criterion(one_step_prediction[key],
-                                one_step_truth[key])
-    return loss
 
 
 @ex.automain
