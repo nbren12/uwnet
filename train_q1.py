@@ -171,6 +171,7 @@ def main(_run, restart, lr, n_epochs, model_dir, skip, seq_length, batch_size,
     logger.info("Computing Mean")
     mean = train_data.mean
 
+    prognostics = ['QT', 'SLI']
     input_fields = (('QT', vertical_grid_size), ('SLI', vertical_grid_size),
                     ('SST', 1), ('SOLIN', 1))
     output_fields = (('QT', vertical_grid_size), ('SLI', vertical_grid_size))
@@ -202,6 +203,7 @@ def main(_run, restart, lr, n_epochs, model_dir, skip, seq_length, batch_size,
                 for initial_time in range(0, nt - seq_length, skip):
                     optimizer.zero_grad()
                     loss = compute_multiple_step_loss(criterion, lstm, batch,
+                                                      prognostics,
                                                       initial_time, seq_length,
                                                       dt)
                     loss.backward()
