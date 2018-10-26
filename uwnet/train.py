@@ -76,12 +76,15 @@ class plot_scatter_q2_fqt(Plot):
 
 
 @ex.capture
-def get_output_dir(_run=None, base='.trained_models'):
+def get_output_dir(_run=None, model_dir=None, output_dir=None):
     """Get a unique output directory name using the run ID that sacred
-    assigned.
+    assigned OR return the specified output directory
     """
-    file_name = str(_run._id)
-    return join(base, file_name)
+    if output_dir:
+        return output_dir
+    else:
+        file_name = str(_run._id)
+        return join(model_dir, file_name)
 
 
 @ex.config
@@ -89,7 +92,7 @@ def my_config():
     """Default configurations managed by sacred"""
     restart = False
     lr = .001
-    n_epochs = 2
+    epochs = 2
     model_dir = 'models'
     skip = 5
     seq_length = 1
@@ -115,6 +118,7 @@ def my_config():
     x = (None, None)
     time_sl = (None, None)
     min_output_interval = 0
+    output_dir = None
 
 
 def is_one_dimensional(val):
@@ -158,9 +162,9 @@ class Trainer(object):
     """
 
     @ex.capture
-    def __init__(self, _run, restart, lr, n_epochs, model_dir, skip,
-                 seq_length, batch_size, tag, data, vertical_grid_size,
-                 loss_scale, y, x, time_sl, min_output_interval):
+    def __init__(self, _run, restart, lr, batch_size, tag, data,
+                 vertical_grid_size, loss_scale, y, x, time_sl,
+                 min_output_interval):
         # setup logging
         logging.basicConfig(level=logging.INFO)
 
@@ -171,7 +175,7 @@ class Trainer(object):
         self.min_output_interval = min_output_interval
 
         # get output directory
-        self.output_dir = get_output_dir(base=model_dir)
+        self.output_dir = get_output_dir()
 
         # set up meters
         self.meters = dict(loss=tnt.meter.AverageValueMeter())
@@ -294,7 +298,6 @@ class Trainer(object):
     def _make_work_dir(self):
         try:
             os.makedirs(self.output_dir)
-            yield
         except OSError:
             pass
 
