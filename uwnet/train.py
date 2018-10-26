@@ -1,97 +1,98 @@
+"""Train neural network parametrizations using the single or
+multiple step loss function
+
+This code uses a tool called Sacred_ to log important details about each
+execution of this script to a database, and to specify hyper parameters of the
+scheme (e.g. learning rate).
+
+Examples
+--------
+
+This script can be executed with the following command::
+
+   python -m uwnet.train with data=<path to dataset>
+
+To see a list of all the available configuration options run::
+
+   python -m uwnet.train print_config
+
+.. _Sacred: https://github.com/IDSIA/sacred
+
+"""
 import logging
 import os
-import re
 from os.path import join
 from time import time
+from contextlib import contextmanager
 
-import matplotlib.pyplot as plt
 from sacred import Experiment
-from toolz import merge
 
+from toolz import valmap
 import torch
 import torchnet as tnt
 import xarray as xr
 from torch.utils.data import DataLoader
-from uwnet import criticism, model
-from uwnet.model import call_with_xr
+from torch import nn
+from uwnet import model
 from uwnet.datasets import XRTimeSeries
-from uwnet.loss import MVLoss
-from uwnet.utils import batch_to_model_inputs, select_time
+from uwnet.loss import compute_multiple_step_loss
+import matplotlib.pyplot as plt
 
-ex = Experiment()
+ex = Experiment("Q1")
 
 
-def after_epoch(model, dataset, i):
-    """Tasks to perform after an epoch is complete
+## Some plotting routines to be called after every epoch
+class Plot(object):
+    def get_filename(self, epoch):
+        return self.name.format(epoch)
 
-    These include making plots of the performance. Saving files
+    def save_figure(self, epoch, location, output):
+        fig, ax = plt.subplots()
+        self.plot(location, output, ax)
+        path = self.get_filename(epoch)
+        logging.info(f"Saving to {path}")
+        fig.savefig(path)
+        ex.add_artifact(path)
+        plt.close()
 
-    Yields
-    ------
-    artifacts : str
-        list of paths to saved artifacts
-    """
-    water_imbalance_pth = f"water_imbalance_{i}.pdf"
-    plt.figure()
-    # criticism.plot_water_imbalance(dataset, model)
-    plt.savefig(water_imbalance_pth)
-    yield water_imbalance_pth
 
-    # compute
-    output =call_with_xr(model, dataset)
-    fqtnn_path = f"fqtnn_{i}.png"
-    plt.figure()
-    (86400 * output.FQTNN.isel(x=0, y=0)).plot(x='time')
-    plt.savefig(fqtnn_path)
-    yield fqtnn_path
+class plot_q2(Plot):
+    name = 'q2_{}.png'
 
-    # compute
-    time = dataset.time
-    dt = float(time[1] - time[0])
-    q2 = dataset.QT.diff('time') / dt - dataset.FQT * 86400
-    q2_path = f"q2_{i}.png"
-    plt.figure()
-    q2.isel(x=0, y=0).plot(x='time')
-    plt.savefig(q2_path)
-    yield q2_path
-    plt.close()
+    def plot(self, location, output, ax):
+        return output.QT.plot(x='time', ax=ax)
 
-    # x, y, c = [
-    #     x.values.ravel() for x in xr.broadcast(q2, 86400 * output.FQTNN, q2.z)
-    # ]
 
-    # scatter_path = f"scatter_{i}.png"
-    # from matplotlib.colors import LogNorm
-    # plt.figure()
-    # plt.scatter(x, y, c=c, norm=LogNorm(), rasterized=True, alpha=.1)
-    # plt.xlabel("Q2 Obs", "FQTNN")
-    # plt.xlim([a, b])
-    # a = min(x.min(), y.min())
-    # b = max(x.max(), y.max())
-    # plt.xlim([a, b])
-    # plt.ylim([a, b])
-    # plt.plot([a,b], [a,b], c='k')
-    # plt.colorbar()
-    # plt.savefig(scatter_path)
-    # yield scatter_path
-    # plt.close('all')
+class plot_scatter_q2_fqt(Plot):
+    name = 'scatter_fqt_q2_{}.png'
+
+    def plot(self, location, output, ax):
+        x, y, z = [
+            x.values.ravel()
+            for x in xr.broadcast(location.FQT * 86400, output.QT, output.z)
+        ]
+        im = ax.scatter(x, y, c=z)
+        plt.colorbar(im, ax=ax)
 
 
 @ex.capture
 def get_output_dir(_run=None, base='.trained_models'):
-    """Get a unique output directory name"""
+    """Get a unique output directory name using the run ID that sacred
+    assigned.
+    """
     file_name = str(_run._id)
     return join(base, file_name)
 
 
 @ex.config
 def my_config():
+    """Default configurations managed by sacred"""
     restart = False
     lr = .001
     n_epochs = 2
     model_dir = 'models'
     skip = 5
-    seq_length = 10
+    seq_length = 1
     batch_size = 256
     tag = ''
     vertical_grid_size = 34
@@ -113,176 +114,210 @@ def my_config():
     y = (None, None)
     x = (None, None)
     time_sl = (None, None)
-    auxiliary = [('LHF', 1), ('SHF', 1)]
-    prognostic = [('QT', 34), ('SLI', 34)]
-    diagnostic = []
-    forcing = ['QT', 'SLI']
-
     min_output_interval = 0
 
-@ex.automain
-def main(_run, auxiliary, prognostic, diagnostic, forcing, restart,
-         lr, n_epochs, model_dir, skip, seq_length, batch_size, tag, data,
-         vertical_grid_size, loss_scale, y, x, time_sl, min_output_interval):
-    # setup logging
-    logging.basicConfig(level=logging.INFO)
 
-    # db = MongoDBLogger()
-    # experiment = Experiment(api_key="fEusCnWmzAtmrB0FbucyEggW2")
-    logger = logging.getLogger(__name__)
+def is_one_dimensional(val):
+    return val.dim() == 2
 
-    # get output directory
-    output_dir = get_output_dir(base=model_dir)
 
-    # switch to output directory
-    logger.info(f"Saving outputs in {output_dir}")
-    try:
-        os.makedirs(output_dir)
-    except OSError:
-        pass
-
-    # experiment.log_parameter('directory', os.path.abspath(output_dir))
-    n_epochs = n_epochs
-    batch_size = batch_size
-    seq_length = seq_length
-
-    # set up meters
-    meter_loss = tnt.meter.AverageValueMeter()
-    meter_avg_loss = tnt.meter.AverageValueMeter()
-
-    # get training loader
-    def post(x):
-        return x
-
-    logger.info("Opening Training Data")
-    try:
-        ds = xr.open_zarr(data)
-    except ValueError:
-        ds = xr.open_dataset(data)
-
-    ds = ds.isel(
-        z=slice(0, vertical_grid_size),
-        y=slice(*y),
-        x=slice(*x),
-        time=slice(*time_sl))
-    nt = len(ds.time)
-
-    train_data = XRTimeSeries(ds)
-    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    constants = train_data.torch_constants()
-
-    # compute standard deviation
-    logger.info("Computing Standard Deviation")
-    scale = train_data.scale
-
-    # compute scaler
-    logger.info("Computing Mean")
-    mean = train_data.mean
-
-    cls = model.ForcedStepper
-
-    logger.info(f"Training with {cls}")
-
-    # restart
-    if restart:
-        path = os.path.abspath(restart)
-        logger.info(f"Restarting from checkpoint at {path}")
-        d = torch.load(path)
-        lstm = cls.from_dict(d['dict'])
-        i_start = d['epoch'] + 1
-        lstm.train()
+def redimension_torch_loader_output(val):
+    if is_one_dimensional(val):
+        return val.t().unsqueeze(-1)
     else:
+        return val.permute(1, 2, 0).unsqueeze(-1)
+
+
+def get_model_inputs_from_batch(batch):
+    """Redimension a batch from a torch data loader
+
+    Torch's data loader class is very helpful, but it produces data which has a shape of (batch, feature). However, the models require input in the physical dimensions (time, z, y, x), this function reshapes these arrays.
+    """
+    return valmap(redimension_torch_loader_output, batch)
+
+
+class Trainer(object):
+    """Utility object for training a neural network parametrization
+
+    Attributes
+    ----------
+    model
+    logger
+    meters
+        a dictionary of the torchnet meters used for tracking things like
+        training losses
+    output_dir: str
+        the output directory
+    criterion
+        the loss function
+
+    Methods
+    -------
+    train
+
+    """
+
+    @ex.capture
+    def __init__(self, _run, restart, lr, n_epochs, model_dir, skip,
+                 seq_length, batch_size, tag, data, vertical_grid_size,
+                 loss_scale, y, x, time_sl, min_output_interval):
+        # setup logging
+        logging.basicConfig(level=logging.INFO)
+
+        # db = MongoDBLogger()
+        # experiment = Experiment(api_key="fEusCnWmzAtmrB0FbucyEggW2")
+        self.logger = logging.getLogger(__name__)
+
+        self.min_output_interval = min_output_interval
+
+        # get output directory
+        self.output_dir = get_output_dir(base=model_dir)
+
+        # set up meters
+        self.meters = dict(loss=tnt.meter.AverageValueMeter())
+
+        self.logger.info("Opening Training Data")
+        try:
+            dataset = xr.open_zarr(data)
+        except ValueError:
+            dataset = xr.open_dataset(data)
+
+        self.dataset = dataset
+
+        ds = dataset.isel(
+            z=slice(0, vertical_grid_size),
+            y=slice(*y),
+            x=slice(*x),
+            time=slice(*time_sl))
+
+        self.nt = len(ds.time)
+
+        train_data = XRTimeSeries(ds)
+        self.train_loader = DataLoader(
+            train_data, batch_size=batch_size, shuffle=True)
+        self.constants = train_data.torch_constants()
+
+        # compute standard deviation
+        self.logger.info("Computing Standard Deviation")
+        scale = train_data.scale
+
+        # compute scaler
+        self.logger.info("Computing Mean")
+        mean = train_data.mean
+
+        input_fields = (('QT', vertical_grid_size),
+                        ('SLI', vertical_grid_size), ('SST', 1), ('SOLIN', 1))
+        output_fields = (('QT', vertical_grid_size), ('SLI',
+                                                      vertical_grid_size))
+
+        self.prognostics = ['QT', 'SLI']
+        self.time_step = float(train_data.timestep())
 
         # initialize model
-        lstm = cls(
-            train_data.mean,
-            train_data.scale,
-            train_data.timestep(),
-            auxiliary=auxiliary,
-            prognostic=prognostic,
-            diagnostic=diagnostic,
-            forcing=forcing)
-        i_start = 0
-        lstm.train()
+        self.model = model.ApparentSource(
+            mean, scale, inputs=input_fields, outputs=output_fields)
 
-    logger.info(f"Training with {lstm}")
+        # initialize optimizer
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
 
-    # initialize optimizer
-    optimizer = torch.optim.Adam(lstm.parameters(), lr=lr)
+        # set up loss function
+        self.criterion = nn.MSELoss()
+        self.epoch = 0
 
-    # set up loss function
-    loss_keys = [x[0] for x in diagnostic + prognostic]
-    criterion = MVLoss(loss_keys, constants['layer_mass'], loss_scale)
+    def _increment_step_count(self):
+        try:
+            self.step_count += 1
+        except AttributeError:
+            self.step_count = 1
 
-    steps_out = 0
+    def before_batch(self):
+        self._time_batch_start = time()
 
-    os.chdir(output_dir)
-    try:
-        for i in range(i_start, n_epochs):
-            logging.info(f"Epoch {i}")
-            for k, batch in enumerate(train_loader):
-                steps_out += 1
-                batch = batch_to_model_inputs(batch, auxiliary, prognostic,
-                                              diagnostic, forcing, constants)
-                logging.info(f"Batch {k} of {len(train_loader)}")
-                time_batch_start = time()
-                for t in range(0, nt - seq_length + 1, skip):
+    def _compute_loss(self, batch, initial_time, seq_length):
+        return compute_multiple_step_loss(self.criterion, self.model, batch,
+                                          self.prognostics, initial_time,
+                                          seq_length, self.time_step)
 
-                    # select window
-                    window = select_time(batch, slice(t, t + seq_length))
-                    x = select_time(window, slice(0, -1))
-                    y = select_time(window, slice(1, -1))
+    @ex.capture
+    def _train_with_batch(self, k, batch, seq_length, skip):
+        logging.info(f"Batch {k} of {len(self.train_loader)}")
+        self.before_batch()
+        for initial_time in range(0, self.nt - seq_length, skip):
+            self._increment_step_count()
+            self.optimizer.zero_grad()
+            loss = self._compute_loss(batch, initial_time, seq_length)
+            loss.backward()
+            self.optimizer.step()
+            self.meters['loss'].add(loss.item())
+        self.after_batch()
 
-                    # make prediction
-                    pred = lstm(x, n_prog=1)
+    def after_batch(self):
+        time_elapsed_batch = time() - self._time_batch_start
+        batch_info = {
+            'epoch': self.epoch,
+            'loss': self.meters['loss'].value()[0],
+            'time_elapsed': time_elapsed_batch,
+        }
 
-                    # compute loss
-                    loss = criterion(y, pred)
+        ex.log_scalar('loss', batch_info['loss'])
+        ex.log_scalar('time_elapsed', batch_info['time_elapsed'])
+        self.meters['loss'].reset()
+        self.logger.info(f"Loss: {batch_info['loss']}; "
+                         f"Time Elapsed {time_elapsed_batch} ")
 
-                    # Back propagate
-                    optimizer.zero_grad()
-                    loss.backward()
+    def _train_for_epoch(self):
+        self.epoch += 1
+        logging.info(f"Epoch {self.epoch}")
+        for k, batch in enumerate(self.train_loader):
+            input_data = get_model_inputs_from_batch(batch)
+            self._train_with_batch(k, input_data)
+        self.after_epoch()
 
-                    # take step
-                    optimizer.step()
+    def after_epoch(self):
+        # save artifacts
+        if self.step_count > self.min_output_interval:
+            epoch_file = f"{self.epoch}.pkl"
+            torch.save(self.model, epoch_file)
+            ex.add_artifact(epoch_file)
+            self._after_epoch_plots()
+            self.step_count = 0
 
-                    # Log the results
-                    meter_avg_loss.add(criterion(window, mean).item())
-                    meter_loss.add(loss.item())
+    def _after_epoch_plots(self):
+        from uwnet.model import call_with_xr
+        single_column_plots = [plot_q2(), plot_scatter_q2_fqt()]
+        for y in [0]:
+            location = self.dataset.isel(y=slice(y, y + 1), x=slice(0, 1))
+            output = call_with_xr(self.model, location, drop_times=0)
+            for plot in single_column_plots:
+                plot.save_figure(f'{self.epoch}-{y}', location, output)
 
-                time_elapsed_batch = time() - time_batch_start
+    def _make_work_dir(self):
+        try:
+            os.makedirs(self.output_dir)
+            yield
+        except OSError:
+            pass
 
-                batch_info = {
-                    'epoch': i,
-                    'batch': k,
-                    'loss': meter_loss.value()[0],
-                    'avg_loss': meter_avg_loss.value()[0],
-                    'time_elapsed': time_elapsed_batch,
-                }
-                # experiment.log_metric('loss', batch_info['loss'])
-                # experiment.log_metric('avg_loss', batch_info['avg_loss'])
-                # db.log_batch(batch_info)
+    @contextmanager
+    def _change_to_work_dir(self):
+        """Context manager for using a working directory"""
+        self.logger.info(f"Saving outputs in {self.output_dir}")
+        self._make_work_dir()
+        try:
+            cwd = os.getcwd()
+            os.chdir(self.output_dir)
+            yield
+        finally:
+            os.chdir(cwd)
 
-                ex.log_scalar('loss', batch_info['loss'])
-                ex.log_scalar('avg_loss', batch_info['avg_loss'])
-                ex.log_scalar('time_elapsed', batch_info['time_elapsed'])
+    @ex.capture
+    def train(self, epochs):
+        """Train the neural network for a fixed number of epochs"""
+        with self._change_to_work_dir():
+            for i in range(epochs):
+                self._train_for_epoch()
 
-                logger.info(f"Batch {k},  Loss: {meter_loss.value()[0]}; "
-                            f"Avg {meter_avg_loss.value()[0]}; "
-                            f"Time Elapsed {time_elapsed_batch} ")
-                meter_loss.reset()
-                meter_avg_loss.reset()
 
-            # save artifacts
-            if steps_out > min_output_interval:
-                print("Saving")
-                steps_out = 0
-                epoch_file = f"{i}.pkl"
-                torch.save({"epoch": i, 'dict': lstm.to_dict()}, epoch_file)
-                ex.add_artifact(epoch_file)
-
-                for artifact in after_epoch(lstm, ds, i):
-                    ex.add_artifact(artifact)
-
-    except KeyboardInterrupt:
-        torch.save({'epoch': i, 'dict': lstm.to_dict()}, "interrupt.pkl")
+@ex.automain
+def main():
+    Trainer().train()
