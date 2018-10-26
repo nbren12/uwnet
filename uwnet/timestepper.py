@@ -27,6 +27,10 @@ class Batch(object):
     def get_prognostics_at_time(self, t):
         return select_keys_time(self.data, self.prognostics, t)
 
+    def get_model_inputs(self, t, prognostics):
+        forcings = self.get_forcings_at_time(t)
+        return merge(forcings, prognostics)
+
 
 def predict_one_step(prognostics, apparent_source, forcing, time_step):
     prediction = {}
@@ -36,18 +40,17 @@ def predict_one_step(prognostics, apparent_source, forcing, time_step):
     return prediction
 
 
-def predict_multiple_steps(model, batch, initial_time, prediction_length,
-                           time_step):
+def predict_multiple_steps(model, batch: Batch, initial_time,
+                           prediction_length, time_step):
     """Yield Euler step predictions with a neural network"""
-    prognostics = batch.get_prognostics_at_time(initial_time)
+    state = batch.get_prognostics_at_time(initial_time)
     for t in range(initial_time, initial_time + prediction_length):
-        forcings = batch.get_forcings_at_time(t)
-        known_forcing = batch.get_known_forcings_at_time(t)
-        inputs = merge(forcings, prognostics)
+        inputs = batch.get_model_inputs(t, state)
         apparent_sources = model(inputs)
-        prognostics = predict_one_step(prognostics, apparent_sources,
-                                       known_forcing, time_step)
-        yield t + 1, prognostics
+        known_forcing = batch.get_known_forcings_at_time(t)
+        state = predict_one_step(state, apparent_sources,
+                                 known_forcing, time_step)
+        yield t + 1, state
 
 
 def select_keys_time(x, keys, t):

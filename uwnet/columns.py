@@ -1,26 +1,82 @@
+import attr
 import click
+
 import xarray as xr
-from uwnet.model import MLP
+from uwnet.model import ApparentSource
+from uwnet.timestepper import Batch, predict_multiple_steps
+
+
+def _convert_dataset_to_dict(dataset):
+    return {
+        key: dataset[key]
+        for key in dataset.data_vars if 'time' in dataset[key].dims
+    }
+
+
+class XarrayBatch(Batch):
+    """An Xarray-aware version of batch"""
+
+    def __init__(self, dataset, **kwargs):
+        data = _convert_dataset_to_dict(dataset)
+        super(XarrayBatch, self).__init__(data, **kwargs)
+
+    def get_model_inputs(self, t, state):
+        inputs = super(XarrayBatch, self).get_model_inputs(t, state)
+        for key in inputs:
+            try:
+                inputs[key] = inputs[key].drop('time')
+            except ValueError:
+                pass
+        return xr.Dataset(inputs)
+
+
+def _get_time_step(ds):
+    return float(ds.time.diff('time')[0] * 86400)
+
+
+def single_column_simulation(model, dataset, interval=(0, 10), prognostics=(),
+                             time_step=None):
+    """Run a single column model simulation with a model for the source terms
+
+    Parameters
+    ----------
+    model
+        pytorch model for producing the apparent sources
+    dataset : xr.Dataset
+        input dataset in the same format as the training data
+    interval : tuple
+        (start_time, end_time) interval
+    """
+    if not prognostics:
+        prognostics = set(model.inputs.names) & set(model.outputs.names)
+
+    if not time_step:
+        time_step = _get_time_step(dataset)
+
+    start, end = interval
+
+    batch = XarrayBatch(dataset, prognostics=prognostics)
+    pred_generator = predict_multiple_steps(
+        model.call_with_xr,
+        batch,
+        initial_time=start,
+        prediction_length=end - start,
+        time_step=time_step)
+    datasets = []
+    for k, state in pred_generator:
+        datasets.append(xr.Dataset(state).assign_coords(time=dataset.time[k]))
+    output_time_series = xr.concat(datasets, dim='time')
+    return output_time_series
 
 
 @click.command()
 @click.argument('model')
 @click.argument('data')
 @click.argument('output_path')
-def main(model, data, output_path):
-    mod = MLP.from_path(model)
-    ds = xr.open_dataset(data).isel(z=mod.z)
-    mod.add_forcing = True
-    output = mod.call_with_xr(ds, n=1)
-
-    # compute water budget stuff
-    w = ds.layer_mass
-    output['layer_mass'] = w
-    output['PW'] = (output.QT * w).sum('z') / 1000.0
-    output['CFQTNN'] = (output.FQTNN * w).sum('z') / 1000.0
-    output['CFQT'] = (ds.FQT * w).sum('z') / 1000.0
-
-    # save to file
+@click.option('-b', '--begin', type=int)
+@click.option('-e', '--end', type=int)
+def main(model, data, output_path, begin, end):
+    output = single_column_simulation(model, ds, interval=(begin, end))
     output.to_netcdf(output_path)
 
 

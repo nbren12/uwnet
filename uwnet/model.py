@@ -27,23 +27,31 @@ def uncat(sizes, x):
 
 
 def _dataset_to_torch_dict(ds):
-    return {key: torch.from_numpy(ds[key].values) for key in ds.data_vars}
+    return {key: torch.from_numpy(ds[key].values).float() for key in ds.data_vars}
 
 
-def _torch_dict_to_dataset(output, coords, drop_times):
+def _torch_dict_to_dataset(output, coords):
     # parse output
     data_vars = {}
+
+    dims_2d = [dim for dim in ['time', 'y', 'x'] if dim in coords.dims]
+    dims_3d = [dim for dim in ['time', 'z', 'y', 'x'] if dim in coords.dims]
+
+    time_dim_present = 'time' in dims_2d
+
     for key, val in output.items():
-        if val.size(1) == 1:
-            data_vars[key] = (['time', 'y', 'x'],
-                              output[key].numpy().squeeze())
+        if time_dim_present:
+            nz = val.size(1)
         else:
-            data_vars[key] = (['time', 'z', 'y', 'x'], output[key].numpy())
+            nz = val.size(0)
+
+        if nz == 1:
+            data_vars[key] = (dims_2d, output[key].numpy().squeeze())
+        else:
+            data_vars[key] = (dims_3d, output[key].numpy())
+
     # prepare coordinates
     coords = dict(coords.items())
-    # because of the trapezoid rule the coords dimension is small
-    if 'time' in coords:
-        coords['time'] = coords['time'][drop_times:]
     return xr.Dataset(data_vars, coords=coords)
 
 
@@ -252,6 +260,13 @@ class ApparentSource(nn.Module):
         scaled = self.scaler(reshaped_inputs)
         out = self.model(scaled)
         return _height_to_original_dim(out, self.outputs)
+
+    def call_with_xr(self, ds, **kwargs):
+        """Call the neural network with xarray inputs"""
+        tensordict = _dataset_to_torch_dict(ds)
+        with torch.no_grad():
+            output = self(tensordict, **kwargs)
+        return _torch_dict_to_dataset(output, ds.coords)
 
 
 class ForcedStepper(nn.Module, SaverMixin):
