@@ -1,5 +1,6 @@
 import attr
 import click
+import torch
 
 import xarray as xr
 from uwnet.model import ApparentSource
@@ -34,7 +35,10 @@ def _get_time_step(ds):
     return float(ds.time.diff('time')[0] * 86400)
 
 
-def single_column_simulation(model, dataset, interval=(0, 10), prognostics=(),
+def single_column_simulation(model,
+                             dataset,
+                             interval=(0, 10),
+                             prognostics=(),
                              time_step=None):
     """Run a single column model simulation with a model for the source terms
 
@@ -69,6 +73,14 @@ def single_column_simulation(model, dataset, interval=(0, 10), prognostics=(),
     return output_time_series
 
 
+def compute_apparent_sources(model, ds):
+    sources = model.call_with_xr(ds)
+    rename_dict = {}
+    for key in sources.data_vars:
+        rename_dict[key] = 'F' + key + 'NN'
+    return sources.rename(rename_dict)
+
+
 @click.command()
 @click.argument('model')
 @click.argument('data')
@@ -76,8 +88,17 @@ def single_column_simulation(model, dataset, interval=(0, 10), prognostics=(),
 @click.option('-b', '--begin', type=int)
 @click.option('-e', '--end', type=int)
 def main(model, data, output_path, begin, end):
-    output = single_column_simulation(model, ds, interval=(begin, end))
-    output.to_netcdf(output_path)
+    model = torch.load(model)
+    data = xr.open_dataset(data)
+
+    if begin is None:
+        begin = 0
+    if end is None:
+        end = len(data.time)
+
+    output = single_column_simulation(model, data, interval=(begin, end))
+    sources = compute_apparent_sources(model, data)
+    output.merge(sources).to_netcdf(output_path)
 
 
 if __name__ == '__main__':

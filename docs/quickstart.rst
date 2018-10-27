@@ -86,5 +86,19 @@ After training this output directory will contain files like these::
 The ``.pkl`` files contain the saved neural network models and the image files
 show some diagnostics that helpful for tracking the progress of the training.
 
+Running a single column model simulation
+----------------------------------------
+
+The model can be used to run a single column model simulation like this::
+
+  python -m uwnet.columns <model>.pkl training_data_netcdf.nc <output path>.nc
+
+This saves the predicted version of the prognostic values (e.g. QT, SLI), and
+the corresponding parametrized sources in (e.g. FQTNN, SLINN). This script
+(which is located at ``uwnet/columns.py``) also provides an example of how to
+load and run a model in a python script or jupyter notebook. This `jupyer
+notebook<https://atmos.washington.edu/~nbren12/reports/uwnet/notebooks/2018-10-27-spinup-error.html>`_
+is a good example.
+
 .. _miniconda: https://conda.io/miniconda.html
 
