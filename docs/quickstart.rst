@@ -96,8 +96,7 @@ The model can be used to run a single column model simulation like this::
 This saves the predicted version of the prognostic values (e.g. QT, SLI), and
 the corresponding parametrized sources in (e.g. FQTNN, SLINN). This script
 (which is located at ``uwnet/columns.py``) also provides an example of how to
-load and run a model in a python script or jupyter notebook. This `jupyer
-notebook<https://atmos.washington.edu/~nbren12/reports/uwnet/notebooks/2018-10-27-spinup-error.html>`_
+load and run a model in a python script or jupyter notebook. This `jupyter notebook <https://atmos.washington.edu/~nbren12/reports/uwnet/notebooks/2018-10-27-spinup-error.html>`_
 is a good example.
 
 .. _miniconda: https://conda.io/miniconda.html
