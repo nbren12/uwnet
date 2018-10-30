@@ -21,24 +21,68 @@ To see a list of all the available configuration options run::
 """
 import logging
 import os
+from contextlib import contextmanager
 from os.path import join
 from time import time
-from contextlib import contextmanager
 
+import matplotlib.pyplot as plt
+import numpy as np
 from sacred import Experiment
-
 from toolz import valmap
+
 import torch
 import torchnet as tnt
 import xarray as xr
-from torch.utils.data import DataLoader
 from torch import nn
+from torch.utils.data import DataLoader
 from uwnet import model
+from uwnet.columns import single_column_simulation
 from uwnet.datasets import XRTimeSeries
 from uwnet.loss import compute_multiple_step_loss
-import matplotlib.pyplot as plt
 
 ex = Experiment("Q1")
+
+
+def get_dataset(data):
+    try:
+        dataset = xr.open_zarr(data)
+    except ValueError:
+        dataset = xr.open_dataset(data)
+
+    return dataset
+
+
+def water_budget_plots(model, ds, location, filenames):
+    scm_data = single_column_simulation(model, location, interval=(0, 190))
+    merged_pred_data = location.rename({
+        'SLI': 'SLIOBS',
+        'QT': 'QTOBS'
+    }).merge(
+        scm_data, join='inner')
+    output = model.call_with_xr(merged_pred_data)
+
+    plt.figure()
+    scm_data.QT.plot(x='time')
+    plt.title("QT")
+    plt.savefig(filenames[0])
+
+    plt.figure()
+    output.QT.plot(x='time')
+    plt.title("FQTNN from NN-prediction")
+    output_truth = model.call_with_xr(location)
+    plt.savefig(filenames[1])
+
+    plt.figure()
+    output_truth.QT.plot(x='time')
+    plt.title("FQTNN from Truth")
+    plt.xlim([100, 125])
+    plt.savefig(filenames[2])
+
+    plt.figure()
+    (scm_data.QT * ds.layer_mass / 1000).sum('z').plot()
+    (location.QT * ds.layer_mass / 1000).sum('z').plot(label='observed')
+    plt.legend()
+    plt.savefig(filenames[3])
 
 
 ## Some plotting routines to be called after every epoch
@@ -180,15 +224,9 @@ class Trainer(object):
         # set up meters
         self.meters = dict(loss=tnt.meter.AverageValueMeter())
 
-        self.logger.info("Opening Training Data")
-        try:
-            dataset = xr.open_zarr(data)
-        except ValueError:
-            dataset = xr.open_dataset(data)
+        self.dataset = get_dataset(data)
 
-        self.dataset = dataset
-
-        ds = dataset.isel(
+        ds = self.dataset.isel(
             z=slice(0, vertical_grid_size),
             y=slice(*y),
             x=slice(*x),
@@ -287,13 +325,18 @@ class Trainer(object):
             self.step_count = 0
 
     def _after_epoch_plots(self):
-        from uwnet.model import call_with_xr
         single_column_plots = [plot_q2(), plot_scatter_q2_fqt()]
         for y in [8]:
             location = self.dataset.isel(y=slice(y, y + 1), x=slice(0, 1))
             output = self.model.call_with_xr(location)
             for plot in single_column_plots:
                 plot.save_figure(f'{self.epoch}-{y}', location, output)
+
+            i = self.epoch
+            filenames = [
+                name + f'{i}-{y}' for name in ['qt', 'fqtnn', 'fqtnn-obs', 'pw']
+            ]
+            water_budget_plots(self.model, self.dataset, location, filenames)
 
     def _make_work_dir(self):
         try:

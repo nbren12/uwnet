@@ -91,7 +91,7 @@ class XRTimeSeries(Dataset):
                 this_array_index = (slice(None), slice(None)) + idxs
             else:
                 this_array_index = (slice(None),) + idxs
-            output_tensors[key] = data_array[this_array_index]
+            output_tensors[key] = data_array[this_array_index].astype(np.float32)
 
         return output_tensors
 
