@@ -21,6 +21,7 @@ do
     ext=${notebook##*.}
     namenoext=${notebook%.*}
     if [ $ext == "ipynb" ]; then
+        chmod 0444 $notebook
         jupyter nbconvert $notebook
         html=$namenoext.html
 
