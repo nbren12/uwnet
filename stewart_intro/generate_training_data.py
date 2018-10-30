@@ -26,13 +26,14 @@ def get_target_normalization(variable, data):
         return (data[variable].values - mean) / std
 
 
-def normalize_data():
+def normalize_data(filter_down=True):
     """
     Each (x, y) cell has a corresponding 2 * |z| output vector associated
     with it, for a given time point. The 2 variables are SLI and QT.
     """
     data = load_data()
-    data = data.isel(y=list(range(30, 35)))
-    for varaible in ['QT', 'SLI', 'FQT', 'FSLI', 'SOLIN', 'LHF', 'SHF']:
-        data[varaible].values = get_target_normalization(varaible, data)
+    for variable in ['QT', 'SLI', 'FQT', 'FSLI', 'SOLIN', 'LHF', 'SHF']:
+        data[variable].values = get_target_normalization(variable, data)
+    if filter_down:
+        data = data.isel(y=list(range(30, 35)))
     return data
