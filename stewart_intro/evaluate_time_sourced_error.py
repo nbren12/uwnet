@@ -25,7 +25,7 @@ graph_save_location_format = '/Users/stewart/Desktop/time_error_dt_{}.png'
 for dt in np.arange(min_time_step, 4 * min_time_step, min_time_step):
     print(f'\n\ndt = {dt}')
     w1, w2, data = train_model(
-        dt=dt, model_name=f'dt_{dt}' + '_{}', n_epochs=1)
+        dt=dt, model_name=f'dt_{dt}' + '_{}', n_epochs=1, training_rate=0.1)
     plot_q_vs_nn_output(
         w1, w2, data, save_location=graph_save_location_format.format(dt))
     get_diagnostic_r2_score(w1, w2, data, dt=dt)
