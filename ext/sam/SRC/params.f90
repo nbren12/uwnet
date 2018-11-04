@@ -112,6 +112,9 @@ logical:: doseasons = .false.
 logical:: doequinox = .false.  ! Noah added
 logical:: dopython = .false. ! added by NDB
 logical:: usepython = .false. ! added by NDB
+! Controls whether to use the SGS scheme for the thermodynamic variables
+! turn off if using explicit parametrizations of surface processes
+logical:: dosgsthermo = .true. ! NDB
 integer:: npython = 1 ! added by NDB
 logical:: doradhomo = .false. 
 logical:: dosfchomo = .false.
