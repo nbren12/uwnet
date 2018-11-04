@@ -17,23 +17,23 @@ RUN rm Miniconda3-latest-Linux-x86_64.sh
 ENV PATH=/miniconda/bin:${PATH}
 
 # install pfunit
-ADD http://superb-sea2.dl.sourceforge.net/project/pfunit/Source/pFUnit-3.2.9.tgz /tmp/
+# RUN git clone git://git.code.sf.net/p/pfunit/code /tmp/pFUnit
+# ADD http://superb-sea2.dl.sourceforge.net/project/pfunit/Source/pFUnit-3.2.9.tgz /tmp/
+ADD ext/pFUnit-3.2.9.tgz /tmp/
 ENV F90=gfortran
 ENV F90_VENDOR=GNU
 ENV PFUNIT=/opt/pfunit/pfunit-serial
-RUN cd /tmp && \
-    tar xzf pFUnit-3.2.9.tgz && \
-    cd pFUnit-3.2.9 && \
+RUN cd /tmp/pFUnit-3.2.9 && \
     make &&\
     make install INSTALL_DIR=${PFUNIT}
 
 # add conda packages
 RUN conda update -y conda
-ADD environment.yml /opt/environment.yml
-RUN cd /opt && conda env create
-ENV PATH=/miniconda/envs/uwnet/bin:${PATH}
-RUN conda install nodejs
-RUN jupyter labextension install @pyviz/jupyterlab_pyviz
+RUN conda install -y -c pytorch pytorch-cpu python=3.6 numpy toolz xarray
+RUN pip install zarr cffi click attrs
+# ADD environment.yml /opt/environment.yml
+# RUN cd /opt && conda env create
+# ENV PATH=/miniconda/envs/uwnet/bin:${PATH}
 
 # add callpy library
 ADD ext/sam/ext/call_py_fort /opt/call_py_fort
@@ -44,6 +44,8 @@ ENV LD_LIBRARY_PATH=/usr/local/lib
 
 # add SAM
 ADD ext/sam /opt/sam
+ADD setup/docker/local_flags.mk /opt/sam/
+ENV LOCAL_FLAGS=/opt/sam/local_flags.mk
 # compile SAM
 RUN cd /opt/sam && ./Build
 

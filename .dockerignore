@@ -1,6 +1,9 @@
 .git
 data
 .tmp*
+.dvc
+*.nc
+*.tmp
 trained_models
 ext/sam/OBJ
 notebooks

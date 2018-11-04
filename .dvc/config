@@ -1,4 +1,9 @@
 ['remote "myremote"']
 url = /Users/noah/Data/dvc-storage
 [core]
-remote = myremote
+remote = olympus-ssh
+['remote "olympus"']
+url = /home/disk/eos4/nbren12/eos8/dvc-storage
+['remote "olympus-ssh"']
+url = ssh://nbren12@olympus:/home/disk/eos4/nbren12/eos8/dvc-storage
+ask_password = True

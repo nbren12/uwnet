@@ -37,7 +37,7 @@ def _get_time_step(ds):
 
 def single_column_simulation(model,
                              dataset,
-                             interval=(0, 10),
+                             interval=None,
                              prognostics=(),
                              time_step=None):
     """Run a single column model simulation with a model for the source terms
@@ -57,7 +57,10 @@ def single_column_simulation(model,
     if not time_step:
         time_step = _get_time_step(dataset)
 
-    start, end = interval
+    if not interval:
+        start, end = 0, len(dataset.time) - 1
+    else:
+        start, end = interval
 
     batch = XarrayBatch(dataset, prognostics=prognostics)
     pred_generator = predict_multiple_steps(
@@ -81,6 +84,15 @@ def compute_apparent_sources(model, ds):
     return sources.rename(rename_dict)
 
 
+def remove_nonphysical_dims(data):
+    """Remove all dimensions other than x y z or time"""
+    true_dims = ['x', 'y', 'z', 'time']
+    for dim in data.dims:
+        if dim not in true_dims:
+            data = data.isel(**{dim: 0})
+    return data
+
+
 @click.command()
 @click.argument('model')
 @click.argument('data')
@@ -96,7 +108,9 @@ def main(model, data, output_path, begin, end):
     if end is None:
         end = len(data.time)
 
-    output = single_column_simulation(model, data, interval=(begin, end))
+    data = data.isel(time=slice(begin, end))
+    data = remove_nonphysical_dims(data)
+    output = single_column_simulation(model, data)
     sources = compute_apparent_sources(model, data)
     output.merge(sources).to_netcdf(output_path)
 
