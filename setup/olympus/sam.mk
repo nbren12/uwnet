@@ -10,9 +10,10 @@
 
 SAM = SAM_$(ADV_DIR)_$(SGS_DIR)_$(RAD_DIR)_$(MICRO_DIR)
 
+
 # Load the linking and include flags in the LOCAL_FLAGS
 # environmental variable
-include $(LOCAL_FLAGS)
+include: $(LOCAL_FLAGS)
 
 #----------------------------------
 #----------------------------------------------

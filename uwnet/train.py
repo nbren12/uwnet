@@ -49,7 +49,8 @@ def get_dataset(data):
     except ValueError:
         dataset = xr.open_dataset(data)
 
-    return dataset
+    first_step = dataset.isel(step=0).drop('step').drop('p')
+    return first_step
 
 
 def water_budget_plots(model, ds, location, filenames):
