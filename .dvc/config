@@ -1,0 +1,4 @@
+['remote "myremote"']
+url = /Users/noah/Data/dvc-storage
+[core]
+remote = myremote
