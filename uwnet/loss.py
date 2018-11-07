@@ -3,6 +3,32 @@ from toolz import curry
 from .timestepper import Batch, predict_multiple_steps
 
 
+def weighted_mean_squared_error(truth, prediction, weights, dim=-1):
+    """Compute the weighted mean squared error
+
+    Parameters
+    ----------
+    truth: torch.tensor
+    prediction: torch.tensor
+    weights: torch.tensor
+        one dimensional tensor of weights. Must be the same length as the truth
+        and prediction arrays along the dimension `dim`
+    dim:
+        the dimension the data should be weighted along
+    """
+    error = truth - prediction
+    error2 = error * error
+
+    # average over non-weighted-dimensions
+    non_weighted_dims = [x for x in range(truth.dim()) if x != dim]
+    for _dim in non_weighted_dims:
+        error2 = error2.mean(dim=_dim, keepdim=True)
+    error2 = error2.squeeze()
+
+    # weight over the remaining dimension and sum
+    return torch.mean(error2 * weights)
+
+
 def mse(x, y, layer_mass):
     x = x.float()
     y = y.float()
