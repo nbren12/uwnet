@@ -33,7 +33,7 @@ def test_compute_multiple_step_loss():
     (torch.rand(4, 5, 6), torch.rand(5), 1, 0.0),
 ])
 def test_weighted_mean_squared_error(x, w, dim, expected):
-    loss = weighted_mean_squared_error(x, x, w)
+    loss = weighted_mean_squared_error(x, x, w, dim)
     assert loss.dim() == 0
     assert loss.item() == pytest.approx(expected)
 
