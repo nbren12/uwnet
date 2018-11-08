@@ -52,3 +52,12 @@ class TensorDict(MutableMapping, metaclass=ArithmaticMeta):
             return TensorDict({key: self.data[key] for key in keys})
         else:
             return self.data[key]
+
+    def copy(self):
+        return TensorDict(self.data.copy())
+
+    def apply(self, fun):
+        out = self.copy()
+        for key in self:
+            out[key] = fun(self[key])
+        return out
