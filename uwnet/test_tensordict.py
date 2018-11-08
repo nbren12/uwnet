@@ -31,12 +31,12 @@ def test_tensordict():
     assert (2 * a)['a'].item() == 2 * a['a'].item()
     assert (a * 2)['a'].item() == 2 * a['a'].item()
 
-    # make sure this fails
+
+def test_tensordict_needs_compatible_keys():
     a = TensorDict({'a': 1, 'c': 1})
     b = TensorDict({'a': 1})
     with pytest.raises(ValueError):
         a + b
-
 
 def test_tensordict_copy():
     a = TensorDict({})
