@@ -36,3 +36,15 @@ def test_tensordict():
     b = TensorDict({'a': 1})
     with pytest.raises(ValueError):
         a + b
+
+
+def test_tensordict_copy():
+    a = TensorDict({})
+    assert isinstance(a.copy(), TensorDict)
+
+
+def test_tensordict_apply():
+    a = TensorDict({'a': 1})
+    b = a.apply(lambda x: 2 * x)
+    assert isinstance(b, TensorDict)
+    assert b['a'] == 2
