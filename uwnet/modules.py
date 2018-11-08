@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from .tensordict import TensorDict
 import math
 
 
@@ -45,4 +46,5 @@ class LinearDictOut(nn.Module):
             self.add_module(field, self.models[field])
 
     def forward(self, input):
-        return {key: self.models[key](input) for key in self.models}
+        return TensorDict({key: self.models[key](input) for key in
+                           self.models})
