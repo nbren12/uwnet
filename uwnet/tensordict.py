@@ -1,4 +1,4 @@
-from collections import Mapping, KeysView
+from collections import MutableMapping, KeysView
 from abc import ABCMeta
 from toolz import curry
 import attr
@@ -8,7 +8,7 @@ mathfuns = [
     '__truediv__', '__floordiv__', '__pow__', '__rpow__'
 ]
 
-dictfuns = ['__len__', '__iter__']
+dictfuns = ['__len__', '__iter__', '__delitem__', '__setitem__']
 
 
 @curry
@@ -27,9 +27,9 @@ def valmap_binary_operator(name, self, other):
 
 
 @curry
-def valmap_unary_operator(name, attrname, self):
+def valmap_unary_operator(name, attrname, self, *args, **kwargs):
     func = getattr(getattr(self, attrname), name)
-    return func()
+    return func(*args, **kwargs)
 
 
 class ArithmaticMeta(ABCMeta):
@@ -42,7 +42,7 @@ class ArithmaticMeta(ABCMeta):
 
 
 @attr.s
-class TensorDict(Mapping, metaclass=ArithmaticMeta):
+class TensorDict(MutableMapping, metaclass=ArithmaticMeta):
     """Wrapper which overloads operators for dicts of tensors"""
     data = attr.ib()
 
