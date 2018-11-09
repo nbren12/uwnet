@@ -1,6 +1,9 @@
-from .loss import compute_multiple_step_loss, weighted_mean_squared_error
+from .loss import (compute_multiple_step_loss, weighted_mean_squared_error,
+                   mean_over_dims, mean_other_dims, weighted_r2_score)
 import torch
 import pytest
+from pytest import approx
+import numpy as np
 
 
 def test_compute_multiple_step_loss():
@@ -47,3 +50,38 @@ def test_weighted_mean_squared_error_value():
     expected = a**2 * w.mean()
     loss = weighted_mean_squared_error(x, y, w)
     assert loss.item() == pytest.approx(expected.item())
+
+
+def test_mean_over_dims():
+    a = torch.rand(10)
+
+    # single dimension
+    res = mean_over_dims(a, [0])
+    np.testing.assert_allclose(res.item(), a.mean().item())
+
+    # multiple dimensions
+    a = torch.rand(10, 2)
+    res = mean_over_dims(a, [0, 1])
+    assert res.item() == approx(a.mean().item())
+
+    # incomplete reduction
+    a = torch.rand(3, 4, 5)
+    res = mean_over_dims(a, [0, 1])
+    assert res.shape == (1, 1, 5)
+
+
+def test_mean_other_dims():
+    a = torch.rand(3, 4, 5)
+    mu = mean_other_dims(a, 1)
+    assert mu.shape == (1, 4, 1)
+
+
+def test_weighted_r2_score():
+    a = torch.rand(10, 2)
+    w = torch.tensor([1.0, 1.0])
+
+    score = weighted_r2_score(a, a, w, dim=-1)
+    assert score.item() == approx(1.0)
+
+    score = weighted_r2_score(a, a.mean(), w, dim=-1)
+    assert score.item() == approx(0.0)
