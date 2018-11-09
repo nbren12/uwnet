@@ -38,6 +38,6 @@ dependencies:
       - f90nml
       - sacred
       - recommonmark
-      - sphinx=1.7
+      - sphinx==1.7
       - sphinx_rtd_theme
 
