@@ -29,7 +29,7 @@ class Batch(object):
         return self.get_known_forcings().apply(lambda x: x[t])
 
     def get_prognostics_at_time(self, t):
-        return select_keys_time(self.data, self.prognostics, t)
+        return self.data[self.prognostics].apply(lambda x: x[t])
 
     def get_model_inputs(self, t, prognostics):
         forcings = self.get_forcings_at_time(t)

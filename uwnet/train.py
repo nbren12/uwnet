@@ -38,7 +38,7 @@ from torch.utils.data import DataLoader
 from uwnet import model
 from uwnet.columns import single_column_simulation
 from uwnet.datasets import XRTimeSeries
-from uwnet.loss import compute_multiple_step_loss, weighted_mean_squared_error
+from uwnet.loss import compute_multiple_step_loss, weighted_mean_squared_error, mse_with_integral
 
 ex = Experiment("Q1")
 
@@ -269,7 +269,8 @@ class Trainer(object):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
 
         # set up loss function
-        self.criterion = weighted_mean_squared_error(weights=self.mass, dim=-3)
+        self.criterion = weighted_mean_squared_error(weights=self.mass/self.mass.mean(), dim=-3)
+        # self.criterion = mse_with_integral(weights=self.mass, dim=-3)
         self.epoch = 0
 
     def _increment_step_count(self):
@@ -290,13 +291,12 @@ class Trainer(object):
     def _train_with_batch(self, k, batch, seq_length, skip):
         logging.info(f"Batch {k} of {len(self.train_loader)}")
         self.before_batch()
-        for initial_time in range(0, self.nt - seq_length, skip):
-            self._increment_step_count()
-            self.optimizer.zero_grad()
-            loss = self._compute_loss(batch, initial_time, seq_length)
-            loss.backward()
-            self.optimizer.step()
-            self.meters['loss'].add(loss.item())
+        self._increment_step_count()
+        self.optimizer.zero_grad()
+        loss = self._compute_loss(batch, initial_time=0, seq_length=0)
+        loss.backward()
+        self.optimizer.step()
+        self.meters['loss'].add(loss.item())
         self.compute_source_r2(batch)
         self.after_batch()
 

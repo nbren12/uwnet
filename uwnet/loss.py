@@ -1,5 +1,6 @@
 import torch
 from toolz import curry
+from torch.nn.functional import mse_loss
 from .timestepper import Batch, predict_multiple_steps
 
 
@@ -30,6 +31,17 @@ def weighted_r2_score(truth, prediction, weights, dim=-1):
     squares = weighted_mean_squared_error(truth, mean, weights, dim)
     residuals = weighted_mean_squared_error(truth, prediction, weights, dim)
     return 1 - residuals/squares
+
+
+@curry
+def mse_with_integral(truth, prediction, weights, dim=-3):
+    ctruth = (truth * weights).sum(dim) / 1000
+    cpred = (prediction * weights).sum(dim) / 1000
+
+    l1 = mse_loss(ctruth, cpred)
+    l2 = weighted_mean_squared_error(truth, prediction, weights, dim)
+
+    return l1  + l2
 
 
 @curry
@@ -115,3 +127,48 @@ def compute_multiple_step_loss(criterion, model, batch, prognostics, *args,
     return sum(
         compute_loss(criterion, prediction, batch.get_prognostics_at_time(t))
         for t, prediction in prediction_generator)
+
+
+def compute_multiple_step_loss(criterion, model, batch, prognostics, *args,
+                               **kwargs):
+    """Compute the loss across multiple time steps with an Euler stepper
+
+    Yields
+    ------
+    t: int
+       the time step of the prediction
+    prediction: dict
+       the predicted state
+
+    """
+    src = model(batch)
+    batch = Batch(batch, prognostics)
+    g = batch.get_known_forcings()
+    progs = batch.data[prognostics]
+    storage = progs.apply(lambda x: (x[1:] - x[:-1]) / .125)
+    forcing = g.apply(lambda x: (x[1:] + x[:-1]) / 2)
+    true_src = storage - forcing * 86400
+    l1 = compute_loss(criterion,true_src, src.apply(lambda x: x[:-1]))
+
+    dt = .125 
+
+    from random import randint
+    i = randint(0, len(batch.data['QT'][0]))
+
+    state0 = batch.get_prognostics_at_time(i)
+    mean = batch.data[prognostics].apply(lambda x: x.mean(dim=0))
+    mean_forcing = g.apply(lambda x: x.mean(dim=0))
+    state = state0
+    for i in range(20):
+        inputs = batch.get_model_inputs(0, state)
+        src = model(inputs)
+        state = state + dt * src + dt * mean_forcing * 86400
+
+    l2 = compute_loss(criterion, mean, state)
+
+    return l2 + l1
+
+
+
+
+
