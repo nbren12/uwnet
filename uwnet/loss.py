@@ -20,6 +20,10 @@ def mean_other_dims(x, dim):
     return mean_over_dims(x, other_dims)
 
 
+def r2_score(truth, prediction):
+    return weighted_r2_score(truth, prediction, 1.0, dim=None)
+
+
 def weighted_r2_score(truth, prediction, weights, dim=-1):
     """Compute the weighted R2 score"""
     mean = mean_other_dims(truth, dim)
@@ -28,7 +32,8 @@ def weighted_r2_score(truth, prediction, weights, dim=-1):
     return 1 - residuals/squares
 
 
-def weighted_mean_squared_error(truth, prediction, weights, dim=-1):
+@curry
+def weighted_mean_squared_error(truth, prediction, weights=1.0, dim=-1):
     """Compute the weighted mean squared error
 
     Parameters

@@ -1,5 +1,6 @@
 from .loss import (compute_multiple_step_loss, weighted_mean_squared_error,
-                   mean_over_dims, mean_other_dims, weighted_r2_score)
+                   mean_over_dims, mean_other_dims, weighted_r2_score,
+                   r2_score)
 import torch
 import pytest
 from pytest import approx
@@ -84,4 +85,14 @@ def test_weighted_r2_score():
     assert score.item() == approx(1.0)
 
     score = weighted_r2_score(a, a.mean(), w, dim=-1)
+    assert score.item() == approx(0.0)
+
+
+def test_r2_score():
+    a = torch.rand(10, 2)
+
+    score = r2_score(a, a)
+    assert score.item() == approx(1.0)
+
+    score = r2_score(a, a.mean())
     assert score.item() == approx(0.0)
