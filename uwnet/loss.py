@@ -3,6 +3,31 @@ from toolz import curry
 from .timestepper import Batch, predict_multiple_steps
 
 
+def get_other_dims(x, dim):
+    return set(range(x.dim())) - {dim}
+
+
+def mean_over_dims(x, dims):
+    """Take a mean over a list of dimensions keeping the as singletons"""
+    for dim in dims:
+        x = x.mean(dim=dim, keepdim=True)
+    return x
+
+
+def mean_other_dims(x, dim):
+    """Take a mean over all dimensions but the one specified"""
+    other_dims = get_other_dims(x, dim)
+    return mean_over_dims(x, other_dims)
+
+
+def weighted_r2_score(truth, prediction, weights, dim=-1):
+    """Compute the weighted R2 score"""
+    mean = mean_other_dims(truth, dim)
+    squares = weighted_mean_squared_error(truth, mean, weights, dim)
+    residuals = weighted_mean_squared_error(truth, prediction, weights, dim)
+    return 1 - residuals/squares
+
+
 def weighted_mean_squared_error(truth, prediction, weights, dim=-1):
     """Compute the weighted mean squared error
 
@@ -18,14 +43,7 @@ def weighted_mean_squared_error(truth, prediction, weights, dim=-1):
     """
     error = truth - prediction
     error2 = error * error
-
-    # average over non-weighted-dimensions
-    non_weighted_dims = [x for x in range(truth.dim()) if x != dim]
-    for _dim in non_weighted_dims:
-        error2 = error2.mean(dim=_dim, keepdim=True)
-    error2 = error2.squeeze()
-
-    # weight over the remaining dimension and sum
+    error2 = mean_other_dims(error2, dim)
     return torch.mean(error2 * weights)
 
 
