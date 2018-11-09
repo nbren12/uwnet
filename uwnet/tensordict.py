@@ -47,7 +47,7 @@ class TensorDict(MutableMapping, metaclass=ArithmaticMeta):
     data = attr.ib()
 
     def __getitem__(self, key):
-        if isinstance(key, (list, KeysView, self.__class__)):
+        if isinstance(key, (list, set, KeysView, self.__class__)):
             keys = list(key)
             return TensorDict({key: self.data[key] for key in keys})
         else:

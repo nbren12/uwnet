@@ -1,31 +1,35 @@
 """Time steppers"""
 import attr
 from toolz import merge
+from .tensordict import TensorDict
 
 
 @attr.s
 class Batch(object):
     """A object for getting appropriate fields from a batch of data"""
-    data = attr.ib()
+    data = attr.ib(converter=TensorDict)
     prognostics = attr.ib()
 
     @property
     def forcings(self):
         return set(self.data.keys()) - set(self.prognostics)
 
-    def get_forcings_at_time(self, t):
-        return select_keys_time(self.data, self.forcings, t)
-
-    def get_known_forcings_at_time(self, t):
+    def get_known_forcings(self):
         out = {}
         for key in self.prognostics:
             original_key = 'F' + key
             if original_key in self.data:
-                out[key] = self.data[original_key][t]
-        return out
+                out[key] = self.data[original_key]
+        return TensorDict(out)
+
+    def get_forcings_at_time(self, t):
+        return select_keys_time(self.data, self.forcings, t)
+
+    def get_known_forcings_at_time(self, t):
+        return self.get_known_forcings().apply(lambda x: x[t])
 
     def get_prognostics_at_time(self, t):
-        return select_keys_time(self.data, self.prognostics, t)
+        return self.data[self.prognostics].apply(lambda x: x[t])
 
     def get_model_inputs(self, t, prognostics):
         forcings = self.get_forcings_at_time(t)

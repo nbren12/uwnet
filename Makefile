@@ -59,8 +59,8 @@ print_sam_checks:
 ${TRAINING_DATA}:
 	snakemake data/processed/training.nc
 
-train: ${TRAINING_DATA}
-	python -m uwnet.train with data=data/processed/training.nc examples/SAM.yaml 'x=(0,128,8)' skip=10 seq_length=10 batch_size=128 lr=.005 n_epochs=20 -m uwnet
+train: #${TRAINING_DATA}
+	python -m uwnet.train with data=data/processed/training.nc batch_size=32 lr=.01 epochs=5 -m uwnet
 
 train_momentum: ${TRAINING_DATA}
 	python -m uwnet.train with data=${TRAINING_DATA} examples/momentum.yaml

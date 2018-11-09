@@ -23,38 +23,42 @@ import logging
 import os
 from contextlib import contextmanager
 from os.path import join
-from time import time
 
 import matplotlib.pyplot as plt
-import numpy as np
 from sacred import Experiment
 from toolz import valmap
 
 import torch
 import torchnet as tnt
 import xarray as xr
-from torch import nn
 from torch.utils.data import DataLoader
 from uwnet import model
 from uwnet.columns import single_column_simulation
 from uwnet.datasets import XRTimeSeries
-from uwnet.loss import compute_multiple_step_loss
+from uwnet.loss import (weighted_mean_squared_error,
+                        loss_with_equilibrium_penalty)
+from ignite.engine import Engine, Events
+from ignite.metrics import RunningAverage
 
 ex = Experiment("Q1")
 
 
+@ex.capture
 def get_dataset(data):
     try:
         dataset = xr.open_zarr(data)
     except ValueError:
         dataset = xr.open_dataset(data)
 
-    first_step = dataset.isel(step=0).drop('step').drop('p')
-    return first_step
+    try:
+        return dataset.isel(step=0).drop('step').drop('p')
+    except:
+        return dataset
 
 
 def water_budget_plots(model, ds, location, filenames):
-    scm_data = single_column_simulation(model, location, interval=(0, 190))
+    nt = min(len(ds.time), 190)
+    scm_data = single_column_simulation(model, location, interval=(0, nt - 1))
     merged_pred_data = location.rename({
         'SLI': 'SLIOBS',
         'QT': 'QTOBS'
@@ -135,6 +139,7 @@ def get_output_dir(_run=None, model_dir=None, output_dir=None):
 @ex.config
 def my_config():
     """Default configurations managed by sacred"""
+    data = "data/processed/training.nc"
     restart = False
     lr = .001
     epochs = 2
@@ -207,9 +212,8 @@ class Trainer(object):
     """
 
     @ex.capture
-    def __init__(self, _run, restart, lr, batch_size, tag, data,
-                 vertical_grid_size, loss_scale, y, x, time_sl,
-                 min_output_interval):
+    def __init__(self, _run, restart, lr, batch_size, tag, vertical_grid_size,
+                 loss_scale, y, x, time_sl, min_output_interval):
         # setup logging
         logging.basicConfig(level=logging.INFO)
 
@@ -225,7 +229,9 @@ class Trainer(object):
         # set up meters
         self.meters = dict(loss=tnt.meter.AverageValueMeter())
 
-        self.dataset = get_dataset(data)
+        self.dataset = get_dataset()
+        self.mass = torch.tensor(self.dataset.layer_mass.values).view(
+            -1, 1, 1).float()
 
         ds = self.dataset.isel(
             z=slice(0, vertical_grid_size),
@@ -256,57 +262,92 @@ class Trainer(object):
         self.prognostics = ['QT', 'SLI']
         self.time_step = float(train_data.timestep())
 
-        # initialize model
         self.model = model.ApparentSource(
             mean, scale, inputs=input_fields, outputs=output_fields)
-
-        # initialize optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+        self.criterion = weighted_mean_squared_error(
+            weights=self.mass / self.mass.mean(), dim=-3)
+        self.setup_engine()
 
-        # set up loss function
-        self.criterion = nn.MSELoss()
-        self.epoch = 0
+    def setup_engine(self):
+        self.engine = Engine(self.step)
+        self.engine.add_event_handler(Events.ITERATION_COMPLETED,
+                                      self.after_batch)
+        self.engine.add_event_handler(Events.EPOCH_COMPLETED,
+                                      self.print_metrics)
+        self.engine.add_event_handler(Events.EPOCH_COMPLETED, self.after_epoch)
 
-    def _increment_step_count(self):
-        try:
-            self.step_count += 1
-        except AttributeError:
-            self.step_count = 1
+        self.setup_meters()
 
-    def before_batch(self):
-        self._time_batch_start = time()
+    def setup_meters(self):
+        # meters
+        avg_output = RunningAverage(output_transform=lambda x: x)
+        avg_output.attach(self.engine, 'running_avg_loss')
 
-    def _compute_loss(self, batch, initial_time, seq_length):
-        return compute_multiple_step_loss(self.criterion, self.model, batch,
-                                          self.prognostics, initial_time,
-                                          seq_length, self.time_step)
+    def print_metrics(self, engine):
+        self.logger.info(engine.state.metrics)
 
-    @ex.capture
-    def _train_with_batch(self, k, batch, seq_length, skip):
-        logging.info(f"Batch {k} of {len(self.train_loader)}")
-        self.before_batch()
-        for initial_time in range(0, self.nt - seq_length, skip):
-            self._increment_step_count()
-            self.optimizer.zero_grad()
-            loss = self._compute_loss(batch, initial_time, seq_length)
-            loss.backward()
-            self.optimizer.step()
-            self.meters['loss'].add(loss.item())
-        self.after_batch()
+    def step(self, engine, batch):
+        self.optimizer.zero_grad()
+        batch = get_model_inputs_from_batch(batch)
+        loss = loss_with_equilibrium_penalty(
+            self.criterion, self.model, batch, prognostics=self.prognostics)
+        loss.backward()
+        self.optimizer.step()
+        return loss.item()
 
-    def after_batch(self):
-        time_elapsed_batch = time() - self._time_batch_start
+    def compute_source_r2(self, batch):
+        from .timestepper import Batch
+        from toolz import merge_with
+        from .loss import weighted_r2_score, r2_score
+        src = self.model(batch)
+
+        # compute the apparent source
+        batch = Batch(batch, self.prognostics)
+        g = batch.get_known_forcings()
+        progs = batch.data[self.prognostics]
+        storage = progs.apply(lambda x: (x[1:] - x[:-1]) / self.time_step)
+        forcing = g.apply(lambda x: (x[1:] + x[:-1]) / 2)
+        src = src.apply(lambda x: (x[1:] + x[:-1]) / 2)
+        true_src = storage - forcing * 86400
+
+        # copmute the metrics
+        def wr2_score(args):
+            x, y = args
+            return weighted_r2_score(x, y, self.mass, dim=-3).item()
+
+        r2s = merge_with(wr2_score, true_src, src)
+        print(r2s)
+
+        # compute the r2 of the integral
+        pred_int = src.apply(lambda x: (x * self.mass).sum(-3))
+        true_int = true_src.apply(lambda x: (x * self.mass).sum(-3))
+
+        def scalar_r2_score(args):
+            return r2_score(*args).item()
+
+        def bias(args):
+            x, y = args
+            return (y.mean() - x.mean()).item() / 1000
+
+        r2s = merge_with(scalar_r2_score, true_int, pred_int)
+        print(r2s)
+
+        r2s = merge_with(bias, true_int, pred_int)
+        print(r2s)
+
+    def after_batch(self, engine):
+        state = engine.state
         batch_info = {
-            'epoch': self.epoch,
-            'loss': self.meters['loss'].value()[0],
-            'time_elapsed': time_elapsed_batch,
+            'epoch': state.epoch,
+            'loss': state.output,
         }
 
         ex.log_scalar('loss', batch_info['loss'])
-        ex.log_scalar('time_elapsed', batch_info['time_elapsed'])
-        self.meters['loss'].reset()
-        self.logger.info(f"Loss: {batch_info['loss']}; "
-                         f"Time Elapsed {time_elapsed_batch} ")
+        # ex.log_scalar('time_elapsed', batch_info['time_elapsed'])
+        # self.meters['loss'].reset()
+        self.logger.info(f"Loss: {batch_info['loss']}; ")
+        # f"Time Elapsed {time_elapsed_batch} ")
 
     def _train_for_epoch(self):
         self.epoch += 1
@@ -316,26 +357,28 @@ class Trainer(object):
             self._train_with_batch(k, input_data)
         self.after_epoch()
 
-    def after_epoch(self):
+    def after_epoch(self, engine):
         # save artifacts
-        if self.step_count > self.min_output_interval:
-            epoch_file = f"{self.epoch}.pkl"
+        n = engine.state.epoch
+        epoch_file = f"{n}.pkl"
+        with self.change_to_work_dir():
             torch.save(self.model, epoch_file)
             ex.add_artifact(epoch_file)
-            self._after_epoch_plots()
-            self.step_count = 0
+            self.plot_model(engine)
 
-    def _after_epoch_plots(self):
+    def plot_model(self, engine):
         single_column_plots = [plot_q2(), plot_scatter_q2_fqt()]
         for y in [32]:
-            location = self.dataset.isel(y=slice(y, y + 1), x=slice(0, 1))
+            location = self.dataset.isel(
+                y=slice(y, y + 1), x=slice(0, 1), time=slice(0, 200))
             output = self.model.call_with_xr(location)
             for plot in single_column_plots:
-                plot.save_figure(f'{self.epoch}-{y}', location, output)
+                plot.save_figure(f'{engine.state.epoch}-{y}', location, output)
 
-            i = self.epoch
+            i = engine.state.epoch
             filenames = [
-                name + f'{i}-{y}' for name in ['qt', 'fqtnn', 'fqtnn-obs', 'pw']
+                name + f'{i}-{y}'
+                for name in ['qt', 'fqtnn', 'fqtnn-obs', 'pw']
             ]
             water_budget_plots(self.model, self.dataset, location, filenames)
 
@@ -346,7 +389,7 @@ class Trainer(object):
             pass
 
     @contextmanager
-    def _change_to_work_dir(self):
+    def change_to_work_dir(self):
         """Context manager for using a working directory"""
         self.logger.info(f"Saving outputs in {self.output_dir}")
         self._make_work_dir()
@@ -360,9 +403,7 @@ class Trainer(object):
     @ex.capture
     def train(self, epochs):
         """Train the neural network for a fixed number of epochs"""
-        with self._change_to_work_dir():
-            for i in range(epochs):
-                self._train_for_epoch()
+        self.engine.run(self.train_loader, max_epochs=epochs)
 
 
 @ex.automain

@@ -25,7 +25,6 @@ Welcome to UWNET's documentation!
    training-data-header
    smoother
 
-
 .. toctree::
    :maxdepth: 1
    :caption: Software Implementation
