@@ -38,7 +38,7 @@ from torch.utils.data import DataLoader
 from uwnet import model
 from uwnet.columns import single_column_simulation
 from uwnet.datasets import XRTimeSeries
-from uwnet.loss import compute_multiple_step_loss
+from uwnet.loss import compute_multiple_step_loss, weighted_mean_squared_error
 
 ex = Experiment("Q1")
 
@@ -49,12 +49,15 @@ def get_dataset(data):
     except ValueError:
         dataset = xr.open_dataset(data)
 
-    first_step = dataset.isel(step=0).drop('step').drop('p')
-    return first_step
+    try:
+        return dataset.isel(step=0).drop('step').drop('p')
+    except:
+        return dataset
 
 
 def water_budget_plots(model, ds, location, filenames):
-    scm_data = single_column_simulation(model, location, interval=(0, 190))
+    nt = min(len(ds.time), 190)
+    scm_data = single_column_simulation(model, location, interval=(0, nt - 1))
     merged_pred_data = location.rename({
         'SLI': 'SLIOBS',
         'QT': 'QTOBS'
@@ -226,6 +229,8 @@ class Trainer(object):
         self.meters = dict(loss=tnt.meter.AverageValueMeter())
 
         self.dataset = get_dataset(data)
+        self.mass = torch.tensor(self.dataset.layer_mass.values).view(
+            -1, 1, 1).float()
 
         ds = self.dataset.isel(
             z=slice(0, vertical_grid_size),
@@ -264,7 +269,7 @@ class Trainer(object):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
 
         # set up loss function
-        self.criterion = nn.MSELoss()
+        self.criterion = weighted_mean_squared_error(weights=self.mass, dim=-3)
         self.epoch = 0
 
     def _increment_step_count(self):
@@ -292,7 +297,48 @@ class Trainer(object):
             loss.backward()
             self.optimizer.step()
             self.meters['loss'].add(loss.item())
+        self.compute_source_r2(batch)
         self.after_batch()
+
+    def compute_source_r2(self, batch):
+        from .timestepper import Batch
+        from toolz import merge_with
+        from .loss import weighted_r2_score, r2_score
+        src = self.model(batch)
+
+        # compute the apparent source
+        batch = Batch(batch, self.prognostics)
+        g = batch.get_known_forcings()
+        progs = batch.data[self.prognostics]
+        storage = progs.apply(lambda x: (x[1:] - x[:-1]) / self.time_step)
+        forcing = g.apply(lambda x: (x[1:] + x[:-1]) / 2)
+        true_src = storage - forcing * 86400
+
+        # copmute the metrics
+        def wr2_score(args):
+            x, y = args
+            return weighted_r2_score(x, y, self.mass, dim=-3).item()
+
+        prd = src.apply(lambda x: x[:-1])
+        r2s = merge_with(wr2_score, true_src, prd)
+        print(r2s)
+
+        # compute the r2 of the integral
+        pred_int = src.apply(lambda x: (x[:-1] * self.mass).sum(-3))
+        true_int = true_src.apply(lambda x: (x * self.mass).sum(-3))
+
+        def scalar_r2_score(args):
+            return r2_score(*args).item()
+
+        def bias(args):
+            x, y = args
+            return (y.mean() - x.mean()).item() / 1000
+
+        r2s = merge_with(scalar_r2_score, true_int, pred_int)
+        print(r2s)
+
+        r2s = merge_with(bias, true_int, pred_int)
+        print(r2s)
 
     def after_batch(self):
         time_elapsed_batch = time() - self._time_batch_start
@@ -327,7 +373,7 @@ class Trainer(object):
 
     def _after_epoch_plots(self):
         single_column_plots = [plot_q2(), plot_scatter_q2_fqt()]
-        for y in [32]:
+        for y in [0]:
             location = self.dataset.isel(y=slice(y, y + 1), x=slice(0, 1))
             output = self.model.call_with_xr(location)
             for plot in single_column_plots:
@@ -335,7 +381,8 @@ class Trainer(object):
 
             i = self.epoch
             filenames = [
-                name + f'{i}-{y}' for name in ['qt', 'fqtnn', 'fqtnn-obs', 'pw']
+                name + f'{i}-{y}'
+                for name in ['qt', 'fqtnn', 'fqtnn-obs', 'pw']
             ]
             water_budget_plots(self.model, self.dataset, location, filenames)
 
