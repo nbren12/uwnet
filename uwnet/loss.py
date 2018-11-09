@@ -129,19 +129,11 @@ def compute_multiple_step_loss(criterion, model, batch, prognostics, *args,
         for t, prediction in prediction_generator)
 
 
-def compute_multiple_step_loss(criterion, model, batch, prognostics, *args,
-                               **kwargs):
+def loss_with_equilibrium_penalty(criterion, model, batch, prognostics=(),
+                                  time_step=.125):
     """Compute the loss across multiple time steps with an Euler stepper
-
-    Yields
-    ------
-    t: int
-       the time step of the prediction
-    prediction: dict
-       the predicted state
-
     """
-    dt = kwargs.pop('time_step', .125)
+    dt = time_step
     src = model(batch)
     batch = Batch(batch, prognostics)
     g = batch.get_known_forcings()
