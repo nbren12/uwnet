@@ -141,16 +141,21 @@ def compute_multiple_step_loss(criterion, model, batch, prognostics, *args,
        the predicted state
 
     """
+    dt = kwargs.pop('time_step', .125)
     src = model(batch)
     batch = Batch(batch, prognostics)
     g = batch.get_known_forcings()
     progs = batch.data[prognostics]
-    storage = progs.apply(lambda x: (x[1:] - x[:-1]) / .125)
     forcing = g.apply(lambda x: (x[1:] + x[:-1]) / 2)
-    true_src = storage - forcing * 86400
-    l1 = compute_loss(criterion,true_src, src.apply(lambda x: x[:-1]))
 
-    dt = .125 
+    x0 = progs.apply(lambda x: x[:-1])
+    x1 = progs.apply(lambda x: x[1:])
+    src = src.apply(lambda x: x[:-1])
+
+    pred = x0 + dt * src + dt * 86400 * forcing
+
+    l1 = compute_loss(criterion, x1, pred)/dt
+
 
     from random import randint
     i = randint(0, len(batch.data['QT'][0]))
@@ -166,7 +171,7 @@ def compute_multiple_step_loss(criterion, model, batch, prognostics, *args,
 
     l2 = compute_loss(criterion, mean, state)
 
-    return l2 + l1
+    return .1*l2 + l1
 
 
 

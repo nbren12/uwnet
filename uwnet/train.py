@@ -312,6 +312,7 @@ class Trainer(object):
         progs = batch.data[self.prognostics]
         storage = progs.apply(lambda x: (x[1:] - x[:-1]) / self.time_step)
         forcing = g.apply(lambda x: (x[1:] + x[:-1]) / 2)
+        src = src.apply(lambda x: (x[1:] + x[:-1]) / 2)
         true_src = storage - forcing * 86400
 
         # copmute the metrics
@@ -319,12 +320,11 @@ class Trainer(object):
             x, y = args
             return weighted_r2_score(x, y, self.mass, dim=-3).item()
 
-        prd = src.apply(lambda x: x[:-1])
-        r2s = merge_with(wr2_score, true_src, prd)
+        r2s = merge_with(wr2_score, true_src, src)
         print(r2s)
 
         # compute the r2 of the integral
-        pred_int = src.apply(lambda x: (x[:-1] * self.mass).sum(-3))
+        pred_int = src.apply(lambda x: (x * self.mass).sum(-3))
         true_int = true_src.apply(lambda x: (x * self.mass).sum(-3))
 
         def scalar_r2_score(args):
@@ -374,7 +374,7 @@ class Trainer(object):
     def _after_epoch_plots(self):
         single_column_plots = [plot_q2(), plot_scatter_q2_fqt()]
         for y in [32]:
-            location = self.dataset.isel(y=slice(y, y + 1), x=slice(0, 1))
+            location = self.dataset.isel(y=slice(y, y + 1), x=slice(0, 1), time=slice(0, 200))
             output = self.model.call_with_xr(location)
             for plot in single_column_plots:
                 plot.save_figure(f'{self.epoch}-{y}', location, output)
