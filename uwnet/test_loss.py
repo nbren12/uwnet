@@ -1,10 +1,14 @@
-from .loss import (compute_multiple_step_loss, weighted_mean_squared_error,
-                   mean_over_dims, mean_other_dims, weighted_r2_score,
-                   r2_score)
-import torch
-import pytest
-from pytest import approx
+from functools import partial
+
 import numpy as np
+import pytest
+import torch
+from pytest import approx
+
+from .loss import (compute_multiple_step_loss, mean_other_dims, mean_over_dims,
+                   r2_score, weighted_mean_squared_error, weighted_r2_score)
+
+approx = partial(approx, abs=1e-7)
 
 
 def test_compute_multiple_step_loss():
