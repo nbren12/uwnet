@@ -327,7 +327,7 @@ class Trainer(object):
 
     def _after_epoch_plots(self):
         single_column_plots = [plot_q2(), plot_scatter_q2_fqt()]
-        for y in [8]:
+        for y in [32]:
             location = self.dataset.isel(y=slice(y, y + 1), x=slice(0, 1))
             output = self.model.call_with_xr(location)
             for plot in single_column_plots:
