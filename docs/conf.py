@@ -21,6 +21,7 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 from recommonmark.parser import CommonMarkParser
+from recommonmark.transform import AutoStructify
 
 # -- General configuration ------------------------------------------------
 
@@ -170,3 +171,7 @@ mathjax_config = {
     'jax': ['input/TeX', 'output/HTML-CSS'],
 }
 
+
+# At the bottom of conf.py
+def setup(app):
+    app.add_transform(AutoStructify)
