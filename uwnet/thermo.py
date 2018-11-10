@@ -1,6 +1,5 @@
 import numpy as np
 import xarray as xr
-from gnl.xarray import centderiv
 
 grav = 9.81
 cp = 1004
@@ -126,6 +125,7 @@ def get_geostrophic_winds(p, rho, min_cor=1e-5):
 
     """
     # get coriolis force
+    from gnl.xarray import centderiv
     fcor = coriolis_ngaqua(p.y)
     px = centderiv(p, dim='x')/rho
     py = centderiv(p, dim='y')/rho
