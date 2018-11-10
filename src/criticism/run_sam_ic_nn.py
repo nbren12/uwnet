@@ -1,11 +1,13 @@
 import os
 from os.path import join
+import json
 
 import click
 
-from sam.case import InitialConditionCase, get_ngqaua_ic
+from sam.case import InitialConditionCase, get_ngqaua_ic, default_parameters
 
 NGAQUA_ROOT = "/Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX"
+
 
 
 @click.command()
@@ -24,6 +26,7 @@ NGAQUA_ROOT = "/Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX"
 @click.option('-t', type=int, default=0)
 @click.option('-r', '--run', is_flag=True)
 @click.option('-d', '--docker-image', type=str, default='nbren12/uwnet')
+@click.option('-p', '--parameters', type=click.Path(), default=None)
 def main(path,
          neural_network,
          momentum_neural_network,
@@ -32,29 +35,38 @@ def main(path,
          run,
          docker_image,
          model_run_path='model.pkl',
-         momentum_model_run_path='momentum.pkl'):
+         momentum_model_run_path='momentum.pkl',
+         parameters=None):
     """Create SAM case directory for an NGAqua initial value problem and optionally
     run the model with docker.
 
     """
+    if parameters:
+        parameters = json.load(open(parameters))
+    else:
+        parameters = default_parameters()
 
     ic = get_ngqaua_ic(ngaqua_root, t)
 
     case = InitialConditionCase(
-        path=path, ic=ic, sam_src="ext/sam/", docker_image=docker_image)
+        path=path, ic=ic, sam_src="/opt/sam", docker_image=docker_image,
+        prm=parameters)
 
     case.prm['parameters']['dodamping'] = True
-    case.prm['parameters']['khyp'] = 5e16
+    case.prm['parameters']['khyp'] = 1e16
+#     case.prm['parameters']['docloud'] = True
+#     case.prm['parameters']['doprecip'] = True
+#     case.prm['parameters']['dolongwave'] = True
 
     dt = 120.0
     day = 86400
     hour = 3600
     minute = 60
-    time_stop = 10 * day
+    time_stop = 2 * day
 
     output_interval_stat = 30 * minute
-    output_interval_2d = 2 * hour
-    output_interval_3d = 6 * hour
+    output_interval_2d = 1 * hour
+    output_interval_3d = 1 * hour
 
     case.prm['parameters']['dt'] = dt
     case.prm['parameters']['nstop'] = int(time_stop // dt)
@@ -64,9 +76,6 @@ def main(path,
     case.prm['parameters']['nstat'] = int(output_interval_stat // dt)
     case.prm['parameters']['nstatfrq'] = 1  # int(output_interval_stat // dt)
     case.prm['parameters']['nprint'] = int(output_interval_stat // dt)
-
-    case.prm['parameters']['dosgs'] = True
-    case.prm['parameters']['dosurface'] = True
     case.prm['parameters']['ncycle_max'] = 20
 
     # configure neural network run
