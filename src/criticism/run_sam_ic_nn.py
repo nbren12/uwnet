@@ -52,31 +52,25 @@ def main(path,
         path=path, ic=ic, sam_src="/opt/sam", docker_image=docker_image,
         prm=parameters)
 
-    case.prm['parameters']['dodamping'] = True
-    case.prm['parameters']['khyp'] = 1e16
-#     case.prm['parameters']['docloud'] = True
-#     case.prm['parameters']['doprecip'] = True
-#     case.prm['parameters']['dolongwave'] = True
-
-    dt = 120.0
-    day = 86400
-    hour = 3600
-    minute = 60
-    time_stop = 2 * day
-
-    output_interval_stat = 30 * minute
-    output_interval_2d = 1 * hour
-    output_interval_3d = 1 * hour
-
-    case.prm['parameters']['dt'] = dt
-    case.prm['parameters']['nstop'] = int(time_stop // dt)
-    case.prm['parameters']['nsave3d'] = int(output_interval_3d // dt)
-    case.prm['parameters']['nsave2d'] = int(output_interval_2d // dt)
-    case.prm['parameters']['nstat'] = int(output_interval_2d // dt)
-    case.prm['parameters']['nstat'] = int(output_interval_stat // dt)
-    case.prm['parameters']['nstatfrq'] = 1  # int(output_interval_stat // dt)
-    case.prm['parameters']['nprint'] = int(output_interval_stat // dt)
-    case.prm['parameters']['ncycle_max'] = 20
+    # dt = 120.0
+    # day = 86400
+    # hour = 3600
+    # minute = 60
+    # time_stop = 2 * day
+    #
+    # output_interval_stat = 30 * minute
+    # output_interval_2d = 1 * hour
+    # output_interval_3d = 1 * hour
+    #
+    # case.prm['parameters']['dt'] = dt
+    # case.prm['parameters']['nstop'] = int(time_stop // dt)
+    # case.prm['parameters']['nsave3d'] = int(output_interval_3d // dt)
+    # case.prm['parameters']['nsave2d'] = int(output_interval_2d // dt)
+    # case.prm['parameters']['nstat'] = int(output_interval_2d // dt)
+    # case.prm['parameters']['nstat'] = int(output_interval_stat // dt)
+    # case.prm['parameters']['nstatfrq'] = 1  # int(output_interval_stat // dt)
+    # case.prm['parameters']['nprint'] = int(output_interval_stat // dt)
+    # case.prm['parameters']['ncycle_max'] = 20
 
     # configure neural network run
     if neural_network:

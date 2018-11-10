@@ -29,8 +29,9 @@ RUN cd /tmp/pFUnit-3.2.9 && \
 
 # add conda packages
 RUN conda update -y conda
-RUN conda install -y -c pytorch pytorch-cpu python=3.6 numpy toolz xarray
-RUN pip install zarr cffi click attrs
+RUN conda install -y -c pytorch pytorch-cpu python=3.6 numpy toolz xarray \
+                                                   netcdf4
+RUN pip install zarr cffi click attrs dask
 # ADD environment.yml /opt/environment.yml
 # RUN cd /opt && conda env create
 # ENV PATH=/miniconda/envs/uwnet/bin:${PATH}
