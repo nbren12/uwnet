@@ -48,8 +48,8 @@ if(.not.SFC_FLX_FXD) then
                           fluxq0_coef, ustar0, u10n)
        end if
 
-       ! fluxbt(:,:) = fluxt0
-       ! fluxbq(:,:) = fluxq0
+       fluxbt(:,:) = fluxt0
+       fluxbq(:,:) = fluxq0
        fluxbu(:,:) = taux0/rhow(1)
        fluxbv(:,:) = tauy0/rhow(1)
        ! extra parameters for surface fluxes of water isotopologues
@@ -83,12 +83,8 @@ if(.not.SFC_FLX_FXD) then
                   fluxq0_coef, ustar0, u10n)
            end if
 
-           ! noah: zero these out, handled by neural network
-           ! fluxbt(i,j) = 0.0
-           ! fluxbq(i,j) = 0.0
-
-           ! fluxbt(i,j) = fluxt0
-           ! fluxbq(i,j) = fluxq0
+           fluxbt(i,j) = fluxt0
+           fluxbq(i,j) = fluxq0
            ! extra parameters for surface fluxes of water isotopologues
            fluxbq_coef(i,j) = fluxq0_coef
            qsat_surf(i,j) = q_s
@@ -155,8 +151,8 @@ if(.not.SFC_FLX_FXD) then
                  tau0=sqrt( taux0**2 +  tauy0**2)/rhow(1)
                end if
 
-               ! fluxbt(:,:) = fluxt0
-               ! fluxbq(:,:) = fluxq0
+               fluxbt(:,:) = fluxt0
+               fluxbq(:,:) = fluxq0
                fluxbu(:,:) = taux0/rhow(1)
                fluxbv(:,:) = tauy0/rhow(1)
 
@@ -242,8 +238,8 @@ if(SFC_FLX_FXD) then
     fluxbv(:,:) = -(v(1:nx,1:ny,1)+vg)/u_h0*tau0
   end if
 
-  ! fluxbt(:,:) = fluxt0
-  ! fluxbq(:,:) = fluxq0
+  fluxbt(:,:) = fluxt0
+  fluxbq(:,:) = fluxq0
 
 end if ! SFC_FLX_FXD
 
@@ -269,8 +265,8 @@ end if ! SFC_FLX_FXD
 	    fluxt0 = buffer1(1) /float(nsubdomains)
 	    fluxq0 = buffer1(2) /float(nsubdomains)
         end if ! dompi
-	! fluxbt(:,:) = fluxt0
-	! fluxbq(:,:) = fluxq0
+	fluxbt(:,:) = fluxt0
+	fluxbq(:,:) = fluxq0
 
    end if
 
