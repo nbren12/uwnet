@@ -3,7 +3,7 @@ import numpy as np
 
 from uwnet.model import model_factory, call_with_numpy_dict
 import torch
-import debug
+# import debug
 import logging
 from toolz import valmap
 
@@ -18,9 +18,9 @@ def get_models():
 
     # Load Q1/Q2 model
     model_path = os.environ['UWNET_MODEL']
-    MODEL = model_factory().from_path(model_path)
+    MODEL = torch.load(model_path)
     MODEL.eval()
-    MODEL.disable_forcing()
+    # MODEL.disable_forcing()
     models.append(MODEL)
 
     # Load Q3 model
@@ -37,7 +37,7 @@ def get_models():
     return models
 
 
-zarr_logger = debug.ZarrLogger(os.environ.get('UWNET_ZARR_PATH', 'dbg.zarr'))
+# zarr_logger = debug.ZarrLogger(os.environ.get('UWNET_ZARR_PATH', 'dbg.zarr'))
 
 # global variables
 STEP = 0
@@ -131,21 +131,25 @@ def call_neural_network(state):
     # ------------------------------------
     merged_outputs = {}
     for model in MODELS:
-        logger.info(f"Calling {model}")
-        nz = len(model.heights)
+        logger.info(f"Calling NN")
+        nz = 34 #len(model.heights)
         lower_atmos_kwargs = get_lower_atmosphere(kwargs, nz)
 
         # add a singleton dimension and convert to float32
         lower_atmos_kwargs = {key: val[np.newaxis].astype(np.float32) for key,
                               val in lower_atmos_kwargs.items()}
         # call the neural network
-        out = call_with_numpy_dict(model, lower_atmos_kwargs, n=1, n_prog=1, dt=dt)
+        out = call_with_numpy_dict(model, lower_atmos_kwargs)
         # remove the singleton first dimension
         out = valmap(np.squeeze, out)
         out = expand_lower_atmosphere(
             state, out, n_in=nz, n_out=state['QT'].shape[0])
 
-        merged_outputs.update(out)
+        renamed = {}
+        for key in out:
+            renamed['F' + key + 'NN'] = out[key]
+
+        merged_outputs.update(renamed)
 
     # update the state
     state.update(merged_outputs)

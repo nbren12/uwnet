@@ -284,6 +284,9 @@ do while(nstep.lt.nstop.and.nelapse.gt.0)
 ! Neural network
 
       if (dopython .and. (mod(nstep-1, npython) == 0)) call state_to_python(dtn)
+      if (usepython) then
+         call apply_nn_forcings(dtn)
+      end if
 
 !-----------------------------------------------------------
 !    Compute diagnostic fields:
