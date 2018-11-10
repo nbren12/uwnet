@@ -138,3 +138,13 @@ def get_geostrophic_winds(p, rho, min_cor=1e-5):
     ug = ug.where(np.abs(fcor) > min_cor)
     ug.name="UG"
     return ug, vg
+
+
+def compute_apparent_source(prog, forcing):
+    dt = prog.time[1] - prog.time[0]
+    avg_forcing = (forcing + forcing.shift(time=-1))/2
+    return (prog.shift(time=-1) - prog)/dt - avg_forcing
+
+
+def compute_q2(ngaqua):
+    return compute_apparent_source(ngaqua.QT, ngaqua.FQT*86400)

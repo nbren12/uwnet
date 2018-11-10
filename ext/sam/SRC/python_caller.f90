@@ -202,6 +202,7 @@ contains
 
     call get_state("FQTNN", tmp, nx * ny * nzm)
     ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
+    print *, 'SUM OF FQTNN ', sum(tmp**2)
     fqtnn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
     call get_state("FSLINN", tmp, nx * ny * nzm)
@@ -262,12 +263,24 @@ contains
     ! Compute the necessary variables
     print *, 'python_caller.f90::state_to_python calling python code'
     call call_function(module_name, function_name)
-    if (usepython) call get_state_from_python()
+    call get_state_from_python()
 
     print *, 'python_caller.f90::state_to_python storing state to sl_last and qt_last at time', time
     sl_last = t(1:nx, 1:ny, 1:nzm)
     qt_last = micro_field(1:nx, 1:ny, 1:nzm, 1)
     last_time_called = time
   end subroutine state_to_python
+
+  subroutine apply_nn_forcings(dt)
+    use microphysics, only: micro_field
+    use vars, only: t, u, v,w, tabs,&
+         latitude, longitude,&
+         nx, ny, nzm, rho, adz, dz, pres, presi, time, nstep
+    real :: dt
+    t(1:nx, 1:ny, 1:nzm) = t(1:nx, 1:ny, 1:nzm) &
+         + fslinn(1:nx, 1:ny, 1:nzm) * dt / 86400.0
+    micro_field(1:nx, 1:ny, 1:nzm, 1) = micro_field(1:nx, 1:ny, 1:nzm, 1) &
+         + fqtnn(1:nx, 1:ny, 1:nzm) * dt / 86400.0 / 1000.0
+  end subroutine apply_nn_forcings
 
 end module python_caller
