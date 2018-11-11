@@ -1,6 +1,6 @@
 import os
 import sys
-from os.path import join
+from os.path import join, abspath
 
 ## VARIABLES
 DATA_PATH = config.get("data_path", "data/raw/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX")
@@ -101,3 +101,17 @@ rule tropical_subset:
     input: TRAINING_DATA
     output: TROPICS_DATA
     shell: "ncks -d y,24,40 {input} {output}"
+
+
+
+rule sam_run_report:
+    output: "reports/data/runs/{run}.html"
+    params: run="data/runs/{run}", ipynb="reports/data/runs/{run}.ipynb",
+            template=abspath("notebooks/templates/SAMNN-report.ipynb")
+    shell: """
+    papermill -p run_path $PWD/{params.run} -p training_data $PWD/{TRAINING_DATA} \
+            --prepare-only {params.template} {params.ipynb}
+    jupyter nbconvert --execute {params.ipynb}
+    # clean up the notebook
+    rm -f {params.ipynb}
+    """

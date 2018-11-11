@@ -74,10 +74,10 @@ run_momentum:
 
 run_sam:
 	python src/criticism/run_sam_ic_nn.py \
-       -nn models/188/5.pkl \
-			 -p parameters.json \
-	      data/runs/2018-11-10-model188-khyp1e6
-
+		   -nn models/188/5.pkl \
+			 -p parameters_sam_neural_network.json \
+	      data/runs/2018-11-10-model188-khyp1e6-dt15
+          
 sync_data_to_drive:
 	rclone sync --stats 5s data/processed $(RCLONE_REMOTE):$(GOOGLE_DRIVE_DIR)/data/processed
 
