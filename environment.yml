@@ -39,5 +39,6 @@ dependencies:
       - sacred
       - recommonmark
       - sphinx==1.7
+      - pytorch-ignite
       - sphinx_rtd_theme
 
