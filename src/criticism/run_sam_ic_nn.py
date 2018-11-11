@@ -81,7 +81,6 @@ def main(path,
             dict(
                 dopython=True,
                 usepython=True,
-                npython=1,
                 function_name='call_neural_network',
                 module_name='uwnet.sam_interface'))
 
