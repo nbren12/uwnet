@@ -18,6 +18,8 @@ before_install:
   # Useful for debugging any issues with conda
   - conda info -a
 install:
+# this is good for debugging
+  - cat ci/environment.yml
   - conda env create ci/environment.yml
   - source activate uwnet
   - python setup.py develop
