@@ -33,16 +33,17 @@ import torchnet as tnt
 import xarray as xr
 from torch.utils.data import DataLoader
 from uwnet import model
+from uwnet.model import get_model
 from uwnet.columns import single_column_simulation
 from uwnet.datasets import XRTimeSeries
-from uwnet.loss import (weighted_mean_squared_error,
+from uwnet.loss import (weighted_mean_squared_error, column_and_not_mse,
                         loss_with_equilibrium_penalty)
 from ignite.engine import Engine, Events
 from ignite.metrics import RunningAverage
 
 ex = Experiment("Q1")
 
-
+from uwnet.thermo import lhf_to_evap
 @ex.capture
 def get_dataset(data):
     try:
@@ -248,26 +249,26 @@ class Trainer(object):
 
         # compute standard deviation
         self.logger.info("Computing Standard Deviation")
-        scale = train_data.scale
+        self.scale = train_data.scale
 
         # compute scaler
         self.logger.info("Computing Mean")
-        mean = train_data.mean
-
-        input_fields = (('QT', vertical_grid_size),
-                        ('SLI', vertical_grid_size), ('SST', 1), ('SOLIN', 1))
-        output_fields = (('QT', vertical_grid_size), ('SLI',
-                                                      vertical_grid_size))
+        self.mean = train_data.mean
 
         self.prognostics = ['QT', 'SLI']
         self.time_step = float(train_data.timestep())
-
-        self.model = model.ApparentSource(
-            mean, scale, inputs=input_fields, outputs=output_fields)
+        self.setup_model()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
         self.criterion = weighted_mean_squared_error(
             weights=self.mass / self.mass.mean(), dim=-3)
+        # self.criterion = column_and_not_mse(weights=self.mass/self.mass.mean(),
+        #                                     dim=-3)
+
         self.setup_engine()
+
+    @ex.capture
+    def setup_model(self, vertical_grid_size):
+        self.model = get_model(self.mean, self.scale, vertical_grid_size)
 
     def setup_engine(self):
         self.engine = Engine(self.step)
