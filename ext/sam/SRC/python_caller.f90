@@ -11,6 +11,7 @@ module python_caller
   real :: last_time_called
   real, allocatable, dimension(:,:,:) :: sl_last, qt_last, FQTNN, FSLINN,&
     funn, fvnn
+  real, allocatable :: net_prec_xy(:, :), net_heat_xy(:, :)
 
   integer ntop
   ! Do not apply neural network within this boundary region
@@ -30,6 +31,8 @@ contains
     allocate(FSLINN(nx, ny, nzm))
     allocate(funn(nx, ny, nzm))
     allocate(fvnn(nx, ny, nzm))
+    allocate(net_prec_xy(nx, ny))
+    allocate(net_heat_xy(nx, ny))
 
     sl_last = t(1:nx, 1:ny, 1:nzm)
     qt_last = micro_field(1:nx, 1:ny, 1:nzm, 1)
@@ -287,11 +290,14 @@ contains
     use vars, only: t, u, v,w, tabs,&
          latitude, longitude, na, &
          nx, ny, nzm, rho, adz, dz, pres, presi, time, nstep, dudt, dvdt
+    use params, only: cp
     real, intent(in) :: dt
     real :: dt_days
     real, parameter :: seconds_in_day = 86400.0, gkg_to_kgkg=1000.0
+    real :: layer_mass(nzm)
 
     dt_days = dt / seconds_in_day
+    layer_mass = dz * adz * rho
 
     t(1:nx, 1:ny, 1:nzm) = t(1:nx, 1:ny, 1:nzm) &
          + fslinn(1:nx, 1:ny, 1:nzm) * dt_days
@@ -300,6 +306,26 @@ contains
 
     dudt(1:nx, 1:ny, 1:nzm,na) = dudt(1:nx, 1:ny, 1:nzm,na) + funn * dt_days
     dvdt(1:nx, 1:ny, 1:nzm,na) = dvdt(1:nx, 1:ny, 1:nzm,na) + fvnn * dt_days
+
+    ! mm / day
+    net_prec_xy = - vertical_sum(fqtnn, layer_mass) / gkg_to_kgkg
+    ! W/m2
+    net_heat_xy = vertical_sum(fslinn, layer_mass) * cp / seconds_in_day
   end subroutine apply_nn_forcings
+
+  function vertical_sum(x, w)
+    real, intent(in) :: x(:,:,:), w(:)
+    real :: vertical_sum(size(x, 1), size(x, 2))
+
+    integer i, nz
+    vertical_sum = 0.0
+
+    nz = size(x, 3)
+
+    do i=1,nz
+       vertical_sum = vertical_sum + w(i)*x(:,:,i)
+    end do
+
+  end function vertical_sum
 
 end module python_caller

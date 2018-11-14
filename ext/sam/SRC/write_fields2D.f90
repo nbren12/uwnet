@@ -4,6 +4,7 @@ subroutine write_fields2D
 use vars
 use params
 use microphysics, only: nfields2D_micro, micro_write_fields2D
+use python_caller, only: net_heat_xy, net_prec_xy
 implicit none
 character *120 filename
 character *80 long_name
@@ -150,11 +151,11 @@ if(dopython) then
    nfields1=nfields1+1
    do j=1,ny
       do i=1,nx
-         tmp(i,j,1)=prec_xy(i,j)  * coef
+         tmp(i,j,1)=net_prec_xy(i,j)  * coef
       end do
    end do
-   name='Prec'
-   long_name='Surface Precip. Rate'
+   name='NPNN'
+   long_name='Net Precipitation from NN'
    units='mm/day'
    call compress3D(tmp,nx,ny,1,name,long_name,units, &
         save2Dbin,dompi,rank,nsubdomains)
@@ -163,12 +164,12 @@ if(dopython) then
    nfields1=nfields1+1
    do j=1,ny
       do i=1,nx
-         tmp(i,j,1)=lhf_xy(i,j)  * coef
+         tmp(i,j,1)=net_heat_xy(i,j)  * coef
          ! lhf_xy(i,j) = 0.
       end do
    end do
-   name='LHF'
-   long_name='Latent Heat Flux'
+   name='NHNN'
+   long_name='Net Heating from NN'
    units='W/m2'
    call compress3D(tmp,nx,ny,1,name,long_name,units, &
         save2Dbin,dompi,rank,nsubdomains)
