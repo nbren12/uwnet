@@ -9,7 +9,8 @@ module python_caller
   character(len=256) :: module_name, function_name
 
   real :: last_time_called
-  real, allocatable, dimension(:,:,:) :: sl_last, qt_last, FQTNN, FSLINN
+  real, allocatable, dimension(:,:,:) :: sl_last, qt_last, FQTNN, FSLINN,&
+    funn, fvnn
 
   integer ntop
   ! Do not apply neural network within this boundary region
@@ -27,6 +28,8 @@ contains
     allocate(qt_last(nx, ny, nzm))
     allocate(FQTNN(nx, ny, nzm))
     allocate(FSLINN(nx, ny, nzm))
+    allocate(funn(nx, ny, nzm))
+    allocate(fvnn(nx, ny, nzm))
 
     sl_last = t(1:nx, 1:ny, 1:nzm)
     qt_last = micro_field(1:nx, 1:ny, 1:nzm, 1)
@@ -209,6 +212,14 @@ contains
     ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
     fslinn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
+    call get_state("FUNN", tmp, nx * ny * nzm)
+    ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
+    funn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
+
+    call get_state("FVNN", tmp, nx * ny * nzm)
+    ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
+    fvnn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
+
     call get_state("QN", tmp, nx*ny*nzm)
     tmp = tmp / 1.e3
     qn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
@@ -226,11 +237,11 @@ contains
     call get_state("SHF", tmp, nx * ny)
     shf_xy(1:nx, 1:ny) = tmp(:,:,1)
 
-    call get_state("U", tmp, nx*ny*nzm)
-    u(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
+    ! call get_state("U", tmp, nx*ny*nzm)
+    ! u(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
-    call get_state("V", tmp, nx*ny*nzm)
-    v(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
+    ! call get_state("V", tmp, nx*ny*nzm)
+    ! v(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
     ! call get_state("W", tmp, nx*ny*nzm)
     ! w(1:nx, 1:ny, 1:nzm) = tmp
@@ -274,13 +285,21 @@ contains
   subroutine apply_nn_forcings(dt)
     use microphysics, only: micro_field
     use vars, only: t, u, v,w, tabs,&
-         latitude, longitude,&
-         nx, ny, nzm, rho, adz, dz, pres, presi, time, nstep
-    real :: dt
+         latitude, longitude, na, &
+         nx, ny, nzm, rho, adz, dz, pres, presi, time, nstep, dudt, dvdt
+    real, intent(in) :: dt
+    real :: dt_days
+    real, parameter :: seconds_in_day = 86400.0, gkg_to_kgkg=1000.0
+
+    dt_days = dt / seconds_in_day
+
     t(1:nx, 1:ny, 1:nzm) = t(1:nx, 1:ny, 1:nzm) &
-         + fslinn(1:nx, 1:ny, 1:nzm) * dt / 86400.0
+         + fslinn(1:nx, 1:ny, 1:nzm) * dt_days
     micro_field(1:nx, 1:ny, 1:nzm, 1) = micro_field(1:nx, 1:ny, 1:nzm, 1) &
-         + fqtnn(1:nx, 1:ny, 1:nzm) * dt / 86400.0 / 1000.0
+         + fqtnn(1:nx, 1:ny, 1:nzm) * dt_days  / gkg_to_kgkg
+
+    dudt(1:nx, 1:ny, 1:nzm,na) = dudt(1:nx, 1:ny, 1:nzm,na) + funn * dt_days
+    dvdt(1:nx, 1:ny, 1:nzm,na) = dvdt(1:nx, 1:ny, 1:nzm,na) + fvnn * dt_days
   end subroutine apply_nn_forcings
 
 end module python_caller
