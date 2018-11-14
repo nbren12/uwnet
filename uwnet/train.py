@@ -36,14 +36,12 @@ from uwnet import model
 from uwnet.model import get_model
 from uwnet.columns import single_column_simulation
 from uwnet.datasets import XRTimeSeries
-from uwnet.loss import (weighted_mean_squared_error, column_and_not_mse,
-                        loss_with_equilibrium_penalty)
+from uwnet.loss import (weighted_mean_squared_error, loss_with_equilibrium_penalty)
 from ignite.engine import Engine, Events
 from ignite.metrics import RunningAverage
 
 ex = Experiment("Q1")
 
-from uwnet.thermo import lhf_to_evap
 @ex.capture
 def get_dataset(data):
     try:
