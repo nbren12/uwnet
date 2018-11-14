@@ -8,7 +8,7 @@ from torch import nn
 
 import xarray as xr
 from uwnet.modules import LinearDictIn, LinearDictOut
-from uwnet.normalization import scaler
+from uwnet.normalization import Scaler
 
 
 def cat(seq):
@@ -22,12 +22,11 @@ def cat(seq):
     return sizes, torch.cat(seq_with_nulldim, -1)
 
 
-def uncat(sizes, x):
-    return x.split(sizes, dim=-1)
-
-
 def _dataset_to_torch_dict(ds):
-    return {key: torch.from_numpy(ds[key].values).float() for key in ds.data_vars}
+    return {
+        key: torch.from_numpy(ds[key].values).float()
+        for key in ds.data_vars
+    }
 
 
 def _torch_dict_to_dataset(output, coords):
@@ -74,10 +73,8 @@ def _torch_dict_to_numpy_dict(output):
 def call_with_numpy_dict(self, inputs, **kwargs):
     """Call the neural network with numpy inputs"""
     with torch.no_grad():
-        return pipe(inputs,
-                    _numpy_dict_to_torch_dict,
-                    partial(self, **kwargs),
-                    _torch_dict_to_numpy_dict)
+        return pipe(inputs, _numpy_dict_to_torch_dict,
+                    partial(self, **kwargs), _torch_dict_to_numpy_dict)
 
 
 class SaverMixin(object):
@@ -208,8 +205,10 @@ class VariableList(object):
 
 def _height_to_last_dim(x, input_specs, z_axis=-3):
     # make the inputs have the right shape
-    return {spec.name: spec.move_height_to_last_dim(x[spec.name])
-            for spec in input_specs}
+    return {
+        spec.name: spec.move_height_to_last_dim(x[spec.name])
+        for spec in input_specs
+    }
 
 
 def _height_to_original_dim(out, specs, z_axis=-3):
@@ -225,30 +224,12 @@ def _height_to_original_dim(out, specs, z_axis=-3):
 class ApparentSource(nn.Module):
     """PyTorch module for predicting Q1, Q2 and maybe Q3"""
 
-    def __init__(self,
-                 mean,
-                 scale,
-                 inputs=(('LHF', 1), ('SHF', 1), ('SOLIN', 1), ('QT', 34),
-                         ('SLI', 34), ('FQT', 34), ('FSLI', 34)),
-                 outputs=(('SLI', 34), ('QT', 34))):
-
+    def __init__(self, model, inputs=(), outputs=()):
         "docstring"
         super(ApparentSource, self).__init__()
-
+        self.model = model
         self.inputs = VariableList.from_tuples(inputs)
         self.outputs = VariableList.from_tuples(outputs)
-
-        self.mean = mean
-        self.scale = scale
-        self.scaler = scaler(scale, mean)
-        n = 256
-
-        self.model = nn.Sequential(
-            LinearDictIn([(x.name, x.num) for x in self.inputs], n),
-            nn.ReLU(),
-            nn.Linear(n, n),
-            nn.ReLU(),
-            LinearDictOut(n, [(x.name, x.num) for x in self.outputs]))
 
     def forward(self, x):
         """Estimated source terms and diagnostics
@@ -257,8 +238,7 @@ class ApparentSource(nn.Module):
 
         """
         reshaped_inputs = _height_to_last_dim(x, input_specs=self.inputs)
-        scaled = self.scaler(reshaped_inputs)
-        out = self.model(scaled)
+        out = self.model(reshaped_inputs)
         return _height_to_original_dim(out, self.outputs)
 
     def call_with_xr(self, ds, **kwargs):
@@ -269,120 +249,44 @@ class ApparentSource(nn.Module):
         return _torch_dict_to_dataset(output, ds.coords)
 
 
-class ForcedStepper(nn.Module, SaverMixin):
-    """Single Column Model Stepper
+class InnerModel(nn.Module):
+    """Inner model which operates with height along the last dimension"""
 
-    Integrates the single column equations with the trapezoid rule:
+    def __init__(self, mean, scale, inputs, outputs):
+        "docstring"
+        super(InnerModel, self).__init__()
 
-        x_n+1 = x_n + f(x_n) dt + (g(t_n) + g(t_n+1)) dt / 2
+        n = 256
 
-    """
-
-    def __init__(self,
-                 mean,
-                 scale,
-                 time_step,
-                 auxiliary=(),
-                 prognostic=(),
-                 diagnostic=(),
-                 forcing=()):
-        super(ForcedStepper, self).__init__()
-
-        # store arguments for saver mixin
-        self.kwargs = locals()
-        self.kwargs.pop('self')
-        self.kwargs.pop('__class__')
-
-        self.time_step = torch.tensor(float(time_step), requires_grad=False)
-        self.auxiliary = auxiliary
-        self.prognostic = prognostic
-        self.diagnostic = diagnostic
-        self.forcing = forcing
-
-        self.rhs = ApparentSource(
-            mean,
-            scale,
-            inputs=auxiliary + prognostic,
-            outputs=prognostic + diagnostic)
-
-    def _get_sequence_length(self, x):
-        return x[first(self.prognostic)[0]].size(0) - 1
-
-    def _get_auxiliary_for_step(self, x, t):
-        return {key: x[key][t] for key, _ in self.auxiliary}
-
-    def _get_prognostic_for_step(self, x, t):
-        return {key: x[key][t] for key, _ in self.prognostic}
-
-    def _get_forcing_for_step(self, x, t):
-        """Use trapezoid rule to get the forcing"""
-        return {
-            key: (x['F' + key][t] + x['F' + key][t + 1]) / 2
-            for key in self.forcing
-        }
-
-    def _update_prognostics_and_diagnostics(self, prog, forcing, nn_output, dt=None):
-        if dt is None:
-            dt = self.time_step
-        else:
-            dt = torch.tensor(float(dt)).float()
-
-        for key, num in self.prognostic:
-            # apparent source should be units [key]/seconds
-            apparent_src = nn_output.pop(key) / 86400
-            prog[key] = prog[key] + apparent_src * dt
-            # store neural network diagnostics for layer
-            nn_output['F' + key + 'NN'] = apparent_src
-            # add the large-scale forcing
-            for key in forcing:
-                prog[key] = prog[key] + self.time_step * forcing[key]
-
-    def disable_forcing(self):
-        self._forcing = self.forcing
-        self.forcing = ()
+        self.scaler = Scaler(mean, scale)
+        self.model = nn.Sequential(
+            self.scaler,
+            LinearDictIn([(name, num) for name, num in inputs], n),
+            nn.ReLU(),
+            nn.Linear(n, n),
+            nn.ReLU(),
+            nn.Linear(n, n),
+            nn.ReLU(), LinearDictOut(n, [(name, num) for name, num in outputs]))
 
     @property
-    def heights(self):
-        n = max(self.rhs.inputs.nums)
-        return range(n)
+    def scale(self):
+        return self.scaler.scale
 
-    def forward(self, x, n=None, n_prog=None, dt=None):
-        """Produce an n-step prediction for single column mode
-
-        Parameters
-        ----------
-        x : dict
-            a dict of torch tensors containing all the keys in the prognostic, diagnostic, and forcing attributes
-        n : int
-            the number of time steps to produce a prediction for
-        n_prog : int
-            the number of burn-in-steps. The prediction only begins after n_prog steps.
-        """
-        x = x.copy()
+    def forward(self, x):
+        q0 = self.scale['QT']
+        q0 = q0.clamp(max=1)
+        y = self.model(x)
+        y['QT'] = y['QT'] * q0
+        return y
 
 
-        if n is None:
-            n = self._get_sequence_length(x)
+def get_model(mean, scale, vertical_grid_size):
+    """Create an MLP with scaled inputs and outputs
+    """
 
-        if n_prog is None:
-            n_prog = n
+    inputs = [('QT', vertical_grid_size), ('SLI', vertical_grid_size),
+              ('SST', 1), ('SOLIN', 1)]
 
-        predictions = []
-        for t in range(n):
-            if t < n_prog:
-                prog = self._get_prognostic_for_step(x, t)
-            aux = self._get_auxiliary_for_step(x, t)
-            forcing = self._get_forcing_for_step(x, t)
-            # call neural network
-            nn_output = self.rhs(merge(aux, prog))
-            self._update_prognostics_and_diagnostics(prog, forcing, nn_output, dt=dt)
-            predictions.append(merge(nn_output, prog))
-
-        return merge_with(torch.stack, predictions)
-
-    def __repr__(self):
-        return 'ForcedStepper'
-
-
-def model_factory():
-    return ForcedStepper
+    outputs = (('QT', vertical_grid_size), ('SLI', vertical_grid_size))
+    model = InnerModel(mean, scale, inputs, outputs)
+    return ApparentSource(model, inputs, outputs)
