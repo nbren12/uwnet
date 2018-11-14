@@ -64,7 +64,7 @@ NAMELIST /UWOPTIONS/ rad_simple_fluxdiv1, &
      tauz0_wtg_qnudge, taulz_wtg_qnudge, &
      am_wtg, am_wtg_exp, lambda_wtg
 
-namelist /python/ module_name, function_name, dopython,npython, usepython
+namelist /python/ module_name, function_name, dopython,npython, usepython, do_debias_lhf
 
 
 !bloss: Create dummy namelist, so that we can figure out error code

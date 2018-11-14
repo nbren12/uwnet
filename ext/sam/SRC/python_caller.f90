@@ -7,6 +7,7 @@ module python_caller
 
 
   character(len=256) :: module_name, function_name
+  logical :: do_debias_lhf = .false.
 
   real :: last_time_called
   real, allocatable, dimension(:,:,:) :: sl_last, qt_last, FQTNN, FSLINN,&
@@ -17,6 +18,21 @@ module python_caller
   ! Do not apply neural network within this boundary region
   integer, parameter :: meridional_bndy_size = 3
 contains
+
+  subroutine bias_correct_lhf(x, corrected)
+    ! Use a polynomial fit to correct the latent heat fluxes
+    ! I estimated these coefficients using python
+    real, dimension(3), parameter :: coefs  = [-5.24149046e-04,  1.15227747e+00,  4.92990095e+00]
+    real, dimension(:, :), intent(in) :: x
+    real, dimension(:, :), intent(out) :: corrected
+
+    integer k, n
+    corrected = 0.0
+    n = size(coefs)
+    do k=1,n
+       corrected = corrected  + x**(n-k) * coefs(k)
+    end do
+  end subroutine bias_correct_lhf
 
   subroutine initialize_python_caller()
     use vars, only: nx, ny, nz, nzm, rho, pres, presi, caseid, case, adz, dz, t, time
@@ -96,12 +112,16 @@ contains
     use vars, only: t, u, v,w, tabs,&
          shf_xy, lhf_xy, sstxy, t00, prec_xy,&
          latitude, longitude,&
-         nx, ny, nzm, rho, adz, dz, pres, presi, time, nstep, day, caseid, case, nz, dtn
+         nx, ny, nzm, rho, adz, dz, pres, presi, time, nstep, day, caseid, case, nz, dtn,&
+         fluxbq, fluxbt, rhow
     use microphysics, only: micro_field
+    use params, only: lcond, cp
     use rad, only: solinxy
     ! compute derivatives
     real, dimension(nx,ny,nzm) :: fqt, fsl
-    real(4) :: tmp(1:nx, 1:ny, 1:nzm), tmp_vert(1:nzm), tmp_vertw(1:nz), tmp_scalar
+    real(4) :: tmp_vert(1:nzm), tmp_vertw(1:nz), tmp_scalar
+    real(4), dimension(1:nx, 1:ny, 1:nzm) :: tmp
+    real, dimension(1:nx, 1:ny) :: lhf_no_bias
     real :: dt
 
     ntop = nzm
@@ -147,10 +167,19 @@ contains
     tmp(:,:,1) = sstxy(1:nx, 1:ny) + t00
     call set_state2d("SST", tmp(:,:,1))
 
-
     tmp(:,:,1) = solinxy(1:nx, 1:ny)
     call set_state2d("SOLIN", tmp(:,:,1))
 
+    tmp(:,:,1) = fluxbt(1:nx, 1:ny) * cp * rhow(1)
+    call set_state2d("SHF", tmp(:,:,1))
+
+    if (do_debias_lhf) then
+      call bias_correct_lhf(fluxbq(1:nx, 1:ny) * lcond * rhow(1), lhf_no_bias)
+      tmp(:,:,1) = lhf_no_bias
+    else
+        tmp(:,:,1) = fluxbq(1:nx, 1:ny) * lcond * rhow(1)
+    end if
+    call set_state2d("LHF", tmp(:,:,1))
 
     tmp_vert = rho * adz * dz
     call set_state_1d("layer_mass", tmp_vert)
