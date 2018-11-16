@@ -65,7 +65,7 @@ def get_formatted_training_data_from_batch(
     ]
     for i in range(1, n_time_steps + 1):
         batch_values = [
-            data.sel(x=row.x, y=row.y, time=row.time + (dt * i))
+            data.sel(x=row.x, y=row.y, time=row.time + (dt * 86400 * i))
             for _, row in batch.iterrows()
         ]
         true_states.append(np.array([

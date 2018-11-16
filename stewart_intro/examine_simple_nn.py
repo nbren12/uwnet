@@ -91,14 +91,15 @@ def get_weighted_r2_score(true, pred, data):
 
 
 def get_diagnostic_r2_score(w1, w2, data, dt=default_dt):
-    time_steps = 100
+    time_steps = 20
     q1_r2s = []
     q2_r2s = []
+    np.random.seed(33)
     for x in np.random.choice(data.x.values, 10):
         for y in np.random.choice(data.y.values, 10):
             for time in np.random.choice(
                     data.time.values[data.time.values < data.time.values[
-                        -time_steps]], 3):
+                        -(time_steps * int(dt / default_dt))]], 3):
                 point = pd.DataFrame(
                     [[x, y, time]], columns=['x', 'y', 'time'])
                 (

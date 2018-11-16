@@ -11,21 +11,23 @@ We can evaluate this hypothesis by training models with 3, 6, and 9 hour time
 steps, and evaluating the R2 for each step.
 """
 
-from stewart_intro.simple_nn import train_model
-from stewart_intro.examine_simple_nn import (
+from train_nn import train_model
+from stewart_intro.evaluate_model import (
     plot_q_vs_nn_output,
     get_diagnostic_r2_score,
 )
 import numpy as np
 
 min_time_step = .125
-graph_save_location_format = '/Users/stewart/Desktop/time_error_dt_{}.png'
+graph_save_location_format = '/Users/stewart/Desktop/time_error_dt_{}'
 
 
-for dt in np.arange(min_time_step, 4 * min_time_step, min_time_step):
+for dt in np.arange(min_time_step, 10 * min_time_step, min_time_step):
     print(f'\n\ndt = {dt}')
-    w1, w2, data = train_model(
-        dt=dt, model_name=f'dt_{dt}' + '_{}', n_epochs=1, training_rate=0.1)
+    model, data = train_model(dt=dt, model_name=f'dt_{dt}' + '_{}', n_epochs=1)
     plot_q_vs_nn_output(
-        w1, w2, data, save_location=graph_save_location_format.format(dt))
-    get_diagnostic_r2_score(w1, w2, data, dt=dt)
+        model,
+        data,
+        save_location_format_str=graph_save_location_format.format(
+            dt) + '{}.png')
+    get_diagnostic_r2_score(model, data, dt=dt)
