@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from toolz import valmap
 from torch.utils.data import Dataset
-
+from itertools import product
 import xarray as xr
 
 
@@ -29,7 +29,7 @@ def _to_numpy(x: xr.DataArray):
 
 
 def _ds_slice_to_torch(ds):
-    return valmap(lambda x: torch.from_numpy(x).detach(),
+    return valmap(lambda x: torch.from_numpy(x).detach().float(),
                   _ds_slice_to_numpy_dict(ds))
 
 
@@ -53,34 +53,38 @@ class XRTimeSeries(Dataset):
     dims = ['time', 'z', 'x', 'y']
     batch_dims = ['y', 'x']
 
-    def __init__(self, data):
+    def __init__(self, data, time_length=None):
         """Initialize XRTimeSeries.
 
         """
+        self.time_length = time_length or len(data.time)
         self.data = data
         self.numpy_data = {key: data[key].values for key in data.data_vars}
         self.data_vars = set(data.data_vars)
         self.dims = {key: data[key].dims for key in data.data_vars}
-        self.constants = {key for key in data.data_vars
-                          if len({'x', 'y', 'time'} & set(data[key].dims)) == 0}
+        self.constants = {
+            key
+            for key in data.data_vars
+            if len({'x', 'y', 'time'} & set(data[key].dims)) == 0
+        }
+        self.setup_indices()
+
+    def setup_indices(self):
+        len_x = len(self.data['x'].values)
+        len_y = len(self.data['y'].values)
+        len_t = len(self.data['time'].values)
+
+        x_iter = range(0, len_x, 1)
+        y_iter = range(0, len_y, 1)
+        t_iter = range(0, len_t, self.time_length)
+        assert len_t % self.time_length == 0
+        self.indices = list(product(t_iter, y_iter, x_iter))
 
     def __len__(self):
-        res = 1
-        for dim in self.batch_dims:
-            res *= len(self.data[dim])
-        return res
+        return len(self.indices)
 
     def __getitem__(self, i):
-
-        # convert i to an array
-        # this code should handle i = slice, list, etc
-        i = np.arange(len(self))[i]
-
-        # get coordinates using np.unravel_index
-        # this code should probably be refactored
-        batch_shape = [len(self.data[dim]) for dim in self.batch_dims]
-
-        idxs = np.unravel_index(i, batch_shape)
+        t, y, x = self.indices[i]
         output_tensors = {}
         for key in self.data_vars:
             if key in self.constants:
@@ -88,11 +92,12 @@ class XRTimeSeries(Dataset):
 
             data_array = self.numpy_data[key]
             if 'z' in self.dims[key]:
-                this_array_index = (slice(None), slice(None)) + idxs
+                this_array_index = (slice(t, t + self.time_length),
+                                    slice(None), y, x)
             else:
-                this_array_index = (slice(None),) + idxs
-            output_tensors[key] = data_array[this_array_index].astype(np.float32)
-
+                this_array_index = (slice(t, t + self.time_length), y, x)
+            output_tensors[key] = data_array[this_array_index].astype(
+                np.float32)
         return output_tensors
 
     @property
