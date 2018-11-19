@@ -1,7 +1,7 @@
 import torch
 from toolz import curry
 from torch.nn.functional import mse_loss
-from .timestepper import Batch, predict_multiple_steps
+from .timestepper import predict_multiple_steps
 
 
 def get_other_dims(x, dim):
@@ -30,7 +30,7 @@ def weighted_r2_score(truth, prediction, weights, dim=-1):
     mean = mean_other_dims(truth, dim)
     squares = weighted_mean_squared_error(truth, mean, weights, dim)
     residuals = weighted_mean_squared_error(truth, prediction, weights, dim)
-    return 1 - residuals/squares
+    return 1 - residuals / squares
 
 
 @curry
@@ -41,7 +41,7 @@ def mse_with_integral(truth, prediction, weights, dim=-3):
     l1 = mse_loss(ctruth, cpred)
     l2 = weighted_mean_squared_error(truth, prediction, weights, dim)
 
-    return l1  + l2
+    return l1 + l2
 
 
 @curry
@@ -84,7 +84,6 @@ def compute_multiple_step_loss(criterion, model, batch, prognostics, *args,
        the predicted state
 
     """
-    batch = Batch(batch, prognostics)
     prediction_generator = predict_multiple_steps(model, batch, *args,
                                                   **kwargs)
     return sum(
@@ -92,15 +91,17 @@ def compute_multiple_step_loss(criterion, model, batch, prognostics, *args,
         for t, prediction in prediction_generator)
 
 
-def loss_with_equilibrium_penalty(criterion, model, batch, prognostics=(),
+def loss_with_equilibrium_penalty(criterion,
+                                  model,
+                                  batch,
+                                  prognostics=(),
                                   time_step=.125):
     """Compute the loss across multiple time steps with an Euler stepper
     """
     dt = time_step
-    src = model(batch)
-    batch = Batch(batch, prognostics)
+    src = model(batch.data)
     g = batch.get_known_forcings()
-    progs = batch.data[prognostics]
+    progs = batch.get_prognostics()
     forcing = g.apply(lambda x: (x[1:] + x[:-1]) / 2)
 
     x0 = progs.apply(lambda x: x[:-1])
@@ -109,14 +110,13 @@ def loss_with_equilibrium_penalty(criterion, model, batch, prognostics=(),
 
     pred = x0 + dt * src + dt * 86400 * forcing
 
-    l1 = compute_loss(criterion, x1, pred)/dt
-
+    l1 = compute_loss(criterion, x1, pred) / dt
 
     from random import randint
     i = randint(0, len(batch.data['QT'][0]))
 
     state0 = batch.get_prognostics_at_time(i)
-    mean = batch.data[prognostics].apply(lambda x: x.mean(dim=0))
+    mean = progs.apply(lambda x: x.mean(dim=0))
     mean_forcing = g.apply(lambda x: x.mean(dim=0))
     state = state0
     for i in range(20):
@@ -126,9 +126,4 @@ def loss_with_equilibrium_penalty(criterion, model, batch, prognostics=(),
 
     l2 = compute_loss(criterion, mean, state)
 
-    return .1*l2 + l1
-
-
-
-
-
+    return .1 * l2 + l1

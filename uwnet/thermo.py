@@ -155,3 +155,11 @@ def vorcitity(u, v):
     psi = u.differentiate('y') - v.differentiate('x')
     psi.name = 'Vorticity'
     return psi
+
+
+def lhf_to_evap(lhf):
+    rhow = 1000
+    evap = lhf / 2.51e6 / rhow * 86400 * 1000
+    evap.name = 'Evaporation'
+    evap.attrs['units'] = 'mm/day'
+    return evap

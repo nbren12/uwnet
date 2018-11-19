@@ -29,6 +29,7 @@ from sacred import Experiment
 from toolz import valmap
 
 import torch
+import torch.nn.functional as F
 import torchnet as tnt
 import xarray as xr
 from torch.utils.data import DataLoader
@@ -49,10 +50,19 @@ def get_dataset(data):
     except ValueError:
         dataset = xr.open_dataset(data)
 
+    # mean = get_mean(dataset)
+    # q0 = dataset.isel(time=0).QT.max(['x', 'y'])
+    # d = (1/q0).where(q0 > 1e-2, 0.0)
+    # d = d.where(d > 1, 1.0)
+    # dataset['QT'] = dataset.QT * d
+    # dataset['FQT'] = dataset.FQT * d
+
+
     try:
         return dataset.isel(step=0).drop('step').drop('p')
     except:
         return dataset
+
 
 
 def water_budget_plots(model, ds, location, filenames):
@@ -60,7 +70,9 @@ def water_budget_plots(model, ds, location, filenames):
     scm_data = single_column_simulation(model, location, interval=(0, nt - 1))
     merged_pred_data = location.rename({
         'SLI': 'SLIOBS',
-        'QT': 'QTOBS'
+        'QT': 'QTOBS',
+        'U': 'UOBS',
+        'V': 'VOBS',
     }).merge(
         scm_data, join='inner')
     output = model.call_with_xr(merged_pred_data)
@@ -169,6 +181,8 @@ def my_config():
     min_output_interval = 0
     output_dir = None
 
+    prognostics = ['QT', 'SLI']
+
 
 def is_one_dimensional(val):
     return val.dim() == 2
@@ -181,12 +195,14 @@ def redimension_torch_loader_output(val):
         return val.permute(1, 2, 0).unsqueeze(-1)
 
 
-def get_model_inputs_from_batch(batch):
+@ex.capture
+def get_model_inputs_from_batch(batch, prognostics):
     """Redimension a batch from a torch data loader
 
     Torch's data loader class is very helpful, but it produces data which has a shape of (batch, feature). However, the models require input in the physical dimensions (time, z, y, x), this function reshapes these arrays.
     """
-    return valmap(redimension_torch_loader_output, batch)
+    from .timestepper import Batch
+    return Batch(valmap(redimension_torch_loader_output, batch), prognostics)
 
 
 class Trainer(object):
@@ -231,16 +247,19 @@ class Trainer(object):
         self.dataset = get_dataset()
         self.mass = torch.tensor(self.dataset.layer_mass.values).view(
             -1, 1, 1).float()
+        self.z = torch.tensor(self.dataset.z.values).float()
 
-        ds = self.dataset.isel(
+        self.dataset_subset = self.dataset.isel(
             z=slice(0, vertical_grid_size),
             y=slice(*y),
             x=slice(*x),
             time=slice(*time_sl))
 
+        ds =  self.dataset_subset
+
         self.nt = len(ds.time)
 
-        train_data = XRTimeSeries(ds)
+        train_data = XRTimeSeries(ds, time_length=160)
         self.train_loader = DataLoader(
             train_data, batch_size=batch_size, shuffle=True)
         self.constants = train_data.torch_constants()
@@ -253,14 +272,15 @@ class Trainer(object):
         self.logger.info("Computing Mean")
         self.mean = train_data.mean
 
-        self.prognostics = ['QT', 'SLI']
         self.time_step = float(train_data.timestep())
         self.setup_model()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+        # self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=50, gamma=.25)
         self.criterion = weighted_mean_squared_error(
             weights=self.mass / self.mass.mean(), dim=-3)
         # self.criterion = column_and_not_mse(weights=self.mass/self.mass.mean(),
         #                                     dim=-3)
+        self.plot_interval = 1
 
         self.setup_engine()
 
@@ -290,7 +310,7 @@ class Trainer(object):
         self.optimizer.zero_grad()
         batch = get_model_inputs_from_batch(batch)
         loss = loss_with_equilibrium_penalty(
-            self.criterion, self.model, batch, prognostics=self.prognostics)
+            self.criterion, self.model, batch)
         loss.backward()
         self.optimizer.step()
         return loss.item()
@@ -342,24 +362,18 @@ class Trainer(object):
             'loss': state.output,
         }
 
+        n = len(self.train_loader)
+        batch = state.iteration % (n + 1)
         ex.log_scalar('loss', batch_info['loss'])
-        # ex.log_scalar('time_elapsed', batch_info['time_elapsed'])
-        # self.meters['loss'].reset()
-        self.logger.info(f"Loss: {batch_info['loss']}; ")
-        # f"Time Elapsed {time_elapsed_batch} ")
-
-    def _train_for_epoch(self):
-        self.epoch += 1
-        logging.info(f"Epoch {self.epoch}")
-        for k, batch in enumerate(self.train_loader):
-            input_data = get_model_inputs_from_batch(batch)
-            self._train_with_batch(k, input_data)
-        self.after_epoch()
 
     def after_epoch(self, engine):
         # save artifacts
         n = engine.state.epoch
         epoch_file = f"{n}.pkl"
+
+        if n % self.plot_interval != 0:
+            return
+
         with self.change_to_work_dir():
             torch.save(self.model, epoch_file)
             ex.add_artifact(epoch_file)
@@ -380,6 +394,28 @@ class Trainer(object):
                 for name in ['qt', 'fqtnn', 'fqtnn-obs', 'pw']
             ]
             water_budget_plots(self.model, self.dataset, location, filenames)
+
+    def imbalance_plot(self, engine):
+        n = engine.state.epoch
+        if n % self.plot_interval != 0:
+            return
+        mass = self.dataset.layer_mass
+        subset = self.dataset_subset.isel(time=slice(0, None, 20))
+        out = self.model.call_with_xr(subset)
+        pme = (subset.Prec- lhf_to_evap(subset.LHF)).mean(['time', 'x'])
+        pmenn = - (mass * out.QT).sum('z')/1000
+        pmefqt = ((mass * subset.FQT).sum('z')/1000*86400).mean(['time', 'x'])
+        pmenn = pmenn.mean(['time', 'x'])
+        plotme = xr.Dataset({'truth': pme, 'nn': pmenn, 'fqt':
+                            pmefqt}).to_array(dim='var')
+
+        plt.figure()
+        plotme.plot(hue='var')
+
+        with self.change_to_work_dir():
+            plt.savefig(f"{n}-imbalance.png")
+
+        plt.close()
 
     def _make_work_dir(self):
         try:
