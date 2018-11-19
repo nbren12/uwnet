@@ -115,3 +115,10 @@ rule sam_run_report:
     # clean up the notebook
     rm -f {params.ipynb}
     """
+
+rule sam_run:
+    output: directory("data/runs/model{model}-epoch{epoch}")
+    shell: """
+    {sys.executable} src/criticism/run_sam_ic_nn.py -nn models/{wildcards.model}/{wildcards.epoch}.pkl \
+        -t 0 -p parameters2.json data/runs/model{wildcards.model}-epoch{wildcards.epoch}
+    """
