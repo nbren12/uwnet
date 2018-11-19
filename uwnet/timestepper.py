@@ -1,6 +1,6 @@
 """Time steppers"""
 import attr
-from toolz import merge
+from toolz import merge, first
 from .tensordict import TensorDict
 
 
@@ -22,6 +22,9 @@ class Batch(object):
                 out[key] = self.data[original_key]
         return TensorDict(out)
 
+    def get_prognostics(self):
+        return self.data[self.prognostics]
+
     def get_forcings_at_time(self, t):
         return select_keys_time(self.data, self.forcings, t)
 
@@ -31,10 +34,21 @@ class Batch(object):
     def get_prognostics_at_time(self, t):
         return self.data[self.prognostics].apply(lambda x: x[t])
 
-    def get_model_inputs(self, t, prognostics):
+    def get_model_inputs(self, t, prognostics=None):
         forcings = self.get_forcings_at_time(t)
-        return merge(forcings, prognostics)
+        if prognostics is None:
+            return TensorDict(merge(forcings, self.get_prognostics_at_time(t)))
+        else:
+            return TensorDict(merge(forcings, prognostics))
 
+    @property
+    def num_time(self):
+        item = first(self.data.values())
+        return item.shape[0]
+
+    def get_time_mean(self, key):
+        return self.data[key].mean(0)
+    
 
 def predict_one_step(prognostics, apparent_source, forcing, time_step):
     prediction = {}
