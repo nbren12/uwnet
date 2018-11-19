@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 import torch
 from pytest import approx
+from .timestepper import Batch
 
 from .loss import (compute_multiple_step_loss, mean_other_dims, mean_over_dims,
                    r2_score, weighted_mean_squared_error, weighted_r2_score)
@@ -21,6 +22,7 @@ def test_compute_multiple_step_loss():
     n = 10
     prognostics = ['x']
     batch = {'x': torch.zeros(n).float(), 'Fx': torch.zeros(n).float()}
+    batch = Batch(batch, prognostics)
     loss = compute_multiple_step_loss(criterion, model, batch, prognostics, 0,
                                       n - 1, 1.0)
     assert loss.item() == pytest.approx(0.0)
@@ -29,6 +31,7 @@ def test_compute_multiple_step_loss():
         return {'x': 86400}
 
     batch = {'x': torch.arange(n).float(), 'Fx': torch.zeros(n).float()}
+    batch = Batch(batch, prognostics)
     loss = compute_multiple_step_loss(criterion, model, batch, prognostics, 0,
                                       n - 1, 1.0)
     assert loss.item() == pytest.approx(0.0)
