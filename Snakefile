@@ -18,6 +18,7 @@ TROPICS_DATA = "data/processed/tropics.nc"
 SAM_PATH = config.get("sam_path", "/opt/sam")
 DOCKER = config.get("docker", True)
 TODAY = get_current_date_string()
+RUN_SAM_SCRIPT = config.get("sam_script", "setup/docker/execute_run.sh")
 
 ## Temporary output locations
 SAM_PROCESSED = "data/tmp/{step}.nc"
@@ -113,6 +114,7 @@ rule tropical_subset:
 
 
 rule sam_run_report:
+    input: "data/runs/{run}/.done"
     output: "reports/data/runs/{run}.html"
     params: run="data/runs/{run}", ipynb="reports/data/runs/{run}.ipynb",
             template=abspath("notebooks/templates/SAMNN-report.ipynb")
@@ -125,12 +127,19 @@ rule sam_run_report:
     """
 
 rule sam_run:
-    output: directory("data/runs/model{model}-epoch{epoch}")
+    # need to use a temporary file here so that the model output isn't deleted
+    output: touch("data/runs/model{model}-epoch{epoch}/.done")
+    log: "data/runs/model{model}-epoch{epoch}/log"
+    params: rundir="data/runs/model{model}-epoch{epoch}/",
+            model="models/{model}/{epoch}.pkl"
     shell: """
-    {sys.executable} src/criticism/run_sam_ic_nn.py -nn models/{wildcards.model}/{wildcards.epoch}.pkl \
-        -t 0 -p assets/parameters2.json data/runs/model{wildcards.model}-epoch{wildcards.epoch}
+    rm -rf {params.rundir}
+    {sys.executable} src/criticism/run_sam_ic_nn.py -nn {params.model} \
+        -t 0 -p assets/parameters2.json {params.rundir}
+    # run sam
+    {RUN_SAM_SCRIPT} {params.rundir} >> {log} 2>> {log}
+    exit 0
     """
-
 
 rule nudge_run:
     output: directory(f"data/runs/{TODAY}-nudging")
