@@ -12,6 +12,7 @@ contains
     integer i,j,k,ic,ib,jb,jc,kc,kcu
     real tkx, tky, tkz, rhoi, iadzw, iadz
     real fu(0:nx,0:ny,nz),fv(0:nx,0:ny,nz),fw(0:nx,0:ny,nz)
+    real  tsrc
 
     print *, 'hyperdiffusion.f90: diffusing momentum khyp=', khyp
 
@@ -46,6 +47,7 @@ contains
              do j=1,ny
                 v(0,j,k) = v(1,j,k)
                 w(0,j,k) = w(1,j,k)
+                t(0,j,k) = t(1,j,k)
              end do
           end do
        end if
@@ -54,6 +56,7 @@ contains
              do j=1,ny
                 v(nx+1,j,k) = v(nx,j,k)
                 w(nx+1,j,k) = w(nx,j,k)
+                t(nx+1,j,k) = t(nx,j,k)
              end do
           end do
        end if
@@ -67,6 +70,7 @@ contains
              do i=1,nx
                 u(i,1-YES3D,k) = u(i,1,k)
                 w(i,1-YES3D,k) = w(i,1,k)
+                t(i,1-YES3D,k) = t(i,1,k)
              end do
           end do
        end if
@@ -75,6 +79,7 @@ contains
              do i=1,nx
                 u(i,ny+YES3D,k) = u(i,ny,k)
                 w(i,ny+YES3D,k) = w(i,ny,k)
+                t(i,ny+YES3D,k) = t(i,ny,k)
              end do
           end do
        end if
@@ -96,6 +101,12 @@ contains
                   (v(i-2, j, k) - 4*v(i-1,j,k) + 6*v(i,j,k) - 4*v(i+1,j,k) + v(i+2,j,k)) + &
                   rdy16* &
                   (v(i, j-2, k) - 4*v(i,j-1,k) + 6*v(i,j,k) - 4*v(i,j+1,k) + v(i,j+2,k)) )
+
+             tsrc = - khyp * (rdx16 *  &
+                  (t(i-2, j, k) - 4*t(i-1,j,k) + 6*t(i,j,k) - 4*t(i+1,j,k) + t(i+2,j,k)) + &
+                  rdy16* &
+                  (t(i, j-2, k) - 4*t(i,j-1,k) + 6*t(i,j,k) - 4*t(i,j+1,k) + t(i,j+2,k)) )
+             t(i,j,k) = t(i,j,k) + tsrc * dtn
           end do
        end do
     end do
