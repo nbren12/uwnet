@@ -120,5 +120,5 @@ rule sam_run:
     output: directory("data/runs/model{model}-epoch{epoch}")
     shell: """
     {sys.executable} src/criticism/run_sam_ic_nn.py -nn models/{wildcards.model}/{wildcards.epoch}.pkl \
-        -t 0 -p parameters2.json data/runs/model{wildcards.model}-epoch{wildcards.epoch}
+        -t 0 -p assets/parameters2.json data/runs/model{wildcards.model}-epoch{wildcards.epoch}
     """
