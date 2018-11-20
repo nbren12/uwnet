@@ -1,6 +1,6 @@
-module held_suarez_mod 
+module held_suarez_mod
   implicit none
-  public :: held_suarez_driver
+  public :: held_suarez_driver, hs_damp_velocity
   private
   real, parameter :: dtabs_y = 60.0, dtheta_z = 10.0, p0=1000.,&
     kappa=2./7., sig_b = 0.7
@@ -15,13 +15,22 @@ contains
     call task_rank_to_index(rank,it,jt)
     call held_suarez_t(t(1:nx,1:ny,1:nzm), tabs, pres, gamaz, dy, ny_gl, it, jt,&
       presi(1), presi(nz), dtn)
-    call held_suarez_vel(u(1:nx,1:ny,1:nzm), dudt(1:nx,1:ny,1:nzm,na),&
-      pres, presi(1), presi(nz))
-    call held_suarez_vel(v(1:nx,1:ny,1:nzm), dvdt(1:nx,1:ny,1:nzm,na),&
-      pres, presi(1), presi(nz))
+    call hs_damp_velocity()
 
     call t_stopf('held_squarez')
   end subroutine held_suarez_driver
+
+
+  subroutine hs_damp_velocity()
+    use vars
+    use grid
+
+    call held_suarez_vel(u(1:nx,1:ny,1:nzm), dudt(1:nx,1:ny,1:nzm,na),&
+         pres, presi(1), presi(nz))
+    call held_suarez_vel(v(1:nx,1:ny,1:nzm), dvdt(1:nx,1:ny,1:nzm,na),&
+         pres, presi(1), presi(nz))
+
+  end subroutine hs_damp_velocity
 
   subroutine held_suarez_vel(u, dudt, pres, pbot, ptop)
     real, intent(in) :: u(:,:,:), pres(:)
