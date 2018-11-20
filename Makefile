@@ -91,7 +91,7 @@ docker:
 		-v $(shell pwd)/ext/sam:/opt/sam \
 		-w $(shell pwd) \
 	  -e LOCAL_FLAGS=$(shell pwd)/setup/docker/local_flags.mk \
-		nbren12/uwnet bash
+		nbren12/uwnet:latest bash
 
 build_image:
 	docker build -t nbren12/uwnet .

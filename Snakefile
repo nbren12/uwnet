@@ -1,6 +1,13 @@
 import os
 import sys
 from os.path import join, abspath
+from datetime import datetime
+
+
+def get_current_date_string():
+    today = datetime.now()
+    return today.isoformat().split('T')[0]
+
 
 ## VARIABLES
 DATA_PATH = config.get("data_path", "data/raw/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX")
@@ -10,6 +17,7 @@ TRAINING_DATA = "data/processed/training.nc"
 TROPICS_DATA = "data/processed/tropics.nc"
 SAM_PATH = config.get("sam_path", "/opt/sam")
 DOCKER = config.get("docker", True)
+TODAY = get_current_date_string()
 
 ## Temporary output locations
 SAM_PROCESSED = "data/tmp/{step}.nc"
@@ -121,4 +129,12 @@ rule sam_run:
     shell: """
     {sys.executable} src/criticism/run_sam_ic_nn.py -nn models/{wildcards.model}/{wildcards.epoch}.pkl \
         -t 0 -p assets/parameters2.json data/runs/model{wildcards.model}-epoch{wildcards.epoch}
+    """
+
+
+rule nudge_run:
+    output: directory(f"data/runs/{TODAY}-nudging")
+    shell: """
+    {sys.executable} src/criticism/run_sam_ic_nn.py \
+    -t 0 -p assets/parameters_nudging.json {output}
     """
