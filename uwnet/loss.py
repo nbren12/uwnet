@@ -2,6 +2,7 @@ import torch
 from toolz import curry
 from torch.nn.functional import mse_loss
 from .timestepper import predict_multiple_steps
+from .wtg import wtg_penalty
 
 
 def get_other_dims(x, dim):
@@ -91,11 +92,25 @@ def compute_multiple_step_loss(criterion, model, batch, prognostics, *args,
         for t, prediction in prediction_generator)
 
 
-def loss_with_equilibrium_penalty(criterion,
-                                  model,
-                                  batch,
-                                  prognostics=(),
-                                  time_step=.125):
+def equilibrium_penalty(criterion, model, batch, dt, n=20):
+    from random import randint
+    i = randint(0, batch.num_time - 1)
+
+    state0 = batch.get_prognostics_at_time(i)
+    mean = batch.get_prognostics().apply(lambda x: x.mean(dim=0))
+    g = batch.get_known_forcings()
+    mean_forcing = g.apply(lambda x: x.mean(dim=0))
+    state = state0
+
+    for t in range(n):
+        inputs = batch.get_model_inputs(i, state)
+        src = model(inputs)
+        state = state + dt * src + dt * mean_forcing * 86400
+
+    return compute_loss(criterion, mean, state)
+
+
+def total_loss(criterion, model, z, batch, time_step=.125):
     """Compute the loss across multiple time steps with an Euler stepper
     """
     dt = time_step
@@ -111,19 +126,24 @@ def loss_with_equilibrium_penalty(criterion,
     pred = x0 + dt * src + dt * 86400 * forcing
 
     l1 = compute_loss(criterion, x1, pred) / dt
+    l2 = equilibrium_penalty(criterion, model, batch, dt)
 
-    from random import randint
-    i = randint(0, len(batch.data['QT'][0]))
+    w = criterion.keywords['weights']
+    x = (src * w).apply(lambda x: x.sum(-3).sum(0)) / 1000
+    pred = (g * w).apply(lambda x: -x.sum(-3).sum(0)) / 1000 * 86400
+    l3 = mse_loss(x['QT'], pred['QT'])
+    loss = 0.1 * l1 + l2
 
-    state0 = batch.get_prognostics_at_time(i)
-    mean = progs.apply(lambda x: x.mean(dim=0))
-    mean_forcing = g.apply(lambda x: x.mean(dim=0))
-    state = state0
-    for i in range(20):
-        inputs = batch.get_model_inputs(0, state)
-        src = model(inputs)
-        state = state + dt * src + dt * mean_forcing * 86400
+    # WTG penalty
+    eig1, eig2 = wtg_penalty(model, z, batch)
 
-    l2 = compute_loss(criterion, mean, state)
+    info = {
+        'Q1/Q2': l1.item(),
+        'equilibrium': l2.item(),
+        'pw_imbalance': l3.item(),
+        'eig1': eig1,
+        'eig2': eig2,
+        'total': loss.item()
+    }
 
-    return .1 * l2 + l1
+    return loss, info
