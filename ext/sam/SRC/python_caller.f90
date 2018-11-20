@@ -16,7 +16,7 @@ module python_caller
 
   integer ntop
   ! Do not apply neural network within this boundary region
-  integer, parameter :: meridional_bndy_size = 3
+  integer :: meridional_bndy_size = 3
 contains
 
   subroutine bias_correct_lhf(x, corrected)
