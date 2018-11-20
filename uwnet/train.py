@@ -39,7 +39,6 @@ from uwnet.columns import single_column_simulation
 from uwnet.datasets import XRTimeSeries
 from uwnet.loss import (weighted_mean_squared_error, loss_with_equilibrium_penalty)
 from ignite.engine import Engine, Events
-from ignite.metrics import RunningAverage
 
 ex = Experiment("Q1")
 
@@ -50,19 +49,10 @@ def get_dataset(data):
     except ValueError:
         dataset = xr.open_dataset(data)
 
-    # mean = get_mean(dataset)
-    # q0 = dataset.isel(time=0).QT.max(['x', 'y'])
-    # d = (1/q0).where(q0 > 1e-2, 0.0)
-    # d = d.where(d > 1, 1.0)
-    # dataset['QT'] = dataset.QT * d
-    # dataset['FQT'] = dataset.FQT * d
-
-
     try:
         return dataset.isel(step=0).drop('step').drop('p')
     except:
         return dataset
-
 
 
 def water_budget_plots(model, ds, location, filenames):
@@ -275,13 +265,9 @@ class Trainer(object):
         self.time_step = float(train_data.timestep())
         self.setup_model()
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
-        # self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=50, gamma=.25)
         self.criterion = weighted_mean_squared_error(
             weights=self.mass / self.mass.mean(), dim=-3)
-        # self.criterion = column_and_not_mse(weights=self.mass/self.mass.mean(),
-        #                                     dim=-3)
         self.plot_interval = 1
-
         self.setup_engine()
 
     @ex.capture
@@ -290,30 +276,34 @@ class Trainer(object):
 
     def setup_engine(self):
         self.engine = Engine(self.step)
-        self.engine.add_event_handler(Events.ITERATION_COMPLETED,
-                                      self.after_batch)
-        self.engine.add_event_handler(Events.EPOCH_COMPLETED,
-                                      self.print_metrics)
-        self.engine.add_event_handler(Events.EPOCH_COMPLETED, self.after_epoch)
+        self.engine.add_event_handler(
+            Events.ITERATION_COMPLETED, self.after_batch)
+        self.engine.add_event_handler(
+            Events.ITERATION_COMPLETED, self.print_loss_info)
+        self.engine.add_event_handler(
+            Events.EPOCH_COMPLETED, self.after_epoch)
+        self.engine.add_event_handler(
+            Events.EPOCH_COMPLETED, self.imbalance_plot)
 
-        self.setup_meters()
-
-    def setup_meters(self):
-        # meters
-        avg_output = RunningAverage(output_transform=lambda x: x)
-        avg_output.attach(self.engine, 'running_avg_loss')
-
-    def print_metrics(self, engine):
-        self.logger.info(engine.state.metrics)
+    def print_loss_info(self, engine):
+        n = len(self.train_loader)
+        batch = engine.state.iteration % (n + 1)
+        log_str = f"[{batch}/{n}]:\t"
+        for key, val in engine.state.loss_info.items():
+            log_str += f'{key}: {val:.2f}\t'
+            ex.log_scalar(key, val)
+        self.logger.info(log_str)
 
     def step(self, engine, batch):
         self.optimizer.zero_grad()
         batch = get_model_inputs_from_batch(batch)
-        loss = loss_with_equilibrium_penalty(
-            self.criterion, self.model, batch)
+        loss, loss_info = loss_with_equilibrium_penalty(
+            self.criterion, self.model, self.z, batch)
         loss.backward()
         self.optimizer.step()
-        return loss.item()
+        self.optimizer.zero_grad()
+        engine.state.loss_info = loss_info
+        return loss_info
 
     def compute_source_r2(self, batch):
         from .timestepper import Batch
@@ -396,6 +386,7 @@ class Trainer(object):
             water_budget_plots(self.model, self.dataset, location, filenames)
 
     def imbalance_plot(self, engine):
+        from uwnet.thermo import lhf_to_evap
         n = engine.state.epoch
         if n % self.plot_interval != 0:
             return
