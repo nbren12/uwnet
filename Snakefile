@@ -138,3 +138,10 @@ rule nudge_run:
     {sys.executable} src/criticism/run_sam_ic_nn.py \
     -t 0 -p assets/parameters_nudging.json {output}
     """
+
+rule micro_run:
+    output: directory(f"data/runs/{TODAY}-microphysics")
+    shell: """
+    {sys.executable} src/criticism/run_sam_ic_nn.py \
+    -t 0 -p assets/parameters_micro.json {output}
+    """
