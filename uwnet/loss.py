@@ -110,7 +110,7 @@ def equilibrium_penalty(criterion, model, batch, dt, n=20):
     return compute_loss(criterion, mean, state)
 
 
-def loss_with_equilibrium_penalty(criterion, model, z, batch, time_step=.125):
+def total_loss(criterion, model, z, batch, time_step=.125):
     """Compute the loss across multiple time steps with an Euler stepper
     """
     dt = time_step

@@ -37,7 +37,7 @@ from uwnet import model
 from uwnet.model import get_model
 from uwnet.columns import single_column_simulation
 from uwnet.datasets import XRTimeSeries
-from uwnet.loss import (weighted_mean_squared_error, loss_with_equilibrium_penalty)
+from uwnet.loss import (weighted_mean_squared_error, total_loss)
 from ignite.engine import Engine, Events
 
 ex = Experiment("Q1")
@@ -297,7 +297,7 @@ class Trainer(object):
     def step(self, engine, batch):
         self.optimizer.zero_grad()
         batch = get_model_inputs_from_batch(batch)
-        loss, loss_info = loss_with_equilibrium_penalty(
+        loss, loss_info = total_loss(
             self.criterion, self.model, self.z, batch)
         loss.backward()
         self.optimizer.step()
