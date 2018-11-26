@@ -60,6 +60,7 @@ def compute_error(
         mlp,
         data,
         batch,
+        layer_mass,
         dt=default_dt,
         n_time_steps=default_n_time_steps,
         include_known_forcing=default_include_known_forcing):
@@ -82,14 +83,15 @@ def compute_error(
                         ['FQT', 'FSLI']].to_array().values),
                 requires_grad=True)
             prediction = prediction + (
-                (nn_output + fqt_fsli) * dt * seconds_per_day)
+                (nn_output + fqt_fsli) * (dt * seconds_per_day))
         else:
-            prediction = prediction + (dt * nn_output * seconds_per_day)
+            prediction = prediction + (dt * seconds_per_day * nn_output)
         target_locations['time'] += dt
         target = torch.tensor(np.hstack(
             data.sel(target_locations)[['QT', 'SLI']].to_array().values),
             requires_grad=True)
-        error = error + squared_loss(prediction, target).mean()
+        error = error + (squared_loss(prediction, target).mean(0).dot(
+            layer_mass) / layer_mass.sum())
         if i != n_time_steps - 1:
             to_predict_from = torch.cat(
                 (prediction, additional_predictors), 1)
@@ -105,6 +107,29 @@ def get_evaluation_batches(batches):
     return seed
 
 
+def estimate_total_mse(
+        mlp,
+        data,
+        batches,
+        layer_mass,
+        dt,
+        n_time_steps,
+        include_known_forcing):
+    batch_sample = random.sample(batches.tolist(), 1000)
+    total_loss = 0
+    for batch in batch_sample:
+        loss = compute_error(
+            mlp,
+            data,
+            batch,
+            layer_mass,
+            dt=dt,
+            n_time_steps=n_time_steps,
+            include_known_forcing=include_known_forcing)
+        total_loss += loss.detach().numpy()
+    print(f'Total MSE: {total_loss / len(batch_sample)}')
+
+
 def train_model(
         n_epochs=default_n_ephocs,
         dt=default_dt,
@@ -117,6 +142,11 @@ def train_model(
         model_name = 'multi_step_nn_{}_{}'.format(
             batch_size, n_time_steps) + '_{}'
     data = normalize_data()
+    w = data.layer_mass.values / data.layer_mass.values.mean()
+    layer_mass = torch.cat([
+        torch.tensor(w, requires_grad=True),
+        torch.tensor(w, requires_grad=True)
+    ]).float()
     batches = get_batches(
         data, n_time_steps=n_time_steps, batch_size=batch_size, dt=dt)
     mlp = MLP()
@@ -130,6 +160,7 @@ def train_model(
                     mlp,
                     data,
                     evaluation_batch,
+                    layer_mass,
                     dt=dt,
                     n_time_steps=n_time_steps,
                     include_known_forcing=include_known_forcing)
@@ -140,12 +171,21 @@ def train_model(
                 mlp,
                 data,
                 batch,
+                layer_mass,
                 dt=dt,
                 n_time_steps=n_time_steps,
                 include_known_forcing=include_known_forcing)
             loss.backward()
             optimizer.step()    # Does the update
         pickle_model(mlp, model_name.format(idx + ((epoch_num - 1) * 10000)))
+    estimate_total_mse(
+        mlp,
+        data,
+        batches,
+        layer_mass,
+        dt,
+        n_time_steps,
+        include_known_forcing)
     return mlp, data
 
 
