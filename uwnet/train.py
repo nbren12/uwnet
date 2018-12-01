@@ -57,7 +57,9 @@ def get_dataset(data):
 
 def water_budget_plots(model, ds, location, filenames):
     nt = min(len(ds.time), 190)
-    scm_data = single_column_simulation(model, location, interval=(0, nt - 1))
+    prognostics=['QT', 'SLI']
+    scm_data = single_column_simulation(model, location, interval=(0, nt - 1),
+                                        prognostics=prognostics)
     merged_pred_data = location.rename({
         'SLI': 'SLIOBS',
         'QT': 'QTOBS',
@@ -178,13 +180,6 @@ def is_one_dimensional(val):
     return val.dim() == 2
 
 
-def redimension_torch_loader_output(val):
-    if is_one_dimensional(val):
-        return val.t().unsqueeze(-1)
-    else:
-        return val.permute(1, 2, 0).unsqueeze(-1)
-
-
 @ex.capture
 def get_model_inputs_from_batch(batch, prognostics):
     """Redimension a batch from a torch data loader
@@ -192,7 +187,7 @@ def get_model_inputs_from_batch(batch, prognostics):
     Torch's data loader class is very helpful, but it produces data which has a shape of (batch, feature). However, the models require input in the physical dimensions (time, z, y, x), this function reshapes these arrays.
     """
     from .timestepper import Batch
-    return Batch(valmap(redimension_torch_loader_output, batch), prognostics)
+    return Batch(batch, prognostics)
 
 
 class Trainer(object):

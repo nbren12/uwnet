@@ -18,11 +18,13 @@ def test_wtg():
     sli = z * .004 + 290
     criterion = weighted_mean_squared_error(weights=weights, dim=-3)
 
-    d = {'QT': qt.view(1, -1, 1, 1), 'SLI': sli.view(1, -1, 1, 1)}
+    # shape is (batch, time, z, y, x)
+    shape = (1, 1, -1, 1, 1)
+    d = {'QT': qt.view(shape), 'SLI': sli.view(shape)}
     prognostics = ['QT', 'SLI']
     batch = Batch(d, prognostics)
 
     def model(x):
-        return TensorDict({'QT': - x['QT']/5.0, 'SLI': -x['QT']*2})
+        return TensorDict({'QT': -x['QT'] / 5.0, 'SLI': -x['QT'] * 2})
 
     wtg_penalty(model, z, batch)

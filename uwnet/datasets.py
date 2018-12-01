@@ -28,9 +28,13 @@ def _to_numpy(x: xr.DataArray):
     return x.transpose(*dims).values
 
 
+def _numpy_to_torch(x):
+    y = torch.from_numpy(x).detach().float()
+    return y.view(-1, 1, 1)
+
+
 def _ds_slice_to_torch(ds):
-    return valmap(lambda x: torch.from_numpy(x).detach().float(),
-                  _ds_slice_to_numpy_dict(ds))
+    return valmap(_numpy_to_torch, _ds_slice_to_numpy_dict(ds))
 
 
 class XRTimeSeries(Dataset):
@@ -95,9 +99,10 @@ class XRTimeSeries(Dataset):
                 this_array_index = (slice(t, t + self.time_length),
                                     slice(None), y, x)
             else:
-                this_array_index = (slice(t, t + self.time_length), y, x)
-            output_tensors[key] = data_array[this_array_index].astype(
-                np.float32)
+                this_array_index = (slice(t, t + self.time_length), None, y, x)
+
+            sample = data_array[this_array_index][:, :, np.newaxis, np.newaxis]
+            output_tensors[key] = sample.astype(np.float32)
         return output_tensors
 
     @property

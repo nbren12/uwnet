@@ -97,9 +97,9 @@ def equilibrium_penalty(criterion, model, batch, dt, n=20):
     i = randint(0, batch.num_time - 1)
 
     state0 = batch.get_prognostics_at_time(i)
-    mean = batch.get_prognostics().apply(lambda x: x.mean(dim=0))
+    mean = batch.get_prognostics().apply(lambda x: x.mean(dim=1))
     g = batch.get_known_forcings()
-    mean_forcing = g.apply(lambda x: x.mean(dim=0))
+    mean_forcing = g.apply(lambda x: x.mean(dim=1))
     state = state0
 
     for t in range(n):

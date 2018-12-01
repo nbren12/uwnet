@@ -48,3 +48,10 @@ def test_tensordict_apply():
     b = a.apply(lambda x: 2 * x)
     assert isinstance(b, TensorDict)
     assert b['a'] == 2
+
+
+def test_tensordict_shape():
+    n = 10
+    shape = (1, n)
+    a = TensorDict({'a': torch.ones(*shape)})
+    assert a['a'].shape == shape

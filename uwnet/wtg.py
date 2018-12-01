@@ -68,16 +68,20 @@ def wtg_penalty(model, z, batch, dt=.125, n=20, max_loss=100.0):
     """
     from random import randint
     i = randint(0, batch.num_time - 1)
+    j = randint(0, batch.size - 1)
+
     input = batch.get_model_inputs(i)
+
+    # get random batch member
+    input = input.apply(lambda x: x[j])
     
     nz, nx, ny = input['QT'].shape
     x = randint(0, nx-1)
     y = randint(0, ny-1)
     
-    input = input.apply(lambda tens: tens[..., x:x+1, y:y+1])
     
-    qt_mean = batch.get_time_mean('QT')[:, x:x+1, y:y+1]
-    sli_mean = batch.get_time_mean('SLI')[:,x:x+1, y:y+1]
+    qt_mean = batch.get_time_mean('QT')[j]
+    sli_mean = batch.get_time_mean('SLI')[j]
     z = z.view(-1, 1, 1)
     lam = compute_stability_ratio(qt_mean, sli_mean, z)
     lam[:5]= lam[5]

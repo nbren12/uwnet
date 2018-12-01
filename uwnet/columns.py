@@ -3,7 +3,6 @@ import click
 import torch
 
 import xarray as xr
-from uwnet.model import ApparentSource
 from uwnet.timestepper import Batch, predict_multiple_steps
 
 
@@ -21,6 +20,10 @@ class XarrayBatch(Batch):
         data = _convert_dataset_to_dict(dataset)
         super(XarrayBatch, self).__init__(data, **kwargs)
 
+    @staticmethod
+    def select_time(data, t):
+        return data.apply(lambda x: x.isel(time=t))
+
     def get_model_inputs(self, t, state):
         inputs = super(XarrayBatch, self).get_model_inputs(t, state)
         for key in inputs:
@@ -29,7 +32,6 @@ class XarrayBatch(Batch):
             except ValueError:
                 pass
         return xr.Dataset(inputs)
-
 
 def _get_time_step(ds):
     return float(ds.time.diff('time')[0] * 86400)
@@ -51,9 +53,6 @@ def single_column_simulation(model,
     interval : tuple
         (start_time, end_time) interval
     """
-    if not prognostics:
-        prognostics = set(model.inputs.names) & set(model.outputs.names)
-
     if not time_step:
         time_step = _get_time_step(dataset)
 
