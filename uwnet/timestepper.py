@@ -14,6 +14,10 @@ class Batch(object):
     def forcings(self):
         return set(self.data.keys()) - set(self.prognostics)
 
+    @staticmethod
+    def select_time(data, t):
+        return data.apply(lambda x: x[:, t])
+
     def get_known_forcings(self):
         out = {}
         for key in self.prognostics:
@@ -26,13 +30,13 @@ class Batch(object):
         return self.data[self.prognostics]
 
     def get_forcings_at_time(self, t):
-        return select_keys_time(self.data, self.forcings, t)
+        return self.select_time(self.data[self.forcings], t)
 
     def get_known_forcings_at_time(self, t):
-        return self.get_known_forcings().apply(lambda x: x[t])
+        return self.select_time(self.get_known_forcings(), t)
 
     def get_prognostics_at_time(self, t):
-        return self.data[self.prognostics].apply(lambda x: x[t])
+        return self.select_time(self.data[self.prognostics], t)
 
     def get_model_inputs(self, t, prognostics=None):
         forcings = self.get_forcings_at_time(t)
@@ -44,11 +48,15 @@ class Batch(object):
     @property
     def num_time(self):
         item = first(self.data.values())
+        return item.shape[1]
+
+    @property
+    def size(self):
+        item = first(self.data.values())
         return item.shape[0]
 
     def get_time_mean(self, key):
-        return self.data[key].mean(0)
-    
+        return self.data[key].mean(-4)
 
 def predict_one_step(prognostics, apparent_source, forcing, time_step):
     prediction = {}
@@ -72,4 +80,4 @@ def predict_multiple_steps(model, batch: Batch, initial_time,
 
 
 def select_keys_time(x, keys, t):
-    return {key: x[key][t] for key in keys}
+    return {key: x[key][:, t] for key in keys}

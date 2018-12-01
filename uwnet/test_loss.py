@@ -20,8 +20,9 @@ def test_compute_multiple_step_loss():
         return {'x': 0.0}
 
     n = 10
+    shape = (1,n)
     prognostics = ['x']
-    batch = {'x': torch.zeros(n).float(), 'Fx': torch.zeros(n).float()}
+    batch = {'x': torch.zeros(shape).float(), 'Fx': torch.zeros(shape).float()}
     batch = Batch(batch, prognostics)
     loss = compute_multiple_step_loss(criterion, model, batch, prognostics, 0,
                                       n - 1, 1.0)
@@ -30,7 +31,7 @@ def test_compute_multiple_step_loss():
     def model(x):
         return {'x': 86400}
 
-    batch = {'x': torch.arange(n).float(), 'Fx': torch.zeros(n).float()}
+    batch = {'x': torch.arange(n).view(shape).float(), 'Fx': torch.zeros(shape).float()}
     batch = Batch(batch, prognostics)
     loss = compute_multiple_step_loss(criterion, model, batch, prognostics, 0,
                                       n - 1, 1.0)

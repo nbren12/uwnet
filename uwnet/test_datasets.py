@@ -32,21 +32,11 @@ def test_XRTimeSeries_shape():
 
     time_length = 2
     o = XRTimeSeries(ds, time_length=time_length)
-    assert o[0]['a'].shape == (time_length, z)
-    assert o[0]['b'].shape == (time_length, )
+    assert o[0]['a'].shape == (time_length, z, 1, 1)
+    assert o[0]['b'].shape == (time_length, 1, 1, 1)
 
     # get last time point
     o[-1]
-
-
-def test_DataLoader():
-    ds, (t, z, y, x) = get_obj()
-    time_length = 2
-    batch_size = 2
-    o = XRTimeSeries(ds, time_length=time_length)
-    dl = DataLoader(o, batch_size=batch_size)
-    batch = next(iter(dl))
-    assert batch['a'].shape == (batch_size, time_length, z)
 
 
 @pytest.mark.parametrize('dt,units,dt_seconds', [
