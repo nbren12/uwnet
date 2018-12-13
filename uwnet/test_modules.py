@@ -1,6 +1,10 @@
 import torch
-from .modules import LinearDictIn, LinearDictOut
+from .modules import LinearDictIn, LinearDictOut, LinearFixed
+import numpy as np
 
+def assert_tensors_allclose(*args):
+    args = [arg.detach().numpy() for arg in args]
+    return np.testing.assert_allclose(*args)
 
 def test_LinearDictIn():
     inputs = [('A', 10), ('B', 5)]
@@ -26,3 +30,16 @@ def test_LinearDictOut():
         assert out[key].size(-1) == num
 
     out['A'][0, 0].backward()
+
+
+def test_LinearFixed():
+    def identity(x):
+        return x
+
+    n = 10
+    mod = LinearFixed.from_affine(identity, n, n)
+    a = torch.rand(n)
+    # need to use the same dtype
+    mod = mod.to(a.dtype)
+    b = mod(a)
+    return assert_tensors_allclose(a, b)
