@@ -54,6 +54,7 @@ def get_dataset(data):
     except:
         return dataset
 
+XRTimeSeries = ex.capture(XRTimeSeries)
 
 def water_budget_plots(model, ds, location, filenames):
     nt = min(len(ds.time), 190)
@@ -174,6 +175,7 @@ def my_config():
     output_dir = None
 
     prognostics = ['QT', 'SLI']
+    single_column_locations= [(32, 0)]
 
 
 def is_one_dimensional(val):
@@ -244,7 +246,7 @@ class Trainer(object):
 
         self.nt = len(ds.time)
 
-        train_data = XRTimeSeries(ds, time_length=160)
+        train_data = XRTimeSeries(ds)
         self.train_loader = DataLoader(
             train_data, batch_size=batch_size, shuffle=True)
         self.constants = train_data.torch_constants()
@@ -364,12 +366,18 @@ class Trainer(object):
             ex.add_artifact(epoch_file)
             self.plot_model(engine)
 
-    def plot_model(self, engine):
+    @ex.capture
+    def plot_model(self, engine, single_column_locations):
         single_column_plots = [plot_q2(), plot_scatter_q2_fqt()]
-        for y in [32]:
+        for y, x in single_column_locations:
             location = self.dataset.isel(
-                y=slice(y, y + 1), x=slice(0, 1), time=slice(0, 200))
-            output = self.model.call_with_xr(location)
+                y=slice(y, y + 1), x=slice(x, x + 1), time=slice(0, 200))
+
+            try:
+                output = self.model.call_with_xr(location)
+            except ValueError:
+                continue
+
             for plot in single_column_plots:
                 plot.save_figure(f'{engine.state.epoch}-{y}', location, output)
 
@@ -396,7 +404,11 @@ class Trainer(object):
                             pmefqt}).to_array(dim='var')
 
         plt.figure()
-        plotme.plot(hue='var')
+        try:
+            plotme.plot(hue='var')
+        except ValueError:
+            df = plotme.squeeze().to_series()
+            df.plot(kind='bar')
 
         with self.change_to_work_dir():
             plt.savefig(f"{n}-imbalance.png")
