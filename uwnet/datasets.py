@@ -43,9 +43,9 @@ class XRTimeSeries(Dataset):
     This function assumes the data has dimensions ['time', 'z', 'y', 'x'], and
     that the axes of the data arrays are all stored in that order.
 
-    Attributes
-    ----------
-    data : xr.Dataset
+    An individual "sample" is the full time time series from a single
+    horizontal location. The time-varying variables in this sample will have
+    shape (time, z, 1, 1).
 
     Examples
     --------
@@ -53,13 +53,19 @@ class XRTimeSeries(Dataset):
     >>> dataset = XRTimeSeries(ds)
     >>> dataset[0]
 
-"""
+    """
     dims = ['time', 'z', 'x', 'y']
-    batch_dims = ['y', 'x']
 
     def __init__(self, data, time_length=None):
-        """Initialize XRTimeSeries.
-
+        """
+        Parameters
+        ----------
+        data : xr.DataArray
+            An input dataset. This dataset must contain at least some variables
+            with all of the dimensions ['time' , 'z', 'x', 'y'].
+        time_length : int, optional
+            The length of the time sequences to use, must evenly divide the
+            total number of time points.
         """
         self.time_length = time_length or len(data.time)
         self.data = data
