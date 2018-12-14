@@ -262,3 +262,4 @@ models/
 *.tmp
 *.pdf
 *.h5
+/TAGS
