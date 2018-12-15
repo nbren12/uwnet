@@ -154,3 +154,19 @@ rule micro_run:
     {sys.executable} src/criticism/run_sam_ic_nn.py \
     -t 0 -p assets/parameters_micro.json {output}
     """
+
+## Model Training Rules ########################################
+
+rule train_pca_pre_post:
+    output: "models/prepost.pkl"
+    # input: TRAINING_DATA
+    shell: """
+    python -m uwnet.train train_pre_post with data={TRAINING_DATA} prepost.path={output}
+    """
+
+rule train_model:
+    input: "models/prepost.pkl"
+    shell: """
+    python -m uwnet.train with data={TRAINING_DATA} prepost.path={input} prepost.kind='saved' \
+        batch_size=64 lr=.005 epochs=5 -m uwnet
+    """

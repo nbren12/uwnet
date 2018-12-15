@@ -1,8 +1,10 @@
+import math
+
+import numpy as np
 import torch
 from torch import nn
-import numpy as np
+
 from .tensordict import TensorDict
-import math
 
 
 class LinearDictIn(nn.Module):
@@ -47,17 +49,23 @@ class LinearDictOut(nn.Module):
             self.add_module(field, self.models[field])
 
     def forward(self, input):
-        return TensorDict({key: self.models[key](input) for key in
-                           self.models})
+        return TensorDict(
+            {key: self.models[key](input)
+             for key in self.models})
 
 
-def get_affine_transforms(func, n, m):
-    """Get weights matrix and bias of an affine function"""
+def get_affine_transforms(func, n):
+    """Get weights matrix and bias of an affine function
+
+    func(I) = A + b
+    func(0) = b
+
+    """
     identity = np.eye(n)
-    z = np.zeros((n,))
+    z = np.zeros((1, n))
 
     b = func(z)
-    A = func(identity)
+    A = func(identity) - b
     return A, b
 
 
@@ -67,28 +75,44 @@ class LinearFixed(nn.Module):
     Useful for representing scikit-learn affine transform functions
     """
 
-    def __init__(self, weight, bias):
+    def __init__(self, *args):
         super(LinearFixed, self).__init__()
+
+        for arg in args:
+            arg.requires_grad = False
+
+        weight, bias = args
         self.register_buffer('weight', weight)
         self.register_buffer('bias', bias)
 
     def forward(self, x: torch.tensor):
         return torch.matmul(x, self.weight) + self.bias
 
+    @property
+    def in_features(self):
+        return self.weight.size(0)
+
+    @property
+    def out_features(self):
+        return self.weight.size(1)
+
     @classmethod
-    def from_affine(cls, func, n, m):
+    def from_affine(cls, func, n):
         """Initialize from an arbitrary python function
 
         Parameters
         ----------
         func
             function has input dimension n and output dimension m
-        n, m : int
-            input and output dimensions
+        n : int
+            input dimensions
         """
-        args = get_affine_transforms(func, n, m)
+        args = get_affine_transforms(func, n)
         args = [torch.tensor(arg, requires_grad=True) for arg in args]
         return cls(*args)
+
+    def __repr__(self):
+        return f"LinearFixed({self.in_features}, {self.out_features})"
 
 
 class MOE(nn.Module):
@@ -118,6 +142,7 @@ class MOE(nn.Module):
 
 class _Partial(nn.Module):
     after = True
+
     def __init__(self, fun, *args, **kwargs):
         "docstring"
         super(_Partial, self).__init__()
@@ -162,3 +187,39 @@ class ValMap(nn.Module):
         for key, val in x.items():
             out[key] = self.fun(val)
         return TensorDict(out)
+
+
+def mapbykey(funcs, d):
+    return {key: funcs[key](d[key]) for key in funcs}
+
+
+class MapByKey(nn.Module):
+    """Apply modules to inputs by key
+
+    This code explains the how this module works::
+
+        {key: funcs[key](d[key]) for key in funcs}
+
+    Examples
+    --------
+    >>> a = torch.ones(1)
+    >>> mapbykey({'a': lambda x: x}, {'a': a})
+    """
+
+    def __init__(self, funcs):
+        super(MapByKey, self).__init__()
+        self.funcs = nn.ModuleDict(funcs)
+
+    def __getitem__(self, key):
+        return self.funcs[key]
+
+    @property
+    def outputs(self):
+        return [(key, self.funcs[key].out_features) for key in self.funcs]
+
+    @property
+    def inputs(self):
+        return [(key, self.funcs[key].in_features) for key in self.funcs]
+
+    def forward(self, d):
+        return TensorDict(mapbykey(self.funcs, d))
