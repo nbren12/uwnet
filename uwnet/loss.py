@@ -115,24 +115,29 @@ def total_loss(criterion, model, z, batch, time_step=.125):
     """
     dt = time_step
     src = model(batch.data)
+
+
+
     g = batch.get_known_forcings()
     progs = batch.get_prognostics()
-    forcing = g.apply(lambda x: (x[1:] + x[:-1]) / 2)
 
-    x0 = progs.apply(lambda x: x[:-1])
-    x1 = progs.apply(lambda x: x[1:])
-    src = src.apply(lambda x: x[:-1])
+
+    forcing = g.apply(lambda x: (x[:,1:] + x[:,:-1]) / 2)
+    x0 = progs.apply(lambda x: x[:,:-1])
+    x1 = progs.apply(lambda x: x[:,1:])
+    src = src.apply(lambda x: x[:,:-1])
 
     pred = x0 + dt * src + dt * 86400 * forcing
 
     l1 = compute_loss(criterion, x1, pred) / dt
     l2 = equilibrium_penalty(criterion, model, batch, dt)
 
-    w = criterion.keywords['weights']
-    x = (src * w).apply(lambda x: x.sum(-3).sum(0)) / 1000
-    pred = (g * w).apply(lambda x: -x.sum(-3).sum(0)) / 1000 * 86400
-    l3 = mse_loss(x['QT'], pred['QT'])
-    loss = 0.1 * l1 + l2
+    # w = criterion.keywords['weights']
+    # x = (src * w).apply(lambda x: x.sum(-3).sum(0)) / 1000
+    # pred = (g * w).apply(lambda x: -x.sum(-3).sum(0)) / 1000 * 86400
+    # l3 = mse_loss(x['QT'], pred['QT'])
+
+    loss = l1 + l2 * .1
 
     # WTG penalty
     eig1, eig2 = wtg_penalty(model, z, batch)
@@ -140,7 +145,7 @@ def total_loss(criterion, model, z, batch, time_step=.125):
     info = {
         'Q1/Q2': l1.item(),
         'equilibrium': l2.item(),
-        'pw_imbalance': l3.item(),
+        # 'pw_imbalance': l3.item(),
         'eig1': eig1,
         'eig2': eig2,
         'total': loss.item()
