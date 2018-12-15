@@ -123,18 +123,6 @@ class XRTimeSeries(Dataset):
         }
 
     @property
-    def mean(self):
-        """Mean of the contained variables"""
-        ds = self.data.mean(['x', 'y', 'time'])
-        return _ds_slice_to_torch(ds)
-
-    @property
-    def std(self):
-        """Standard deviation of the contained variables"""
-        ds = self.data.std(['x', 'y', 'time'])
-        return _ds_slice_to_torch(ds)
-
-    @property
     def scale(self):
         std = self.std
         return valmap(lambda x: x.max(), std)

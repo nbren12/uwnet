@@ -35,12 +35,59 @@ import xarray as xr
 from torch.utils.data import DataLoader
 from uwnet import model
 from uwnet.model import get_model
+from uwnet.pre_post import get_pre_post
 from uwnet.columns import single_column_simulation
 from uwnet.datasets import XRTimeSeries
 from uwnet.loss import (weighted_mean_squared_error, total_loss)
 from ignite.engine import Engine, Events
 
 ex = Experiment("Q1")
+
+XRTimeSeries = ex.capture(XRTimeSeries)
+get_model = ex.capture(get_model, prefix='model')
+get_pre_post = ex.capture(get_pre_post, prefix='prepost')
+
+@ex.config
+def my_config():
+    """Default configurations managed by sacred"""
+    data = "data/processed/training.nc"
+    restart = False
+    lr = .001
+    epochs = 2
+    model_dir = 'models'
+    skip = 5
+    seq_length = 1
+    batch_size = 256
+    tag = ''
+    vertical_grid_size = 34
+    loss_scale = {
+        'LHF': 150,
+        'SHF': 10,
+        'RADTOA': 600.0,
+        'RADSFC': 600.0,
+        'U': 5.0,
+        'V': 5.0,
+        'Prec': 8,
+        'QP': 0.05,
+        'QN': 0.05,
+        'QT': 1.0,
+        'SLI': 2.5
+    }
+
+    # y indices to use for training
+    y = (None, None)
+    x = (None, None)
+    time_sl = (None, None)
+    min_output_interval = 0
+    output_dir = None
+
+    prognostics = ['QT', 'SLI']
+    single_column_locations= [(32, 0)]
+    prepost = dict(
+        kind='pca',
+        path='models/prepost.pkl'
+    )
+
 
 @ex.capture
 def get_dataset(data):
@@ -54,7 +101,6 @@ def get_dataset(data):
     except:
         return dataset
 
-XRTimeSeries = ex.capture(XRTimeSeries)
 
 def water_budget_plots(model, ds, location, filenames):
     nt = min(len(ds.time), 190)
@@ -140,42 +186,6 @@ def get_output_dir(_run=None, model_dir=None, output_dir=None):
         return join(model_dir, file_name)
 
 
-@ex.config
-def my_config():
-    """Default configurations managed by sacred"""
-    data = "data/processed/training.nc"
-    restart = False
-    lr = .001
-    epochs = 2
-    model_dir = 'models'
-    skip = 5
-    seq_length = 1
-    batch_size = 256
-    tag = ''
-    vertical_grid_size = 34
-    loss_scale = {
-        'LHF': 150,
-        'SHF': 10,
-        'RADTOA': 600.0,
-        'RADSFC': 600.0,
-        'U': 5.0,
-        'V': 5.0,
-        'Prec': 8,
-        'QP': 0.05,
-        'QN': 0.05,
-        'QT': 1.0,
-        'SLI': 2.5
-    }
-
-    # y indices to use for training
-    y = (None, None)
-    x = (None, None)
-    time_sl = (None, None)
-    min_output_interval = 0
-    output_dir = None
-
-    prognostics = ['QT', 'SLI']
-    single_column_locations= [(32, 0)]
 
 
 def is_one_dimensional(val):
@@ -252,24 +262,13 @@ class Trainer(object):
         self.constants = train_data.torch_constants()
 
         # compute standard deviation
-        self.logger.info("Computing Standard Deviation")
-        self.scale = train_data.scale
-
-        # compute scaler
-        self.logger.info("Computing Mean")
-        self.mean = train_data.mean
-
         self.time_step = float(train_data.timestep())
-        self.setup_model()
+        self.model = get_model(*get_pre_post(self.dataset))
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
         self.criterion = weighted_mean_squared_error(
             weights=self.mass / self.mass.mean(), dim=-3)
         self.plot_interval = 1
         self.setup_engine()
-
-    @ex.capture
-    def setup_model(self, vertical_grid_size):
-        self.model = get_model(self.mean, self.scale, vertical_grid_size)
 
     def setup_engine(self):
         self.engine = Engine(self.step)
@@ -386,7 +385,7 @@ class Trainer(object):
                 name + f'{i}-{y}'
                 for name in ['qt', 'fqtnn', 'fqtnn-obs', 'pw']
             ]
-            water_budget_plots(self.model, self.dataset, location, filenames)
+            # water_budget_plots(self.model, self.dataset, location, filenames)
 
     def imbalance_plot(self, engine):
         from uwnet.thermo import lhf_to_evap
@@ -437,6 +436,14 @@ class Trainer(object):
     def train(self, epochs):
         """Train the neural network for a fixed number of epochs"""
         self.engine.run(self.train_loader, max_epochs=epochs)
+
+
+@ex.command()
+def train_pre_post(prepost):
+    """Train the pre and post processing modules"""
+    dataset = get_dataset()
+    logging.info(f"Saving Pre/Post module to {prepost['path']}")
+    torch.save(get_pre_post(dataset), prepost['path'])
 
 
 @ex.automain

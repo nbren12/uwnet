@@ -3,6 +3,7 @@ from functools import partial
 import torch
 import xarray as xr
 from toolz import pipe
+from .tensordict import TensorDict
 
 
 def _is_at_least_2d(da):
@@ -18,11 +19,11 @@ def _array_to_tensor(da):
                 .float()
 
 
-def _dataset_to_torch_dict(ds):
-    return {
+def dataset_to_torch_dict(ds):
+    return TensorDict({
         key: _array_to_tensor(ds[key])
         for key in ds.data_vars
-    }
+    })
 
 
 def _torch_dict_to_dataset(output, coords):
@@ -61,7 +62,7 @@ def _assert_no_null_dimensions(ds):
 def call_with_xr(self, ds, **kwargs):
     """Call the neural network with xarray inputs"""
     _assert_no_null_dimensions(ds)
-    tensordict = _dataset_to_torch_dict(ds)
+    tensordict = dataset_to_torch_dict(ds)
     with torch.no_grad():
         output = self(tensordict, **kwargs)
     return _torch_dict_to_dataset(output, ds.coords)
