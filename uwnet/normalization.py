@@ -1,11 +1,15 @@
+import logging
+
 import torch
-from toolz import curry, valmap
+from toolz import curry
+from toolz.curried import valmap
 from torch import nn
-from torch.autograd import Variable
+
+logger = logging.getLogger(__name__)
 
 
 def _numpy_to_variable(x):
-    return Variable(torch.FloatTensor(x))
+    return torch.tensor(x).float()
 
 
 def _scale_var(scale, mean, x):
@@ -57,3 +61,17 @@ class Scaler(nn.Module):
             else:
                 out[key] = x[key]
         return out
+
+
+def _get_scaler_args_numpy(dataset):
+    logger.info("Computing mean")
+    mean = dataset.mean(['x', 'y', 'time'])
+    logger.info("Computing std")
+    scale = dataset.std(['x', 'y', 'time'])
+    return mean, scale
+
+
+def get_mean_scale(dataset):
+    from .datasets import _ds_slice_to_torch
+    out = map(_ds_slice_to_torch, _get_scaler_args_numpy(dataset))
+    return map(valmap(torch.squeeze), out)
