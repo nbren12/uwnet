@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-from uwnet.model import call_with_numpy_dict
+from uwnet.numpy_interface import call_with_numpy_dict
 import torch
 # import debug
 import logging
