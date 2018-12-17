@@ -113,6 +113,44 @@ class Post(nn.Module):
         return d
 
 
+class LowerAtmosInput(nn.Module):
+
+    @property
+    def outputs(self):
+        return [
+            ('QT', 15),
+            ('SLI', 18),
+            ('SST', 1),
+            ('SOLIN', 1),
+        ]
+
+    def forward(self, x):
+        out = {}
+        for key, n in self.outputs:
+            out[key] = x[key][..., :n]
+        return out
+
+
+class IdentityOutput(nn.Module):
+    inputs = [
+        ('QT', 34),
+        ('SLI', 34),
+    ]
+
+    def forward(self, x):
+        return x
+
+
+class Sequential(nn.Sequential):
+    @property
+    def inputs(self):
+        return self[0].inputs
+
+    @property
+    def outputs(self):
+        return self[-1].outputs
+
+
 def get_pre_post_orig(dataset, n):
     from .normalization import get_mean_scale, Scaler
     inputs = [('QT', n), ('SLI', n),
@@ -142,3 +180,8 @@ def get_pre_post(data, _config):
         path = _config['path']
         logger.info(f"Loading pre/post module from {path}")
         return torch.load(path)
+    elif kind == 'lower_atmos':
+        pre, post = get_pre_post_orig(data, n=34)
+        lower = LowerAtmosInput()
+        pre = Sequential(pre, lower)
+        return pre, post

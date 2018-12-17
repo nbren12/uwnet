@@ -2,10 +2,8 @@ import torch
 from torch import nn
 
 import uwnet.modules as um
-from uwnet.normalization import Scaler
 
 from .xarray_interface import XRCallMixin
-from .pre_post import get_pre_post
 
 
 class InnerModel(nn.Module, XRCallMixin):
