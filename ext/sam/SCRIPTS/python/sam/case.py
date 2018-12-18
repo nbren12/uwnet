@@ -20,7 +20,7 @@ export {{key}}={{val}}
 {% endfor %}
 
 ln -s {{SAM}}/RUNDATA .
-{{SAM}}/docker/cleancase.sh CASE
+# {{SAM}}/docker/cleancase.sh CASE
 {{SAM}}/SAM_*
 {{SAM}}/docker/convert_files.sh
 """)
