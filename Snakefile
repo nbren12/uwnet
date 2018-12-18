@@ -114,12 +114,13 @@ rule tropical_subset:
 
 
 rule sam_run_report:
-    input: "data/runs/{run}/.done"
-    output: "reports/data/runs/{run}.html"
-    params: run="data/runs/{run}", ipynb="reports/data/runs/{run}.ipynb",
+    input: "data/runs/{run}/.{id}.done"
+    output: "reports/data/runs/{run}/{id}.html"
+    params: run="data/runs/{run}", ipynb="reports/data/runs/{run}/{id}.ipynb",
             template=abspath("notebooks/templates/SAMNN-report.ipynb")
     shell: """
     papermill -p run_path $PWD/{params.run} -p training_data $PWD/{TRAINING_DATA} \
+             -p caseid {wildcards.id} \
             --prepare-only {params.template} {params.ipynb}
     jupyter nbconvert --execute {params.ipynb}
     # clean up the notebook
@@ -128,8 +129,8 @@ rule sam_run_report:
 
 rule sam_run:
     # need to use a temporary file here so that the model output isn't deleted
-    output: touch("data/runs/model{model}-epoch{epoch}/.done")
-    log: "data/runs/model{model}-epoch{epoch}/log"
+    output: touch("data/runs/model{model}-epoch{epoch}/.{id}.done")
+    log: "data/runs/model{model}-epoch{epoch}/{id}.log"
     params: rundir="data/runs/model{model}-epoch{epoch}/",
             model="models/{model}/{epoch}.pkl"
     shell: """
