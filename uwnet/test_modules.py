@@ -2,13 +2,8 @@ import torch
 from torch import nn
 from .modules import LinearDictIn, LinearDictOut, LinearFixed, MapByKey
 from .tensordict import TensorDict
-import numpy as np
 import pytest
-
-
-def assert_tensors_allclose(*args):
-    args = [arg.detach().numpy() for arg in args]
-    return np.testing.assert_allclose(*args)
+from .testing import assert_tensors_allclose
 
 
 def test_LinearDictIn():
