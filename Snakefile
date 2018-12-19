@@ -3,6 +3,8 @@ import sys
 from os.path import join, abspath, dirname
 from datetime import datetime
 
+import xarray as xr
+
 
 def get_current_date_string():
     today = datetime.now()
@@ -136,7 +138,10 @@ rule tropical_subset:
 rule zonal_time_mean:
     input: TRAINING_DATA
     output: "data/processed/training.mean.nc"
-    shell: "ncwa -d step,0 -a step,x,time {input} {output}"
+    run:
+        ds = xr.open_dataset(input[0])
+        mean = ds.isel(step=0).mean(['x', 'time'])
+        mean.to_netcdf(output[0])
 
 
 ## SAM Execution ############################################################
