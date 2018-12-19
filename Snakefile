@@ -111,8 +111,14 @@ rule tropical_subset:
     output: TROPICS_DATA
     shell: "ncks -d y,24,40 {input} {output}"
 
+rule zonal_time_mean:
+    input: TRAINING_DATA
+    output: "data/processed/training.mean.nc"
+    shell: "ncwa -d step,0 -a step,x,time {input} {output}"
 
 
+## SAM Execution ############################################################
+TRAINING_MEAN=abspath("data/processed/training.mean.nc")
 rule sam_run_report:
     input: "data/runs/{run}/.{id}.done"
     output: "reports/data/runs/{run}/{id}.html"
@@ -121,6 +127,7 @@ rule sam_run_report:
     shell: """
     papermill -p run_path $PWD/{params.run} -p training_data $PWD/{TRAINING_DATA} \
              -p caseid {wildcards.id} \
+            -p training_data_mean {TRAINING_MEAN} \
             --prepare-only {params.template} {params.ipynb}
     jupyter nbconvert --execute {params.ipynb}
     # clean up the notebook
