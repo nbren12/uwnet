@@ -34,7 +34,35 @@ class InnerModel(nn.Module, XRCallMixin):
         return self.model(x[self.input_names])
 
 
-def get_model(*args):
+class TransposedModel(nn.Module, XRCallMixin):
+    """Inner model which operates with height along the last dimension"""
+
+    def __init__(self, model):
+        "docstring"
+        super(InnerModel, self).__init__()
+
+        transpose = um.ValMap(um.RPartial(torch.transpose, -3, -1))
+        self.model = nn.Sequential(
+            transpose,
+            model,
+            transpose
+        )
+
+    def forward(self, x):
+        return self.model(x)
+
+
+def get_causal_inner_model(pre, nodes=256, layers=3):
+    pre = um.ConcatenatedWithIndex(pre)
+    from IPython import embed; embed()
+
+
+def get_model(pre, post, _config):
     """Create an MLP with scaled inputs and outputs
     """
-    return InnerModel(*args).to(dtype=torch.float)
+    kind = _config['kind']
+
+    if kind == 'inner_model':
+        return InnerModel(*args).to(dtype=torch.float)
+    elif kind == 'causal':
+        inner = get_causal_inner_model(pre)

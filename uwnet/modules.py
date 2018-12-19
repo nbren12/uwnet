@@ -223,3 +223,30 @@ class MapByKey(nn.Module):
 
     def forward(self, d):
         return TensorDict(mapbykey(self.funcs, d))
+
+
+class ConcatenatedWithIndex(nn.Module):
+    """Module for concatenating the output of another module in a reproducable
+    order"""
+    def __init__(self, model, dim=-1):
+        "docstring"
+        super(ConcatenatedWithIndex, self).__init__()
+        self.model = model
+        self.dim = dim
+
+        keys = []
+        index = []
+        for key, n in self.model.outputs:
+            keys.append(key)
+            for k in range(n):
+                index.append(k)
+
+        self.keys = keys
+        self.index = torch.tensor(index)
+
+    def forward(self, x):
+        output = []
+        y = self.model(x)
+        for key in self.keys:
+            output.append(y[key])
+        return torch.concatenate(output, self.dim)

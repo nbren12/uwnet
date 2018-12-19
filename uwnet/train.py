@@ -88,6 +88,10 @@ def my_config():
         path='models/prepost.pkl'
     )
 
+    model = dict(
+        kind='inner_model'
+    )
+
 
 @ex.capture
 def get_dataset(data):
