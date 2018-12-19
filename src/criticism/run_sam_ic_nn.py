@@ -27,6 +27,7 @@ NGAQUA_ROOT = "/Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX"
 @click.option('-r', '--run', is_flag=True)
 @click.option('-d', '--docker-image', type=str, default='nbren12/uwnet')
 @click.option('-p', '--parameters', type=click.Path(), default=None)
+@click.option('-s', '--sam-src', type=click.Path(), default='/opt/sam')
 def main(path,
          neural_network,
          momentum_neural_network,
@@ -36,6 +37,7 @@ def main(path,
          docker_image,
          model_run_path='model.pkl',
          momentum_model_run_path='momentum.pkl',
+         sam_src='/opt/sam',
          parameters=None):
     """Create SAM case directory for an NGAqua initial value problem and optionally
     run the model with docker.
@@ -49,7 +51,7 @@ def main(path,
     ic = get_ngqaua_ic(ngaqua_root, t)
 
     case = InitialConditionCase(
-        path=path, ic=ic, sam_src="/opt/sam", docker_image=docker_image,
+        path=path, ic=ic, sam_src=sam_src, docker_image=docker_image,
         prm=parameters)
 
     # dt = 120.0
