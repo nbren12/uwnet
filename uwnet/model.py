@@ -63,6 +63,6 @@ def get_model(pre, post, _config):
     kind = _config['kind']
 
     if kind == 'inner_model':
-        return InnerModel(*args).to(dtype=torch.float)
+        return InnerModel(pre, post).to(dtype=torch.float)
     elif kind == 'causal':
         inner = get_causal_inner_model(pre)
