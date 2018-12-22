@@ -127,20 +127,21 @@ class XRTimeSeries(Dataset):
         std = self.std
         return valmap(lambda x: x.max(), std)
 
-    def timestep(self):
-        time_dim = 'time'
-        time = self.data[time_dim]
-        dt = np.diff(time)
 
-        all_equal = dt.std() / dt.mean() < 1e-6
-        if not all_equal:
-            raise ValueError("Data must be uniformly sampled in time")
+def get_timestep(data):
+    time_dim = 'time'
+    time = data[time_dim]
+    dt = np.diff(time)
 
-        if time.units.startswith('d'):
-            return dt[0] * 86400
-        elif time.units.startswith('s'):
-            return dt[0]
-        else:
-            raise ValueError(
-                f"Units of time are {time.units}, but must be either seconds"
-                "or days")
+    all_equal = dt.std() / dt.mean() < 1e-6
+    if not all_equal:
+        raise ValueError("Data must be uniformly sampled in time")
+
+    if time.units.startswith('d'):
+        return dt[0] * 86400
+    elif time.units.startswith('s'):
+        return dt[0]
+    else:
+        raise ValueError(
+            f"Units of time are {time.units}, but must be either seconds"
+            "or days")

@@ -1,9 +1,8 @@
 import numpy as np
 import pytest
 import xarray as xr
-from torch.utils.data import DataLoader
 
-from uwnet.datasets import XRTimeSeries
+from uwnet.datasets import XRTimeSeries, get_timestep
 
 
 def get_obj():
@@ -43,22 +42,19 @@ def test_XRTimeSeries_shape():
     (.125, 'd', 10800.0),
     (10, 's', 10.0),
 ])
-def test_XRTimeSeries_timestep(dt, units, dt_seconds):
+def test_get_timestep(dt, units, dt_seconds):
     ds, _ = get_obj()
     ds = ds.assign_coords(time=np.arange(len(ds['time'])) * dt)
     ds['time'].attrs['units'] = units
 
-    # dim_1 is the time dimension here
-    dataset = XRTimeSeries(ds)
-    assert dataset.timestep() == dt_seconds
+    dt = get_timestep(ds)
+    assert dt == dt_seconds
 
     # non-uniformly sampled data
     time = np.arange(len(ds['time']))**2
     ds = ds.assign_coords(time=time)
-    dataset = XRTimeSeries(ds)
-
     with pytest.raises(ValueError):
-        dataset.timestep()
+        get_timestep(ds)
 
 
 @pytest.mark.xfail()
