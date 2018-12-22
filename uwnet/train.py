@@ -24,26 +24,22 @@ import os
 from contextlib import contextmanager
 from os.path import join
 
-import matplotlib.pyplot as plt
 from sacred import Experiment
-from toolz import valmap
 
 import torch
-import torch.nn.functional as F
-import torchnet as tnt
 import xarray as xr
 from torch.utils.data import DataLoader
-from uwnet import model
 from uwnet.model import get_model
 from uwnet.pre_post import get_pre_post
-from uwnet.columns import single_column_simulation
-from uwnet.datasets import XRTimeSeries
+from uwnet.training_plots import TrainingPlotManager
+from uwnet.datasets import XRTimeSeries, get_timestep
 from uwnet.loss import (weighted_mean_squared_error, total_loss)
 from ignite.engine import Engine, Events
 
 ex = Experiment("Q1")
 
 XRTimeSeries = ex.capture(XRTimeSeries)
+TrainingPlotManager = ex.capture(TrainingPlotManager, prefix='plots')
 get_model = ex.capture(get_model, prefix='model')
 get_pre_post = ex.capture(get_pre_post, prefix='prepost')
 
@@ -51,14 +47,12 @@ get_pre_post = ex.capture(get_pre_post, prefix='prepost')
 def my_config():
     """Default configurations managed by sacred"""
     data = "data/processed/training.nc"
-    restart = False
     lr = .001
     epochs = 2
     model_dir = 'models'
     skip = 5
     seq_length = 1
     batch_size = 256
-    tag = ''
     vertical_grid_size = 34
     loss_scale = {
         'LHF': 150,
@@ -78,11 +72,9 @@ def my_config():
     y = (None, None)
     x = (None, None)
     time_sl = (None, None)
-    min_output_interval = 0
     output_dir = None
 
     prognostics = ['QT', 'SLI']
-    single_column_locations= [(32, 0)]
     prepost = dict(
         kind='pca',
         path='models/prepost.pkl'
@@ -90,6 +82,11 @@ def my_config():
 
     model = dict(
         kind='inner_model'
+    )
+
+    plots = dict(
+        interval=1,
+        single_column_locations=[(32, 0)]
     )
 
 
@@ -106,76 +103,19 @@ def get_dataset(data):
         return dataset
 
 
-def water_budget_plots(model, ds, location, filenames):
-    nt = min(len(ds.time), 190)
-    prognostics=['QT', 'SLI']
-    scm_data = single_column_simulation(model, location, interval=(0, nt - 1),
-                                        prognostics=prognostics)
-    merged_pred_data = location.rename({
-        'SLI': 'SLIOBS',
-        'QT': 'QTOBS',
-        'U': 'UOBS',
-        'V': 'VOBS',
-    }).merge(
-        scm_data, join='inner')
-    output = model.call_with_xr(merged_pred_data)
-
-    plt.figure()
-    scm_data.QT.plot(x='time')
-    plt.title("QT")
-    plt.savefig(filenames[0])
-
-    plt.figure()
-    output.QT.plot(x='time')
-    plt.title("FQTNN from NN-prediction")
-    output_truth = model.call_with_xr(location)
-    plt.savefig(filenames[1])
-
-    plt.figure()
-    output_truth.QT.plot(x='time')
-    plt.title("FQTNN from Truth")
-    plt.xlim([100, 125])
-    plt.savefig(filenames[2])
-
-    plt.figure()
-    (scm_data.QT * ds.layer_mass / 1000).sum('z').plot()
-    (location.QT * ds.layer_mass / 1000).sum('z').plot(label='observed')
-    plt.legend()
-    plt.savefig(filenames[3])
+@ex.capture
+def get_data_loader(data: xr.Dataset, x, y, time_sl, vertical_grid_size,
+                    batch_size):
+    ds = data.isel(
+        z=slice(0, vertical_grid_size),
+        y=slice(*y),
+        x=slice(*x),
+        time=slice(*time_sl))
 
 
-## Some plotting routines to be called after every epoch
-class Plot(object):
-    def get_filename(self, epoch):
-        return self.name.format(epoch)
-
-    def save_figure(self, epoch, location, output):
-        fig, ax = plt.subplots()
-        self.plot(location, output, ax)
-        path = self.get_filename(epoch)
-        logging.info(f"Saving to {path}")
-        fig.savefig(path)
-        ex.add_artifact(path)
-        plt.close()
-
-
-class plot_q2(Plot):
-    name = 'q2_{}.png'
-
-    def plot(self, location, output, ax):
-        return output.QT.plot(x='time', ax=ax)
-
-
-class plot_scatter_q2_fqt(Plot):
-    name = 'scatter_fqt_q2_{}.png'
-
-    def plot(self, location, output, ax):
-        x, y, z = [
-            x.values.ravel()
-            for x in xr.broadcast(location.FQT * 86400, output.QT, output.z)
-        ]
-        im = ax.scatter(x, y, c=z)
-        plt.colorbar(im, ax=ax)
+    train_data = XRTimeSeries(ds)
+    return DataLoader(
+        train_data, batch_size=batch_size, shuffle=True)
 
 
 @ex.capture
@@ -208,28 +148,10 @@ def get_model_inputs_from_batch(batch, prognostics):
 
 class Trainer(object):
     """Utility object for training a neural network parametrization
-
-    Attributes
-    ----------
-    model
-    logger
-    meters
-        a dictionary of the torchnet meters used for tracking things like
-        training losses
-    output_dir: str
-        the output directory
-    criterion
-        the loss function
-
-    Methods
-    -------
-    train
-
     """
 
     @ex.capture
-    def __init__(self, _run, restart, lr, batch_size, tag, vertical_grid_size,
-                 loss_scale, y, x, time_sl, min_output_interval):
+    def __init__(self, _run, lr, loss_scale):
         # setup logging
         logging.basicConfig(level=logging.INFO)
 
@@ -237,41 +159,21 @@ class Trainer(object):
         # experiment = Experiment(api_key="fEusCnWmzAtmrB0FbucyEggW2")
         self.logger = logging.getLogger(__name__)
 
-        self.min_output_interval = min_output_interval
-
         # get output directory
         self.output_dir = get_output_dir()
-
-        # set up meters
-        self.meters = dict(loss=tnt.meter.AverageValueMeter())
 
         self.dataset = get_dataset()
         self.mass = torch.tensor(self.dataset.layer_mass.values).view(
             -1, 1, 1).float()
         self.z = torch.tensor(self.dataset.z.values).float()
+        self.time_step = get_timestep(self.dataset)
+        self.train_loader = get_data_loader(self.dataset)
 
-        self.dataset_subset = self.dataset.isel(
-            z=slice(0, vertical_grid_size),
-            y=slice(*y),
-            x=slice(*x),
-            time=slice(*time_sl))
-
-        ds =  self.dataset_subset
-
-        self.nt = len(ds.time)
-
-        train_data = XRTimeSeries(ds)
-        self.train_loader = DataLoader(
-            train_data, batch_size=batch_size, shuffle=True)
-        self.constants = train_data.torch_constants()
-
-        # compute standard deviation
-        self.time_step = float(train_data.timestep())
         self.model = get_model(*get_pre_post(self.dataset))
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
         self.criterion = weighted_mean_squared_error(
             weights=self.mass / self.mass.mean(), dim=-3)
-        self.plot_interval = 1
+        self.plot_manager = TrainingPlotManager(ex, self.model, self.dataset)
         self.setup_engine()
 
     def setup_engine(self):
@@ -282,8 +184,6 @@ class Trainer(object):
             Events.ITERATION_COMPLETED, self.print_loss_info)
         self.engine.add_event_handler(
             Events.EPOCH_COMPLETED, self.after_epoch)
-        self.engine.add_event_handler(
-            Events.EPOCH_COMPLETED, self.imbalance_plot)
 
     def print_loss_info(self, engine):
         n = len(self.train_loader)
@@ -351,9 +251,6 @@ class Trainer(object):
             'epoch': state.epoch,
             'loss': state.output,
         }
-
-        n = len(self.train_loader)
-        batch = state.iteration % (n + 1)
         ex.log_scalar('loss', batch_info['loss'])
 
     def after_epoch(self, engine):
@@ -361,62 +258,10 @@ class Trainer(object):
         n = engine.state.epoch
         epoch_file = f"{n}.pkl"
 
-        if n % self.plot_interval != 0:
-            return
-
         with self.change_to_work_dir():
             torch.save(self.model, epoch_file)
             ex.add_artifact(epoch_file)
-            self.plot_model(engine)
-
-    @ex.capture
-    def plot_model(self, engine, single_column_locations):
-        single_column_plots = [plot_q2(), plot_scatter_q2_fqt()]
-        for y, x in single_column_locations:
-            location = self.dataset.isel(
-                y=slice(y, y + 1), x=slice(x, x + 1), time=slice(0, 200))
-
-            try:
-                output = self.model.call_with_xr(location)
-            except ValueError:
-                continue
-
-            for plot in single_column_plots:
-                plot.save_figure(f'{engine.state.epoch}-{y}', location, output)
-
-            i = engine.state.epoch
-            filenames = [
-                name + f'{i}-{y}'
-                for name in ['qt', 'fqtnn', 'fqtnn-obs', 'pw']
-            ]
-            # water_budget_plots(self.model, self.dataset, location, filenames)
-
-    def imbalance_plot(self, engine):
-        from uwnet.thermo import lhf_to_evap
-        n = engine.state.epoch
-        if n % self.plot_interval != 0:
-            return
-        mass = self.dataset.layer_mass
-        subset = self.dataset_subset.isel(time=slice(0, None, 20))
-        out = self.model.call_with_xr(subset)
-        pme = (subset.Prec- lhf_to_evap(subset.LHF)).mean(['time', 'x'])
-        pmenn = - (mass * out.QT).sum('z')/1000
-        pmefqt = ((mass * subset.FQT).sum('z')/1000*86400).mean(['time', 'x'])
-        pmenn = pmenn.mean(['time', 'x'])
-        plotme = xr.Dataset({'truth': pme, 'nn': pmenn, 'fqt':
-                            pmefqt}).to_array(dim='var')
-
-        plt.figure()
-        try:
-            plotme.plot(hue='var')
-        except ValueError:
-            df = plotme.squeeze().to_series()
-            df.plot(kind='bar')
-
-        with self.change_to_work_dir():
-            plt.savefig(f"{n}-imbalance.png")
-
-        plt.close()
+            self.plot_manager(engine)
 
     def _make_work_dir(self):
         try:
