@@ -1,5 +1,5 @@
 from functools import partial
-from toolz import pipe
+from toolz import pipe, curry
 from .tensordict import TensorDict
 import torch
 
@@ -19,3 +19,8 @@ def call_with_numpy_dict(self, inputs, **kwargs):
     with torch.no_grad():
         return pipe(inputs, _numpy_dict_to_torch_dict,
                     partial(self, **kwargs), _torch_dict_to_numpy_dict)
+
+
+@curry
+def NumpyWrapper(model, *args, **kwargs):
+    return call_with_numpy_dict(model, *args, **kwargs)
