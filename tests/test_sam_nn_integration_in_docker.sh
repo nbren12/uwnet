@@ -5,7 +5,8 @@ set -e
 
 rundir="test_sam"
 
-function checkRun() {
+checkRun()
+{
     echo "Checking that SAM succesfully completed"
     cd $1
     n=$(ls OUT_3D/*.nc | wc -l)
