@@ -48,7 +48,9 @@ ENV PYTHONPATH=/opt/sam/SRC/python:${PYTHONPATH}
 # ADD UWNET to path
 ENV PYTHONPATH=/opt/sam/SCRIPTS/python/:/opt/:${PYTHONPATH}
 
-RUN pip install f90nml
+RUN pip install f90nml sphinx==1.7 recommonmark doctr sphinx_rtd_theme
 
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
+
+# add tools for docs

@@ -13,13 +13,10 @@ env:
 before_install:
   - make compile_sam
 install:
-  - pip install doctr sphinx recommonmark
+  - pip install doctr
 script:
   - docker-compose run -w /uwnet sam pytest
   - docker-compose run -w /uwnet sam tests/test_sam_nn_integration_in_docker.sh
-# make and deploy the documents
   - set -e
-  - cd docs
-  - make html
-  - cd ..
+  - docker-compose run -w /uwnet sam make -C docs html
   - doctr deploy . --built-docs docs/_build/html/
