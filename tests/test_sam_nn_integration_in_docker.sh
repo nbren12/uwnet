@@ -29,6 +29,11 @@ python src/criticism/run_sam_ic_nn.py \
        $rundir
 
 echo "Running SAM"
-setup/docker/execute_run.sh $rundir > test_sam/out 2> test_sam/err
-
+(
+    cd $rundir
+    ./run.sh
+)
 checkRun $rundir
+
+echo "Cleaning up"
+rm -rf $rundir

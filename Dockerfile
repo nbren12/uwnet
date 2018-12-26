@@ -31,7 +31,7 @@ RUN cd /tmp/pFUnit-3.2.9 && \
 RUN conda update -y conda
 RUN conda install -y -c pytorch pytorch-cpu python=3.6 numpy toolz xarray \
                                                    netcdf4 scipy scikit-learn
-RUN pip install zarr cffi click attrs dask pytest sacred
+RUN pip install zarr cffi click attrs dask pytest sacred jinja2
 # ADD environment.yml /opt/environment.yml
 # RUN cd /opt && conda env create
 # ENV PATH=/miniconda/envs/uwnet/bin:${PATH}
@@ -47,3 +47,8 @@ ENV LD_LIBRARY_PATH=/usr/local/lib
 ENV PYTHONPATH=/opt/sam/SRC/python:${PYTHONPATH}
 # ADD UWNET to path
 ENV PYTHONPATH=/opt/sam/SCRIPTS/python/:/opt/:${PYTHONPATH}
+
+RUN pip install f90nml
+
+ENV LC_ALL=C.UTF-8
+ENV LANG=C.UTF-8

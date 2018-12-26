@@ -16,7 +16,7 @@ install:
   - pip install doctr
 script:
   - docker-compose run -w /uwnet sam pytest
-  - sh tests/test_sam_nn_integration_in_docker.sh
+  - docker-compose run -w /uwnet sam tests/test_sam_nn_integration_in_docker.sh
 # make and deploy the documents
   - set -e
   - cd docs
