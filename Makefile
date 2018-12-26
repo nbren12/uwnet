@@ -14,6 +14,9 @@ RCLONE_REMOTE ?= uwgoogledrive
 TRAINING_CONFIG=examples/sl_qt.config.yaml
 TRAINING_DATA ?= data/processed/2018-10-02-ngaqua-subset.nc
 DOCKER_IMAGE ?= nbren12/uwnet:latest
+MACHINE ?= docker
+
+MACHINE_SCRIPTS = setup/$(MACHINE)
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -117,3 +120,9 @@ docs:
 
 install_hooks:
 	cp -f git-hooks/* .git/hooks/
+
+compile_sam:
+	$(MACHINE_SCRIPTS)/compile_sam.sh
+
+test:
+	$(MACHINE_SCRIPTS)/test.sh

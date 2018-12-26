@@ -1,5 +1,4 @@
-import os
-from os.path import join
+import xarray as xr
 import json
 
 import click
@@ -22,6 +21,7 @@ NGAQUA_ROOT = "/Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX"
     '--momentum-neural-network',
     type=click.Path(),
     help='use the neural network in this pickled model file.')
+@click.option('-ic', '--initial-condition', type=click.Path(), default=None)
 @click.option('-n', '--ngaqua-root', type=click.Path(), default=NGAQUA_ROOT)
 @click.option('-t', type=int, default=0)
 @click.option('-r', '--run', is_flag=True)
@@ -30,6 +30,7 @@ NGAQUA_ROOT = "/Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX"
 def main(path,
          neural_network,
          momentum_neural_network,
+         initial_condition,
          ngaqua_root,
          t,
          run,
@@ -46,11 +47,14 @@ def main(path,
     else:
         parameters = default_parameters()
 
-    ic = get_ngqaua_ic(ngaqua_root, t)
+    if initial_condition is None:
+        initial_condition = get_ngqaua_ic(ngaqua_root, t)
+    else:
+        initial_condition = xr.open_dataset(initial_condition)
 
-    case = InitialConditionCase(
-        path=path, ic=ic, sam_src="/opt/sam", docker_image=docker_image,
-        prm=parameters)
+    case = InitialConditionCase(path=path, ic=initial_condition,
+                                sam_src="/opt/sam", docker_image=docker_image,
+                                prm=parameters)
 
     # dt = 120.0
     # day = 86400
