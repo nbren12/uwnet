@@ -123,3 +123,6 @@ install_hooks:
 
 compile_sam:
 	$(MACHINE_SCRIPTS)/compile_sam.sh
+
+test:
+	$(MACHINE_SCRIPTS)/test.sh

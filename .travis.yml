@@ -11,25 +11,11 @@ env:
   # Doctr deploy key for nbren12/uwnet
   - secure: "O2PB+Y+b/VjsScr/8ipFQXIutT+xQAII3SfSDoRYaw/Hfc9f5rGWXQx+KkGxc/guNxpQSGzEb3BqKl+EWqcFNMiBkF2VgMAfSrpJ1ysqxdW6Uzh+ePiuDRdfZY1/o5C7g4UP4jzMdSu2xzLT0ErfGoc785wgHkXmYKrEWd7lAmr3A5MVNQt/FlQFR2+SOZPz/aHLK9yPzq160BNXFPCqWDdvSskeSX2W1vJklrhD33e0xHt457Vpu1VU+aJ7CmUpfEXIGKSJPCxoBkBva7VL7rPyT8j8uW2SjHGBO2RKNGvCKFGAmM4B3Kcz3dqtrW8s6cE4SpGS2/iVInDaaKX13lMqfd8iTGe8iJyFlMqm7E6k1HUbbcsMwqaCEvjPBJpOi62cWAZaDkFutD0C+trxpAz1rGGzyurDWr4KtrsbuQSo+9SDqLUJMWSjTDWULUnDSYqpLZMBcgUWsTRcquTBzfIzNO1UfGwyd4P68nPnUj58/5q/5eUMM05ySQHdjCPIMqW+BR+MgF574gbVWlY+cWZGQCNxrWyindrb/Cz6Bh7l8DmuQHwkq1jLqtCO6wPx6KC/FTH5a5ZC6HyjqfqYvHDBd5x784TFAiGVHU6okcOIYyPS8nj48OK0KfCRkMu4Gvu+r9KZIDccWL23EK1632qsw1Amed3JN5B57qSZBSQ="
 before_install:
-  - docker build -t nbren12/uwnet .
   - make compile_sam
-  - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
-  - bash miniconda.sh -b -p $HOME/miniconda
-  - export PATH="$HOME/miniconda/bin:$PATH"
-  - hash -r
-  - conda config --set always_yes yes --set changeps1 no
-  - conda update -q conda
-  # Useful for debugging any issues with conda
-  - conda info -a
 install:
-# this is good for debugging
-  - cat ci/environment.yml
-  - conda env create ci/environment.yml
-  - source activate uwnet
-  - python setup.py develop
   - pip install doctr
 script:
-  - pytest
+  - docker-compose run -w /uwnet sam pytest
   - sh tests/test_sam_nn_integration_in_docker.sh
 # make and deploy the documents
   - set -e
