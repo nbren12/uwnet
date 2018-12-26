@@ -1,0 +1,11 @@
+version: '3'
+services:
+  sam:
+    build: ./
+    environment:
+      - LOCAL_FLAGS=/uwnet/setup/docker/local_flags.mk
+      - REDIS_URL=redis
+    volumes:
+      - ./uwnet:/opt/uwnet
+      - ./:/uwnet
+      - ./ext/sam:/opt/sam
