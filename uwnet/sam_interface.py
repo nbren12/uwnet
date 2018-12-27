@@ -1,11 +1,24 @@
-import os
-import numpy as np
+"""Interface for calling neural network models from SAM
 
-from uwnet.numpy_interface import call_with_numpy_dict
-import torch
+Configuration
+-------------
+
+This interface routine is configured using environmental variables. Currently
+these are
+
+- UWNET_MODEL : The path to the model in a pickle file
+
+"""
 # import debug
 import logging
+import os
+
+import numpy as np
 from toolz import valmap
+
+import torch
+from torch import nn
+from uwnet.numpy_interface import NumpyWrapper
 
 
 def get_models():
@@ -18,22 +31,13 @@ def get_models():
 
     # Load Q1/Q2 model
     model_path = os.environ['UWNET_MODEL']
-    MODEL = torch.load(model_path)
-    MODEL.eval()
-    # MODEL.disable_forcing()
-    models.append(MODEL)
+    model = torch.load(model_path)
 
-    # Load Q3 model
-    try:
-        model_path = os.environ['UWNET_MOMENTUM_MODEL']
-        MOM_MODEL = model_factory().from_path(model_path)
-        logging.info("Loaded momentum source model")
-        MOM_MODEL.eval()
-        models.append(MOM_MODEL)
-    except:
-        logging.info("Momentum source model not loaded")
-        pass
+    if isinstance(model, nn.Module):
+        model.eval()
+        model = NumpyWrapper(model)
 
+    models.append(model)
     return models
 
 
@@ -79,40 +83,6 @@ def compute_insolation(lat, day, scon=1367, eccf=1.0):
     return scon * eccf * mu
 
 
-def get_lower_atmosphere(kwargs, nz):
-    # limit vertical variables to this number of height poitns
-    fields_3d = ['SLI', 'QT', 'TABS', 'W', 'FQT', 'FSLI', 'U', 'V']
-    fields_z = ['layer_mass', 'p', 'pi']
-    out = {}
-    for field in kwargs:
-        if field in fields_3d + fields_z:
-            out[field] = kwargs[field][:nz]
-        else:
-            out[field] = kwargs[field][0]
-    return out
-
-
-def expand_lower_atmosphere(sam_state, nn_output, n_in, n_out):
-    out = {}
-    for key in nn_output:
-        if nn_output[key].shape[0] == n_in:
-            lower_atmos = nn_output[key]
-            if key in sam_state:
-                upper_atmos = sam_state[key][n_in:]
-                lower_atmos = nn_output[key]
-                out[key] = np.concatenate([lower_atmos, upper_atmos], axis=0)
-            else:
-                out[key] = np.pad(
-                    lower_atmos, [(0, n_out - n_in), (0, 0), (0, 0)],
-                    mode='constant')
-
-            assert out[key].shape[0] == n_out
-        else:
-            out[key] = nn_output[key]
-
-    return out
-
-
 def call_neural_network(state):
 
     logger = logging.getLogger(__name__)
@@ -129,30 +99,18 @@ def call_neural_network(state):
 
     # Compute the output of all the models
     # ------------------------------------
-    merged_outputs = {}
     for model in MODELS:
         logger.info(f"Calling NN")
-        nz = 34 #len(model.heights)
-        lower_atmos_kwargs = get_lower_atmosphere(kwargs, nz)
-
-        # add a singleton dimension and convert to float32
-        lower_atmos_kwargs = {key: val[np.newaxis].astype(np.float32) for key,
-                              val in lower_atmos_kwargs.items()}
-        # call the neural network
-        out = call_with_numpy_dict(model, lower_atmos_kwargs)
+        out = model(kwargs)
         # remove the singleton first dimension
         out = valmap(np.squeeze, out)
-        out = expand_lower_atmosphere(
-            state, out, n_in=nz, n_out=state['QT'].shape[0])
 
         renamed = {}
         for key in out:
             renamed['F' + key + 'NN'] = out[key]
 
-        merged_outputs.update(renamed)
-
     # update the state
-    state.update(merged_outputs)
+    state.update(renamed)
 
     # Debugging info below here
     # -------------------------
