@@ -73,23 +73,20 @@ def max_signed_eigvals(A, niter=100, m=1):
 
 
 def dict_jacobian(y, d, progs=['QT', 'SLI']):
-    for key in d:
-        try:
-            d[key].requires_grad = True
-        except RuntimeError:
-            pass
-
     jac = {}
-    for inkey in progs:
-        for outkey in progs:
+    for inkey in d:
+        for outkey in y:
             try:
-                jac.setdefault(inkey, {})[outkey] = jacobian(
-                    y[inkey], d[outkey]).squeeze()
+                jac.setdefault(outkey, {})[inkey] = jacobian(
+                    y[outkey], d[inkey]).squeeze()
             except KeyError:
                 pass
     return jac
 
 
 def jacobian_from_model(model, d, **kwargs):
+    # enable gradients
+    for key in d:
+        d[key].requires_grad = True
     y = model(d)
     return dict_jacobian(y, d, **kwargs)

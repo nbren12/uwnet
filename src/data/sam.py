@@ -8,11 +8,14 @@ import glob
 class SAMRun(object):
     """Class for opening SAM simulation results"""
     path = attr.ib()
-    case = attr.ib(default='control')
+    case = attr.ib(default='')
+    file_limit = attr.ib(default=200)
 
     def open_ncfiles_in_dir(self, dir, suffix='_'):
-        return xr.open_mfdataset(
-            f"{self.path}/{dir}/*_{self.case}{suffix}*.nc")
+        pattern = f"{self.path}/{dir}/*_{self.case}{suffix}*.nc"
+        files = glob.glob(pattern)
+        files = files[:min(len(files), self.file_limit)]
+        return xr.open_mfdataset(files)
 
     @property
     def debug_files(self):

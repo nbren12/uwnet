@@ -68,7 +68,7 @@ def predict_multiple_steps(model, batch: Batch, initial_time,
         apparent_sources = model(inputs)
         known_forcing = batch.get_known_forcings_at_time(t)
         state = state + (apparent_sources/86400 + known_forcing) * time_step
-        yield t + 1, state
+        yield t + 1, state, apparent_sources
 
 
 def select_keys_time(x, keys, t):
