@@ -22,5 +22,5 @@ def call_with_numpy_dict(self, inputs, **kwargs):
 
 
 @curry
-def NumpyWrapper(model, *args, **kwargs):
-    return call_with_numpy_dict(model, *args, **kwargs)
+def NumpyWrapper(model, x):
+    return call_with_numpy_dict(model, x)

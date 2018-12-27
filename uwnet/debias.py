@@ -8,6 +8,7 @@ from sklearn.linear_model import Lasso
 
 from uwnet.thermo import compute_apparent_source
 from uwnet.xarray_interface import XarrayWrapper
+from uwnet.numpy_interface import NumpyWrapper
 
 
 class LassoDebiasedModel(object):
@@ -24,8 +25,16 @@ class LassoDebiasedModel(object):
     def __init__(self, model, mapping):
         "docstring"
         self.model = model
-        self.coefs = {}
+        self.coefs_ = {}
         self.mapping = mapping
+
+    @property
+    def xmodel(self):
+        return XarrayWrapper(self.model)
+
+    @property
+    def npmodel(self):
+        return NumpyWrapper(self.model)
 
     def fit(self, input):
         """
@@ -35,7 +44,7 @@ class LassoDebiasedModel(object):
         input : xr.Dataset
             input variables
         """
-        output = self.model(input)
+        output = self.xmodel(input)
 
         for args in self.mapping:
             print(f"Fitting regression model for {args}")
@@ -53,13 +62,36 @@ class LassoDebiasedModel(object):
         ----------
         input : xr.Datset
         """
-        output = self.model(input)
+        output = XarrayWrapper(self.model)(input)
 
         for (prog, pred), coefs in self.coefs_.items():
             debiased = (
                 input[prog] * coefs[0] + coefs[1] * output[pred] + coefs[2])
             output[pred] = debiased
         return output
+
+    @property
+    def numpy_coefs_(self):
+        """Coefficients of LASSO
+        """
+        out = {}
+        required_dim_order = ['dim_0', 'z', 'y']
+        for key, coefs in self.coefs_.items():
+            coefs = coefs.transpose(*required_dim_order)
+            out[key] = coefs.values[..., np.newaxis]
+        return out
+
+    def predict_with_numpy(self, input):
+        output = self.npmodel(input)
+
+        for (prog, pred), coefs in self.numpy_coefs_.items():
+            debiased = (
+                input[prog] * coefs[0] + coefs[1] * output[pred] + coefs[2])
+            output[pred] = debiased
+        return output
+
+    def __call__(self, input):
+        return self.predict_with_numpy(input)
 
 
 def insert_apparent_sources(ds, prognostics):
@@ -110,21 +142,48 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='debais network')
     parser.add_argument('data')
     parser.add_argument('model')
+    parser.add_argument('-t', '--test', action='store_true', default=False)
+
     return parser.parse_args()
 
 
-args = parse_arguments()
+def main():
+    args = parse_arguments()
 
-ds = xr.open_dataset(args.data).isel(time=slice(0, 20), step=0, x=slice(0, 10))
-model = XarrayWrapper(torch.load(args.model))
-ds = insert_apparent_sources(ds, prognostics=['QT', 'SLI'])
+    ds = xr.open_dataset(args.data).isel(
+        time=slice(0, 20), step=0, x=slice(0, 10))
+    model = torch.load(args.model)
+    ds = insert_apparent_sources(ds, prognostics=['QT', 'SLI'])
 
-mapping = [
-    ('QT', 'QT', 'QQT'),
-    ('SLI', 'SLI', 'QSLI'),
-]
-debias = LassoDebiasedModel(model, mapping).fit(ds)
-debiased = debias.predict(ds)
+    mapping = [
+        ('QT', 'QT', 'QQT'),
+        ('SLI', 'SLI', 'QSLI'),
+    ]
+    debias = LassoDebiasedModel(model, mapping).fit(ds)
 
-# args = 'QT', 'FQT'
-# params = get_lasso_coefficients(ds, output, *args)
+    def test_debias(debias):
+        state = torch.load("assets/call_neural_network_debug.pt")
+        kwargs = {}
+        dt = state.pop('dt')
+        for key, val in state.items():
+            if isinstance(val, np.ndarray):
+                kwargs[key] = val
+
+        out = debias(kwargs)
+
+    if args.test:
+        print("Running test")
+        test_debias(debias)
+
+
+def snakemake_main():
+    pass
+
+
+try:
+    snakemake
+except NameError:
+    if __name__ == '__main__':
+        main()
+else:
+    snakemake_main()
