@@ -7,7 +7,7 @@ from .tensordict import TensorDict
 
 
 def _is_at_least_2d(da):
-    return set(da.dims) > {'x', 'y'}
+    return set(da.dims) >= {'x', 'y'}
 
 
 def _array_to_tensor(da):
