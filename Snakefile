@@ -178,3 +178,9 @@ rule train_model:
     python -m uwnet.train with data={TRAINING_DATA} prepost.path={input} prepost.kind='saved' \
         batch_size=64 lr=.005 epochs=5 -m uwnet
     """
+
+rule debias_trained_model:
+    input: "models/{model}.pkl"
+    output: "models/{model}.debiased.pkl"
+    params: data=TRAINING_DATA, prognostics=['QT', 'SLI']
+    script: "src/models/debias.py"

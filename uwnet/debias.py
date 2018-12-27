@@ -176,14 +176,5 @@ def main():
         test_debias(debias)
 
 
-def snakemake_main():
-    pass
-
-
-try:
-    snakemake
-except NameError:
-    if __name__ == '__main__':
-        main()
-else:
-    snakemake_main()
+if __name__ == '__main__':
+    main()
