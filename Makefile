@@ -125,4 +125,6 @@ compile_sam:
 	$(MACHINE_SCRIPTS)/compile_sam.sh
 
 test:
-	$(MACHINE_SCRIPTS)/test.sh
+	$(MACHINE_SCRIPTS)/run_tests.sh
+
+.PHONY: test

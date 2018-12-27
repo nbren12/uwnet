@@ -1,0 +1,5 @@
+md5: 3df93c15347150d4b5de8b6011e44176
+outs:
+- cache: true
+  md5: b9e4f83fb70df4e3931b6e7240cb3b19
+  path: call_neural_network_debug.pt
