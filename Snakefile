@@ -156,11 +156,20 @@ rule nudge_run:
     -t 0 -p assets/parameters_nudging.json {output}
     """
 
+rule micro_runs:
+    input: expand(f"data/runs/{TODAY}-microphysics/.{{id}}.done", id=['control'])
+
 rule micro_run:
-    output: directory(f"data/runs/{TODAY}-microphysics")
+    output: touch(f"data/runs/{TODAY}-microphysics/.{{id}}.done")
+    params: rundir=f"data/runs/{TODAY}-microphysics"
+    log: f"data/runs/{TODAY}-microphysics/{{id}}.log"
     shell: """
+    rm -rf {params.rundir}
     {sys.executable} src/criticism/run_sam_ic_nn.py \
-    -t 0 -p assets/parameters_micro.json {output}
+    -t 0 -p assets/parameters_micro.json {params.rundir}
+
+    {RUN_SAM_SCRIPT} {params.rundir} >> {log} 2>> {log}
+    exit 0
     """
 
 # Save the state within the SAM-python interface for one time step
