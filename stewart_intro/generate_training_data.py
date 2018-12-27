@@ -10,11 +10,7 @@ def get_initial_shape():
 def get_target_normalization_with_z(variable, data):
     mean_by_vertical_slice = data[variable].mean(axis=(0, 2, 3)).values
     std = data[variable].std(axis=(0, 2, 3)).values.mean(axis=0)
-    array_values = data[variable].values
-    for idx, mean in enumerate(mean_by_vertical_slice):
-        array_values[:, idx, :, :] = (
-            array_values[:, idx, :, :] - mean_by_vertical_slice[idx]) / std
-    return array_values
+    return mean_by_vertical_slice, std, data
 
 
 def get_target_normalization(variable, data):
@@ -23,7 +19,7 @@ def get_target_normalization(variable, data):
     else:
         mean = data[variable].values.mean()
         std = data[variable].values.std()
-        return (data[variable].values - mean) / std
+        return mean, std, data
 
 
 def normalize_data(filter_down=True):
@@ -32,8 +28,14 @@ def normalize_data(filter_down=True):
     with it, for a given time point. The 2 variables are SLI and QT.
     """
     data = load_data()
-    for variable in ['QT', 'SLI', 'FQT', 'FSLI', 'SOLIN', 'LHF', 'SHF']:
-        data[variable].values = get_target_normalization(variable, data)
+    normalization_dict = {}
+    for variable in ['QT', 'SLI', 'SOLIN', 'LHF', 'SHF']:
+        mean, sd, data = get_target_normalization(variable, data)
+        normalization_dict[variable] = {'mean': mean, 'sd': sd}
+        if variable in ['SOLIN', 'LHF', 'SHF']:
+            data[variable + '_normalized'] = data[variable].copy()
+            data[variable + '_normalized'].values = (
+                data[variable].values - mean) / sd
     if filter_down:
-        data = data.isel(y=list(range(30, 35)))
-    return data
+        data = data.isel(y=list(range(28, 36)))
+    return data, normalization_dict

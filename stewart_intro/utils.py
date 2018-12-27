@@ -19,6 +19,12 @@ def pickle_model(obj, filename):
         pickle.dump(obj, f)
 
 
+def load_model(filename):
+    path = project_dir + 'stewart_intro/models/' + filename + '.pkl'
+    with open(path, 'rb') as f:
+        return pickle.load(f)
+
+
 def load_subsampled_dataset(proportion_of_initial_data=0.1):
     data = load_data()
     proportion_by_feature = proportion_of_initial_data ** .5
