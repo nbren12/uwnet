@@ -19,7 +19,7 @@
     "dosatupdnconditionals": false,
     "doseasons": false,
     "dosfcforcing": false,
-    "dosgs": false,
+    "dosgs": true,
     "dodamping": true,
     "dosurface": true,
     "doshortwave": true,
@@ -46,9 +46,10 @@
     "ocean_type": 3,
     "save2dbin": true,
     "save3dbin": true,
-    "dosgsthermo": false,
+    "dosgsthermo": true,
     "initial_condition_netcdf": "CASE/ic.nc",
-    "perturb_type": 23
+    "perturb_type": 23,
+    "ncycle_max": 12
   },
   "sgs_tke": {
     "dosmagor": true
