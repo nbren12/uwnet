@@ -12,7 +12,11 @@ PYTHON_INTERPRETER = python
 GOOGLE_DRIVE_DIR = uwnet-c4290214-d72d-4e2f-943a-d63010a7ecf2
 RCLONE_REMOTE ?= uwgoogledrive
 TRAINING_CONFIG=examples/sl_qt.config.yaml
-TRAINING_DATA ?=data/processed/tropics.nc
+TRAINING_DATA ?= data/processed/2018-10-02-ngaqua-subset.nc
+DOCKER_IMAGE ?= nbren12/uwnet:latest
+MACHINE ?= docker
+
+MACHINE_SCRIPTS = setup/$(MACHINE)
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -58,10 +62,25 @@ print_sam_checks:
 ${TRAINING_DATA}:
 	snakemake data/processed/training.nc
 
-## train
-train: ${TRAINING_DATA}
-	python -m uwnet.train with data=${TRAINING_DATA} examples/sl_qt.config.yaml -m uwnet
+train: #${TRAINING_DATA}
+	python -m uwnet.train with data=data/processed/training.nc batch_size=32 lr=.01 epochs=5 -m uwnet
 
+train_momentum: ${TRAINING_DATA}
+	python -m uwnet.train with data=${TRAINING_DATA} examples/momentum.yaml
+
+run_momentum:
+	python src/criticism/run_sam_ic_nn.py \
+       -mom-nn models/18/4.pkl \
+       -nn models/17/1.pkl \
+	     -r \
+       data/runs/2018-10-05-q1_q2_and_q3_masked_bndy > 
+
+run_sam:
+	python src/criticism/run_sam_ic_nn.py \
+		   -nn models/188/5.pkl \
+			 -p parameters_sam_neural_network.json \
+	      data/runs/2018-11-10-model188-khyp1e6-dt15
+          
 sync_data_to_drive:
 	rclone sync --stats 5s data/processed $(RCLONE_REMOTE):$(GOOGLE_DRIVE_DIR)/data/processed
 
@@ -73,7 +92,9 @@ docker:
 		-v /Users:/Users  \
 		-v $(shell pwd)/uwnet:/opt/uwnet \
 		-v $(shell pwd)/ext/sam:/opt/sam \
-		-w $(shell pwd) nbren12/uwnet bash
+		-w $(shell pwd) \
+	  -e LOCAL_FLAGS=$(shell pwd)/setup/docker/local_flags.mk \
+		nbren12/uwnet:latest bash
 
 build_image:
 	docker build -t nbren12/uwnet .
@@ -92,10 +113,18 @@ create_environment:
 	@echo "    source activate uwnet"
 
 jupyter:
-	docker run -p 8888:8888 -v $(shell pwd):/pwd -w /pwd -v /Users:/Users nbren12/uwnet jupyter lab  --port 8888 --ip=0.0.0.0  --allow-root
+	docker run -p 8888:8888 -v $(shell pwd):/pwd -w /pwd -v /Users:/Users $(DOCKER_IMAGE) jupyter lab  --port 8888 --ip=0.0.0.0  --allow-root
 
 docs:
 	make -C docs html
 
 install_hooks:
 	cp -f git-hooks/* .git/hooks/
+
+compile_sam:
+	$(MACHINE_SCRIPTS)/compile_sam.sh
+
+test:
+	$(MACHINE_SCRIPTS)/run_tests.sh
+
+.PHONY: test

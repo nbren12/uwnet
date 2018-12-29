@@ -17,15 +17,24 @@ RUN rm Miniconda3-latest-Linux-x86_64.sh
 ENV PATH=/miniconda/bin:${PATH}
 
 # install pfunit
-ADD http://superb-sea2.dl.sourceforge.net/project/pfunit/Source/pFUnit-3.2.9.tgz /tmp/
+# RUN git clone git://git.code.sf.net/p/pfunit/code /tmp/pFUnit
+# ADD http://superb-sea2.dl.sourceforge.net/project/pfunit/Source/pFUnit-3.2.9.tgz /tmp/
+ADD ext/pFUnit-3.2.9.tgz /tmp/
 ENV F90=gfortran
 ENV F90_VENDOR=GNU
 ENV PFUNIT=/opt/pfunit/pfunit-serial
-RUN cd /tmp && \
-    tar xzf pFUnit-3.2.9.tgz && \
-    cd pFUnit-3.2.9 && \
+RUN cd /tmp/pFUnit-3.2.9 && \
     make &&\
     make install INSTALL_DIR=${PFUNIT}
+
+# add conda packages
+RUN conda update -y conda
+RUN conda install -y -c pytorch pytorch-cpu python=3.6 numpy toolz xarray \
+                                                   netcdf4 scipy scikit-learn
+RUN pip install zarr cffi click attrs dask pytest sacred jinja2
+# ADD environment.yml /opt/environment.yml
+# RUN cd /opt && conda env create
+# ENV PATH=/miniconda/envs/uwnet/bin:${PATH}
 
 # add callpy library
 ADD ext/sam/ext/call_py_fort /opt/call_py_fort
@@ -34,23 +43,14 @@ ENV CALLPY=/opt/call_py_fort
 RUN cd /opt/call_py_fort/ && make install
 ENV LD_LIBRARY_PATH=/usr/local/lib
 
-# add conda packages
-RUN conda update -y conda
-ADD environment.yml /opt/environment.yml
-RUN cd /opt && conda env create
-ENV PATH=/miniconda/envs/uwnet/bin:${PATH}
-RUN conda install nodejs
-RUN jupyter labextension install @pyviz/jupyterlab_pyviz
-
-# add SAM
-ADD ext/sam /opt/sam
-# compile SAM
-RUN cd /opt/sam && ./Build
-
 # Install SAM Python modules
 ENV PYTHONPATH=/opt/sam/SRC/python:${PYTHONPATH}
-RUN pip install -e /opt/sam/SCRIPTS/python/
-
 # ADD UWNET to path
-ENV PYTHONPATH=/opt/:${PYTHONPATH}
-ADD uwnet /opt/uwnet
+ENV PYTHONPATH=/opt/sam/SCRIPTS/python/:/opt/:${PYTHONPATH}
+
+RUN pip install f90nml sphinx==1.7 recommonmark doctr sphinx_rtd_theme
+
+ENV LC_ALL=C.UTF-8
+ENV LANG=C.UTF-8
+
+# add tools for docs

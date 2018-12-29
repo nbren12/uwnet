@@ -19,10 +19,10 @@ run_script = Template("""#!/bin/sh
 export {{key}}={{val}}
 {% endfor %}
 
-ln -s /opt/sam/RUNDATA .
-/opt/sam/docker/cleancase.sh CASE
-/opt/sam/SAM*
-/opt/sam/docker/convert_files.sh
+ln -s {{SAM}}/RUNDATA .
+# {{SAM}}/docker/cleancase.sh CASE
+{{SAM}}/SAM_*
+{{SAM}}/docker/convert_files.sh
 """)
 
 sounding_template = """ z[m] p[mb] tp[K] q[g/kg] u[m/s] v[m/s]
@@ -296,12 +296,11 @@ class Case(object):
 
     def save_script(self):
         with open(self.exe, 'w') as f:
-            f.write(run_script.render(env=self.env))
+            f.write(run_script.render(env=self.env, SAM=self.sam_src))
         os.chmod(self.exe, 0o755)
 
     def run(self):
-        self.save()
-        subprocess.call([self.exe], cwd=self.path)
+        subprocess.call(['bash', 'run.sh'], cwd=self.path)
 
     def run_docker(self):
         print(f"Running NGAqua in {self.path}")
@@ -409,7 +408,7 @@ def pressure_correct(ic, path=None, sam_src="."):
         prm = assoc_in(prm, ['parameters', key], val)
 
     case = InitialConditionCase(ic=ic, path=path, sam_src=sam_src, prm=prm)
-    case.run_docker()
+    case.run()
     case.convert_files_to_netcdf()
 
     files = glob.glob(os.path.join(case.path, 'OUT_3D', '*.nc'))

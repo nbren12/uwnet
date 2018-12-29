@@ -6,17 +6,30 @@
 Welcome to UWNET's documentation!
 =================================
 
+
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 1
+   :caption: Contents
+
+   quickstart
+
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Scientific Description
 
    post-processing
    training
    constraints
    sam
-   api
+   training-data-header
    smoother
 
+.. toctree::
+   :maxdepth: 1
+   :caption: Software Implementation
+
+   api
 
 
 

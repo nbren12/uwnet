@@ -1,0 +1,5 @@
+md5: 4e89886b99e3bf2d438e61bbeefe6983
+outs:
+- cache: true
+  md5: 00930ec776592908875490e28766866d
+  path: training.nc

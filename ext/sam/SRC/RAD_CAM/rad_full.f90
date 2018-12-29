@@ -127,7 +127,7 @@ subroutine rad_full()
   real(r4) temp_surf(pcols)   ! Longwave up flux in CGS units
 
   real(r4) qtot
-  real(r4) dayy
+  real(r4) dayy, lat_r4
   integer i,j,k,m,ii,jj,i1,j1,tmp_count,nrad_call
   integer iday, iday0
   real(r4) coef,factor,tmp(1)
@@ -685,7 +685,12 @@ subroutine rad_full()
               elseif (doequinox) then
                  ! this section is added by noah
                  eccf = 1.
-                 call equinox_cos_zenith_angle(day, latitude(i,j), coszrs_in(1))
+
+                 ! covert real types to 4 byte reals
+                 ! needed if compiled in double precision
+                 dayy = day
+                 lat_r4 = latitude(i,j)
+                 call equinox_cos_zenith_angle(dayy, lat_r4, coszrs_in(1))
               else
                  !bloss  subroutine zenith
                  !bloss  inputs:  dayy, latitude, longitude, ncol
@@ -1067,10 +1072,11 @@ end function perpetual_factor
 
 
 subroutine equinox_cos_zenith_angle(day, lat, mu)
+  use shr_kind_mod, only: SHR_KIND_R4, SHR_KIND_IN
   implicit none
-  real, intent(in) :: day, lat
-  real, intent(out) :: mu
-  real :: pi, time_of_day
+  real(SHR_KIND_R4), intent(in) :: day, lat
+  real(SHR_KIND_R4), intent(out) :: mu
+  real(SHR_KIND_R4) :: pi, time_of_day
   pi  = atan(1.0)*4
   time_of_day = mod(day, 1.0)
   mu = -cos(2*pi*time_of_day) * cos(pi * lat / 180.)

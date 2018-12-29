@@ -38,6 +38,7 @@ dependencies:
       - f90nml
       - sacred
       - recommonmark
-      - sphinx
+      - sphinx==1.7
+      - pytorch-ignite
       - sphinx_rtd_theme
 

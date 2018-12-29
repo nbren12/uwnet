@@ -1,73 +1,107 @@
-import os
-from os.path import join
+import xarray as xr
+import json
 
 import click
 
-from sam.case import InitialConditionCase, get_ngqaua_ic
+from sam.case import InitialConditionCase, get_ngqaua_ic, default_parameters
 
 NGAQUA_ROOT = "/Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX"
 
 
+
 @click.command()
-@click.argument('model', type=click.Path())
+@click.argument('path')
+@click.option(
+    '-nn',
+    '--neural-network',
+    type=click.Path(),
+    help='use the neural network in this pickled model file.')
+@click.option(
+    '-mom-nn',
+    '--momentum-neural-network',
+    type=click.Path(),
+    help='use the neural network in this pickled model file.')
+@click.option('-ic', '--initial-condition', type=click.Path(), default=None)
 @click.option('-n', '--ngaqua-root', type=click.Path(), default=NGAQUA_ROOT)
 @click.option('-t', type=int, default=0)
-def main(model, ngaqua_root, t):
+@click.option('-r', '--run', is_flag=True)
+@click.option('-d', '--docker-image', type=str, default='nbren12/uwnet')
+@click.option('-p', '--parameters', type=click.Path(), default=None)
+def main(path,
+         neural_network,
+         momentum_neural_network,
+         initial_condition,
+         ngaqua_root,
+         t,
+         run,
+         docker_image,
+         model_run_path='model.pkl',
+         momentum_model_run_path='momentum.pkl',
+         parameters=None):
+    """Create SAM case directory for an NGAqua initial value problem and optionally
+    run the model with docker.
 
-    ic = get_ngqaua_ic(ngaqua_root, t)
+    """
+    if parameters:
+        parameters = json.load(open(parameters))
+    else:
+        parameters = default_parameters()
 
-    case = InitialConditionCase(
-        path='test',
-        ic=ic,
-        sam_src="ext/sam/",
-        docker_image='nbren12/uwnet')
+    if initial_condition is None:
+        initial_condition = get_ngqaua_ic(ngaqua_root, t)
+    else:
+        initial_condition = xr.open_dataset(initial_condition)
 
-    case.prm['parameters']['dodamping'] = True
-    case.prm['parameters']['khyp'] = 5e16
+    case = InitialConditionCase(path=path, ic=initial_condition,
+                                sam_src="/opt/sam", docker_image=docker_image,
+                                prm=parameters)
 
-    dt = 120.0
-    day = 86400
-    hour = 3600
-    minute = 60
-    time_stop = 10 * day
+    # dt = 120.0
+    # day = 86400
+    # hour = 3600
+    # minute = 60
+    # time_stop = 2 * day
+    #
+    # output_interval_stat = 30 * minute
+    # output_interval_2d = 1 * hour
+    # output_interval_3d = 1 * hour
+    #
+    # case.prm['parameters']['dt'] = dt
+    # case.prm['parameters']['nstop'] = int(time_stop // dt)
+    # case.prm['parameters']['nsave3d'] = int(output_interval_3d // dt)
+    # case.prm['parameters']['nsave2d'] = int(output_interval_2d // dt)
+    # case.prm['parameters']['nstat'] = int(output_interval_2d // dt)
+    # case.prm['parameters']['nstat'] = int(output_interval_stat // dt)
+    # case.prm['parameters']['nstatfrq'] = 1  # int(output_interval_stat // dt)
+    # case.prm['parameters']['nprint'] = int(output_interval_stat // dt)
+    # case.prm['parameters']['ncycle_max'] = 20
 
-    output_interval_stat = 30 * minute
-    output_interval_2d = 2 * hour
-    output_interval_3d = 6 * hour
+    # configure neural network run
+    if neural_network:
+        case.prm['python']['dopython'] = False
 
-    case.prm['parameters']['dt'] = dt
-    case.prm['parameters']['nstop'] = int(time_stop // dt)
-    case.prm['parameters']['nsave3d'] = int(output_interval_3d // dt)
-    case.prm['parameters']['nsave2d'] = int(output_interval_2d // dt)
-    case.prm['parameters']['nstat'] = int(output_interval_2d // dt)
-    case.prm['parameters']['nstat'] = int(output_interval_stat // dt)
-    case.prm['parameters']['nstatfrq'] = 1  # int(output_interval_stat // dt)
-    case.prm['parameters']['nprint'] = int(output_interval_stat // dt)
+        # setup the neural network
+        case.prm['python'].update(
+            dict(
+                dopython=True,
+                usepython=True,
+                function_name='call_neural_network',
+                module_name='uwnet.sam_interface'))
 
-    case.prm['parameters']['dosgs'] = True
-    case.prm['parameters']['dosurface'] = True
-    case.prm['python']['dopython'] = False
+        case.mkdir()
 
-    # setup the neural network
-    case.prm['python'].update(
-        dict(
-            dopython=True,
-            usepython=True,
-            npython=1,
-            function_name='call_neural_network',
-            module_name='uwnet.sam_interface'))
+        print(f"Copying neural networks to model directory")
+        case.add(neural_network, model_run_path)
+        case.env.update(dict(UWNET_MODEL=model_run_path))
 
-    # configure needed environmental variables
-    case.mkdir()
-    model_run_path = 'model.pkl'
-    case.add(model, model_run_path)
-    case.env.update(dict(
-        UWNET_MODEL=model_run_path
-    ))
+        if momentum_neural_network:
+            case.add(momentum_neural_network, momentum_model_run_path)
+            case.env.update(dict(UWNET_MOMENTUM_MODEL=momentum_model_run_path))
 
     case.save()
 
-    case.run_docker()
+    if run:
+        case.run_docker()
 
 
 if __name__ == '__main__':

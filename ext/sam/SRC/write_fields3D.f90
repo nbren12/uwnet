@@ -8,7 +8,7 @@ use microphysics, only: nmicro_fields, micro_field, flag_number, &
      flag_micro3Dout, mkname, mklongname, mkunits, mkoutputscale, &
      index_water_vapor, GET_reffc, Get_reffi, &
      nfields3D_micro, micro_write_fields3D, micro_diagnose
-use python_caller, only: FQTNN, FSLINN
+use python_caller, only: FQTNN, FSLINN, funn, fvnn
 implicit none
 character *120 filename
 character *80 long_name
@@ -28,7 +28,7 @@ if(.not. (docloud .or. dopython))  nfields=nfields-1
 if(.not.(doprecip .or. dopython)) nfields=nfields-1
 
 ! add 3D outputs for the neural network parametrized sources
-if (dopython) nfields = nfields + 2
+if (dopython) nfields = nfields + 4
 
 !bloss: add 3D outputs for microphysical fields specified by flag_micro3Dout
 !       except for water vapor (already output as a SAM default).
@@ -344,17 +344,34 @@ if (dopython) then
    nfields1=nfields1+1
    name='FQTNN'
    long_name='Parametrized source of QT from the neural network'
-   units='kg/kg/s'
-   call compress3D(FQTNN,nx,ny,nzm,name,long_name,units, &
+   units='g/kg/day'
+   tmp(1:nx,1:ny,1:nzm) = fqtnn(1:nx,1:ny,1:nzm)
+   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
         save3Dbin,dompi,rank,nsubdomains)
 
    nfields1=nfields1+1
    name='FSLINN'
    long_name='Parametrized source of SLI from the neural network'
-   units='K/s'
-   call compress3D(FSLINN,nx,ny,nzm,name,long_name,units, &
+   units='K/day'
+   tmp(1:nx,1:ny,1:nzm) = fslinn(1:nx,1:ny,1:nzm)
+   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
         save3Dbin,dompi,rank,nsubdomains)
 
+   nfields1=nfields1+1
+   name='FUNN'
+   long_name='Parametrized source of U from the neural network'
+   units='m/s/day'
+   tmp(1:nx,1:ny,1:nzm) = funn(1:nx,1:ny,1:nzm)
+   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+        save3Dbin,dompi,rank,nsubdomains)
+
+   nfields1=nfields1+1
+   name='FVNN'
+   long_name='Parametrized source of V from the neural network'
+   units='m/s/day'
+   tmp(1:nx,1:ny,1:nzm) = fvnn(1:nx,1:ny,1:nzm)
+   call compress3D(tmp,nx,ny,nzm,name,long_name,units, &
+        save3Dbin,dompi,rank,nsubdomains)
 end if
 
 !=====================================================

@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from toolz import valmap
 from torch.utils.data import Dataset
-
+from itertools import product
 import xarray as xr
 
 
@@ -28,135 +28,120 @@ def _to_numpy(x: xr.DataArray):
     return x.transpose(*dims).values
 
 
+def _numpy_to_torch(x):
+    y = torch.from_numpy(x).detach().float()
+    return y.view(-1, 1, 1)
+
+
 def _ds_slice_to_torch(ds):
-    return valmap(lambda x: torch.from_numpy(x).detach(),
-                  _ds_slice_to_numpy_dict(ds))
+    return valmap(_numpy_to_torch, _ds_slice_to_numpy_dict(ds))
 
 
 class XRTimeSeries(Dataset):
     """A pytorch Dataset class for time series data in xarray format
 
-    Parameters
-    ----------
-    data : xr.Dataset
-        input data
-    dims : seq
-        list of dimensions used to reshape the data. Format::
+    This function assumes the data has dimensions ['time', 'z', 'y', 'x'], and
+    that the axes of the data arrays are all stored in that order.
 
-            (time_dims, batch_dims, feature_dims)
+    An individual "sample" is the full time time series from a single
+    horizontal location. The time-varying variables in this sample will have
+    shape (time, z, 1, 1).
 
     Examples
     --------
     >>> ds = xr.open_dataset("in.nc")
-    >>> XRTimeSeries(ds, [['time'], ['x', 'y'], ['z']])
+    >>> dataset = XRTimeSeries(ds)
+    >>> dataset[0]
 
     """
+    dims = ['time', 'z', 'x', 'y']
 
-    def __init__(self, data, dims):
-        """Initialize XRTimeSeries.
-
+    def __init__(self, data, time_length=None):
         """
+        Parameters
+        ----------
+        data : xr.DataArray
+            An input dataset. This dataset must contain at least some variables
+            with all of the dimensions ['time' , 'z', 'x', 'y'].
+        time_length : int, optional
+            The length of the time sequences to use, must evenly divide the
+            total number of time points.
+        """
+        self.time_length = time_length or len(data.time)
         self.data = data
-        self.dims = dims
-        self._ds = _stack_or_rename(
-            self.data,
-            xtime=self.dims[0],
-            xbatch=self.dims[1],
-            xfeat=self.dims[2])
+        self.numpy_data = {key: data[key].values for key in data.data_vars}
+        self.data_vars = set(data.data_vars)
+        self.dims = {key: data[key].dims for key in data.data_vars}
+        self.constants = {
+            key
+            for key in data.data_vars
+            if len({'x', 'y', 'time'} & set(data[key].dims)) == 0
+        }
+        self.setup_indices()
+
+    def setup_indices(self):
+        len_x = len(self.data['x'].values)
+        len_y = len(self.data['y'].values)
+        len_t = len(self.data['time'].values)
+
+        x_iter = range(0, len_x, 1)
+        y_iter = range(0, len_y, 1)
+        t_iter = range(0, len_t, self.time_length)
+        assert len_t % self.time_length == 0
+        self.indices = list(product(t_iter, y_iter, x_iter))
 
     def __len__(self):
-        res = 1
-        for dim in self.dims[1]:
-            res *= len(self.data[dim])
-        return res
+        return len(self.indices)
 
     def __getitem__(self, i):
-
-        # convert i to an array
-        # this code should handle i = slice, list, etc
-        i = np.arange(len(self))[i]
-        scalar_idx = i.ndim == 0
-        if scalar_idx:
-            i = [i]
-
-        # get coordinates using np.unravel_index
-        # this code should probably be refactored
-        batch_dims = self.dims[1]
-        batch_shape = [len(self.data[dim]) for dim in batch_dims]
-
-        idxs = np.unravel_index(i, batch_shape)
-        coords = {}
-        for key, idx in zip(batch_dims, idxs):
-            coords[key] = xr.DataArray(idx, dims='xbatch')
-
-        # select, load, and stack the batch
-        batch_ds = self.data.isel(**coords).load()
-        ds_r = _stack_or_rename(
-            batch_ds, xtime=self.dims[0], xfeat=self.dims[2])
-
-        # prepare for output
-        out = {}
-        for key in ds_r.data_vars:
-            if key in self.constants():
+        t, y, x = self.indices[i]
+        output_tensors = {}
+        for key in self.data_vars:
+            if key in self.constants:
                 continue
 
-            arr = _to_numpy(ds_r[key])
-            arr = torch.from_numpy(arr)
-            arr.requires_grad = False
-            if scalar_idx:
-                arr = arr[0]
+            data_array = self.numpy_data[key]
+            if 'z' in self.dims[key]:
+                this_array_index = (slice(t, t + self.time_length),
+                                    slice(None), y, x)
+            else:
+                this_array_index = (slice(t, t + self.time_length), None, y, x)
 
-            out[key] = arr.float()
-
-        return out
+            sample = data_array[this_array_index][:, :, np.newaxis, np.newaxis]
+            output_tensors[key] = sample.astype(np.float32)
+        return output_tensors
 
     @property
     def time_dim(self):
         return self.dims[0][0]
 
-    def constants(self):
-        for key in self.data.data_vars:
-            if self.time_dim not in self.data[key].dims:
-                yield key
-
     def torch_constants(self):
         return {
             key: torch.tensor(self.data[key].values, requires_grad=False)
             .float()
-            for key in self.constants()
+            for key in self.constants
         }
-
-    @property
-    def mean(self):
-        """Mean of the contained variables"""
-        ds = self._ds.mean(['xbatch', 'xtime'])
-        return _ds_slice_to_torch(ds)
-
-    @property
-    def std(self):
-        """Standard deviation of the contained variables"""
-        ds = self._ds.std(['xbatch', 'xtime'])
-        return _ds_slice_to_torch(ds)
 
     @property
     def scale(self):
         std = self.std
         return valmap(lambda x: x.max(), std)
 
-    def timestep(self):
-        time_dim = self.dims[0][0]
-        time = self.data[time_dim]
-        dt = np.diff(time)
 
-        all_equal = dt.std() / dt.mean() < 1e-6
-        if not all_equal:
-            raise ValueError("Data must be uniformly sampled in time")
+def get_timestep(data):
+    time_dim = 'time'
+    time = data[time_dim]
+    dt = np.diff(time)
 
-        if time.units.startswith('d'):
-            return dt[0] * 86400
-        elif time.units.startswith('s'):
-            return dt[0]
-        else:
-            raise ValueError(
-                f"Units of time are {time.units}, but must be either seconds"
-                "or days")
+    all_equal = dt.std() / dt.mean() < 1e-6
+    if not all_equal:
+        raise ValueError("Data must be uniformly sampled in time")
+
+    if time.units.startswith('d'):
+        return dt[0] * 86400
+    elif time.units.startswith('s'):
+        return dt[0]
+    else:
+        raise ValueError(
+            f"Units of time are {time.units}, but must be either seconds"
+            "or days")

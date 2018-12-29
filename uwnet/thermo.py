@@ -1,6 +1,5 @@
 import numpy as np
 import xarray as xr
-from gnl.xarray import centderiv
 
 grav = 9.81
 cp = 1004
@@ -126,6 +125,7 @@ def get_geostrophic_winds(p, rho, min_cor=1e-5):
 
     """
     # get coriolis force
+    from gnl.xarray import centderiv
     fcor = coriolis_ngaqua(p.y)
     px = centderiv(p, dim='x')/rho
     py = centderiv(p, dim='y')/rho
@@ -138,3 +138,28 @@ def get_geostrophic_winds(p, rho, min_cor=1e-5):
     ug = ug.where(np.abs(fcor) > min_cor)
     ug.name="UG"
     return ug, vg
+
+
+def compute_apparent_source(prog, forcing):
+    dt = prog.time[1] - prog.time[0]
+    avg_forcing = (forcing + forcing.shift(time=-1))/2
+    return (prog.shift(time=-1) - prog)/dt - avg_forcing
+
+
+def compute_q2(ngaqua):
+    return compute_apparent_source(ngaqua.QT, ngaqua.FQT*86400)
+
+
+def vorcitity(u, v):
+    f = coriolis_ngaqua(u.y)
+    psi = u.differentiate('y') - v.differentiate('x')
+    psi.name = 'Vorticity'
+    return psi
+
+
+def lhf_to_evap(lhf):
+    rhow = 1000
+    evap = lhf / 2.51e6 / rhow * 86400 * 1000
+    evap.name = 'Evaporation'
+    evap.attrs['units'] = 'mm/day'
+    return evap

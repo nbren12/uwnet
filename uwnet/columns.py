@@ -1,92 +1,117 @@
-import argparse
-
-# plot
+import attr
+import click
 import torch
-from tqdm import tqdm
-from torch.utils.data import DataLoader
 
 import xarray as xr
-
-from uwnet import model
-from uwnet.datasets import XRTimeSeries
-from uwnet.utils import concat_dicts
+from uwnet.timestepper import Batch, predict_multiple_steps
 
 
-def run_column(model, ds, tqdm=tqdm):
-    """Run column simulation with prescribed forcings"""
-    ds = ds.isel(z=model.z)
-    data = XRTimeSeries(ds.load(), [['time'], ['x', 'y'], ['z']])
-    loader = DataLoader(data, batch_size=1024, shuffle=False)
-
-    constants = data.torch_constants()
-
-    if not tqdm:
-        def tqdm(x):
-            return x
-
-    print("Running model")
-    model.add_forcing = True
-    # prepare input for mod
-    outputs = []
-    with torch.no_grad():
-        for batch in tqdm(loader):
-            batch.update(constants)
-            out = model(batch, n=1)
-            outputs.append(out)
-
-    # concatenate outputs
-    out = concat_dicts(outputs, dim=0)
-
-    def unstack(val):
-        val = val.detach().numpy()
-        dims = ['xbatch', 'xtime', 'xfeat'][:val.ndim]
-        coords = {key: data._ds.coords[key] for key in dims}
-
-        if val.shape[-1] == 1:
-            dims.pop()
-            coords.pop('xfeat')
-            val = val[..., 0]
-        ds = xr.DataArray(val, dims=dims, coords=coords)
-        for dim in dims:
-            ds = ds.unstack(dim)
-
-        # transpose dims
-        dim_order = [dim for dim in ['time', 'z', 'y', 'x'] if dim in ds.dims]
-        ds = ds.transpose(*dim_order)
-
-        return ds
-
-    print("Reshaping and saving outputs")
-    out_da = {key: unstack(val) for key, val in out.items()}
-
-    truth_vars = set(out) & set(data.data)
-    rename_dict = {key: key + 'OBS' for key in truth_vars}
-
-    ds = xr.Dataset(out_da).merge(data.data.rename(rename_dict))
-    return ds
+def _convert_dataset_to_dict(dataset):
+    return {
+        key: dataset[key]
+        for key in dataset.data_vars if 'time' in dataset[key].dims
+    }
 
 
-def parse_arguments():
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument('model')
-    parser.add_argument('data')
-    parser.add_argument('output')
-    return parser.parse_args()
+class XarrayBatch(Batch):
+    """An Xarray-aware version of batch"""
+
+    def __init__(self, dataset, **kwargs):
+        data = _convert_dataset_to_dict(dataset)
+        super(XarrayBatch, self).__init__(data, **kwargs)
+
+    @staticmethod
+    def select_time(data, t):
+        return data.apply(lambda x: x.isel(time=t))
+
+    def get_model_inputs(self, t, state):
+        inputs = super(XarrayBatch, self).get_model_inputs(t, state)
+        for key in inputs:
+            try:
+                inputs[key] = inputs[key].drop('time')
+            except ValueError:
+                pass
+        return xr.Dataset(inputs)
+
+def _get_time_step(ds):
+    return float(ds.time.diff('time')[0] * 86400)
 
 
-def main():
-    # load configuration and process arguments
-    args = parse_arguments()
+def single_column_simulation(model,
+                             dataset,
+                             interval=None,
+                             prognostics=(),
+                             time_step=None):
+    """Run a single column model simulation with a model for the source terms
 
-    # load model
-    mod = model.MLP.from_path(args.model)
+    Parameters
+    ----------
+    model
+        pytorch model for producing the apparent sources
+    dataset : xr.Dataset
+        input dataset in the same format as the training data
+    interval : tuple
+        (start_time, end_time) interval
+    """
+    if not time_step:
+        time_step = _get_time_step(dataset)
 
-    print("Opening data")
-    ds = xr.open_dataset(args.data)
-    cols = run_column(mod, ds)
+    if not interval:
+        start, end = 0, len(dataset.time) - 1
+    else:
+        start, end = interval
 
-    print("Saving data")
-    cols.to_netcdf(args.output)
+    batch = XarrayBatch(dataset, prognostics=prognostics)
+    pred_generator = predict_multiple_steps(
+        model.call_with_xr,
+        batch,
+        initial_time=start,
+        prediction_length=end - start,
+        time_step=time_step)
+    datasets = []
+    for k, state in pred_generator:
+        datasets.append(xr.Dataset(state).assign_coords(time=dataset.time[k]))
+    output_time_series = xr.concat(datasets, dim='time')
+    return output_time_series
+
+
+def compute_apparent_sources(model, ds):
+    sources = model.call_with_xr(ds)
+    rename_dict = {}
+    for key in sources.data_vars:
+        rename_dict[key] = 'F' + key + 'NN'
+    return sources.rename(rename_dict)
+
+
+def remove_nonphysical_dims(data):
+    """Remove all dimensions other than x y z or time"""
+    true_dims = ['x', 'y', 'z', 'time']
+    for dim in data.dims:
+        if dim not in true_dims:
+            data = data.isel(**{dim: 0})
+    return data
+
+
+@click.command()
+@click.argument('model')
+@click.argument('data')
+@click.argument('output_path')
+@click.option('-b', '--begin', type=int)
+@click.option('-e', '--end', type=int)
+def main(model, data, output_path, begin, end):
+    model = torch.load(model)
+    data = xr.open_dataset(data)
+
+    if begin is None:
+        begin = 0
+    if end is None:
+        end = len(data.time)
+
+    data = data.isel(time=slice(begin, end))
+    data = remove_nonphysical_dims(data)
+    output = single_column_simulation(model, data)
+    sources = compute_apparent_sources(model, data)
+    output.merge(sources).to_netcdf(output_path)
 
 
 if __name__ == '__main__':

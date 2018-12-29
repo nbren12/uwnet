@@ -21,13 +21,14 @@ do
     ext=${notebook##*.}
     namenoext=${notebook%.*}
     if [ $ext == "ipynb" ]; then
+        chmod 0444 $notebook
         jupyter nbconvert $notebook
         html=$namenoext.html
 
         output_dir=$(realpath --relative-to='.' $(dirname $notebook))
 
-        # make readable
-        chmod 0644 $html
+        # make readable but not writeable
+        chmod 0444 $html
         ssh $report_server mkdir -p $report_dir/$output_dir
         scp -p $html $report_server:$report_dir/$output_dir
 

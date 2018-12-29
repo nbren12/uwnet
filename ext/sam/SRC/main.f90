@@ -5,6 +5,7 @@ program crm
 use vars
 use hbuffer
 use microphysics
+use hyperdiffusion
 use sgs
 use tracers
 use movies, only: init_movies
@@ -213,6 +214,8 @@ do while(nstep.lt.nstop.and.nelapse.gt.0)
 !	SGS effects on momentum:
      if (dosgs) call boundaries(5)
      if(dosgs) call sgs_mom()
+     call hyper_diffuse()
+     if (.not. doheldsuarez) call hs_damp_velocity()
 
 !-----------------------------------------------------------
 !       Coriolis force:
@@ -284,6 +287,9 @@ do while(nstep.lt.nstop.and.nelapse.gt.0)
 ! Neural network
 
       if (dopython .and. (mod(nstep-1, npython) == 0)) call state_to_python(dtn)
+      if (usepython) then
+         call apply_nn_forcings(dtn)
+      end if
 
 !-----------------------------------------------------------
 !    Compute diagnostic fields:

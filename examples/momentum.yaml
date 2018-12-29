@@ -1,0 +1,14 @@
+vertical_grid_size: 28
+inputs:
+  - [U, 28]
+  - [V, 28]
+  - [QT, 28]
+  - [SLI, 28]
+  - [SST, 1]
+  - [SOLIN, 1]
+outputs:
+  - [U, 28]
+  - [V, 28]
+forcings:
+  - [U, 28]
+  - [V, 28]
