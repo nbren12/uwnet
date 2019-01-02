@@ -129,7 +129,7 @@ rule sam_run_report:
              -p caseid {wildcards.id} \
             -p training_data_mean {TRAINING_MEAN} \
             --prepare-only {params.template} {params.ipynb}
-    jupyter nbconvert --execute {params.ipynb}
+    jupyter nbconvert --allow-errors --execute {params.ipynb}
     # clean up the notebook
     rm -f {params.ipynb}
     """
