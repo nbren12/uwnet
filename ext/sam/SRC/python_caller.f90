@@ -134,44 +134,44 @@ contains
     ! ! This is a much easier architecture than trying to write functions
     ! ! which take all of these arguments
     tmp = t(1:nx,1:ny,1:nzm)
-    call set_state("SLI", tmp)
+    call set_state("liquid_ice_static_energy", tmp)
 
     tmp = micro_field(1:nx,1:ny,1:nzm, 1) * 1.e3
-    call set_state("QT", tmp)
+    call set_state("total_water_mixing_ratio", tmp)
 
     tmp =  tabs(1:nx,1:ny,1:nzm)
-    call set_state("TABS", tmp)
+    call set_state("air_temperature", tmp)
     tmp =  w(1:nx,1:ny,1:nzm)
-    call set_state("W", tmp)
+    call set_state("upward_air_velocity", tmp)
 
     tmp =  fqt
-    call set_state("FQT", tmp)
+    call set_state("tendency_of_total_water_mixing_ratio_due_to_dynamics", tmp)
 
     tmp =  fsl
-    call set_state("FSLI", tmp)
+    call set_state("tendency_of_liquid_ice_static_energy_due_to_dynamics", tmp)
 
     tmp =  u(1:nx,1:ny,1:nzm)
-    call set_state("U", tmp)
+    call set_state("x_wind", tmp)
 
     tmp =  v(1:nx,1:ny,1:nzm)
-    call set_state("V", tmp)
+    call set_state("y_wind", tmp)
 
     tmp(1:nx,1:ny,1) = latitude
-    call set_state2d("lat", tmp(1:nx,1:ny,1))
+    call set_state2d("latitude", tmp(1:nx,1:ny,1))
 
     tmp(1:nx,1:ny,1) = longitude
-    call set_state2d("lon", tmp(1:nx,1:ny,1))
+    call set_state2d("longitude", tmp(1:nx,1:ny,1))
 
     ! for some reason set_state2d has some extremee side ffects
     ! that can cause the model to crash
     tmp(:,:,1) = sstxy(1:nx, 1:ny) + t00
-    call set_state2d("SST", tmp(:,:,1))
+    call set_state2d("sea_surface_temperature", tmp(:,:,1))
 
     tmp(:,:,1) = solinxy(1:nx, 1:ny)
-    call set_state2d("SOLIN", tmp(:,:,1))
+    call set_state2d("toa_incoming_shortwave_flux", tmp(:,:,1))
 
     tmp(:,:,1) = fluxbt(1:nx, 1:ny) * cp * rhow(1)
-    call set_state2d("SHF", tmp(:,:,1))
+    call set_state2d("surface_upward_sensible_heat_flux", tmp(:,:,1))
 
     if (do_debias_lhf) then
       call bias_correct_lhf(fluxbq(1:nx, 1:ny) * lcond * rhow(1), lhf_no_bias)
@@ -179,16 +179,16 @@ contains
     else
         tmp(:,:,1) = fluxbq(1:nx, 1:ny) * lcond * rhow(1)
     end if
-    call set_state2d("LHF", tmp(:,:,1))
+    call set_state2d("surface_upward_latent_heat_flux", tmp(:,:,1))
 
     tmp_vert = rho * adz * dz
     call set_state_1d("layer_mass", tmp_vert)
 
     tmp_vert = pres
-    call set_state_1d("p", tmp_vert)
+    call set_state_1d("air_pressure_on_mid_levels", tmp_vert)
 
     tmp_vertw = presi
-    call set_state_1d("pi", tmp_vertw)
+    call set_state_1d("air_pressure_on_interface_levels", tmp_vertw)
 
 
     tmp_scalar = dtn
