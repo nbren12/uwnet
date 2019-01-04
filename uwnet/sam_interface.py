@@ -45,7 +45,11 @@ def get_models():
 
 # global variables
 STEP = 0
-MODELS = get_models()
+try:
+    MODELS = get_models()
+except KeyError:
+    print(
+        "Model not loaded...need set the UWNET_MODEL environmental variable.")
 
 # FLAGS
 DEBUG = os.environ.get('UWNET_DEBUG', '')
@@ -139,12 +143,12 @@ def call_neural_network(state):
     #     logger.set_dims(key, meta.dims[key])
 
 
-def call_save_debug(state):
+def call_save_state(state):
     """This simple function can be called in SAM using the following namelist
     entries:
 
     module_name = <this modules name>,
-    function_name = 'call_save_debug'
+    function_name = 'call_save_state'
 
     """
-    save_debug({'args': (state, state['dt'])}, state)
+    torch.save(state, "state.pt")
