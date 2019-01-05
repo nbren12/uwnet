@@ -12,6 +12,7 @@ Welcome to UWNET's documentation!
    :caption: Contents
 
    quickstart
+   sacred
 
 
 .. toctree::
