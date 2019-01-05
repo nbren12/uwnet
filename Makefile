@@ -117,6 +117,7 @@ jupyter:
 
 docs:
 	make -C docs html
+	ghp-import -n -p docs/_build/html
 
 install_hooks:
 	cp -f git-hooks/* .git/hooks/
