@@ -56,7 +56,7 @@ def my_config():
     seq_length = 1
     batch_size = 256
     vertical_grid_size = 34
-    precip_quantiles = [.01486, .10, .30, .70, .90, .9851432, 1]
+    precip_quantiles = None
     eta_to_train = None
     loss_scale = {
         'LHF': 150,
@@ -114,14 +114,14 @@ def set_eta(dataset, precip_quantiles):
 
 
 @ex.capture
-def get_dataset(data, quantiles):
+def get_dataset(data, precip_quantiles):
     try:
         dataset = xr.open_zarr(data)
     except ValueError:
         dataset = xr.open_dataset(data)
 
-    if quantiles:
-        dataset = set_eta(dataset, quantiles)
+    if precip_quantiles:
+        dataset = set_eta(dataset, precip_quantiles)
 
     try:
         return dataset.isel(step=0).drop('step').drop('p')
