@@ -11,6 +11,8 @@ ds['WMAX'] = ds.W.max(['x', 'y', 'z'])
 
 time = runs['micro'].stat.time
 
+
+plt.figure()
 for key, run in runs.items():
     run.stat.WMAX.plot(label=key)
 ds.WMAX.interp(time=time).plot(label='NG-Aqua')

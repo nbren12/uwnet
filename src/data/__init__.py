@@ -16,5 +16,6 @@ runs = {
 runs = {key: SAMRun(root / val, 'control') for key, val in runs.items()}
 
 training_data = str(root / "data/processed/training.nc")
+ngaqua_climate_path = str(root / "data/processed/training.mean.nc")
 
 ngaqua = root / "data/raw/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/"
