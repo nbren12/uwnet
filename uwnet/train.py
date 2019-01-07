@@ -21,6 +21,7 @@ To see a list of all the available configuration options run::
 """
 import logging
 import os
+import numpy as np
 from contextlib import contextmanager
 from os.path import join
 
@@ -32,13 +33,14 @@ from torch.utils.data import DataLoader
 from uwnet.model import get_model
 from uwnet.pre_post import get_pre_post
 from uwnet.training_plots import TrainingPlotManager
-from uwnet.datasets import XRTimeSeries, get_timestep
+from uwnet.datasets import XRTimeSeries, XRTimeSeriesEta, get_timestep
 from uwnet.loss import (weighted_mean_squared_error, total_loss)
 from ignite.engine import Engine, Events
 
 ex = Experiment("Q1")
 
 XRTimeSeries = ex.capture(XRTimeSeries)
+XRTimeSeriesEta = ex.capture(XRTimeSeriesEta)
 TrainingPlotManager = ex.capture(TrainingPlotManager, prefix='plots')
 get_model = ex.capture(get_model, prefix='model')
 get_pre_post = ex.capture(get_pre_post, prefix='prepost')
@@ -54,6 +56,8 @@ def my_config():
     seq_length = 1
     batch_size = 256
     vertical_grid_size = 34
+    precip_quantiles = [.01486, .10, .30, .70, .90, .9851432, 1]
+    eta_to_train = None
     loss_scale = {
         'LHF': 150,
         'SHF': 10,
@@ -90,12 +94,34 @@ def my_config():
     )
 
 
+def set_eta(dataset, precip_quantiles):
+    eta_values = np.zeros_like(dataset.Prec.values)
+    precip_values = dataset.Prec.values
+    min_quantile = 0
+    for eta_index, max_quantile in enumerate(precip_quantiles):
+        min_precip = dataset.Prec.quantile(min_quantile).values
+        max_precip = dataset.Prec.quantile(max_quantile).values
+        eta_values[
+            (precip_values >= min_precip) & (precip_values < max_precip)
+        ] = eta_index
+        min_quantile = max_quantile
+    eta_ = dataset['Prec'].copy()
+    eta_.values = eta_values
+    dataset['eta'] = eta_
+    dataset['eta'].attrs['units'] = ''
+    dataset['eta'].attrs['long_name'] = 'Stochastic State'
+    return dataset
+
+
 @ex.capture
-def get_dataset(data):
+def get_dataset(data, quantiles):
     try:
         dataset = xr.open_zarr(data)
     except ValueError:
         dataset = xr.open_dataset(data)
+
+    if quantiles:
+        dataset = set_eta(dataset, quantiles)
 
     try:
         return dataset.isel(step=0).drop('step').drop('p')
@@ -105,15 +131,17 @@ def get_dataset(data):
 
 @ex.capture
 def get_data_loader(data: xr.Dataset, x, y, time_sl, vertical_grid_size,
-                    batch_size):
+                    batch_size, eta_to_train):
     ds = data.isel(
         z=slice(0, vertical_grid_size),
         y=slice(*y),
         x=slice(*x),
         time=slice(*time_sl))
 
-
-    train_data = XRTimeSeries(ds)
+    if eta_to_train:
+        train_data = XRTimeSeriesEta(ds, eta_to_train)
+    else:
+        train_data = XRTimeSeries(ds)
     return DataLoader(
         train_data, batch_size=batch_size, shuffle=True)
 
