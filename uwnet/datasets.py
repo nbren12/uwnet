@@ -128,7 +128,7 @@ class XRTimeSeries(Dataset):
         return valmap(lambda x: x.max(), std)
 
 
-class XRTimeSeriesEta(XRTimeSeries):
+class ConditionalXRSampler(XRTimeSeries):
     """Same as XRTimeSeries, but only trained on a specific eta value.
     """
 
@@ -143,33 +143,11 @@ class XRTimeSeriesEta(XRTimeSeries):
             The value of eta to train on.
         """
         self.eta = eta
-        self.data = data
-        self.time_length = 2
-        self.numpy_data = {key: data[key].values for key in data.data_vars}
-        self.data_vars = set(data.data_vars)
-        self.dims = {key: data[key].dims for key in data.data_vars}
-        self.constants = {
-            key
-            for key in data.data_vars
-            if len({'x', 'y', 'time'} & set(data[key].dims)) == 0
-        }
-        self.setup_indices()
+        super(ConditionalXRSampler, self).__init__(data, time_length=2)
 
     def setup_indices(self):
-        len_x = len(self.data['x'].values)
-        len_y = len(self.data['y'].values)
-        len_t = len(self.data['time'].values)
-
-        x_iter = range(0, len_x, 1)
-        y_iter = range(0, len_y, 1)
-        t_iter = range(0, len_t, 2)
-        assert len_t % 2 == 0
-        if self.eta is not None:
-            indices = np.argwhere(
-                self.data.eta.values == self.eta)
-            self.indices = indices[np.isin(indices[:, 0], t_iter)].tolist()
-        else:
-            self.indices = list(product(t_iter, y_iter, x_iter))
+        self.indices = np.argwhere(
+            self.data.eta.values == self.eta).tolist()
 
 
 def get_timestep(data):
