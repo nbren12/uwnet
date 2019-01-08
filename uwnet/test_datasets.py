@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from uwnet.datasets import XRTimeSeries, get_timestep
+from uwnet.datasets import XRTimeSeries, get_timestep, ConditionalXRSampler
 
 
 def get_obj():
@@ -12,10 +12,12 @@ def get_obj():
 
     data_3d = np.ones((4, 4, 5, 2))
     data_2d = np.ones((4, 5, 2))
+    eta_2d = np.random.randint(0, 3, (4, 5, 2))
 
     return xr.Dataset({
         'a': (dims_3d, data_3d),
-        'b': (dims_2d, data_2d)
+        'b': (dims_2d, data_2d),
+        'eta': (dims_2d, data_2d)
     }), data_3d.shape
 
 
@@ -67,3 +69,18 @@ def test_XRTimeSeries_torch_constants():
 
     # constants should not be in batch
     assert 'layer_mass' not in dataset[0]
+
+
+@pytest.mark.parametrize('eta', [0, 1, 5])
+def test_ConditionalXRSampler_set_eta(eta):
+    ds, (t, z, y, x) = get_obj()
+    o = ConditionalXRSampler(ds, eta)
+    assert o.eta == eta
+
+
+@pytest.mark.parametrize('eta', [0, 1, 2])
+def test_ConditionalXRSampler_filter_to_eta(eta):
+    ds, (t, z, y, x) = get_obj()
+    o = ConditionalXRSampler(ds, eta)
+    for sample in o:
+        assert (sample['eta'] != eta).sum() == 0
