@@ -33,17 +33,17 @@ from torch.utils.data import DataLoader
 from uwnet.model import get_model
 from uwnet.pre_post import get_pre_post
 from uwnet.training_plots import TrainingPlotManager
-from uwnet.datasets import XRTimeSeries, XRTimeSeriesEta, get_timestep
+from uwnet.datasets import XRTimeSeries, ConditionalXRSampler, get_timestep
 from uwnet.loss import (weighted_mean_squared_error, total_loss)
 from ignite.engine import Engine, Events
 
 ex = Experiment("Q1")
 
 XRTimeSeries = ex.capture(XRTimeSeries)
-XRTimeSeriesEta = ex.capture(XRTimeSeriesEta)
 TrainingPlotManager = ex.capture(TrainingPlotManager, prefix='plots')
 get_model = ex.capture(get_model, prefix='model')
 get_pre_post = ex.capture(get_pre_post, prefix='prepost')
+
 
 @ex.config
 def my_config():
@@ -94,35 +94,30 @@ def my_config():
     )
 
 
+@ex.capture
 def set_eta(dataset, precip_quantiles):
-    eta_values = np.zeros_like(dataset.Prec.values)
-    precip_values = dataset.Prec.values
-    min_quantile = 0
-    for eta_index, max_quantile in enumerate(precip_quantiles):
-        min_precip = dataset.Prec.quantile(min_quantile).values
-        max_precip = dataset.Prec.quantile(max_quantile).values
-        eta_values[
-            (precip_values >= min_precip) & (precip_values < max_precip)
-        ] = eta_index
-        min_quantile = max_quantile
+    if not precip_quantiles:
+        return dataset
+    bins = [
+        dataset.Prec.quantile(quantile).values
+        for quantile in precip_quantiles
+    ]
     eta_ = dataset['Prec'].copy()
-    eta_.values = eta_values
+    eta_.values = np.digitize(dataset.Prec.values, bins, right=True)
     dataset['eta'] = eta_
-    dataset['eta'].attrs['units'] = ''
+    dataset['eta'].attrs['units'] = 'N/A'
     dataset['eta'].attrs['long_name'] = 'Stochastic State'
     return dataset
 
 
 @ex.capture
-def get_dataset(data, precip_quantiles):
+def get_xarray_dataset(data, precip_quantiles):
     try:
         dataset = xr.open_zarr(data)
     except ValueError:
         dataset = xr.open_dataset(data)
 
-    if precip_quantiles:
-        dataset = set_eta(dataset, precip_quantiles)
-
+    dataset = set_eta(dataset)
     try:
         return dataset.isel(step=0).drop('step').drop('p')
     except:
@@ -139,7 +134,7 @@ def get_data_loader(data: xr.Dataset, x, y, time_sl, vertical_grid_size,
         time=slice(*time_sl))
 
     if eta_to_train:
-        train_data = XRTimeSeriesEta(ds, eta_to_train)
+        train_data = ConditionalXRSampler(ds, eta_to_train)
     else:
         train_data = XRTimeSeries(ds)
     return DataLoader(
@@ -156,8 +151,6 @@ def get_output_dir(_run=None, model_dir=None, output_dir=None):
     else:
         file_name = str(_run._id)
         return join(model_dir, file_name)
-
-
 
 
 def is_one_dimensional(val):
@@ -190,7 +183,7 @@ class Trainer(object):
         # get output directory
         self.output_dir = get_output_dir()
 
-        self.dataset = get_dataset()
+        self.dataset = get_xarray_dataset()
         self.mass = torch.tensor(self.dataset.layer_mass.values).view(
             -1, 1, 1).float()
         self.z = torch.tensor(self.dataset.z.values).float()
@@ -318,7 +311,7 @@ class Trainer(object):
 @ex.command()
 def train_pre_post(prepost):
     """Train the pre and post processing modules"""
-    dataset = get_dataset()
+    dataset = get_xarray_dataset()
     logging.info(f"Saving Pre/Post module to {prepost['path']}")
     torch.save(get_pre_post(dataset), prepost['path'])
 
