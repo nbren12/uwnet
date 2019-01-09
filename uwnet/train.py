@@ -95,7 +95,7 @@ def my_config():
 
 
 @ex.capture
-def set_eta(dataset, precip_quantiles):
+def insert_precipitation_bin_membership(dataset, precip_quantiles):
     if not precip_quantiles:
         return dataset
     bins = [
@@ -117,7 +117,7 @@ def get_xarray_dataset(data, precip_quantiles):
     except ValueError:
         dataset = xr.open_dataset(data)
 
-    dataset = set_eta(dataset)
+    dataset = insert_precipitation_bin_membership(dataset)
     try:
         return dataset.isel(step=0).drop('step').drop('p')
     except:
