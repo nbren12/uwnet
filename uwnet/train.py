@@ -105,7 +105,7 @@ def insert_precipitation_bin_membership(dataset, precip_quantiles):
     eta_ = dataset['Prec'].copy()
     eta_.values = np.digitize(dataset.Prec.values, bins, right=True)
     dataset['eta'] = eta_
-    dataset['eta'].attrs['units'] = 'N/A'
+    dataset['eta'].attrs['units'] = ''
     dataset['eta'].attrs['long_name'] = 'Stochastic State'
     return dataset
 
