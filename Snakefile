@@ -163,6 +163,19 @@ rule micro_run:
     -t 0 -p assets/parameters_micro.json {output}
     """
 
+# Save the state within the SAM-python interface for one time step
+rule save_sam_interface_state:
+    output: "assets/state.pt"
+    shell:"""
+    dir=$(mktemp --directory)
+    {sys.executable} src/criticism/run_sam_ic_nn.py \
+         -p assets/parameters_save_python_state.json \
+         $dir
+    execute_run.sh $dir
+    mv -f $dir/state.pt assets/
+    rm -rf $dir
+    """
+
 ## Model Training Rules ########################################
 
 rule train_pca_pre_post:
