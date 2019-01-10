@@ -12,6 +12,7 @@ Welcome to UWNET's documentation!
    :caption: Contents
 
    quickstart
+   sam
    sacred
 
 
@@ -22,7 +23,6 @@ Welcome to UWNET's documentation!
    post-processing
    training
    constraints
-   sam
    training-data-header
    smoother
 
