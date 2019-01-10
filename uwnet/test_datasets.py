@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 import xarray as xr
-
+from mock import patch
+from uwnet.train import get_data_loader
 from uwnet.datasets import XRTimeSeries, get_timestep, ConditionalXRSampler
 
 
@@ -12,7 +13,6 @@ def get_obj():
 
     data_3d = np.ones((4, 4, 5, 2))
     data_2d = np.ones((4, 5, 2))
-    eta_2d = np.random.randint(0, 3, (4, 5, 2))
 
     return xr.Dataset({
         'a': (dims_3d, data_3d),
@@ -84,3 +84,12 @@ def test_ConditionalXRSampler_filter_to_eta(eta):
     o = ConditionalXRSampler(ds, eta)
     for sample in o:
         assert (sample['eta'] != eta).sum() == 0
+
+
+def test_ConditionalXRSampler_not_called_default():
+    ds, (t, z, y, x) = get_obj()
+    eta = None
+    with patch.object(ConditionalXRSampler, '__init__') as mock:
+        get_data_loader(
+            ds, (None, None), (None, None), (None, None), len(ds.time), 1, eta)
+    assert not mock.called
