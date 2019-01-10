@@ -14,11 +14,34 @@ import logging
 import os
 
 import numpy as np
-from toolz import valmap
+from toolz import valmap, curry
 
 import torch
 from torch import nn
 from uwnet.numpy_interface import NumpyWrapper
+
+
+@curry
+def CFVariableNameAdapater(model, d):
+    """Wrapper for translating input/output variable name to CF-ones"""
+
+    table = [
+        ("liquid_ice_static_energy", "SLI"),
+        ("total_water_mixing_ratio", "QT"),
+        ("air_temperature", "TABS"),
+        ("latitude", "lat"),
+        ("longitude", "lon"),
+        ("sea_surface_temperature", "SST"),
+        ("surface_air_pressure", "p0"),
+        ("toa_incoming_shortwave_flux", "SOLIN"),
+        ("surface_upward_sensible_heat_flux", "SHF"),
+        ("surface_upward_latent_heat_flux", "LHF"),
+    ]
+
+    new_keys = dict(table)
+
+    d_with_old_names = {new_keys.get(key, key): d[key] for key in d}
+    return model(d_with_old_names)
 
 
 def get_models():
@@ -35,7 +58,7 @@ def get_models():
 
     if isinstance(model, nn.Module):
         model.eval()
-        model = NumpyWrapper(model)
+        model = CFVariableNameAdapater(NumpyWrapper(model))
 
     models.append(model)
     return models
@@ -99,7 +122,7 @@ def call_neural_network(state):
         if isinstance(val, np.ndarray):
             kwargs[key] = val
 
-    state['SOLIN'] = compute_insolation(state['lat'], state['day'])
+    kwargs['SOLIN'] = compute_insolation(state['latitude'], state['day'])
 
     # Compute the output of all the models
     # ------------------------------------
