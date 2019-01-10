@@ -14,16 +14,20 @@ import logging
 import os
 
 import numpy as np
-from toolz import valmap, curry
+from toolz import valmap, curry, keymap
 
 import torch
 from torch import nn
 from uwnet.numpy_interface import NumpyWrapper
 
 
+def rename_keys(rename_table, d):
+    return {rename_table.get(key, key): d[key] for key in d}
+
 @curry
 def CFVariableNameAdapater(model, d):
-    """Wrapper for translating input/output variable name to CF-ones"""
+    """Wrapper for translating input/output variable names in the neural network
+    model to CF-compliant ones"""
 
     table = [
         ("liquid_ice_static_energy", "SLI"),
@@ -38,13 +42,24 @@ def CFVariableNameAdapater(model, d):
         ("surface_upward_latent_heat_flux", "LHF"),
     ]
 
-    new_keys = dict(table)
+    input_keys = dict(table)
+    output_keys = dict((y, x) for x, y in table)
 
-    d_with_old_names = {new_keys.get(key, key): d[key] for key in d}
-    return model(d_with_old_names)
+    # Translate from CF input names to the QT, SLI, names
+    d_with_old_names = rename_keys(input_keys, d)
+    out = model(d_with_old_names)
+
+    # translate output keys to CF
+    out = rename_keys(output_keys, out)
+    # add tendency_of to these keys
+    tendency_names = {key: 'tendency_of_' + key + '_due_to_neural_network' for
+                      key in out}
+
+    return rename_keys(tendency_names, out)
 
 
 def get_models():
+
     """Load the specified torch models
 
     The environmental variable UWNET_MODEL should point to the model for Q1 and
@@ -129,15 +144,9 @@ def call_neural_network(state):
     for model in MODELS:
         logger.info(f"Calling NN")
         out = model(kwargs)
-        # remove the singleton first dimension
-        out = valmap(np.squeeze, out)
-
-        renamed = {}
-        for key in out:
-            renamed['F' + key + 'NN'] = out[key]
 
     # update the state
-    state.update(renamed)
+    state.update(out)
 
     # Debugging info below here
     # -------------------------

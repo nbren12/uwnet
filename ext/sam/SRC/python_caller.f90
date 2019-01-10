@@ -272,22 +272,22 @@ contains
 
     ! read in state from python
     print *, 'python_caller.f90::state_to_python retreiving state from python module'
-    call get_state("SLI", tmp, nx * ny * nzm)
+    call get_state("liquid_ice_static_energy", tmp, nx * ny * nzm)
     ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
     t(1:nx, 1:ny, 1:nzm) = tmp
 
-    call get_state("QT", tmp, nx * ny * nzm)
+    call get_state("total_water_mixing_ratio", tmp, nx * ny * nzm)
     tmp = tmp / 1.e3
     ! tmp(:,:,ntop:nzm) = micro_field(1:nx,1:ny, ntop:nzm, 1)
     micro_field(1:nx, 1:ny, 1:nzm, 1) = tmp
 
-
-    call get_state("FQTNN", tmp, nx * ny * nzm)
-    ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
-    print *, 'SUM OF FQTNN ', sum(tmp**2)
+    call get_state("tendency_of_total_water_mixing_ratio_due_to_neural_network",&
+         tmp, nx * ny * nzm)
+    print *, 'SUM OF NN QT tendency ', sum(tmp**2)
     fqtnn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
-    call get_state("FSLINN", tmp, nx * ny * nzm)
+    call get_state("tendency_of_liquid_ice_static_energy_due_to_neural_network",&
+         tmp, nx * ny * nzm)
     ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
     fslinn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 

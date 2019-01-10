@@ -3,7 +3,8 @@ import importlib
 import numpy as np
 import logging
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger('callpy')
 
 _ATTR_KEY = '_ATTRIBUTES'
 _DIM_KEY = '_DIMS'
@@ -87,6 +88,7 @@ def get_state(args, ffi=None):
     tag = ffi.string(tag).decode('UTF-8')
     arr = asarray(ffi, t, (n[0], ))
 
+    logger.info(f"Getting {tag}. Present in state_dict: {tag in STATE}.")
     src = STATE.get(tag, np.zeros(n[0]))
     arr[:] = src.ravel()
 
