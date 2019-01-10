@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 import xarray as xr
-from mock import patch
+from unittest.mock import patch
 from uwnet.train import get_data_loader
 from uwnet.datasets import XRTimeSeries, get_timestep, ConditionalXRSampler
 
