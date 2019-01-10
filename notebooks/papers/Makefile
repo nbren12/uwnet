@@ -5,6 +5,9 @@ plot:
 	jupyter nbconvert --execute ./2019-01.ipynb
 	rsync -av ./ $(REMOTE_DIR)
 
+upload:
+
+	rsync -av ./ $(REMOTE_DIR)
 
 unlock_notebook:
 	chmod +w 2019-01.ipynb
