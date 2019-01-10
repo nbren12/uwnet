@@ -14,11 +14,51 @@ import logging
 import os
 
 import numpy as np
-from toolz import valmap
+from toolz import curry
 
 import torch
 from torch import nn
 from uwnet.numpy_interface import NumpyWrapper
+
+
+def rename_keys(rename_table, d):
+    return {rename_table.get(key, key): d[key] for key in d}
+
+
+@curry
+def CFVariableNameAdapter(model, d):
+    """Wrapper for translating input/output variable names in the neural network
+    model to CF-compliant ones"""
+
+    table = [
+        ("liquid_ice_static_energy", "SLI"),
+        ("total_water_mixing_ratio", "QT"),
+        ("air_temperature", "TABS"),
+        ("latitude", "lat"),
+        ("longitude", "lon"),
+        ("sea_surface_temperature", "SST"),
+        ("surface_air_pressure", "p0"),
+        ("toa_incoming_shortwave_flux", "SOLIN"),
+        ("surface_upward_sensible_heat_flux", "SHF"),
+        ("surface_upward_latent_heat_flux", "LHF"),
+    ]
+
+    input_keys = dict(table)
+    output_keys = dict((y, x) for x, y in table)
+
+    # Translate from CF input names to the QT, SLI, names
+    d_with_old_names = rename_keys(input_keys, d)
+    out = model(d_with_old_names)
+
+    # translate output keys to CF
+    out = rename_keys(output_keys, out)
+    # add tendency_of to these keys
+    tendency_names = {
+        key: 'tendency_of_' + key + '_due_to_neural_network'
+        for key in out
+    }
+
+    return rename_keys(tendency_names, out)
 
 
 def get_models():
@@ -35,7 +75,7 @@ def get_models():
 
     if isinstance(model, nn.Module):
         model.eval()
-        model = NumpyWrapper(model)
+        model = CFVariableNameAdapter(NumpyWrapper(model))
 
     models.append(model)
     return models
@@ -45,7 +85,11 @@ def get_models():
 
 # global variables
 STEP = 0
-MODELS = get_models()
+try:
+    MODELS = get_models()
+except KeyError:
+    print(
+        "Model not loaded...need set the UWNET_MODEL environmental variable.")
 
 # FLAGS
 DEBUG = os.environ.get('UWNET_DEBUG', '')
@@ -95,22 +139,16 @@ def call_neural_network(state):
         if isinstance(val, np.ndarray):
             kwargs[key] = val
 
-    state['SOLIN'] = compute_insolation(state['lat'], state['day'])
+    kwargs['SOLIN'] = compute_insolation(state['latitude'], state['day'])
 
     # Compute the output of all the models
     # ------------------------------------
     for model in MODELS:
         logger.info(f"Calling NN")
         out = model(kwargs)
-        # remove the singleton first dimension
-        out = valmap(np.squeeze, out)
-
-        renamed = {}
-        for key in out:
-            renamed['F' + key + 'NN'] = out[key]
 
     # update the state
-    state.update(renamed)
+    state.update(out)
 
     # Debugging info below here
     # -------------------------
@@ -139,12 +177,12 @@ def call_neural_network(state):
     #     logger.set_dims(key, meta.dims[key])
 
 
-def call_save_debug(state):
+def call_save_state(state):
     """This simple function can be called in SAM using the following namelist
     entries:
 
     module_name = <this modules name>,
-    function_name = 'call_save_debug'
+    function_name = 'call_save_state'
 
     """
-    save_debug({'args': (state, state['dt'])}, state)
+    torch.save(state, "state.pt")
