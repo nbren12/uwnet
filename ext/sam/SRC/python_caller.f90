@@ -291,11 +291,11 @@ contains
     ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
     fslinn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
-    call get_state("FUNN", tmp, nx * ny * nzm)
+    call get_state("tendency_of_x_wind_due_to_neural_network", tmp, nx * ny * nzm)
     ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
     funn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
-    call get_state("FVNN", tmp, nx * ny * nzm)
+    call get_state("tendency_of_y_wind_due_to_neural_network", tmp, nx * ny * nzm)
     ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
     fvnn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
