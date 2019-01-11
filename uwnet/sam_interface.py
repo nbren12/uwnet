@@ -8,6 +8,13 @@ these are
 
 - UWNET_MODEL : The path to the model in a pickle file
 
+
+Nudging
+~~~~~~~
+
+UWNET_NUDGE_TIME_SCALE: nudging time-scale
+NGAQUA_PATH : path to target ngaqua data
+
 """
 # import debug
 import logging
@@ -17,14 +24,31 @@ import numpy as np
 from toolz import curry
 
 import torch
-from torch import nn
 from uwnet.numpy_interface import NumpyWrapper
+from uwnet.sam_ngaqua import get_ngaqua_nudger
 
 
 def get_configuration_from_environment():
-    return {
-        'models': [os.environ['UWNET_MODEL']]
-    }
+    models = []
+    try:
+        model = {"type": "neural_network", "path": os.environ['UWNET_MODEL']}
+        models.append(model)
+    except KeyError:
+        pass
+
+    try:
+        models.append({
+            'type':
+            'nudging',
+            'time_scale':
+            float(os.environ['UWNET_NUDGE_TIME_SCALE']),
+            'ngaqua':
+            os.environ['NGAQUA_PATH']
+        })
+    except KeyError:
+        pass
+
+    return {'models': models}
 
 
 def rename_keys(rename_table, d):
@@ -38,6 +62,8 @@ def CFVariableNameAdapter(model, d):
 
     table = [
         ("liquid_ice_static_energy", "SLI"),
+        ("x_wind", "U"),
+        ("y_wind", "V"),
         ("total_water_mixing_ratio", "QT"),
         ("air_temperature", "TABS"),
         ("latitude", "lat"),
@@ -67,27 +93,20 @@ def CFVariableNameAdapter(model, d):
     return rename_keys(tendency_names, out)
 
 
-def get_models(config):
-    """Load the specified torch models
-
-    The environmental variable UWNET_MODEL should point to the model for Q1 and
-    Q2. If present MOM_MODEL should point to the momentum source model.
-    """
-    models = []
-
-    for model_path in config['models']:
-        model = torch.load(model_path)
-
-        if isinstance(model, nn.Module):
-            model.eval()
-            model = CFVariableNameAdapter(NumpyWrapper(model))
-
-    models.append(model)
-    return models
+def get_model(config):
+    type = config['type']
+    if type == 'neural_network':
+        model = torch.load(config['path'])
+        model.eval()
+        return CFVariableNameAdapter(NumpyWrapper(model))
+    elif type == 'nudging':
+        return CFVariableNameAdapter(get_ngaqua_nudger(config))
+    else:
+        raise NotImplementedError(f"Model type {type} not implemented")
 
 
 CONFIG = get_configuration_from_environment()
-MODELS = get_models(CONFIG)
+MODELS = [get_model(model) for model in CONFIG['models']]
 
 
 def compute_insolation(lat, day, scon=1367, eccf=1.0):
@@ -101,7 +120,6 @@ def compute_insolation(lat, day, scon=1367, eccf=1.0):
         day of year. Only uses time of day (the fraction).
     scon : float
         solar constant. Default 1367 W/m2
-    eccf : float
         eccentricity factor. Ratio of orbital radius at perihelion and
         aphelion. Default 1.0.
 
@@ -117,23 +135,25 @@ def call_neural_network(state):
 
     logger = logging.getLogger(__name__)
 
-    # Pre-process the inputs
-    # ----------------------
-    kwargs = {}
-    for key, val in state.items():
-        if isinstance(val, np.ndarray):
-            kwargs[key] = val
-
-    kwargs['SOLIN'] = compute_insolation(state['latitude'], state['day'])
+    # compute insolation. it is difficult to configure SAM to compute this
+    # without including radiation
+    state['SOLIN'] = compute_insolation(state['latitude'], state['day'])
 
     # Compute the output of all the models
-    # ------------------------------------
+    running_output = {}
     for model in MODELS:
-        logger.info(f"Calling NN")
-        out = model(kwargs)
+        logger.info(f"Calling {model}")
+        out = model(state)
+
+        # sum up the tendencies
+        for key in out:
+            if key in running_output:
+                running_output[key] += out[key]
+            else:
+                running_output[key] = out[key]
 
     # update the state
-    state.update(out)
+    state.update(running_output)
 
 
 def call_save_state(state):

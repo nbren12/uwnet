@@ -16,27 +16,16 @@ NGAQUA_ROOT = "/Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX"
     '--neural-network',
     type=click.Path(),
     help='use the neural network in this pickled model file.')
-@click.option(
-    '-mom-nn',
-    '--momentum-neural-network',
-    type=click.Path(),
-    help='use the neural network in this pickled model file.')
 @click.option('-ic', '--initial-condition', type=click.Path(), default=None)
 @click.option('-n', '--ngaqua-root', type=click.Path(), default=NGAQUA_ROOT)
 @click.option('-t', type=int, default=0)
-@click.option('-r', '--run', is_flag=True)
-@click.option('-d', '--docker-image', type=str, default='nbren12/uwnet')
 @click.option('-p', '--parameters', type=click.Path(), default=None)
 def main(path,
          neural_network,
-         momentum_neural_network,
          initial_condition,
          ngaqua_root,
          t,
-         run,
-         docker_image,
          model_run_path='model.pkl',
-         momentum_model_run_path='momentum.pkl',
          parameters=None):
     """Create SAM case directory for an NGAqua initial value problem and optionally
     run the model with docker.
@@ -53,28 +42,8 @@ def main(path,
         initial_condition = xr.open_dataset(initial_condition)
 
     case = InitialConditionCase(path=path, ic=initial_condition,
-                                sam_src="/opt/sam", docker_image=docker_image,
+                                sam_src="/opt/sam",
                                 prm=parameters)
-
-    # dt = 120.0
-    # day = 86400
-    # hour = 3600
-    # minute = 60
-    # time_stop = 2 * day
-    #
-    # output_interval_stat = 30 * minute
-    # output_interval_2d = 1 * hour
-    # output_interval_3d = 1 * hour
-    #
-    # case.prm['parameters']['dt'] = dt
-    # case.prm['parameters']['nstop'] = int(time_stop // dt)
-    # case.prm['parameters']['nsave3d'] = int(output_interval_3d // dt)
-    # case.prm['parameters']['nsave2d'] = int(output_interval_2d // dt)
-    # case.prm['parameters']['nstat'] = int(output_interval_2d // dt)
-    # case.prm['parameters']['nstat'] = int(output_interval_stat // dt)
-    # case.prm['parameters']['nstatfrq'] = 1  # int(output_interval_stat // dt)
-    # case.prm['parameters']['nprint'] = int(output_interval_stat // dt)
-    # case.prm['parameters']['ncycle_max'] = 20
 
     # configure neural network run
     if neural_network:
@@ -94,15 +63,11 @@ def main(path,
         case.add(neural_network, model_run_path)
         case.env.update(dict(UWNET_MODEL=model_run_path))
 
-        if momentum_neural_network:
-            case.add(momentum_neural_network, momentum_model_run_path)
-            case.env.update(dict(UWNET_MOMENTUM_MODEL=momentum_model_run_path))
+    if 'nudging' in parameters:
+        config = parameters['nudging']
+        case.env['UWNET_NUDGE_TIME_SCALE'] = config['time_scale']
 
     case.save()
-
-    if run:
-        case.run_docker()
-
 
 if __name__ == '__main__':
     main()
