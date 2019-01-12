@@ -216,7 +216,7 @@ do while(nstep.lt.nstop.and.nelapse.gt.0)
      if(dosgs) call sgs_mom()
      call hyper_diffuse()
      if (.not. doheldsuarez) call hs_damp_velocity()
-
+     if (usepython) call apply_python_momentum()
 !-----------------------------------------------------------
 !       Coriolis force:
 	     

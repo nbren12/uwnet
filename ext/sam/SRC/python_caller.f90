@@ -3,7 +3,8 @@ module python_caller
   use callpy_mod
   implicit none
 
-  public :: initialize_from_target, initialize_python_caller, state_to_python, push_state
+  public :: initialize_from_target, initialize_python_caller, state_to_python,&
+       push_state, save_python_state, apply_python_momentum
 
 
   character(len=256) :: module_name, function_name
@@ -109,7 +110,7 @@ contains
   end subroutine initialize_from_target
 
   subroutine push_state()
-    use vars, only: t, u, v,w, tabs,&
+    use vars, only: dudt, dvdt, na, t, u, v,w, tabs,&
          psfc_xy, shf_xy, lhf_xy, sstxy, t00, prec_xy,&
          latitude, longitude,&
          nx, ny, nzm, rho, adz, dz, pres, presi, time, nstep, day, caseid, case, nz, dtn,&
@@ -172,11 +173,28 @@ contains
     call set_attribute(name, "units", "m/s")
 
     tmp =  fqt
-    call set_state("tendency_of_total_water_mixing_ratio_due_to_dynamics", tmp)
+    name = "tendency_of_total_water_mixing_ratio_due_to_dynamics"
+    call set_state(name, tmp)
+    call set_dims(name, "mid_levels,y,x")
+    call set_attribute(name, "units", "m/s")
 
     tmp =  fsl
-    call set_state("tendency_of_liquid_ice_static_energy_due_to_dynamics", tmp)
+    name = "tendency_of_liquid_ice_static_energy_due_to_dynamics"
+    call set_state(name, tmp)
+    call set_dims(name, "mid_levels,y,x")
+    call set_attribute(name, "units", "m/s")
 
+    name = "tendency_of_x_wind_due_to_dynamics"
+    tmp = dudt(1:nx,:,:,na) * 86400
+    call set_state(name, tmp)
+    call set_dims(name, "mid_levels,y,x")
+    call set_attribute(name, "units", "m/s")
+
+    name = "tendency_of_y_wind_due_to_dynamics"
+    tmp = dvdt(1:nx,1:ny,:,na) * 86400
+    call set_state(name, tmp)
+    call set_dims(name, "mid_levels,y,x")
+    call set_attribute(name, "units", "m/s")
 
     name = "latitude"
     tmp(1:nx,1:ny,1) = latitude
@@ -281,23 +299,23 @@ contains
     ! tmp(:,:,ntop:nzm) = micro_field(1:nx,1:ny, ntop:nzm, 1)
     micro_field(1:nx, 1:ny, 1:nzm, 1) = tmp
 
-    call get_state("tendency_of_total_water_mixing_ratio_due_to_neural_network",&
+    call get_state("tendency_of_total_water_mixing_ratio",&
          tmp, nx * ny * nzm)
     print *, 'SUM OF NN QT tendency ', sum(tmp**2)
     fqtnn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
-    call get_state("tendency_of_liquid_ice_static_energy_due_to_neural_network",&
+    call get_state("tendency_of_liquid_ice_static_energy",&
          tmp, nx * ny * nzm)
     ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
     fslinn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
-    call get_state("FUNN", tmp, nx * ny * nzm)
+    call get_state("tendency_of_x_wind", tmp, nx * ny * nzm)
     ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
-    funn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
+    funn(1:nx, 1:ny, 1:nzm) = tmp(:,:,:)
 
-    call get_state("FVNN", tmp, nx * ny * nzm)
+    call get_state("tendency_of_y_wind", tmp, nx * ny * nzm)
     ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
-    fvnn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
+    fvnn(1:nx, 1:ny, 1:nzm) = tmp(:,:,:)
 
     call get_state("QN", tmp, nx*ny*nzm)
     tmp = tmp / 1.e3
@@ -380,14 +398,23 @@ contains
     micro_field(1:nx, 1:ny, 1:nzm, 1) = micro_field(1:nx, 1:ny, 1:nzm, 1) &
          + fqtnn(1:nx, 1:ny, 1:nzm) * dt_days  / gkg_to_kgkg
 
-    dudt(1:nx, 1:ny, 1:nzm,na) = dudt(1:nx, 1:ny, 1:nzm,na) + funn * dt_days
-    dvdt(1:nx, 1:ny, 1:nzm,na) = dvdt(1:nx, 1:ny, 1:nzm,na) + fvnn * dt_days
-
     ! mm / day
     net_prec_xy = - vertical_sum(fqtnn, layer_mass) / gkg_to_kgkg
     ! W/m2
     net_heat_xy = vertical_sum(fslinn, layer_mass) * cp / seconds_in_day
   end subroutine apply_nn_forcings
+
+  subroutine apply_python_momentum()
+    use vars, only: dudt, dvdt, na, t, u, v,w, tabs,&
+         latitude, longitude, na, &
+         nx, ny, nzm, rho, adz, dz, pres, presi, time, nstep, dudt, dvdt
+    real, parameter :: seconds_in_day = 86400.0
+
+    dudt(1:nx, 1:ny, 1:nzm,na) = dudt(1:nx, 1:ny, 1:nzm,na) + funn / seconds_in_day
+    dvdt(1:nx, 1:ny, 1:nzm,na) = dvdt(1:nx, 1:ny, 1:nzm,na) + fvnn / seconds_in_day
+
+  end subroutine apply_python_momentum
+
 
   function vertical_sum(x, w)
     real, intent(in) :: x(:,:,:), w(:)
@@ -403,5 +430,9 @@ contains
     end do
 
   end function vertical_sum
+
+  subroutine save_python_state
+    call call_function("uwnet.sam_interface", "call_save_state")
+  end subroutine save_python_state
 
 end module python_caller

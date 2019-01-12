@@ -8,17 +8,47 @@ these are
 
 - UWNET_MODEL : The path to the model in a pickle file
 
+
+Nudging
+~~~~~~~
+
+UWNET_NUDGE_TIME_SCALE: nudging time-scale
+NGAQUA_PATH : path to target ngaqua data
+
 """
 # import debug
 import logging
 import os
 
 import numpy as np
-from toolz import curry
+from toolz import curry, valmap
 
 import torch
-from torch import nn
 from uwnet.numpy_interface import NumpyWrapper
+from uwnet.sam_ngaqua import get_ngaqua_nudger
+
+
+def get_configuration_from_environment():
+    models = []
+    try:
+        model = {"type": "neural_network", "path": os.environ['UWNET_MODEL']}
+        models.append(model)
+    except KeyError:
+        pass
+
+    try:
+        models.append({
+            'type':
+            'nudging',
+            'time_scale':
+            float(os.environ['UWNET_NUDGE_TIME_SCALE']),
+            'ngaqua':
+            os.environ['NGAQUA_PATH']
+        })
+    except KeyError:
+        pass
+
+    return {'models': models}
 
 
 def rename_keys(rename_table, d):
@@ -26,12 +56,15 @@ def rename_keys(rename_table, d):
 
 
 @curry
-def CFVariableNameAdapter(model, d):
+def CFVariableNameAdapter(model, d, label=''):
     """Wrapper for translating input/output variable names in the neural network
     model to CF-compliant ones"""
 
     table = [
         ("liquid_ice_static_energy", "SLI"),
+        ("x_wind", "U"),
+        ("y_wind", "V"),
+        ("upward_air_velocity", "W"),
         ("total_water_mixing_ratio", "QT"),
         ("air_temperature", "TABS"),
         ("latitude", "lat"),
@@ -54,54 +87,29 @@ def CFVariableNameAdapter(model, d):
     out = rename_keys(output_keys, out)
     # add tendency_of to these keys
     tendency_names = {
-        key: 'tendency_of_' + key + '_due_to_neural_network'
+        key: 'tendency_of_' + key + '_due_to_' + label
         for key in out
     }
 
     return rename_keys(tendency_names, out)
 
 
-def get_models():
-    """Load the specified torch models
-
-    The environmental variable UWNET_MODEL should point to the model for Q1 and
-    Q2. If present MOM_MODEL should point to the momentum source model.
-    """
-    models = []
-
-    # Load Q1/Q2 model
-    model_path = os.environ['UWNET_MODEL']
-    model = torch.load(model_path)
-
-    if isinstance(model, nn.Module):
+def get_model(config):
+    type = config['type']
+    if type == 'neural_network':
+        model = torch.load(config['path'])
         model.eval()
-        model = CFVariableNameAdapter(NumpyWrapper(model))
-
-    models.append(model)
-    return models
-
-
-# zarr_logger = debug.ZarrLogger(os.environ.get('UWNET_ZARR_PATH', 'dbg.zarr'))
-
-# global variables
-STEP = 0
-try:
-    MODELS = get_models()
-except KeyError:
-    print(
-        "Model not loaded...need set the UWNET_MODEL environmental variable.")
-
-# FLAGS
-DEBUG = os.environ.get('UWNET_DEBUG', '')
-
-# open model data
-OUTPUT_INTERVAL = int(os.environ.get('UWNET_OUTPUT_INTERVAL', '0'))
+        return CFVariableNameAdapter(
+            NumpyWrapper(model), label='neural_network')
+    elif type == 'nudging':
+        return CFVariableNameAdapter(
+            get_ngaqua_nudger(config), label='nudging')
+    else:
+        raise NotImplementedError(f"Model type {type} not implemented")
 
 
-def save_debug(obj, state):
-    path = f"{state['case']}_{state['caseid']}_{int(state['nstep']):07d}.pkl"
-    print(f"Storing debugging info to {path}")
-    torch.save(obj, path)
+CONFIG = get_configuration_from_environment()
+MODELS = [get_model(model) for model in CONFIG['models']]
 
 
 def compute_insolation(lat, day, scon=1367, eccf=1.0):
@@ -115,7 +123,6 @@ def compute_insolation(lat, day, scon=1367, eccf=1.0):
         day of year. Only uses time of day (the fraction).
     scon : float
         solar constant. Default 1367 W/m2
-    eccf : float
         eccentricity factor. Ratio of orbital radius at perihelion and
         aphelion. Default 1.0.
 
@@ -127,54 +134,45 @@ def compute_insolation(lat, day, scon=1367, eccf=1.0):
     return scon * eccf * mu
 
 
+def sum_up_tendencies(d):
+    import re
+    output = {}
+
+    pattern = re.compile('tendency_of_(.*)_due_to')
+
+    for key in d:
+        m = pattern.search(key)
+        if m:
+            variable_name = 'tendency_of_' + m.group(1)
+        else:
+            variable_name = key
+
+        seq = output.setdefault(variable_name, [])
+        seq.append(d[key])
+
+    return valmap(sum,  output)
+
+
 def call_neural_network(state):
 
     logger = logging.getLogger(__name__)
 
-    # Pre-process the inputs
-    # ----------------------
-    kwargs = {}
-    dt = state.pop('dt')
-    for key, val in state.items():
-        if isinstance(val, np.ndarray):
-            kwargs[key] = val
-
-    kwargs['SOLIN'] = compute_insolation(state['latitude'], state['day'])
+    # compute insolation. it is difficult to configure SAM to compute this
+    # without including radiation
+    state['SOLIN'] = compute_insolation(state['latitude'], state['day'])
 
     # Compute the output of all the models
-    # ------------------------------------
+    all_outputs = {}
     for model in MODELS:
-        logger.info(f"Calling NN")
-        out = model(kwargs)
+        logger.info(f"Calling {model}")
+        out = model(state)
+        all_outputs.update(out)
+
+    totaled_output = sum_up_tendencies(all_outputs)
 
     # update the state
-    state.update(out)
-
-    # Debugging info below here
-    # -------------------------
-    nstep = int(state['nstep'])
-    output_this_step = OUTPUT_INTERVAL and (nstep - 1) % OUTPUT_INTERVAL == 0
-    if DEBUG:
-        save_debug({
-            'args': (kwargs, dt),
-            'out': merged_outputs,
-        }, state)
-
-    try:
-        logger.info("Mean Precip: %f" % out['Prec'].mean())
-    except KeyError:
-        pass
-
-    if output_this_step:
-        zarr_logger.append_all(kwargs)
-        zarr_logger.append_all(merged_outputs)
-        zarr_logger.append('time', np.array([state['day']]))
-
-    # store output to be read by the fortran function
-    # sl and qt change names unfortunately
-    # logger = get_zarr_logger()
-    # for key in logger.root:
-    #     logger.set_dims(key, meta.dims[key])
+    state.update(totaled_output)
+    state.update(all_outputs)
 
 
 def call_save_state(state):
@@ -185,4 +183,8 @@ def call_save_state(state):
     function_name = 'call_save_state'
 
     """
-    torch.save(state, "state.pt")
+    step = int(state.get('nstep', 0))
+    caseid = state['caseid']
+    case = state['case']
+    name = f"OUT_3D/{case}_{caseid}_{step:010d}.pt"
+    torch.save(state, name)
