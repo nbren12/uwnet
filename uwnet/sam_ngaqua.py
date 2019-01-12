@@ -70,7 +70,7 @@ class NGAquaNudger(object):
         return (_dataarray_to_numpy(target) - x) / self.time_scale
 
     def _get_out_key(self, key):
-        return 'F' + key + 'NN'
+        return key
 
     def nudge_variables(self, state, target):
         output = {}
@@ -80,6 +80,9 @@ class NGAquaNudger(object):
             output[out_key] = src
         return output
 
+    def __call__(self, *args):
+        return self.get_nudging(*args)
+
 
 def get_ngaqua_forcing():
     path = os.environ['NGAQUA_PATH']
@@ -87,38 +90,9 @@ def get_ngaqua_forcing():
     return NGAquaForcing(ds)
 
 
-def get_ngaqua_nudger():
-    path = os.environ['NGAQUA_PATH']
-    time_scale = os.environ.get('NGAQUA_NUDGE_TIME_SCALE', '.125')
-    time_scale = float(time_scale)
+def get_ngaqua_nudger(config):
+    path = config['ngaqua']
+    time_scale = config['time_scale']
     ds = xr.open_dataset(path).isel(step=0).chunk({'time': 1})
-    return NGAquaNudger(ds, time_scale=time_scale)
-
-
-def save_debug(obj, state):
-    path = f"{state['case']}_{state['caseid']}_{int(state['nstep']):07d}.pkl"
-    print(f"Storing debugging info to {path}")
-    torch.save(obj, path)
-
-
-try:
-    FORCING = get_ngaqua_forcing()
-except:
-    print("Forcing data could not be loaded")
-
-try:
-    NUDGER = get_ngaqua_nudger()
-except:
-    print("Nudger could not be loaded")
-
-
-def call_nudger(state):
-    forcing = NUDGER.get_nudging(state)
-    state.update(forcing)
-
-
-def call_neural_network(state):
-    logger = logging.getLogger(__name__)
-    day = state['day']
-    forcing = FORCING.get_forcings(day)
-    state.update(forcing)
+    return NGAquaNudger(ds, time_scale=time_scale,
+                        nudging_variables=['U', 'V', 'W', 'SLI', 'QT'])
