@@ -8,7 +8,7 @@ use microphysics, only: nmicro_fields, micro_field, flag_number, &
      flag_micro3Dout, mkname, mklongname, mkunits, mkoutputscale, &
      index_water_vapor, GET_reffc, Get_reffi, &
      nfields3D_micro, micro_write_fields3D, micro_diagnose
-use python_caller, only: FQTNN, FSLINN, funn, fvnn
+use python_caller, only: FQTNN, FSLINN, funn, fvnn, save_python_state
 implicit none
 character *120 filename
 character *80 long_name
@@ -22,6 +22,9 @@ character *12 c_z(nzm),c_p(nzm),c_dx, c_dy, c_time
 integer i,j,k,n,nfields,nfields1
 real(4) tmp(nx,ny,nzm)
 integer, external :: lenstr
+
+
+call save_python_state()
 
 nfields=10 + nfields3D_micro ! number of 3D fields to save
 if(.not. (docloud .or. dopython))  nfields=nfields-1

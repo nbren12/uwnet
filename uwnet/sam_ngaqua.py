@@ -94,4 +94,5 @@ def get_ngaqua_nudger(config):
     path = config['ngaqua']
     time_scale = config['time_scale']
     ds = xr.open_dataset(path).isel(step=0).chunk({'time': 1})
-    return NGAquaNudger(ds, time_scale=time_scale)
+    return NGAquaNudger(ds, time_scale=time_scale,
+                        nudging_variables=['U', 'V', 'W', 'SLI', 'QT'])

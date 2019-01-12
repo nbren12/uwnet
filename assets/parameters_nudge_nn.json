@@ -64,6 +64,6 @@
   },
     "uwoptions": {},
     "nudging": {
-        "time_scale": 1.0
+        "time_scale": 0.5
     }
 }

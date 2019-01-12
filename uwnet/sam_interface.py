@@ -21,7 +21,7 @@ import logging
 import os
 
 import numpy as np
-from toolz import curry
+from toolz import curry, valmap
 
 import torch
 from uwnet.numpy_interface import NumpyWrapper
@@ -56,7 +56,7 @@ def rename_keys(rename_table, d):
 
 
 @curry
-def CFVariableNameAdapter(model, d):
+def CFVariableNameAdapter(model, d, label=''):
     """Wrapper for translating input/output variable names in the neural network
     model to CF-compliant ones"""
 
@@ -64,6 +64,7 @@ def CFVariableNameAdapter(model, d):
         ("liquid_ice_static_energy", "SLI"),
         ("x_wind", "U"),
         ("y_wind", "V"),
+        ("upward_air_velocity", "W"),
         ("total_water_mixing_ratio", "QT"),
         ("air_temperature", "TABS"),
         ("latitude", "lat"),
@@ -86,7 +87,7 @@ def CFVariableNameAdapter(model, d):
     out = rename_keys(output_keys, out)
     # add tendency_of to these keys
     tendency_names = {
-        key: 'tendency_of_' + key + '_due_to_neural_network'
+        key: 'tendency_of_' + key + '_due_to_' + label
         for key in out
     }
 
@@ -98,9 +99,11 @@ def get_model(config):
     if type == 'neural_network':
         model = torch.load(config['path'])
         model.eval()
-        return CFVariableNameAdapter(NumpyWrapper(model))
+        return CFVariableNameAdapter(
+            NumpyWrapper(model), label='neural_network')
     elif type == 'nudging':
-        return CFVariableNameAdapter(get_ngaqua_nudger(config))
+        return CFVariableNameAdapter(
+            get_ngaqua_nudger(config), label='nudging')
     else:
         raise NotImplementedError(f"Model type {type} not implemented")
 
@@ -131,6 +134,25 @@ def compute_insolation(lat, day, scon=1367, eccf=1.0):
     return scon * eccf * mu
 
 
+def sum_up_tendencies(d):
+    import re
+    output = {}
+
+    pattern = re.compile('tendency_of_(.*)_due_to')
+
+    for key in d:
+        m = pattern.search(key)
+        if m:
+            variable_name = 'tendency_of_' + m.group(1)
+        else:
+            variable_name = key
+
+        seq = output.setdefault(variable_name, [])
+        seq.append(d[key])
+
+    return valmap(sum,  output)
+
+
 def call_neural_network(state):
 
     logger = logging.getLogger(__name__)
@@ -140,20 +162,17 @@ def call_neural_network(state):
     state['SOLIN'] = compute_insolation(state['latitude'], state['day'])
 
     # Compute the output of all the models
-    running_output = {}
+    all_outputs = {}
     for model in MODELS:
         logger.info(f"Calling {model}")
         out = model(state)
+        all_outputs.update(out)
 
-        # sum up the tendencies
-        for key in out:
-            if key in running_output:
-                running_output[key] += out[key]
-            else:
-                running_output[key] = out[key]
+    totaled_output = sum_up_tendencies(all_outputs)
 
     # update the state
-    state.update(running_output)
+    state.update(totaled_output)
+    state.update(all_outputs)
 
 
 def call_save_state(state):
@@ -164,4 +183,8 @@ def call_save_state(state):
     function_name = 'call_save_state'
 
     """
-    torch.save(state, "state.pt")
+    step = int(state.get('nstep', 0))
+    caseid = state['caseid']
+    case = state['case']
+    name = f"OUT_3D/{case}_{caseid}_{step:010d}.pt"
+    torch.save(state, name)
