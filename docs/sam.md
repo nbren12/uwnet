@@ -40,7 +40,7 @@ generating NG-Aqua prediction cases. For instance, the following command will
 setup a coupled SAM+NN simulation initialized with the first available time step
 of the NG-Aqua:
 ```
-src/criticism/run_sam_ic_nn.py -nn <model file>.pkl -t 0 -p assets/parameters2.json <run directory>
+python src/criticism/run_sam_ic_nn.py -nn <model file>.pkl -t 0 -p assets/parameters2.json <run directory>
 ```
 Instead of using Fortran namelists to configure the model, this script uses a json file `assets/parameters2.json` with a very similar structure. Internally, this json file is parsed and saved into the Fortran namelist that SAM requires.
 
