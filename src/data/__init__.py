@@ -25,12 +25,13 @@ def open_data(tag):
     """Open commonly used datasets"""
     if tag == "training":
         return xr.open_dataset(training_data).isel(step=0).drop('step')
-    if tag == 'training_with_src':
+    elif tag == 'ngaqua_2d':
+        return xr.open_dataset(str(ngaqua / 'coarse' / '2d' / 'all.nc'))
+    elif tag == 'training_with_src':
         from uwnet.thermo import compute_apparent_source
         ds = open_data('training')
         return ds.assign(
-            Q1=compute_apparent_source(ds.SLI, 86400*ds.FSLI),
-            Q2=compute_apparent_source(ds.QT, 86400*ds.FQT),
-        )
+            Q1=compute_apparent_source(ds.SLI, 86400 * ds.FSLI),
+            Q2=compute_apparent_source(ds.QT, 86400 * ds.FQT), )
     else:
         return NotImplementedError
