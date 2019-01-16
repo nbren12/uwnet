@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import torch
 from pytest import approx
-from .timestepper import Batch
+from .timestepper import Batch, TensorDict
 
 from .loss import (compute_multiple_step_loss, mean_other_dims, mean_over_dims,
                    r2_score, weighted_mean_squared_error, weighted_r2_score)
@@ -16,24 +16,25 @@ def test_compute_multiple_step_loss():
     def criterion(x, y):
         return torch.abs(x - y).mean()
 
-    def model(x):
-        return {'x': 0.0}
-
     n = 10
-    shape = (1,n)
+    shape = (1, n)
+
+    def model(x):
+        return TensorDict({'x': torch.zeros(shape).float()})
+
     prognostics = ['x']
     batch = {'x': torch.zeros(shape).float(), 'Fx': torch.zeros(shape).float()}
     batch = Batch(batch, prognostics)
-    loss = compute_multiple_step_loss(criterion, model, batch, prognostics, 0,
-                                      n - 1, 1.0)
+    loss = compute_multiple_step_loss(criterion, model, batch, 0, n - 1, 1.0)
     assert loss.item() == pytest.approx(0.0)
 
     def model(x):
-        return {'x': 86400}
+        return TensorDict({'x': 86400 * torch.ones(shape).float()})
 
-    batch = {'x': torch.arange(n).view(shape).float(), 'Fx': torch.zeros(shape).float()}
+    batch = {'x': torch.arange(n).view(shape).float(),
+             'Fx': torch.zeros(shape).float()}
     batch = Batch(batch, prognostics)
-    loss = compute_multiple_step_loss(criterion, model, batch, prognostics, 0,
+    loss = compute_multiple_step_loss(criterion, model, batch, 0,
                                       n - 1, 1.0)
     assert loss.item() == pytest.approx(0.0)
 

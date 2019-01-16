@@ -49,5 +49,7 @@
 	"y" : [
 		null,
 		null
-	]
+	],
+    "time_length": 20,
+    "step_type": "multi"
 }

@@ -23,6 +23,7 @@ import logging
 import os
 from contextlib import contextmanager
 from os.path import join
+from functools import partial
 
 from sacred import Experiment
 
@@ -33,7 +34,7 @@ from uwnet.model import get_model
 from uwnet.pre_post import get_pre_post
 from uwnet.training_plots import TrainingPlotManager
 from uwnet.datasets import XRTimeSeries, get_timestep
-from uwnet.loss import (weighted_mean_squared_error, total_loss)
+from uwnet.loss import (weighted_mean_squared_error, get_step)
 from ignite.engine import Engine, Events
 
 ex = Experiment("Q1")
@@ -42,6 +43,7 @@ XRTimeSeries = ex.capture(XRTimeSeries)
 TrainingPlotManager = ex.capture(TrainingPlotManager, prefix='plots')
 get_model = ex.capture(get_model, prefix='model')
 get_pre_post = ex.capture(get_pre_post, prefix='prepost')
+get_step = ex.capture(get_step)
 
 @ex.config
 def my_config():
@@ -51,7 +53,7 @@ def my_config():
     epochs = 2
     model_dir = 'models'
     skip = 5
-    seq_length = 1
+    time_length = None
     batch_size = 256
     vertical_grid_size = 34
     loss_scale = {
@@ -88,6 +90,7 @@ def my_config():
         interval=1,
         single_column_locations=[(32, 0)]
     )
+    step_type = 'instability'
 
 
 @ex.capture
@@ -105,17 +108,25 @@ def get_dataset(data):
 
 @ex.capture
 def get_data_loader(data: xr.Dataset, x, y, time_sl, vertical_grid_size,
-                    batch_size):
+                    batch_size, prognostics):
+
+    from torch.utils.data.dataloader import default_collate
+    from uwnet.timestepper import Batch
     ds = data.isel(
         z=slice(0, vertical_grid_size),
         y=slice(*y),
         x=slice(*x),
         time=slice(*time_sl))
 
+    def my_collate_fn(batch):
+        return Batch(default_collate(batch), prognostics)
 
     train_data = XRTimeSeries(ds)
     return DataLoader(
-        train_data, batch_size=batch_size, shuffle=True)
+        train_data,
+        batch_size=batch_size,
+        shuffle=True,
+        collate_fn=my_collate_fn)
 
 
 @ex.capture
@@ -130,20 +141,8 @@ def get_output_dir(_run=None, model_dir=None, output_dir=None):
         return join(model_dir, file_name)
 
 
-
-
 def is_one_dimensional(val):
     return val.dim() == 2
-
-
-@ex.capture
-def get_model_inputs_from_batch(batch, prognostics):
-    """Redimension a batch from a torch data loader
-
-    Torch's data loader class is very helpful, but it produces data which has a shape of (batch, feature). However, the models require input in the physical dimensions (time, z, y, x), this function reshapes these arrays.
-    """
-    from .timestepper import Batch
-    return Batch(batch, prognostics)
 
 
 class Trainer(object):
@@ -168,7 +167,6 @@ class Trainer(object):
         self.z = torch.tensor(self.dataset.z.values).float()
         self.time_step = get_timestep(self.dataset)
         self.train_loader = get_data_loader(self.dataset)
-
         self.model = get_model(*get_pre_post(self.dataset))
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
         self.criterion = weighted_mean_squared_error(
@@ -177,7 +175,8 @@ class Trainer(object):
         self.setup_engine()
 
     def setup_engine(self):
-        self.engine = Engine(self.step)
+        step = partial(get_step(), self)
+        self.engine = Engine(step)
         self.engine.add_event_handler(
             Events.ITERATION_COMPLETED, self.after_batch)
         self.engine.add_event_handler(
@@ -193,17 +192,6 @@ class Trainer(object):
             log_str += f'{key}: {val:.2f}\t'
             ex.log_scalar(key, val)
         self.logger.info(log_str)
-
-    def step(self, engine, batch):
-        self.optimizer.zero_grad()
-        batch = get_model_inputs_from_batch(batch)
-        loss, loss_info = total_loss(
-            self.criterion, self.model, self.z, batch)
-        loss.backward()
-        self.optimizer.step()
-        self.optimizer.zero_grad()
-        engine.state.loss_info = loss_info
-        return loss_info
 
     def compute_source_r2(self, batch):
         from .timestepper import Batch
