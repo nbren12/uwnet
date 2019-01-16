@@ -17,6 +17,7 @@ class XarrayBatch(Batch):
     """An Xarray-aware version of batch"""
 
     def __init__(self, dataset, **kwargs):
+        self._dataset = dataset
         data = _convert_dataset_to_dict(dataset)
         super(XarrayBatch, self).__init__(data, **kwargs)
 
@@ -32,6 +33,10 @@ class XarrayBatch(Batch):
             except ValueError:
                 pass
         return xr.Dataset(inputs)
+
+    def get_prognostics_at_time(self, t):
+        return self._dataset[self.prognostics].isel(time=t)
+
 
 def _get_time_step(ds):
     return float(ds.time.diff('time')[0] * 86400)
