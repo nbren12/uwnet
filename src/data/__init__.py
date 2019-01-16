@@ -28,10 +28,15 @@ def open_data(tag):
     elif tag == 'ngaqua_2d':
         return xr.open_dataset(str(ngaqua / 'coarse' / '2d' / 'all.nc'))
     elif tag == 'training_with_src':
-        from uwnet.thermo import compute_apparent_source
-        ds = open_data('training')
-        return ds.assign(
-            Q1=compute_apparent_source(ds.SLI, 86400 * ds.FSLI),
-            Q2=compute_apparent_source(ds.QT, 86400 * ds.FQT), )
+        open_data('training').pipe(assign_apparent_sources)
+    elif tag == 'pressure':
+        return open_data('training').p.isel(time=0)
     else:
         return NotImplementedError
+
+
+def assign_apparent_sources(ds):
+    from uwnet.thermo import compute_apparent_source
+    return ds.assign(
+        Q1=compute_apparent_source(ds.SLI, 86400 * ds.FSLI),
+        Q2=compute_apparent_source(ds.QT, 86400 * ds.FQT))

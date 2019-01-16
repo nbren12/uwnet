@@ -5,6 +5,8 @@ grav = 9.81
 cp = 1004
 Lc = 2.5104e6
 rho0 = 1.19
+sec_in_day = 86400
+liquid_water_density = 1000.0
 
 
 def metpy_wrapper(fun):
@@ -163,3 +165,15 @@ def lhf_to_evap(lhf):
     evap.name = 'Evaporation'
     evap.attrs['units'] = 'mm/day'
     return evap
+
+
+def integrate_q1(q1, layer_mass, dim='z'):
+    """Vertically integrate Q1 (K/day) to give W/m2
+    """
+    return (q1 * layer_mass).sum(dim) * (cp / sec_in_day)
+
+
+def integrate_q2(q2, layer_mass, dim='z'):
+    """Vertically integrate Q2 (g/kg/day) to give mm/day
+    """
+    return (q2 * layer_mass).sum(dim) / liquid_water_density
