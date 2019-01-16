@@ -74,8 +74,13 @@ def single_column_simulation(model,
         prediction_length=end - start,
         time_step=time_step)
     datasets = []
-    for k, state in pred_generator:
-        datasets.append(xr.Dataset(state).assign_coords(time=dataset.time[k]))
+    for k, state, diag in pred_generator:
+
+        for key in diag:
+            if key in state:
+                diag = diag.rename({key: 'F' + key + 'NN'})
+
+        datasets.append(xr.Dataset(state).assign_coords(time=dataset.time[k]).merge(diag))
     output_time_series = xr.concat(datasets, dim='time')
     return output_time_series
 

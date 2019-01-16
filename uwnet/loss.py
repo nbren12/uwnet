@@ -80,7 +80,7 @@ def compute_multiple_step_loss(criterion, model, batch, *args, **kwargs):
                                                   **kwargs)
     return sum(
         compute_loss(criterion, prediction, batch.get_prognostics_at_time(t))
-        for t, prediction in prediction_generator)
+        for t, prediction, _ in prediction_generator)
 
 
 def equilibrium_penalty(criterion, model, batch, dt, n=20):
