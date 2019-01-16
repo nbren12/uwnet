@@ -63,7 +63,10 @@ ${TRAINING_DATA}:
 	snakemake data/processed/training.nc
 
 train: #${TRAINING_DATA}
-	python -m uwnet.train with data=data/processed/training.nc batch_size=32 lr=.01 epochs=5 -m uwnet
+	python -m uwnet.train with assets/training_configurations/default.json  \
+         data=data/processed/2018-12-15-longitude-slice-ngaqua.nc \
+	       epochs=1 \
+         output_dir=rapid_train
 
 train_momentum: ${TRAINING_DATA}
 	python -m uwnet.train with data=${TRAINING_DATA} examples/momentum.yaml

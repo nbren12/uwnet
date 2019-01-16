@@ -1,3 +1,11 @@
+"""
+
+Step Types:
+
+- instability
+- multi
+
+"""
 import torch
 from toolz import curry
 from torch.nn.functional import mse_loss
@@ -73,8 +81,7 @@ def compute_loss(criterion, prognostics, y):
     return sum(criterion(prognostics[key], y[key]) for key in prognostics)
 
 
-def compute_multiple_step_loss(criterion, model, batch, prognostics, *args,
-                               **kwargs):
+def compute_multiple_step_loss(criterion, model, batch, *args, **kwargs):
     """Compute the loss across multiple time steps with an Euler stepper
 
     Yields
@@ -116,16 +123,13 @@ def total_loss(criterion, model, z, batch, time_step=.125):
     dt = time_step
     src = model(batch.data)
 
-
-
     g = batch.get_known_forcings()
     progs = batch.get_prognostics()
 
-
-    forcing = g.apply(lambda x: (x[:,1:] + x[:,:-1]) / 2)
-    x0 = progs.apply(lambda x: x[:,:-1])
-    x1 = progs.apply(lambda x: x[:,1:])
-    src = src.apply(lambda x: x[:,:-1])
+    forcing = g.apply(lambda x: (x[:, 1:] + x[:, :-1]) / 2)
+    x0 = progs.apply(lambda x: x[:, :-1])
+    x1 = progs.apply(lambda x: x[:, 1:])
+    src = src.apply(lambda x: x[:, :-1])
 
     pred = x0 + dt * src + dt * 86400 * forcing
 
@@ -152,3 +156,38 @@ def total_loss(criterion, model, z, batch, time_step=.125):
     }
 
     return loss, info
+
+
+def instability_penalty_step(self, engine, batch):
+    self.optimizer.zero_grad()
+    loss, loss_info = total_loss(self.criterion, self.model, self.z, batch)
+    loss.backward()
+    self.optimizer.step()
+    self.optimizer.zero_grad()
+    engine.state.loss_info = loss_info
+    return loss_info
+
+
+def multiple_step_loss_step(self, engine, batch):
+    self.optimizer.zero_grad()
+
+    nt = batch.num_time - 1
+    loss = compute_multiple_step_loss(
+        self.criterion, self.model, batch, 0, nt, self.time_step)
+    loss_info = {'multiple': loss.item()}
+
+    loss.backward()
+    self.optimizer.step()
+    self.optimizer.zero_grad()
+    engine.state.loss_info = loss_info
+    return loss_info
+
+
+def get_step(step_type, _config):
+    if step_type == 'instability':
+        return instability_penalty_step
+    elif step_type == 'multi':
+        return multiple_step_loss_step
+    else:
+        raise NotImplementedError(
+            f"Training step type '{step_type}' is not implemented")

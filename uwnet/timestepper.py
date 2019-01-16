@@ -58,13 +58,6 @@ class Batch(object):
     def get_time_mean(self, key):
         return self.data[key].mean(-4)
 
-def predict_one_step(prognostics, apparent_source, forcing, time_step):
-    prediction = {}
-    for key in prognostics:
-        total_source = (apparent_source[key] / 86400 + forcing[key])
-        prediction[key] = prognostics[key] + time_step * total_source
-    return prediction
-
 
 def predict_multiple_steps(model, batch: Batch, initial_time,
                            prediction_length, time_step):
@@ -74,8 +67,7 @@ def predict_multiple_steps(model, batch: Batch, initial_time,
         inputs = batch.get_model_inputs(t, state)
         apparent_sources = model(inputs)
         known_forcing = batch.get_known_forcings_at_time(t)
-        state = predict_one_step(state, apparent_sources,
-                                 known_forcing, time_step)
+        state = state + (apparent_sources/86400 + known_forcing) * time_step
         yield t + 1, state
 
 
