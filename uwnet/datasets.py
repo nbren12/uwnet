@@ -128,6 +128,28 @@ class XRTimeSeries(Dataset):
         return valmap(lambda x: x.max(), std)
 
 
+class ConditionalXRSampler(XRTimeSeries):
+    """Same as XRTimeSeries, but only trained on a specific eta value.
+    """
+
+    def __init__(self, data, eta):
+        """
+        Parameters
+        ----------
+        data : xr.DataArray
+            An input dataset. This dataset must contain at least some variables
+            with all of the dimensions ['time' , 'z', 'x', 'y'].
+        eta : int
+            The value of eta to train on.
+        """
+        self.eta = eta
+        super(ConditionalXRSampler, self).__init__(data, time_length=2)
+
+    def setup_indices(self):
+        self.indices = np.argwhere(
+            self.data.eta.values == self.eta).tolist()
+
+
 def get_timestep(data):
     time_dim = 'time'
     time = data[time_dim]
