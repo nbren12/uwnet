@@ -16,23 +16,37 @@ def saliency_map_one_location(model, ds):
     return jacobian_from_model(model, torch_data)
 
 
-def plot_jacobian(jac):
+def _get_vmax(val):
+    a = val.min()
+    b = val.max()
+
+    return max([abs(a), abs(b)])
+
+
+def plot_jacobian(args):
     fig, axs = plt.subplots(2, 2, constrained_layout=True)
+    jac, p = args
 
     for i, outkey in enumerate(jac.keys()):
         for j, inkey in enumerate(jac[outkey].keys()):
             ax = axs[i, j]
             val = jac[inkey][outkey]
             val = val.detach().numpy()
-            im = ax.pcolormesh(val)
+
+            vmax = _get_vmax(val)
+
+            im = ax.pcolormesh(
+                p, p, val, cmap='RdBu_r', vmax=vmax, vmin=-vmax)
             ax.set_title(f"d{outkey}/dt from {inkey}")
             ax.set_xlabel("Pressure input variable")
             ax.set_ylabel("Pressure level response")
+            ax.invert_yaxis()
+            ax.invert_xaxis()
 
             plt.colorbar(im, ax=ax)
 
 
-def main(model_path="../../models/265/5.pkl", y_index=32):
+def main(model_path="../../models/265/5.pkl", y_index=32, **kwargs):
 
     # open model
     model = torch.load(model_path)
@@ -45,7 +59,8 @@ def main(model_path="../../models/265/5.pkl", y_index=32):
     location = ds.isel(y=slice(y_index, y_index + 1))
     M = saliency_map_one_location(model, location)
 
-    plot_jacobian(M)
+    pres = ds.p.values.ravel()
+    plot_jacobian([M, pres], **kwargs)
 
 
 # if __name__ == '__main__':
