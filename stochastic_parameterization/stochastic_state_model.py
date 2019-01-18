@@ -1,14 +1,11 @@
 import os
-import pickle
 import numpy as np
 import torch
 from scipy import linalg
 from stochastic_parameterization.get_transition_matrix import (
     get_transition_matrix,
-    load_dataset,
 )
-from uwnet.sam_interface import CFVariableNameAdapter
-from uwnet.numpy_interface import NumpyWrapper
+from uwnet.sam_interface import get_model
 from uwnet.tensordict import TensorDict
 from torch import nn
 
@@ -49,7 +46,7 @@ class StochasticStateModel(nn.Module):
         )
 
     def eval(self):
-        if not model.is_trained:
+        if not self.is_trained:
             raise Exception('Model is not trained')
 
     def train_conditional_model(
@@ -109,28 +106,21 @@ class StochasticStateModel(nn.Module):
                 ] = predictions[key][:, indices[:, 0], indices[:, 1]].double()
         return output
 
-    @classmethod
-    def load(cls, file_path):
-        with open(file_path, 'rb') as f:
-            return pickle.load(f)
-
-    def save(self, save_location):
-        with open(save_location, 'wb') as f:
-            pickle.dump(self, f)
-
 
 def train_a_model():
     model = StochasticStateModel()
     kwargs = {'epochs': 1}
     model.train(**kwargs)
-    model.save('stochastic_parameterization/stochastic_model.pkl')
+    torch.save(model, 'stochastic_parameterization/stochastic_model.pkl')
 
 
 if __name__ == '__main__':
     train_a_model()
-    model = StochasticStateModel.load(
-        'stochastic_parameterization/stochastic_model.pkl')
-    model_ = CFVariableNameAdapter(
-        NumpyWrapper(model), label='neural_network')
+    config = {
+        'type': 'neural_network',
+        'path': 'stochastic_parameterization/stochastic_model.pkl'
+    }
+    model = get_model(config)
     data = torch.load('/Users/stewart/Desktop/state.pt')
-    pred = model_(data)
+    pred = model(data)
+    print(pred)
