@@ -6,6 +6,7 @@ from src.data import ngaqua_climate_path
 from uwnet.thermo import compute_apparent_source
 from uwnet.xarray_interface import dataset_to_torch_dict
 from uwnet.jacobian import jacobian_from_model, jacobian
+from common import get_vmax
 
 
 def saliency_map_one_location(model, ds):
@@ -14,13 +15,6 @@ def saliency_map_one_location(model, ds):
 
     # compute saliency map
     return jacobian_from_model(model, torch_data)
-
-
-def _get_vmax(val):
-    a = val.min()
-    b = val.max()
-
-    return max([abs(a), abs(b)])
 
 
 def plot_jacobian(args):
@@ -33,7 +27,7 @@ def plot_jacobian(args):
             val = jac[inkey][outkey]
             val = val.detach().numpy()
 
-            vmax = _get_vmax(val)
+            vmax = get_vmax(val)
 
             im = ax.pcolormesh(
                 p, p, val, cmap='RdBu_r', vmax=vmax, vmin=-vmax)

@@ -6,6 +6,8 @@ from src.data import training_data
 from uwnet.thermo import compute_apparent_source
 from uwnet.xarray_interface import call_with_xr
 
+import common
+
 plt.style.use("tableau-colorblind10")
 
 model_path = "../../models/265/5.pkl"
@@ -36,7 +38,8 @@ def plot(args):
 
     for ax, arg, label in zip(axs.flat, args, labels):
         arg = arg.isel(time=0, x=0)
-        im = ax.pcolormesh(arg.y, pres, arg)
+        m = common.get_vmax(arg.values)
+        im = ax.pcolormesh(arg.y, pres, arg, vmin=-m, vmax=m, cmap='RdBu_r')
         fig.colorbar(im, ax=ax)
         ax.set_ylim([pres.max(), pres.min()])
         ax.set_title(label)
