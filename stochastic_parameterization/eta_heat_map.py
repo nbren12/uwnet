@@ -9,6 +9,7 @@ ds = get_xarray_dataset(
     "/Users/stewart/projects/uwnet/data/processed/training.nc",
     precip_quantiles
 )
+show = True
 
 
 def plot_one_point_in_time():
@@ -19,9 +20,12 @@ def plot_one_point_in_time():
         cmap='coolwarm',
         robust=True)
     plt.title(f'Eta Locations for Random Time Point')
-    plt.savefig(
-        '/Users/stewart/Desktop/uwnet/eta_locations_for_time_point.png'
-    )
+    if show:
+        plt.show()
+    else:
+        plt.savefig(
+            '/Users/stewart/Desktop/uwnet/eta_locations_for_time_point.png'
+        )
     plt.clf()
     plt.close("all")
 
@@ -35,10 +39,13 @@ def plot_full_dataset_heatmaps():
             cmap='coolwarm',
             robust=True)
         plt.title(f'Number of Training Points for eta = {eta}')
-        plt.savefig(
-            '/Users/stewart/Desktop/uwnet/Eta_Heat_Map_Full_Dataset/' +
-            f'{eta}.png'
-        )
+        if show:
+            plt.show()
+        else:
+            plt.savefig(
+                '/Users/stewart/Desktop/uwnet/Eta_Heat_Map_Full_Dataset/' +
+                f'{eta}.png'
+            )
         plt.clf()
         plt.close("all")
 
@@ -53,9 +60,12 @@ def plot_tropis_heatmaps():
             cmap='coolwarm',
             robust=True)
         plt.title(f'Number of Training Points for eta = {eta}')
-        plt.savefig(
-            '/Users/stewart/Desktop/uwnet/Eta_Heat_Map_Only_Tropics/' +
-            f'{eta}.png'
-        )
+        if show:
+            plt.show()
+        else:
+            plt.savefig(
+                '/Users/stewart/Desktop/uwnet/Eta_Heat_Map_Only_Tropics/' +
+                f'{eta}.png'
+            )
         plt.clf()
         plt.close("all")

@@ -69,7 +69,6 @@ class XRTimeSeries(Dataset):
         """
         self.time_length = time_length or len(data.time)
         self.data = data
-        self.numpy_data = {key: data[key].values for key in data.data_vars}
         self.data_vars = set(data.data_vars)
         self.dims = {key: data[key].dims for key in data.data_vars}
         self.constants = {
@@ -100,7 +99,7 @@ class XRTimeSeries(Dataset):
             if key in self.constants:
                 continue
 
-            data_array = self.numpy_data[key]
+            data_array = self.data[key].values
             if 'z' in self.dims[key]:
                 this_array_index = (slice(t, t + self.time_length),
                                     slice(None), y, x)

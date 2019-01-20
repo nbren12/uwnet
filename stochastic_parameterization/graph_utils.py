@@ -92,7 +92,6 @@ def draw_barplot_multi(heights_list,
                 label=legend_label)
         min_y = min(min_y, min(heights))
         max_y = max(max_y, max(heights))
-    names = [truncate_str(s, xlabels_max_chars) for s in names]
     plt.xticks(x_pos + ((n_plot - 1) * width / 2), names, rotation=xticks_rotation,
                fontsize=fontsize)
     if ylim_min is None:
@@ -241,10 +240,7 @@ def plot_roc_curve(roc_df, show=True, include_auc=True,
     if include_auc:
         auc_ = auc(roc_df['fpr'], roc_df['tpr'])
         legend_label_max_chars = legend_label_max_chars - 10
-        legend_label = '{} (auc={:0.2f})'.format(truncate_str(legend_label,
-                                                              legend_label_max_chars), auc_)
-    else:
-        legend_label = truncate_str(legend_label, legend_label_max_chars)
+        legend_label = '{} (auc={:0.2f})'.format(legend_label, auc_)
     plt.plot(roc_df['fpr'], roc_df['tpr'], color=color,
              label=legend_label)
     if show:

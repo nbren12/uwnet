@@ -6,8 +6,9 @@ from collections import defaultdict
 import numpy as np
 import pandas as pd
 import torch
+from sklearn.metrics import r2_score
 
-# Uwnet
+# uwnet
 from uwnet.tensordict import TensorDict
 from uwnet.train import get_xarray_dataset
 from stochastic_parameterization.stochastic_state_model import (  # noqa
@@ -25,6 +26,7 @@ ds = get_xarray_dataset(
     "/Users/stewart/projects/uwnet/data/processed/training.nc",
     model.precip_quantiles
 )
+layer_mass_sum = ds.layer_mass.values.sum()
 
 
 def get_true_nn_forcing(time_):
@@ -55,7 +57,8 @@ def get_layer_mass_averaged_residuals_for_time(time_):
     true_values = get_true_nn_forcing(time_)
     residuals = {}
     for key, val in predictions.items():
-        residuals[key] = (val - true_values[key]).T.dot(ds.layer_mass.values)
+        residuals[key] = (val - true_values[key]).T.dot(
+            ds.layer_mass.values) / layer_mass_sum
     return residuals
 
 
@@ -112,7 +115,13 @@ def compare_true_to_simulated_q1_q2_distributions():
     for time in times:
         pred = predict_for_time(time)
         true = get_true_nn_forcing(time)
-        qts_pred.extend(pred['QT'].T.dot(ds.layer_mass.values).ravel())
-        qts_true.extend(true['QT'].T.dot(ds.layer_mass.values).ravel())
-        slis_pred.extend(pred['SLI'].T.dot(ds.layer_mass.values).ravel())
-        slis_true.extend(true['SLI'].T.dot(ds.layer_mass.values).ravel())
+        qts_pred.extend(
+            pred['QT'].T.dot(ds.layer_mass.values).ravel() / layer_mass_sum)
+        qts_true.extend(
+            true['QT'].T.dot(ds.layer_mass.values).ravel() / layer_mass_sum)
+        slis_pred.extend(
+            pred['SLI'].T.dot(ds.layer_mass.values).ravel() / layer_mass_sum)
+        slis_true.extend(
+            true['SLI'].T.dot(ds.layer_mass.values).ravel() / layer_mass_sum)
+    print(f'SLI R2: {r2_score(slis_pred, slis_true)}')
+    print(f'QT R2: {r2_score(qts_pred, qts_true)}')
