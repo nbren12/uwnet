@@ -121,7 +121,7 @@ def get_xarray_dataset(data, precip_quantiles):
     except ValueError:
         dataset = xr.open_dataset(data)
 
-    dataset = insert_precipitation_bin_membership(dataset)
+    dataset = insert_precipitation_bin_membership(dataset, precip_quantiles)
     try:
         return dataset.isel(step=0).drop('step').drop('p')
     except:
@@ -130,7 +130,7 @@ def get_xarray_dataset(data, precip_quantiles):
 
 @ex.capture
 def get_data_loader(data: xr.Dataset, x, y, time_sl, vertical_grid_size,
-                    batch_size, prognostics):
+                    batch_size, prognostics, eta_to_train):
 
     from torch.utils.data.dataloader import default_collate
     from uwnet.timestepper import Batch
