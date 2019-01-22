@@ -21,7 +21,6 @@ To see a list of all the available configuration options run::
 """
 import logging
 import os
-import numpy as np
 from contextlib import contextmanager
 from os.path import join
 from functools import partial
@@ -31,12 +30,14 @@ from sacred import Experiment
 import torch
 import xarray as xr
 from torch.utils.data import DataLoader
+from stochastic_parameterization.utils import (
+    get_xarray_dataset_with_eta,
+)
 from uwnet.model import get_model
 from uwnet.pre_post import get_pre_post
 from uwnet.training_plots import TrainingPlotManager
 from uwnet.loss import (weighted_mean_squared_error, get_step)
 from uwnet.datasets import XRTimeSeries, ConditionalXRSampler, get_timestep
-from uwnet.loss import (weighted_mean_squared_error, total_loss)
 from ignite.engine import Engine, Events
 
 ex = Experiment("Q1")
@@ -59,7 +60,7 @@ def my_config():
     time_length = None
     batch_size = 256
     vertical_grid_size = 34
-    precip_quantiles = None
+    binning_quantiles = None
     eta_to_train = None
     loss_scale = {
         'LHF': 150,
@@ -96,42 +97,21 @@ def my_config():
         single_column_locations=[(32, 0)]
     )
     step_type = 'instability'
+    binning_method = 'q2_ratio'
 
 
 @ex.capture
-def insert_precipitation_bin_membership(dataset, precip_quantiles):
-    if not precip_quantiles:
-        return dataset
-    bins = [
-        dataset.Prec.quantile(quantile).values
-        for quantile in precip_quantiles
-    ]
-    eta_ = dataset['Prec'].copy()
-    eta_.values = np.digitize(dataset.Prec.values, bins, right=True)
-    dataset['eta'] = eta_
-    dataset['eta'].attrs['units'] = ''
-    dataset['eta'].attrs['long_name'] = 'Stochastic State'
-    return dataset
-
-
-@ex.capture
-def get_xarray_dataset(data, precip_quantiles):
-    try:
-        dataset = xr.open_zarr(data)
-    except ValueError:
-        dataset = xr.open_dataset(data)
-
-    dataset = insert_precipitation_bin_membership(dataset, precip_quantiles)
-    try:
-        return dataset.isel(step=0).drop('step').drop('p')
-    except:
-        return dataset
+def get_xarray_dataset(
+        data, binning_quantiles, binning_method, base_model_location):
+    return get_xarray_dataset_with_eta(
+        data, binning_quantiles, binning_method, base_model_location
+    )
 
 
 @ex.capture
 def get_data_loader(data: xr.Dataset, x, y, time_sl, vertical_grid_size,
                     batch_size, prognostics, eta_to_train):
-
+    prognostics = ['QT', 'SLI']
     from torch.utils.data.dataloader import default_collate
     from uwnet.timestepper import Batch
     ds = data.isel(
@@ -179,7 +159,6 @@ class Trainer(object):
     def __init__(self, _run, lr, loss_scale):
         # setup logging
         logging.basicConfig(level=logging.INFO)
-
         # db = MongoDBLogger()
         # experiment = Experiment(api_key="fEusCnWmzAtmrB0FbucyEggW2")
         self.logger = logging.getLogger(__name__)
