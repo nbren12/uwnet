@@ -19,7 +19,7 @@
 	"lr" : 0.005,
 	"model_dir" : "models",
 	"output_dir" : null,
-	"precip_quantiles": [0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1],
+	"binning_quantiles": [0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1],
 	"prepost" : {
 		"kind" : "lower_atmos",
 		"path" : "models/prepost.pkl"

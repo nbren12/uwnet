@@ -23,7 +23,7 @@ def setup_model():
     mod.possible_etas = list(range(len(mock_transition_matrix)))
     mod.dims = (3, 3)
     mod.dt_seconds = dataset_dt_seconds
-    mod.precip_quantiles = [.5, 1]
+    mod.binning_quantiles = [.5, 1]
     return mod
 
 
