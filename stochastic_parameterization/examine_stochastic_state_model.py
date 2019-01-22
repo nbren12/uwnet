@@ -10,36 +10,35 @@ from sklearn.metrics import r2_score
 
 # uwnet
 from uwnet.tensordict import TensorDict
-from uwnet.train import get_xarray_dataset
 from stochastic_parameterization.stochastic_state_model import (  # noqa
     StochasticStateModel,
 )
+from stochastic_parameterization.utils import get_dataset
 from stochastic_parameterization.graph_utils import (
     draw_histogram,
     draw_barplot_multi,
 )
 
-model_location = '/Users/stewart/projects/uwnet/stochastic_parameterization/stochastic_model.pkl'  # noqa
-
+model_dir = '/Users/stewart/projects/uwnet/stochastic_parameterization'
+model_location = model_dir + '/stochastic_model.pkl'
+binning_method = 'precip'
+# binning_method = 'q2_ratio'
+base_model_location = model_dir + '/full_model/1.pkl'
 model = torch.load(model_location)
-ds = get_xarray_dataset(
-    "/Users/stewart/projects/uwnet/data/processed/training.nc",
-    model.precip_quantiles
-)
-layer_mass_sum = ds.layer_mass.values.sum()
 
 
-def get_true_nn_forcing(time_):
+def get_true_nn_forcing(time_, ds):
     start = ds.isel(time=time_)
     stop = ds.isel(time=time_ + 1)
     true_nn_forcing = {}
     for key in ['QT', 'SLI']:
-        true_nn_forcing[key] = (stop['QT'] - start['QT'] - (
-            10800 * start['FQT'])).values
+        forcing = (start[f'F{key}'] + stop[f'F{key}']) / 2
+        true_nn_forcing[key] = (stop[key] - start[key] - (
+            10800 * forcing)).values / .125
     return true_nn_forcing
 
 
-def predict_for_time(time_):
+def predict_for_time(time_, ds):
     ds_filtered = ds.isel(time=time_)
     to_predict = {}
     for key_ in ds.data_vars:
@@ -52,9 +51,9 @@ def predict_for_time(time_):
     return {key: pred[key].detach().numpy() for key in pred}
 
 
-def get_layer_mass_averaged_residuals_for_time(time_):
-    predictions = predict_for_time(time_)
-    true_values = get_true_nn_forcing(time_)
+def get_layer_mass_averaged_residuals_for_time(time_, ds, layer_mass_sum):
+    predictions = predict_for_time(time_, ds)
+    true_values = get_true_nn_forcing(time_, ds)
     residuals = {}
     for key, val in predictions.items():
         residuals[key] = (val - true_values[key]).T.dot(
@@ -63,11 +62,14 @@ def get_layer_mass_averaged_residuals_for_time(time_):
 
 
 def plot_residuals_by_eta():
+    ds = get_dataset()
+    layer_mass_sum = ds.layer_mass.values.sum()
     qt_residuals_by_eta = defaultdict(list)
     sli_residuals_by_eta = defaultdict(list)
     for _ in range(10):
         time_ = random.choice(range(len(ds.time)))
-        residuals = get_layer_mass_averaged_residuals_for_time(time_)
+        residuals = get_layer_mass_averaged_residuals_for_time(
+            time_, ds, layer_mass_sum)
         for eta_ in model.possible_etas:
             indices = np.argwhere(model.eta == eta_)
             qt_residuals_by_eta[eta_].extend(
@@ -88,7 +90,9 @@ def simulate_eta():
     return np.stack(etas)
 
 
-def plot_true_eta_vs_simulated_eta():
+def plot_true_eta_vs_simulated_eta(ds=None):
+    if not ds:
+        ds = get_dataset()
     simulated_eta = simulate_eta()
     true_eta = ds.eta.values
     for eta in range(ds.eta.values.min(), ds.eta.values.max()):
@@ -107,14 +111,16 @@ def plot_true_eta_vs_simulated_eta():
 
 
 def compare_true_to_simulated_q1_q2_distributions():
+    ds = get_dataset()
+    layer_mass_sum = ds.layer_mass.values.sum()
     times = random.sample(range(len(ds.time)), 10)
     qts_pred = []
     qts_true = []
     slis_pred = []
     slis_true = []
     for time in times:
-        pred = predict_for_time(time)
-        true = get_true_nn_forcing(time)
+        pred = predict_for_time(time, ds)
+        true = get_true_nn_forcing(time, ds)
         qts_pred.extend(
             pred['QT'].T.dot(ds.layer_mass.values).ravel() / layer_mass_sum)
         qts_true.extend(

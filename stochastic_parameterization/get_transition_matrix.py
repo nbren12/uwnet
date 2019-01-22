@@ -1,6 +1,7 @@
-# Load the data and filter to the tropics.
+import torch
 import xarray as xr
 import numpy as np
+from stochastic_parameterization.utils import get_dataset
 
 percentiles = [.01486, .10, .30, .70, .90, .9851432, 1]
 time_idx = 0
@@ -67,3 +68,8 @@ def get_transition_matrix(percentiles, only_tropics=False):
         transition_row[idx] += (1 - sum(transition_row))
         transition_matrix.append(transition_row)
     return np.array(transition_matrix)
+
+
+def get_q2_ratio_transition_matrix():
+    dataset = get_dataset()
+    possible_etas = set(dataset.eta.values.ravel())

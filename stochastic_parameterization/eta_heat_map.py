@@ -1,18 +1,13 @@
 import random
 import matplotlib.pyplot as plt
-from uwnet.train import get_xarray_dataset
 import seaborn as sns
 
 
-precip_quantiles = [0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1]
-ds = get_xarray_dataset(
-    "/Users/stewart/projects/uwnet/data/processed/training.nc",
-    precip_quantiles
-)
+binning_quantiles = [0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1]
 show = True
 
 
-def plot_one_point_in_time():
+def plot_one_point_in_time(ds):
     time = random.choice(ds.time)
     sns.heatmap(
         ds.sel(time=time).eta.values,
@@ -30,8 +25,8 @@ def plot_one_point_in_time():
     plt.close("all")
 
 
-def plot_full_dataset_heatmaps():
-    for eta in range(len(precip_quantiles)):
+def plot_full_dataset_heatmaps(ds):
+    for eta in range(len(binning_quantiles)):
         occurences_by_location = (ds.eta.values == eta).sum(axis=0)
         sns.heatmap(
             occurences_by_location,
@@ -50,9 +45,9 @@ def plot_full_dataset_heatmaps():
         plt.close("all")
 
 
-def plot_tropis_heatmaps():
+def plot_tropis_heatmaps(ds):
     ds_ = ds.isel(y=list(range(28, 36)))
-    for eta in range(len(precip_quantiles)):
+    for eta in range(len(binning_quantiles)):
         occurences_by_location = (ds_.eta.values == eta).sum(axis=0)
         sns.heatmap(
             occurences_by_location,

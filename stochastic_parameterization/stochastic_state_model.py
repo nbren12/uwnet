@@ -2,33 +2,37 @@ import os
 import numpy as np
 import torch
 from scipy import linalg
-from stochastic_parameterization.get_transition_matrix import (
-    get_transition_matrix,
+from stochastic_parameterization.utils import (
+    get_q2_ratio_transition_matrix,
 )
 from uwnet.sam_interface import get_model
 from uwnet.tensordict import TensorDict
 from torch import nn
 
 dataset_dt_seconds = 10800
-
+model_dir = '/Users/stewart/projects/uwnet/stochastic_parameterization'
+base_model_location = model_dir + '/full_model/1.pkl'
 
 class StochasticStateModel(nn.Module):
 
     def __init__(
             self,
-            precip_quantiles=[0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1],
+            binning_quantiles=[0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1],
             dims=(64, 128),
             dt_seconds=10800,
-            prognostics=['QT', 'SLI']):
+            prognostics=['QT', 'SLI'],
+            base_model_location=base_model_location):
         super(StochasticStateModel, self).__init__()
         self.is_trained = False
         self.dims = dims
         self.prognostics = prognostics
         self.dt_seconds = dt_seconds
-        self.precip_quantiles = precip_quantiles
-        self.possible_etas = list(range(len(precip_quantiles)))
+        self.binning_quantiles = binning_quantiles
+        self.possible_etas = list(range(len(binning_quantiles)))
         self.setup_eta()
-        self.transition_matrix = get_transition_matrix(self.precip_quantiles)
+        self.transition_matrix = get_q2_ratio_transition_matrix(
+            binning_quantiles=self.binning_quantiles)
+        self.base_model_location = base_model_location
         self.setup_transition_matrix()
 
     def setup_transition_matrix(self):
@@ -42,7 +46,7 @@ class StochasticStateModel(nn.Module):
         self.eta = np.random.choice(
             self.possible_etas,
             self.dims,
-            p=np.ediff1d([0] + list(self.precip_quantiles))
+            p=np.ediff1d([0] + list(self.binning_quantiles))
         )
 
     def eval(self):
@@ -56,9 +60,10 @@ class StochasticStateModel(nn.Module):
             **kwargs):
         cmd = f'python -m uwnet.train with {training_config_file}'
         cmd += f' eta_to_train={eta}'
-        cmd += f' output_dir=models/stochastic_state_model_{eta}'
-        cmd += f" precip_quantiles='{self.precip_quantiles}'"
+        cmd += f' output_dir=models/stochastic_state_model_q2_ratio_{eta}'
+        cmd += f" binning_quantiles='{self.binning_quantiles}'"
         cmd += f" prognostics='{self.prognostics}'"
+        cmd += f" base_model_location='{self.base_model_location}'"
         for key, val in kwargs.items():
             cmd += f' {key}={val}'
         os.system(cmd)
@@ -70,10 +75,10 @@ class StochasticStateModel(nn.Module):
         conditional_models = {}
         if not self.is_trained:
             for eta in self.possible_etas:
-                # self.train_conditional_model(
-                #     eta, training_config_file, **kwargs)
+                self.train_conditional_model(
+                    eta, training_config_file, **kwargs)
                 conditional_models[eta] = torch.load(
-                    f'models/stochastic_state_model_{eta}/1.pkl'
+                    f'models/stochastic_state_model_q2_ratio_{eta}/1.pkl'
                 )
             self.conditional_models = conditional_models
             self.is_trained = True
