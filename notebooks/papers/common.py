@@ -10,6 +10,22 @@ memory = joblib.Memory(location='cache', verbose=1)
 cache = memory.cache
 
 
+def setup_matplotlib():
+
+    params = {
+        'axes.labelsize': 8,
+        'font.size': 10,
+        'text.usetex': False,
+        'figure.figsize': [4.5, 4.5],
+        'savefig.dpi': 150
+    }
+
+    plt.rcParams.update(params)
+    plt.rc('axes', titlesize='medium')
+    plt.rc('xtick', labelsize='small')
+    plt.rc('ytick', labelsize='small')
+
+
 def data_array_dict_to_dataset(d, dim='keys'):
     idx = pd.Index(d.keys(), name=dim)
     return xr.concat(d.values(), dim=idx)
@@ -28,3 +44,5 @@ def get_vmax(val):
 
 
 textwidth = 6.5
+
+setup_matplotlib()

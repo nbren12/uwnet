@@ -6,7 +6,7 @@ plot:
 
 upload:
 
-	rsync -av *.png $(REMOTE_DIR)
+	rsync --delete -av *.png *.pdf $(REMOTE_DIR)
 
 unlock_notebook:
 	chmod +w 2019-01.ipynb

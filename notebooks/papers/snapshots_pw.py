@@ -4,17 +4,24 @@ import xarray as xr
 from src.data import open_data, runs
 from uwnet.thermo import lhf_to_evap
 
+from mpl_toolkits.axes_grid1 import ImageGrid, AxesGrid
+
+
 output = ["snapshots_pw.png"]
 
 
 def get_data():
 
     variables = ['PW']
-    times = [101, 105, 109]
+    times = [105]
 
     # open NN run
     run = runs['debias']
     nn = run.data_2d.rename({'NPNN': 'net_precip'})
+
+    # open NN run
+    run = runs['unstable']
+    unstable = run.data_2d.rename({'NPNN': 'net_precip'})
 
     # open microphysics
     run = runs['micro']
@@ -27,19 +34,49 @@ def get_data():
     # make sure the x and y value agree
     ng = ng.assign(x=nn.x, y=nn.y)
 
+    data = [ng, nn, unstable, micro]
+    tags = ['NG-Aqua', 'NN', 'Unstable', 'Micro']
+
     plotme = xr.concat(
-        [
-            ng[variables].interp(time=times), nn[variables].interp(time=times),
-            micro[variables].interp(time=times)
-        ],
-        dim=['NG-Aqua', 'NN', 'Micro'])
+        [run[variables].interp(time=times) for run in data],
+        dim=tags)
 
-    return plotme.sel(time=times)
+    return plotme.sel(time=times).squeeze('time')
 
 
+def plot(plotme):
+    fig = plt.figure(1, (20.5, 4.0))
+
+    grid = AxesGrid(fig, 111,  # similar to subplot(144)
+                    nrows_ncols=(2, 2),
+                    aspect=True,
+                    axes_pad=(.4, .3),
+                    label_mode="L",
+                    share_all=True,
+                    cbar_location="right",
+                    cbar_mode="each",
+                    cbar_size="7%",
+                    cbar_pad="2%",
+                    )
+
+    count = 0
+    abc = 'abcdefghijk'
+    for j, run in enumerate(plotme.concat_dim):
+        cax = grid.cbar_axes[count]
+        ax = grid[count]
+
+        val = plotme.PW[j]
+        im = ax.pcolormesh(val.x/1e6, val.y/1e6, val.values)
+        cax.colorbar(im)
+
+        run = str(run.values)
+        ax.set_title(f'{abc[count]}) {run}')
+        count += 1
+
+        
 def main():
     plotme = get_data()
-    plotme.PW.plot(col='time', row='concat_dim', vmax=55)
+    plot(plotme)
     plt.savefig(output[0])
 
 
