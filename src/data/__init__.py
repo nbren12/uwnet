@@ -10,7 +10,8 @@ runs = {
     'micro': 'data/runs/2018-12-27-microphysics/',
     'dry': 'data/runs/2018-12-27-dry/',
     'debias': 'data/runs/model268-epoch5.debiased/',
-    'unstable': 'data/runs/model265-epoch3'
+    'unstable': 'data/runs/model265-epoch3',
+    'nudge': 'data/runs/model268-epoch5.nudge',
 }
 
 runs = {key: SAMRun(root / val, 'control') for key, val in runs.items()}
