@@ -24,6 +24,7 @@ def setup_matplotlib():
     plt.rc('axes', titlesize='medium')
     plt.rc('xtick', labelsize='small')
     plt.rc('ytick', labelsize='small')
+    plt.rc('lines', linewidth=1.0)
 
 
 def data_array_dict_to_dataset(d, dim='keys'):
@@ -43,6 +44,15 @@ def get_vmax(val):
     return max([abs(a), abs(b)])
 
 
+def label_outer_axes(axs, xlabel, ylabel):
+    for ax in axs[:, 0]:
+        ax.set_ylabel(ylabel)
+
+    for ax in axs[-1, :]:
+        ax.set_xlabel(xlabel)
+
+
 textwidth = 6.5
 
 setup_matplotlib()
+clabel_size = 'smaller'
