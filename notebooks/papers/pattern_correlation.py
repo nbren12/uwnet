@@ -44,12 +44,16 @@ def get_data():
 
 def plot_pane(ax, plotme, title=''):
 
+    plotme = plotme.assign_coords(y=plotme.y/1e6)
+    plotme.y.attrs['units'] = '1000 km'
     plotme = plotme.sel(time=slice(100, 110))
-    im = plotme.plot(x='time', vmin=0, vmax=1, ax=ax, add_colorbar=False)
+    im = plotme.plot(x='time', vmin=0, vmax=1, ax=ax, add_colorbar=False, add_labels=False)
+
     plotme.plot.contour(
         x='time',
         levels=[.5],
         colors='k',
+        add_labels=False,
         ax=ax, )
     if title:
         ax.set_title(title)
@@ -61,14 +65,16 @@ def plot(data):
     corr_nn, corr_micro = data
 
     fig, (a, b) = plt.subplots(
-        2,
         1,
+        2,
         sharex=True,
+        sharey=True,
         constrained_layout=True,
-        figsize=(common.textwidth / 2, 5))
+        figsize=(common.textwidth,  common.textwidth/3))
     im = plot_pane(a, corr_nn, title='NN')
     plot_pane(b, corr_micro, title='Micro + Rad')
     fig.colorbar(im, ax=[a, b])
+    common.label_outer_axes(np.array([[a, b]]), "time (day)", "y (1000 km)")
 
 
 if __name__ == '__main__':

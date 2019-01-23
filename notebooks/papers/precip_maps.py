@@ -47,4 +47,4 @@ def plot(data):
     grid.axes[0,1].set_title("b) NN", loc='left')
 
 
-grid = plot(get_data())
+plot(get_data())
