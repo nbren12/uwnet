@@ -1,11 +1,11 @@
 import matplotlib.pyplot as plt
+import numpy as np
 import xarray as xr
+from mpl_toolkits.axes_grid1 import AxesGrid, ImageGrid
 
+import common
 from src.data import open_data, runs
 from uwnet.thermo import lhf_to_evap
-
-from mpl_toolkits.axes_grid1 import ImageGrid, AxesGrid
-
 
 output = ["snapshots_pw.png"]
 
@@ -38,26 +38,26 @@ def get_data():
     tags = ['NG-Aqua', 'NN', 'Unstable', 'Micro']
 
     plotme = xr.concat(
-        [run[variables].interp(time=times) for run in data],
-        dim=tags)
+        [run[variables].interp(time=times) for run in data], dim=tags)
 
     return plotme.sel(time=times).squeeze('time')
 
 
 def plot(plotme):
-    fig = plt.figure(1, (20.5, 4.0))
+    fig = plt.figure(1, figsize=(common.textwidth, common.textwidth / 2))
 
-    grid = AxesGrid(fig, 111,  # similar to subplot(144)
-                    nrows_ncols=(2, 2),
-                    aspect=True,
-                    axes_pad=(.4, .3),
-                    label_mode="L",
-                    share_all=True,
-                    cbar_location="right",
-                    cbar_mode="each",
-                    cbar_size="7%",
-                    cbar_pad="2%",
-                    )
+    grid = AxesGrid(
+        fig,
+        111,  # similar to subplot(144)
+        nrows_ncols=(2, 2),
+        aspect=True,
+        axes_pad=(.4, .3),
+        label_mode="L",
+        share_all=True,
+        cbar_location="right",
+        cbar_mode="each",
+        cbar_size="7%",
+        cbar_pad="2%", )
 
     count = 0
     abc = 'abcdefghijk'
@@ -66,14 +66,17 @@ def plot(plotme):
         ax = grid[count]
 
         val = plotme.PW[j]
-        im = ax.pcolormesh(val.x/1e6, val.y/1e6, val.values)
+        im = ax.pcolormesh(val.x / 1e6, val.y / 1e6, val.values)
         cax.colorbar(im)
 
         run = str(run.values)
-        ax.set_title(f'{abc[count]}) {run}')
+        ax.set_title(f'{abc[count]}) {run}', loc='left')
         count += 1
 
-        
+    axs = np.reshape(grid, (2, 2))
+    common.label_outer_axes(axs, "x (1000 km)", "y (1000 km)")
+
+
 def main():
     plotme = get_data()
     plot(plotme)
