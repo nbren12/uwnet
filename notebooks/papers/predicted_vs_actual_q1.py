@@ -10,7 +10,7 @@ import common
 
 plt.style.use("tableau-colorblind10")
 
-model_path = "../../models/265/5.pkl"
+model_path = "../../models/268/5.pkl"
 
 # open model
 model = torch.load(model_path)
