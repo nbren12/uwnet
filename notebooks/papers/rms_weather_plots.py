@@ -67,10 +67,12 @@ def get_merged_data(variables, run_names):
 
 def plot_rms_runs_regions_times(da, ax, title=""):
     keys = da.y.values.tolist()
-    colors = dict(zip(keys, ['k', 'b', 'y']))
+    colors = dict(zip(keys, ['k', 'b', 'g']))
 
     keys = da.concat_dim.values.tolist()
     marker = dict(zip(keys, ['', '^', 'o']))
+    marker = dict(zip(keys, ['-', ':', '--']))
+
 
     lines = []
     labels = []
@@ -78,7 +80,7 @@ def plot_rms_runs_regions_times(da, ax, title=""):
         l, = ax.plot(
             val.time,
             val,
-            marker=marker[run],
+            ls=marker[run],
             color=colors[region],
             markevery=15,
             label=f'{run} {region}')
