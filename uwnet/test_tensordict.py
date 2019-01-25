@@ -3,6 +3,12 @@ import torch
 import pytest
 
 
+def _get_tensordict_example():
+    n = 10
+    shape = (1, n)
+    return TensorDict({'a': torch.ones(*shape)})
+
+
 def test_tensordict():
     b = {'a': torch.rand(1), 'c': torch.rand(1)}
     a = TensorDict(b)
@@ -38,6 +44,7 @@ def test_tensordict_needs_compatible_keys():
     with pytest.raises(ValueError):
         a + b
 
+
 def test_tensordict_copy():
     a = TensorDict({})
     assert isinstance(a.copy(), TensorDict)
@@ -55,3 +62,25 @@ def test_tensordict_shape():
     shape = (1, n)
     a = TensorDict({'a': torch.ones(*shape)})
     assert a['a'].shape == shape
+
+
+def test_tensordict_split():
+    n = 10
+    shape = (1, n)
+    a = TensorDict({'a': torch.ones(*shape)})
+
+    splits = a.split(1, dim=1)
+
+    for split in splits:
+        assert isinstance(split, TensorDict)
+        # test that key is present
+        split['a']
+        assert split['a'].shape == (1, 1)
+
+
+def test_tensordict_dispatch():
+    t = _get_tensordict_example()
+    a = t['a']
+
+    for attr in dir(a):
+        getattr(t, attr)

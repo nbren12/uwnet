@@ -1,7 +1,9 @@
-from collections import MutableMapping, KeysView
+import functools
 from abc import ABCMeta
-from toolz import curry
-import attr
+from collections import KeysView, MutableMapping
+
+import torch
+from toolz import curry, first
 
 mathfuns = [
     '__add__', '__rmul__', '__mul__', '__sub__', '__radd__', '__rmul__',
@@ -41,10 +43,11 @@ class ArithmaticMeta(ABCMeta):
         return super().__new__(cls, name, bases, dct)
 
 
-@attr.s
 class TensorDict(MutableMapping, metaclass=ArithmaticMeta):
     """Wrapper which overloads operators for dicts of tensors"""
-    data = attr.ib()
+
+    def __init__(self, data):
+        self.data = data
 
     def __getitem__(self, key):
         if isinstance(key, (list, set, KeysView, self.__class__)):
@@ -52,6 +55,19 @@ class TensorDict(MutableMapping, metaclass=ArithmaticMeta):
             return TensorDict({key: self.data[key] for key in keys})
         else:
             return self.data[key]
+
+    def __getattr__(self, key):
+        """Get attribute from the values"""
+        if 'data' in self.__dict__:
+            object = first(self.data.values())
+        else:
+            raise AttributeError()
+
+        @functools.wraps(getattr(object, key))
+        def fun(*args, **kwargs):
+            return self.apply(lambda x: getattr(x, key)(*args, **kwargs))
+
+        return fun
 
     def copy(self):
         return TensorDict(self.data.copy())
@@ -61,3 +77,21 @@ class TensorDict(MutableMapping, metaclass=ArithmaticMeta):
         for key in self:
             out[key] = fun(self[key])
         return out
+
+    def __repr__(self):
+        s = "TensorDict:\n"
+        s += "-----------\n"
+        for key in self.keys():
+            shape = tuple(self.data[key].shape)
+            dtype = self.data[key].dtype
+            s += f"{key} \t({dtype}): {shape}\n"
+        return s
+
+    @functools.wraps(torch.split)
+    def split(self, *args, **kwargs):
+        outputs = []
+        vals = (val.split(*args, **kwargs) for val in self.data.values())
+        for vals in zip(*vals):
+            d = dict(zip(self.keys(), vals))
+            outputs.append(TensorDict(d))
+        return outputs
