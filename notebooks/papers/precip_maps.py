@@ -2,6 +2,7 @@ import numpy as np
 import xarray as xr
 from matplotlib import colors
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import AxesGrid
 
 import torch
 from src.data import open_data, runs
@@ -58,28 +59,36 @@ def plot(data):
 
     kwargs = dict(cmap='RdBu_r', norm=norm, rasterized=True)
 
-    fig, axs = plt.subplots(
-        2,
-        2,
-        figsize=(common.textwidth, common.textwidth/1.61),
-        sharex=True,
-        sharey=True,
-        constrained_layout=True)
+    fig = plt.figure(figsize=(common.textwidth, common.textwidth))
+    grid = AxesGrid(
+        fig,
+        111,  # similar to subplot(144)
+        nrows_ncols=(2, 2),
+        aspect=True,
+        axes_pad=(.2, .3),
+        label_mode="L",
+        share_all=True,
+        cbar_location="right",
+        cbar_mode="single",
+        cbar_size="3%",
+        cbar_pad="2%", )
 
+
+
+    axs = np.array(list(grid)).reshape((2, 2))
     common.label_outer_axes(axs, "x (1000 km)", "y (1000 km)")
 
-    axs = axs.ravel()
     for k, run in enumerate(plotme.Run.values):
         val = plotme.sel(Run=run)
-        im = axs[k].pcolormesh(val.x, val.y, val, **kwargs)
+        im = grid[k].pcolormesh(val.x, val.y, val, **kwargs)
         # axs[k].set_aspect(1.0)
 
-    fig.colorbar(im, ax=axs.tolist(), pad=-.02, aspect=60)
+    fig.colorbar(im, cax=grid.cbar_axes[0])
 
-    axs[0].set_title("a) NG-Aqua", loc='left')
-    axs[1].set_title("b) NN Semi-prognostic", loc='left')
-    axs[2].set_title("c) DEBIAS Simulation", loc='left')
-    axs[3].set_title("d) Micro Simulation", loc='left')
+    grid[0].set_title("a) NG-Aqua", loc='left')
+    grid[1].set_title("b) NN Semi-prognostic", loc='left')
+    grid[2].set_title("c) DEBIAS Simulation", loc='left')
+    grid[3].set_title("d) Micro Simulation", loc='left')
 
 
 plot(get_data())

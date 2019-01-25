@@ -7,7 +7,7 @@ import common
 from src.data import open_data, runs
 from uwnet.thermo import lhf_to_evap
 
-output = ["snapshots_pw.png"]
+output = ["snapshots_pw.pdf"]
 
 
 def get_data():
@@ -44,7 +44,7 @@ def get_data():
 
 
 def plot(plotme):
-    fig = plt.figure(1, figsize=(common.textwidth, common.textwidth / 2))
+    fig = plt.figure(1, figsize=(common.textwidth, common.textwidth/2))
 
     grid = AxesGrid(
         fig,
@@ -56,7 +56,7 @@ def plot(plotme):
         share_all=True,
         cbar_location="right",
         cbar_mode="each",
-        cbar_size="7%",
+        cbar_size="3%",
         cbar_pad="2%", )
 
     count = 0
@@ -66,7 +66,8 @@ def plot(plotme):
         ax = grid[count]
 
         val = plotme.PW[j]
-        im = ax.pcolormesh(val.x / 1e6, val.y / 1e6, val.values)
+        im = ax.pcolormesh(val.x / 1e6, val.y / 1e6, val.values,
+                           rasterized=True)
         cax.colorbar(im)
 
         run = str(run.values)
