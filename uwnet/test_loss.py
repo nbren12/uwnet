@@ -6,8 +6,8 @@ import torch
 from pytest import approx
 from .timestepper import Batch, TensorDict
 
-from .loss import (compute_multiple_step_loss, mean_other_dims, mean_over_dims,
-                   r2_score, weighted_mean_squared_error, weighted_r2_score)
+from .loss import (compute_multiple_step_loss, r2_score, weighted_mean_squared_error, weighted_r2_score)
+from uwnet.utils import mean_over_dims, mean_other_dims
 
 approx = partial(approx, abs=1e-6)
 

@@ -50,3 +50,32 @@ def batch_to_model_inputs(batch, aux, prog, diag, forcing, constants):
             out['F' + key] = redim(batch['F' + key], num)
 
     return out
+
+
+def centered_difference(x, dim=-3):
+    """Compute centered difference with first order difference at edges"""
+    x = x.transpose(dim, 0)
+    dx = torch.cat(
+        [
+            torch.unsqueeze(x[1] - x[0], 0), x[2:] - x[:-2],
+            torch.unsqueeze(x[-1] - x[-2], 0)
+        ],
+        dim=0)
+    return dx.transpose(dim, 0)
+
+
+def get_other_dims(x, dim):
+    return set(range(x.dim())) - {dim}
+
+
+def mean_over_dims(x, dims):
+    """Take a mean over a list of dimensions keeping the as singletons"""
+    for dim in dims:
+        x = x.mean(dim=dim, keepdim=True)
+    return x
+
+
+def mean_other_dims(x, dim):
+    """Take a mean over all dimensions but the one specified"""
+    other_dims = get_other_dims(x, dim)
+    return mean_over_dims(x, other_dims)
