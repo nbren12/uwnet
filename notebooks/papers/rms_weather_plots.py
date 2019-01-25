@@ -1,12 +1,10 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import xarray as xr
-from functools import reduce
 
-from src.data import training_data, runs
-from common import data_array_dict_to_dataset, cache
-import seaborn as sns
+import common
+from src.data import runs, training_data
+from uwnet.thermo import vorticity
 
 
 def rms(x, dim=None):
@@ -15,56 +13,106 @@ def rms(x, dim=None):
     return np.sqrt((x**2).mean(dim))
 
 
-def regional_average_error(out_eror):
+def get_regions(y):
     tropics_bndy = .25
     subtropics_north_bndy = .50
     dx = 160e3
 
-    y = out_eror.y
     percent = 2 * y / (y.max() + dx) - 1
 
     subtropics = ((np.abs(percent) > tropics_bndy) &
                   (np.abs(percent) <= subtropics_north_bndy))
 
     tropics = np.abs(percent) <= tropics_bndy
-    region = xr.where(tropics, 'Tropics',
-                      xr.where(subtropics, 'Subtropics', 'Extratropics'))
-
-    out_eror['region'] = region
-    avg_ss = out_eror.groupby('region').apply(
-        lambda x: (x**2).mean('y')).compute()
-
-    return avg_ss.to_dataframe(name='SS').reset_index()
+    return xr.where(tropics, 'Tropics',
+                    xr.where(subtropics, 'Subtropics', 'Extratropics'))
 
 
-@cache
-def get_data_one_field(field='QT', tlim=slice(100, 110), avg_dims='x'):
-    truth = xr.open_dataset(training_data).isel(step=0)
+def global_mass_weighted_rms(ds, reference='truth'):
+    truth = ds.sel(concat_dim=reference)
+    preds = ds.sel(concat_dim=ds.concat_dim != reference)
 
-    out_eror = {}
-
-    for run in runs:
-        pred = runs[run].data_3d[field].sel(time=tlim)
-        target = truth[field]
-        out_eror[run] = (
-            rms(pred - target, dim=avg_dims) * truth.layer_mass).sum('z')
-
-    out_eror = data_array_dict_to_dataset(out_eror)
-
-    return regional_average_error(out_eror).rename(columns={'SS': field})
+    M = ds.layer_mass.sum('z')
+    squares = (truth - preds)**2 * ds.layer_mass / M
+    sum_squares = squares.sum('z').mean(['x', 'y'])
+    return np.sqrt(sum_squares)
 
 
-def get_data(keys=['U', 'V', 'SLI', 'QT']):
-    data = {key: get_data_one_field(key) for key in keys}
-    return reduce(pd.merge, data.values())
+@common.cache
+def get_data():
+
+    ds = get_merged_data(['U', 'V', 'SLI', 'QT'],
+                         ['debias', 'unstable', 'micro'])
+    # compute vorticity
+    ds['VORT'] = vorticity(ds.U, ds.V)
+
+    regions = get_regions(ds.y)
+    rms = ds.groupby(regions).apply(global_mass_weighted_rms)
+    return rms
 
 
-def plot(df):
-    plotme = pd.melt(df, id_vars=["time", "region", "step", "keys"])
-    sns.FacetGrid(
-        plotme, row="region", col="variable", hue="keys", sharey=False)\
-       .map(plt.plot, "time", "value")\
-       .add_legend()
+def get_merged_data(variables, run_names):
+    truth = xr.open_dataset(training_data).isel(step=0)\
+                                          .drop('step')\
+                                          .sel(time=slice(100, 110))
+    data = {'truth': truth[variables]}
+
+    for run in run_names:
+        data[run] = runs[run].data_3d[variables].load().interp(time=truth.time)
+
+    ds = xr.concat(data.values(), dim=list(data.keys()))
+    ds['layer_mass'] = truth.layer_mass
+    return ds
+
+
+def plot_rms_runs_regions_times(da, ax, title=""):
+    keys = da.concat_dim.values.tolist()
+    colors = dict(zip(keys, ['k', 'b', 'y']))
+
+    keys = da.y.values.tolist()
+    marker = dict(zip(keys, ['', '^', 'o']))
+
+    lines = []
+    labels = []
+    for (run, region), val in da.stack(key=['concat_dim', 'y']).groupby('key'):
+        l, = ax.plot(
+            val.time,
+            val,
+            marker=marker[region],
+            color=colors[run],
+            markevery=15,
+            label=f'{run} {region}')
+        lines.append(l)
+        labels.append(f'{run} in {region}')
+
+    ax.set_title(title, loc='left')
+
+    return lines, labels
+
+
+def plot(ds):
+
+    fig, (a, b, c) = plt.subplots(
+        3, 1, sharex=True, figsize=(5, 6))
+    plot_rms_runs_regions_times(ds.QT, a, title="a) QT (g/kg)")
+    plot_rms_runs_regions_times(ds.SLI, b, title="b) SLI (K)")
+    lines, labels = plot_rms_runs_regions_times(
+        ds.VORT * 1e6, c, title=r"c) vertical vorticity (10^-6 s^-1)")
+
+    a.set_xlim([101, 108.5])
+    [ax.set_ylim(bottom=0.0) for ax in (a, b, c)]
+    common.label_outer_axes(np.array([[a], [b], [c]]), "time (day)", "")
+
+    common.despine_axes([a, b, c])
+
+    plt.subplots_adjust(right=.5)
+    fig.legend(
+        lines,
+        labels,
+        loc="upper left",
+        bbox_to_anchor=(0.5, 0.90),
+        frameon=False)
+
 
 if __name__ == '__main__':
     df = get_data()

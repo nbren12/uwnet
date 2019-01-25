@@ -16,6 +16,7 @@ def setup_matplotlib():
         'axes.labelsize': 8,
         'font.size': 10,
         'text.usetex': False,
+        'legend.fontsize': 'small',
         'figure.figsize': [4.5, 4.5],
         'savefig.dpi': 150
     }
@@ -24,7 +25,7 @@ def setup_matplotlib():
     plt.rc('axes', titlesize='medium')
     plt.rc('xtick', labelsize='small')
     plt.rc('ytick', labelsize='small')
-    plt.rc('lines', linewidth=1.0)
+    plt.rc('lines', linewidth=1.0, markersize=3)
 
 
 def data_array_dict_to_dataset(d, dim='keys'):
@@ -50,6 +51,12 @@ def label_outer_axes(axs, xlabel, ylabel):
 
     for ax in axs[-1, :]:
         ax.set_xlabel(xlabel)
+
+
+def despine_axes(axs):
+    for ax in axs:
+        for spine in ['right', 'top']:
+            ax.spines[spine].set_visible(False)
 
 
 textwidth = 6.5

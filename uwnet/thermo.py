@@ -152,8 +152,7 @@ def compute_q2(ngaqua):
     return compute_apparent_source(ngaqua.QT, ngaqua.FQT*86400)
 
 
-def vorcitity(u, v):
-    f = coriolis_ngaqua(u.y)
+def vorticity(u, v):
     psi = u.differentiate('y') - v.differentiate('x')
     psi.name = 'Vorticity'
     return psi
