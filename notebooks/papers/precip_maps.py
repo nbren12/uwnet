@@ -36,13 +36,18 @@ def get_data():
     # net precip from model
     net_precip = runs['debias'].data_2d.NPNN
 
+    # net precip micro
+    data_2d = runs['micro'].data_2d
+    micro = data_2d.Prec - lhf_to_evap(data_2d.LHF)
+
     evap = lhf_to_evap(ds.LHF)
     net_precip_truth = ds.Prec - evap
 
     return xr.Dataset({
         'NG-Aqua': net_precip_truth.interp(time=time),
         'SemiProg': semi_prognostic,
-        'NN': net_precip.interp(time=time),
+        'DEBIAS': net_precip.interp(time=time),
+        'MICRO': micro.interp(time=time),
     }).compute()
 
 
@@ -54,13 +59,16 @@ def plot(data):
     kwargs = dict(cmap='RdBu_r', norm=norm, rasterized=True)
 
     fig, axs = plt.subplots(
-        1,
-        3,
-        figsize=(common.textwidth, common.textwidth / 3.5),
+        2,
+        2,
+        figsize=(common.textwidth, common.textwidth/1.61),
         sharex=True,
         sharey=True,
         constrained_layout=True)
 
+    common.label_outer_axes(axs, "x (1000 km)", "y (1000 km)")
+
+    axs = axs.ravel()
     for k, run in enumerate(plotme.Run.values):
         val = plotme.sel(Run=run)
         im = axs[k].pcolormesh(val.x, val.y, val, **kwargs)
@@ -68,11 +76,10 @@ def plot(data):
 
     fig.colorbar(im, ax=axs.tolist(), pad=-.02, aspect=60)
 
-    common.label_outer_axes(axs[np.newaxis], "x (1000 km)", "y (1000 km)")
-
     axs[0].set_title("a) NG-Aqua", loc='left')
-    axs[1].set_title("b) NN Diagnosis", loc='left')
-    axs[2].set_title("c) NN+SAM Simulation", loc='left')
+    axs[1].set_title("b) NN Semi-prognostic", loc='left')
+    axs[2].set_title("c) DEBIAS Simulation", loc='left')
+    axs[3].set_title("d) Micro Simulation", loc='left')
 
 
 plot(get_data())
