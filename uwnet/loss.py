@@ -9,25 +9,9 @@ Step Types:
 import torch
 from toolz import curry
 from torch.nn.functional import mse_loss
+
+from uwnet.utils import mean_other_dims
 from .timestepper import predict_multiple_steps
-from .wtg import wtg_penalty
-
-
-def get_other_dims(x, dim):
-    return set(range(x.dim())) - {dim}
-
-
-def mean_over_dims(x, dims):
-    """Take a mean over a list of dimensions keeping the as singletons"""
-    for dim in dims:
-        x = x.mean(dim=dim, keepdim=True)
-    return x
-
-
-def mean_other_dims(x, dim):
-    """Take a mean over all dimensions but the one specified"""
-    other_dims = get_other_dims(x, dim)
-    return mean_over_dims(x, other_dims)
 
 
 def r2_score(truth, prediction):
@@ -144,14 +128,11 @@ def total_loss(criterion, model, z, batch, time_step=.125):
     loss = l1 + l2 * .1
 
     # WTG penalty
-    eig1, eig2 = wtg_penalty(model, z, batch)
 
     info = {
         'Q1/Q2': l1.item(),
         'equilibrium': l2.item(),
         # 'pw_imbalance': l3.item(),
-        'eig1': eig1,
-        'eig2': eig2,
         'total': loss.item()
     }
 
