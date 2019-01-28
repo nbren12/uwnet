@@ -13,21 +13,6 @@ def rms(x, dim=None):
     return np.sqrt((x**2).mean(dim))
 
 
-def get_regions(y):
-    tropics_bndy = .25
-    subtropics_north_bndy = .50
-    dx = 160e3
-
-    percent = 2 * y / (y.max() + dx) - 1
-
-    subtropics = ((np.abs(percent) > tropics_bndy) &
-                  (np.abs(percent) <= subtropics_north_bndy))
-
-    tropics = np.abs(percent) <= tropics_bndy
-    return xr.where(tropics, 'Tropics',
-                    xr.where(subtropics, 'Subtropics', 'Extratropics'))
-
-
 def global_mass_weighted_rms(ds, reference='truth'):
     truth = ds.sel(concat_dim=reference)
     preds = ds.sel(concat_dim=ds.concat_dim != reference)
@@ -46,7 +31,7 @@ def get_data():
     # compute vorticity
     ds['VORT'] = vorticity(ds.U, ds.V)
 
-    regions = get_regions(ds.y)
+    regions = common.get_regions(ds.y)
     rms = ds.groupby(regions).apply(global_mass_weighted_rms)
     return rms
 
@@ -73,7 +58,6 @@ def plot_rms_runs_regions_times(da, ax, title=""):
     marker = dict(zip(keys, ['', '^', 'o']))
     marker = dict(zip(keys, ['-', ':', '--']))
 
-
     lines = []
     labels = []
     for (run, region), val in da.stack(key=['concat_dim', 'y']).groupby('key'):
@@ -94,8 +78,7 @@ def plot_rms_runs_regions_times(da, ax, title=""):
 
 def plot(ds):
 
-    fig, (a, b, c) = plt.subplots(
-        3, 1, sharex=True, figsize=(5, 6))
+    fig, (a, b, c) = plt.subplots(3, 1, sharex=True, figsize=(5, 6))
     plot_rms_runs_regions_times(ds.QT, a, title="a) QT (g/kg)")
     plot_rms_runs_regions_times(ds.SLI, b, title="b) SLI (K)")
     lines, labels = plot_rms_runs_regions_times(
