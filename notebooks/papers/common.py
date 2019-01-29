@@ -91,6 +91,7 @@ class MidpointNormalize(colors.Normalize):
         return np.ma.masked_array(np.interp(value, x, y))
 
 textwidth = 6.5
+onecolumn = textwidth/2 - .5
 
 setup_matplotlib()
 clabel_size = 'smaller'
