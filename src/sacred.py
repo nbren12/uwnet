@@ -1,9 +1,16 @@
 """Functions for getting stuff from sacred"""
 import pymongo
+from bson.objectid import ObjectId
+import pandas as pd
+from toolz import valmap
 import re
 import gridfs
 
 database = 'uwnet'
+
+
+def find_id(coll, id):
+    return coll.find_one({"_id": ObjectId(id)})
 
 
 def get_grid_file(id):
@@ -15,6 +22,10 @@ def get_grid_file(id):
 def get_database():
     client = pymongo.MongoClient()
     return client[database]
+
+
+def get_metrics_collection():
+    return get_database().metrics
 
 
 def get_run(id):
@@ -36,3 +47,28 @@ def get_last_model_id(id):
 def get_last_model(id):
     artifact = get_last_model_id(id)
     return get_grid_file(artifact['file_id'])
+
+
+def get_metrics(id):
+    doc = get_run(id)
+    metrics = doc['info']['metrics']
+
+    output = {}
+    for metric in metrics:
+        metricid = metric['id']
+        name = metric['name']
+        output[name] = find_id(get_metrics_collection(), metricid)
+
+    return output
+
+
+def convert_metric_to_dataframe(metric):
+    return pd.DataFrame({
+        metric['name'] : metric['values'],
+        'timestamps': metric['timestamps'],
+        'steps': metric['steps'],
+    })
+
+
+def get_metrics_as_pandas(id):
+    return valmap(convert_metric_to_dataframe, get_metrics(id))
