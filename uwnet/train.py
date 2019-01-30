@@ -71,9 +71,18 @@ def my_config():
     }
 
     # y indices to use for training
-    y = (None, None)
-    x = (None, None)
-    time_sl = (None, None)
+    training_slices = dict(
+        y=(None, None),
+        x=(10, None),
+        time=(None, None),
+    )
+
+    validation_slices = dict(
+        y=(None, None),
+        x=(0, 10),
+        time=(None, None),
+    )
+
     output_dir = None
 
     prognostics = ['QT', 'SLI']
@@ -107,16 +116,21 @@ def get_dataset(data):
 
 
 @ex.capture
-def get_data_loader(data: xr.Dataset, x, y, time_sl, vertical_grid_size,
-                    batch_size, prognostics):
+def get_data_loader(data: xr.Dataset, train, training_slices,
+                    validation_slices, prognostics, batch_size):
 
     from torch.utils.data.dataloader import default_collate
     from uwnet.timestepper import Batch
+
+    if train:
+        slices = training_slices
+    else:
+        slices = validation_slices
+
     ds = data.isel(
-        z=slice(0, vertical_grid_size),
-        y=slice(*y),
-        x=slice(*x),
-        time=slice(*time_sl))
+        y=slice(*slices['y']),
+        x=slice(*slices['x']),
+        time=slice(*slices['time']))
 
     def my_collate_fn(batch):
         return Batch(default_collate(batch), prognostics)
@@ -166,7 +180,8 @@ class Trainer(object):
             -1, 1, 1).float()
         self.z = torch.tensor(self.dataset.z.values).float()
         self.time_step = get_timestep(self.dataset)
-        self.train_loader = get_data_loader(self.dataset)
+        self.train_loader = get_data_loader(self.dataset, train=True)
+        self.test_loader = get_data_loader(self.dataset, train=False)
         self.model = get_model(*get_pre_post(self.dataset))
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
         self.criterion = weighted_mean_squared_error(
