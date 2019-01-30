@@ -62,13 +62,10 @@ def get_metrics(id):
     return output
 
 
-def convert_metric_to_dataframe(metric):
-    return pd.DataFrame({
-        metric['name'] : metric['values'],
-        'timestamps': metric['timestamps'],
-        'steps': metric['steps'],
-    })
+def metric_as_series(metric):
+    return pd.Series(
+        metric['values'], index=metric['steps'], name=metric['name'])
 
 
 def get_metrics_as_pandas(id):
-    return valmap(convert_metric_to_dataframe, get_metrics(id))
+    return pd.DataFrame(valmap(metric_as_series, get_metrics(id)))
