@@ -182,7 +182,7 @@ class Trainer(object):
         self.time_step = get_timestep(self.dataset)
         self.train_loader = get_data_loader(self.dataset, train=True)
         self.test_loader = get_data_loader(self.dataset, train=False)
-        self.model = get_model(*get_pre_post(self.dataset))
+        self.model = get_model(*get_pre_post(self.dataset, self.train_loader))
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
         self.criterion = weighted_mean_squared_error(
             weights=self.mass / self.mass.mean(), dim=-3)
