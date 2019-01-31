@@ -105,6 +105,48 @@ def total_loss(criterion, model, z, batch, time_step=.125):
     """Compute the loss across multiple time steps with an Euler stepper
     """
     dt = time_step
+    pred, x1 = get_input_output(model, dt, batch)
+
+    l1 = compute_loss(criterion, x1, pred)
+    l2 = equilibrium_penalty(criterion, model, batch, dt)
+
+    loss = l1 + l2
+    loss_info = {
+            'Q1/Q2': l1.item(),
+            'equilibrium': l2.item(),
+            'total': loss.item(),
+        }
+
+    return loss, loss_info, (pred, x1)
+
+
+def instability_penalty_step(self, engine, batch):
+    self.optimizer.zero_grad()
+    loss, info, (y_pred, y) = total_loss(self.criterion, self.model, self.z, batch)
+    loss.backward()
+    self.optimizer.step()
+    self.optimizer.zero_grad()
+    engine.state.loss_info = info
+    return y_pred, y
+
+
+def multiple_step_loss_step(self, engine, batch):
+    self.optimizer.zero_grad()
+
+    nt = batch.num_time - 1
+    loss = compute_multiple_step_loss(
+        self.criterion, self.model, batch, 0, nt, self.time_step)
+    info = {'multiple': loss.item()}
+
+    loss.backward()
+    self.optimizer.step()
+    self.optimizer.zero_grad()
+    engine.state.loss_info = info
+    return info
+
+
+@curry
+def get_input_output(model, dt, batch):
     src = model(batch.data)
 
     g = batch.get_known_forcings()
@@ -115,53 +157,11 @@ def total_loss(criterion, model, z, batch, time_step=.125):
     x1 = progs.apply(lambda x: x[:, 1:])
     src = src.apply(lambda x: x[:, :-1])
 
-    pred = x0 + dt * src + dt * 86400 * forcing
+    # pred = x0 + dt * src + dt * 86400 * forcing
+    # return pred, x1
 
-    l1 = compute_loss(criterion, x1, pred) / dt
-    l2 = equilibrium_penalty(criterion, model, batch, dt)
-
-    # w = criterion.keywords['weights']
-    # x = (src * w).apply(lambda x: x.sum(-3).sum(0)) / 1000
-    # pred = (g * w).apply(lambda x: -x.sum(-3).sum(0)) / 1000 * 86400
-    # l3 = mse_loss(x['QT'], pred['QT'])
-
-    loss = l1 + l2 * .1
-
-    # WTG penalty
-
-    info = {
-        'Q1/Q2': l1.item(),
-        'equilibrium': l2.item(),
-        # 'pw_imbalance': l3.item(),
-        'total': loss.item()
-    }
-
-    return loss, info
-
-
-def instability_penalty_step(self, engine, batch):
-    self.optimizer.zero_grad()
-    loss, loss_info = total_loss(self.criterion, self.model, self.z, batch)
-    loss.backward()
-    self.optimizer.step()
-    self.optimizer.zero_grad()
-    engine.state.loss_info = loss_info
-    return loss_info
-
-
-def multiple_step_loss_step(self, engine, batch):
-    self.optimizer.zero_grad()
-
-    nt = batch.num_time - 1
-    loss = compute_multiple_step_loss(
-        self.criterion, self.model, batch, 0, nt, self.time_step)
-    loss_info = {'multiple': loss.item()}
-
-    loss.backward()
-    self.optimizer.step()
-    self.optimizer.zero_grad()
-    engine.state.loss_info = loss_info
-    return loss_info
+    # pred = x0 + dt * src + dt * 86400 * forcing
+    return src, (x1-x0)/dt - 86400 * forcing
 
 
 def get_step(step_type, _config):
