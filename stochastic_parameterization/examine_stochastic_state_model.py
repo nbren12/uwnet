@@ -25,6 +25,7 @@ binning_method = 'precip'
 # binning_method = 'q2_ratio'
 base_model_location = model_dir + '/full_model/1.pkl'
 model = torch.load(model_location)
+base_model = torch.load(base_model_location)
 
 
 def get_true_nn_forcing(time_, ds):
@@ -38,7 +39,7 @@ def get_true_nn_forcing(time_, ds):
     return true_nn_forcing
 
 
-def predict_for_time(time_, ds):
+def predict_for_time(time_, ds, model=model):
     ds_filtered = ds.isel(time=time_)
     to_predict = {}
     for key_ in ds.data_vars:
@@ -82,20 +83,20 @@ def plot_residuals_by_eta():
         draw_histogram(residuals, title=f'SLI residuals for eta={eta}')
 
 
-def simulate_eta():
+def simulate_eta(ds):
     etas = []
-    for _ in range(640):
+    for time in range(640):
         etas.append(model.eta)
-        model.update_eta()
+        model.update_eta({'SST': ds.isel(time=time).SST.values})
     return np.stack(etas)
 
 
 def plot_true_eta_vs_simulated_eta(ds=None):
     if not ds:
         ds = get_dataset()
-    simulated_eta = simulate_eta()
+    simulated_eta = simulate_eta(ds)
     true_eta = ds.eta.values
-    for eta in range(ds.eta.values.min(), ds.eta.values.max()):
+    for eta in range(ds.eta.values.min(), ds.eta.values.max() + 1):
         true_y_distribution = pd.DataFrame(
             np.argwhere(true_eta == eta), columns=['time', 'y', 'x']
         ).y.value_counts().sort_index().tolist()
@@ -110,24 +111,78 @@ def plot_true_eta_vs_simulated_eta(ds=None):
         )
 
 
+def trim_extreme_values(array):
+    array = np.array(array)
+    return array[
+        (array > np.percentile(array, 3)) &
+        (array < np.percentile(array, 97))
+    ]
+
+
 def compare_true_to_simulated_q1_q2_distributions():
     ds = get_dataset()
     layer_mass_sum = ds.layer_mass.values.sum()
     times = random.sample(range(len(ds.time)), 10)
     qts_pred = []
     qts_true = []
+    qts_pred_base = []
     slis_pred = []
     slis_true = []
+    slis_pred_base = []
     for time in times:
         pred = predict_for_time(time, ds)
+        pred_base = predict_for_time(time, ds, base_model)
         true = get_true_nn_forcing(time, ds)
         qts_pred.extend(
             pred['QT'].T.dot(ds.layer_mass.values).ravel() / layer_mass_sum)
         qts_true.extend(
             true['QT'].T.dot(ds.layer_mass.values).ravel() / layer_mass_sum)
+        qts_pred_base.extend(
+            pred_base['QT'].T.dot(ds.layer_mass.values).ravel() /
+            layer_mass_sum)
         slis_pred.extend(
             pred['SLI'].T.dot(ds.layer_mass.values).ravel() / layer_mass_sum)
         slis_true.extend(
             true['SLI'].T.dot(ds.layer_mass.values).ravel() / layer_mass_sum)
-    print(f'SLI R2: {r2_score(slis_pred, slis_true)}')
-    print(f'QT R2: {r2_score(qts_pred, qts_true)}')
+        slis_pred_base.extend(
+            pred_base['SLI'].T.dot(ds.layer_mass.values).ravel() /
+            layer_mass_sum)
+
+    true_variance = qts_true.var()
+    print(f'true_variance: {true_variance}')
+    single_model_variance = slis_pred_base.var()
+    print(f'single_model_variance: {single_model_variance}')
+    stochastic_model_variance = slis_pred.var()
+    print(f'stochastic_model_variance: {stochastic_model_variance}')
+
+    print(f'SLI R2 Stochastic Model: {r2_score(slis_pred, slis_true)}')
+    print(f'SLI R2 Single Model Model: {r2_score(slis_pred_base, slis_true)}')
+    print(f'QT R2 Stochastic Model: {r2_score(qts_pred, qts_true)}')
+    print(f'QT R2 Single Model Model: {r2_score(qts_pred_base, qts_true)}')
+    draw_histogram(
+        [
+            trim_extreme_values(slis_true),
+            trim_extreme_values(slis_pred),
+            trim_extreme_values(slis_pred_base)
+        ],
+        label=['True', 'Stochastic Model', 'Base Model'],
+        title='SLI NN forcing comparison',
+        bins=100,
+        pdf=True
+    )
+    draw_histogram(
+        [
+            trim_extreme_values(qts_true),
+            trim_extreme_values(qts_pred),
+            trim_extreme_values(qts_pred_base)
+        ],
+        label=['True', 'Stochastic Model', 'Base Model'],
+        title='QT NN forcing comparison',
+        bins=100,
+        pdf=True
+    )
+
+
+if __name__ == '__main__':
+    # compare_true_to_simulated_q1_q2_distributions()
+    plot_true_eta_vs_simulated_eta()
