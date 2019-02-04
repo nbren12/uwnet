@@ -146,7 +146,7 @@ class ConditionalXRSampler(XRTimeSeries):
 
     def setup_indices(self):
         self.indices = np.argwhere(
-            self.data.eta.values == self.eta).tolist()
+            self.data.eta.values == self.eta)
         self.indices = self.indices[
             self.indices[:, 0] < len(self.data.time) - 1
         ]
