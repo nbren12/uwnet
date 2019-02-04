@@ -97,7 +97,7 @@ def my_config():
         single_column_locations=[(32, 0)]
     )
     step_type = 'instability'
-    binning_method = 'q2_ratio'
+    binning_method = 'precip'
 
 
 @ex.capture
@@ -124,7 +124,7 @@ def get_data_loader(data: xr.Dataset, x, y, time_sl, vertical_grid_size,
         return Batch(default_collate(batch), prognostics)
 
     train_data = XRTimeSeries(ds)
-    if eta_to_train:
+    if eta_to_train is not None:
         train_data = ConditionalXRSampler(ds, eta_to_train)
     else:
         train_data = XRTimeSeries(ds)
@@ -173,7 +173,7 @@ class Trainer(object):
         self.time_step = get_timestep(self.dataset)
         self.train_loader = get_data_loader(self.dataset)
         self.model = get_model(*get_pre_post(self.dataset))
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+        self.optimizer = torch.optim.Adagrad(self.model.parameters(), lr=lr)
         self.criterion = weighted_mean_squared_error(
             weights=self.mass / self.mass.mean(), dim=-3)
         self.plot_manager = TrainingPlotManager(ex, self.model, self.dataset)
