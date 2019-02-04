@@ -1,10 +1,8 @@
 import os
 import numpy as np
 import torch
-from scipy import linalg
-from stochastic_parameterization.utils import (
-    get_q2_ratio_transition_matrix,
-)
+from stochastic_parameterization.eta_transitioner import EtaTransitioner
+from stochastic_parameterization.utils import binning_quantiles
 from uwnet.sam_interface import get_model
 from uwnet.tensordict import TensorDict
 from torch import nn
@@ -13,11 +11,11 @@ dataset_dt_seconds = 10800
 model_dir = '/Users/stewart/projects/uwnet/stochastic_parameterization'
 base_model_location = model_dir + '/full_model/1.pkl'
 
+
 class StochasticStateModel(nn.Module):
 
     def __init__(
             self,
-            binning_quantiles=[0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1],
             dims=(64, 128),
             dt_seconds=10800,
             prognostics=['QT', 'SLI'],
@@ -27,26 +25,23 @@ class StochasticStateModel(nn.Module):
         self.dims = dims
         self.prognostics = prognostics
         self.dt_seconds = dt_seconds
-        self.binning_quantiles = binning_quantiles
         self.possible_etas = list(range(len(binning_quantiles)))
         self.setup_eta()
-        self.transition_matrix = get_q2_ratio_transition_matrix(
-            binning_quantiles=self.binning_quantiles)
         self.base_model_location = base_model_location
-        self.setup_transition_matrix()
+        self.transition_matrix_model = self.setup_eta_transitioner()
+        self.y_indices = np.array(
+            [[idx] * dims[1] for idx in range(dims[0])])
 
-    def setup_transition_matrix(self):
-        if self.dt_seconds != dataset_dt_seconds:
-            continuous_transition_matrix = linalg.logm(
-                self.transition_matrix) / dataset_dt_seconds
-            self.transition_matrix = linalg.expm(
-                continuous_transition_matrix * self.dt_seconds)
+    def setup_eta_transitioner(self):
+        transitioner = EtaTransitioner(dt_seconds=self.dt_seconds)
+        transitioner.train()
+        self.eta_transitioner = transitioner
 
     def setup_eta(self):
         self.eta = np.random.choice(
             self.possible_etas,
             self.dims,
-            p=np.ediff1d([0] + list(self.binning_quantiles))
+            p=np.ediff1d([0] + list(binning_quantiles))
         )
 
     def eval(self):
@@ -60,7 +55,7 @@ class StochasticStateModel(nn.Module):
             **kwargs):
         cmd = f'python -m uwnet.train with {training_config_file}'
         cmd += f' eta_to_train={eta}'
-        cmd += f' output_dir=models/stochastic_state_model_q2_ratio_{eta}'
+        cmd += f' output_dir=models/stochastic_state_model_adagrad_{eta}'
         cmd += f" binning_quantiles='{self.binning_quantiles}'"
         cmd += f" prognostics='{self.prognostics}'"
         cmd += f" base_model_location='{self.base_model_location}'"
@@ -75,30 +70,21 @@ class StochasticStateModel(nn.Module):
         conditional_models = {}
         if not self.is_trained:
             for eta in self.possible_etas:
-                self.train_conditional_model(
-                    eta, training_config_file, **kwargs)
+                # self.train_conditional_model(
+                #     eta, training_config_file, **kwargs)
                 conditional_models[eta] = torch.load(
-                    f'models/stochastic_state_model_q2_ratio_{eta}/1.pkl'
+                    f'models/stochastic_state_model_{eta}/1.pkl'
                 )
             self.conditional_models = conditional_models
             self.is_trained = True
         else:
             raise Exception('Model already trained')
 
-    def update_eta(self):
-        new_eta = np.zeros_like(self.eta)
-        for eta in self.possible_etas:
-            indices = np.argwhere(self.eta == eta)
-            next_etas = np.random.choice(
-                self.possible_etas,
-                len(indices),
-                p=self.transition_matrix[eta]
-            )
-            new_eta[indices[:, 0], indices[:, 1]] = next_etas
-        self.eta = new_eta
+    def update_eta(self, x):
+        self.eta = self.eta_transitioner.transition_etas(self.eta, x['SST'])
 
     def forward(self, x):
-        self.update_eta()
+        self.update_eta(x)
         output = TensorDict({
             key: torch.zeros_like(x[key]) for key in self.prognostics
         })
@@ -126,6 +112,6 @@ if __name__ == '__main__':
         'path': 'stochastic_parameterization/stochastic_model.pkl'
     }
     model = get_model(config)
-    data = torch.load('/Users/stewart/Desktop/state.pt')
-    pred = model(data)
-    print(pred)
+    # data = torch.load('/Users/stewart/Desktop/state.pt')
+    # pred = model(data)
+    # print(pred)

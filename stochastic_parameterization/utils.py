@@ -9,6 +9,8 @@ model_location = model_dir + '/stochastic_model.pkl'
 binning_method = 'precip'
 # binning_method = 'q2_ratio'
 base_model_location = model_dir + '/full_model/1.pkl'
+dataset_dt_seconds = 10800
+binning_quantiles = [0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1]
 
 
 class BaseModel(object):
@@ -126,16 +128,19 @@ def get_xarray_dataset_with_eta(
 
 @lru_cache()
 def get_dataset(
-        binning_quantiles=[0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1],
         ds_location="/Users/stewart/projects/uwnet/data/processed/training.nc",
-        binning_method='q2_ratio',
-        base_model_location=base_model_location):
-    return get_xarray_dataset_with_eta(
-        "/Users/stewart/projects/uwnet/data/processed/training.nc",
+        binning_method='precip',
+        base_model_location=base_model_location,
+        add_precipital_water=True):
+    ds = get_xarray_dataset_with_eta(
+        ds_location,
         binning_quantiles,
         binning_method,
         base_model_location
     )
+    if add_precipital_water:
+        ds['PW'] = (ds.QT * ds.layer_mass).sum('z') / 1000
+    return ds
 
 
 def count_transition_occurences(starting_indices, ending_indices):

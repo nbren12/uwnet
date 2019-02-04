@@ -92,8 +92,9 @@ def draw_barplot_multi(heights_list,
                 label=legend_label)
         min_y = min(min_y, min(heights))
         max_y = max(max_y, max(heights))
-    plt.xticks(x_pos + ((n_plot - 1) * width / 2), names, rotation=xticks_rotation,
-               fontsize=fontsize)
+    plt.xticks(
+        x_pos + ((n_plot - 1) * width / 2), names, rotation=xticks_rotation,
+        fontsize=fontsize)
     if ylim_min is None:
         ylim_min = min_y
     if ylim_max is None:
@@ -129,19 +130,14 @@ def draw_barplot_multi_iter(heights_list, names, n_per_iter, kwargs):
 def draw_histogram(values, bins=40, x_min=None, x_max=None,
                    x_label='', y_label='Counts', title='',
                    figsize=None,
+                   label=None,
+                   pdf=False,
                    show=True, save_to_filepath=None):
-    if x_max is None:
-        x_max = max(values)
-    if x_min is None:
-        x_min = min(values)
-    if figsize is not None:
-        plt.figure(figsize=figsize)
-    n_, bins, patches = plt.hist(values, bins=bins)
-    plt.plot(bins)
+    n_, bins, patches = plt.hist(values, bins=bins, density=pdf, label=label)
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.title(title)
-    plt.axis([x_min, x_max, 0, max(n_)])
+    plt.legend(loc='best')
     plt.grid(True)
     if save_to_filepath:
         plt.savefig(save_to_filepath)
@@ -164,53 +160,6 @@ def draw_histogram_normalized_by_count(values, bins=40, x_max=None,
     plt.title(title)
     plt.axis([min(values), x_max, 0, max(values_norm)])
     plt.grid(True)
-    plt.show()
-
-
-def draw_elb_device_histogram(df, attr, x_max, count_threshold=0, bins=40,
-                              normalize_by_count=False):
-    value_counts = df[attr].value_counts()
-    for key in df[attr].unique():
-        count = value_counts[key]
-        if count > count_threshold:
-            values = df[(df[attr] == key) & (df.pct_agreement > 0)
-                        ].pct_agreement.values.astype(np.float32) * 100
-            if (normalize_by_count):
-                draw_histogram_normalized_by_count(
-                    values, bins=bins, x_max=x_max,
-                    title='{}: {} (count={})'.format(attr, key, count))
-            else:
-                draw_histogram(values, bins=bins, x_max=x_max,
-                               title='{}: {} (count={})'.format(attr, key, count))
-
-
-def draw_elb_device_histogram_all_in_one_plot(df, attr, max_pct_agreement,
-                                              count_threshold=0, bins=40,
-                                              normalize_by_count=False):
-    x_max = max_pct_agreement
-    y_max = 0
-    title = '{}'.format(attr)
-    value_counts = df[attr].value_counts()
-    for key in df[attr].unique():
-        count = value_counts[key]
-        if count > count_threshold:
-            values = df[(df[attr] == key) & (df.pct_agreement > 0)
-                        ].pct_agreement.values.astype(np.float32) * 100
-            if x_max is None:
-                x_max = max(values)
-            bin_vals = list(np.arange(0, x_max, x_max / (bins - 1)))
-            bin_vals.append(x_max)
-            hist, bin_edges = np.histogram(values, bins=bin_vals)
-            values_norm = list(hist / len(values))
-            if max(values_norm) > y_max:
-                y_max = max(values_norm)
-            plt.plot(values_norm, label='{} (count={})'.format(key, count))
-    plt.xlabel('pct_agreement')
-    plt.ylabel('normalized counts (percents)')
-    plt.title(title)
-    plt.axis([0, x_max, 0, y_max])
-    plt.grid(True)
-    plt.legend()
     plt.show()
 
 
