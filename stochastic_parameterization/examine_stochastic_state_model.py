@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import torch
 from sklearn.metrics import r2_score
+from scipy.stats import ks_2samp
 
 # uwnet
 from uwnet.tensordict import TensorDict
@@ -83,11 +84,15 @@ def plot_residuals_by_eta():
         draw_histogram(residuals, title=f'SLI residuals for eta={eta}')
 
 
-def simulate_eta(ds):
+def simulate_eta(ds, n_simulations=640):
     etas = []
-    for time in range(640):
+    for time in range(n_simulations):
         etas.append(model.eta)
-        model.update_eta({'SST': ds.isel(time=time).SST.values})
+        input_data = {}
+        for predictor in model.eta_transitioner.predictors:
+            input_data[predictor] = torch.from_numpy(
+                ds.isel(time=time)[predictor].values)
+        model.update_eta(TensorDict(input_data))
     return np.stack(etas)
 
 
@@ -122,14 +127,14 @@ def trim_extreme_values(array):
 def compare_true_to_simulated_q1_q2_distributions():
     ds = get_dataset()
     layer_mass_sum = ds.layer_mass.values.sum()
-    times = random.sample(range(len(ds.time)), 10)
     qts_pred = []
     qts_true = []
     qts_pred_base = []
     slis_pred = []
     slis_true = []
     slis_pred_base = []
-    for time in times:
+    simulate_eta(ds, 100)
+    for time in range(50, 100):
         pred = predict_for_time(time, ds)
         pred_base = predict_for_time(time, ds, base_model)
         true = get_true_nn_forcing(time, ds)
@@ -148,17 +153,47 @@ def compare_true_to_simulated_q1_q2_distributions():
             pred_base['SLI'].T.dot(ds.layer_mass.values).ravel() /
             layer_mass_sum)
 
-    true_variance = qts_true.var()
-    print(f'true_variance: {true_variance}')
-    single_model_variance = slis_pred_base.var()
-    print(f'single_model_variance: {single_model_variance}')
-    stochastic_model_variance = slis_pred.var()
-    print(f'stochastic_model_variance: {stochastic_model_variance}')
+    qts_true = np.array(qts_true)
+    true_qt_variance = qts_true.var()
+    print(f'True QT Variance: {true_qt_variance}')
 
-    print(f'SLI R2 Stochastic Model: {r2_score(slis_pred, slis_true)}')
+    qts_pred = np.array(qts_pred)
+    pred_qt_variance = qts_pred.var()
+    print(f'Stochastic QT Variance: {pred_qt_variance}')
+
+    qts_pred_base = np.array(qts_pred_base)
+    pred_base_qt_variance = qts_pred_base.var()
+    print(f'Base Model QT Variance: {pred_base_qt_variance}')
+
+    slis_true = np.array(slis_true)
+    true_sli_variance = slis_true.var()
+    print(f'True sli Variance: {true_sli_variance}')
+
+    slis_pred = np.array(slis_pred)
+    pred_sli_variance = slis_pred.var()
+    print(f'Stochastic sli Variance: {pred_sli_variance}')
+
+    slis_pred_base = np.array(slis_pred_base)
+    pred_base_sli_variance = slis_pred_base.var()
+    print(f'Base Model sli Variance: {pred_base_sli_variance}')
+    print(f'\n\nSLI R2 Stochastic Model: {r2_score(slis_pred, slis_true)}')
     print(f'SLI R2 Single Model Model: {r2_score(slis_pred_base, slis_true)}')
     print(f'QT R2 Stochastic Model: {r2_score(qts_pred, qts_true)}')
     print(f'QT R2 Single Model Model: {r2_score(qts_pred_base, qts_true)}')
+
+    qt_true_vs_base_ks = ks_2samp(qts_true, qts_pred_base)
+    print('\n\nKS Divergence test: QT true vs single model: {}'.format(
+        qt_true_vs_base_ks))
+    qt_true_vs_stochastic_ks = ks_2samp(qts_true, qts_pred)
+    print('KS Divergence test: QT true vs stochastic model: {}'.format(
+        qt_true_vs_stochastic_ks))
+
+    sli_true_vs_base_ks = ks_2samp(slis_true, slis_pred_base)
+    print('KS Divergence test: SLI true vs single model: {}'.format(
+        sli_true_vs_base_ks))
+    sli_true_vs_stochastic_ks = ks_2samp(slis_true, slis_pred)
+    print('KS Divergence test: SLI true vs stochastic model: {}'.format(
+        sli_true_vs_stochastic_ks))
     draw_histogram(
         [
             trim_extreme_values(slis_true),
@@ -167,6 +202,7 @@ def compare_true_to_simulated_q1_q2_distributions():
         ],
         label=['True', 'Stochastic Model', 'Base Model'],
         title='SLI NN forcing comparison',
+        y_label='p',
         bins=100,
         pdf=True
     )
@@ -178,11 +214,12 @@ def compare_true_to_simulated_q1_q2_distributions():
         ],
         label=['True', 'Stochastic Model', 'Base Model'],
         title='QT NN forcing comparison',
+        y_label='p',
         bins=100,
         pdf=True
     )
 
 
 if __name__ == '__main__':
-    # compare_true_to_simulated_q1_q2_distributions()
-    plot_true_eta_vs_simulated_eta()
+    compare_true_to_simulated_q1_q2_distributions()
+    # plot_true_eta_vs_simulated_eta()

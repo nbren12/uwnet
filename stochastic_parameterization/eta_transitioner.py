@@ -15,9 +15,11 @@ class EtaTransitioner(object):
             sst_poly_degree=3,
             dt_seconds=dataset_dt_seconds,
             model=LogisticRegression(
-                multi_class='multinomial', solver='lbfgs', max_iter=1000)):
+                multi_class='multinomial', solver='lbfgs', max_iter=1000),
+            predictors=['SST', 'PW']):
         self.sst_poly_degree = sst_poly_degree
         self.model = model
+        self.predictors = predictors
         self.is_trained = False
         self.set_normalization_params()
         self.etas = list(range(len(binning_quantiles)))
@@ -32,17 +34,24 @@ class EtaTransitioner(object):
 
     def set_normalization_params(self):
         ds = get_dataset()
-        self.sst_mean = ds.isel(time=0).SST.values.ravel().mean()
-        self.sst_std = ds.isel(time=0).SST.values.ravel().std()
+        normalization_params = {}
+        for predictor in self.predictors:
+            mean = ds.isel(time=0)[predictor].values.ravel().mean()
+            std = ds.isel(time=0)[predictor].values.ravel().std()
+            normalization_params[predictor] = {
+                'mean': mean, 'std': std
+            }
+        self.normalization_params = normalization_params
 
-    def normalize_sst_array(self, sst_array):
-        return (sst_array - self.sst_mean) / self.sst_std
+    def normalize_array(self, array, variable):
+        return (array - self.normalization_params[variable]['mean']
+                ) / self.normalization_params[variable]['std']
 
     def get_sst_data(self, times):
         ds = get_dataset()
         sst = ds.isel(time=times).SST.values.ravel()
         sst = np.array([
-            self.normalize_sst_array(sst) ** degree
+            self.normalize_array(sst, 'SST') ** degree
             for degree in range(1, self.sst_poly_degree + 1)
         ])
         return np.stack(sst).T
@@ -55,9 +64,16 @@ class EtaTransitioner(object):
         y_data = ds.isel(time=stop_times).eta.values.ravel()
         x_data = np.zeros((len(start), len(self.etas)))
         x_data[np.arange(len(y_data)), start] = 1
-        if self.sst_poly_degree:
+        if 'SST' in self.predictors and self.sst_poly_degree:
             sst_data = self.get_sst_data(start_times)
             x_data = np.hstack((x_data, sst_data))
+        for predictor in self.predictors:
+            if predictor != 'SST':
+                data_for_predictor = self.normalize_array(
+                    ds.isel(time=start_times)[
+                        predictor].values.ravel(), predictor)
+                x_data = np.append(
+                    x_data, data_for_predictor.reshape(-1, 1), 1)
         return x_data, y_data
 
     def train(self):
@@ -68,33 +84,12 @@ class EtaTransitioner(object):
         self.model.fit(x_data, y_data)
         self.is_trained = True
 
-    def predict_for_sst(self, sst):
+    def transition_etas(self, etas, state):
         if not self.is_trained:
             raise Exception('Transition Matrix Model not Trained')
-        if self.sst_poly_degree:
-            additional_input = [
-                self.normalize_sst_array(sst) ** degree
-                for degree in range(1, self.sst_poly_degree + 1)
-            ]
-        else:
-            additional_input = []
-        transition_matrix = []
-        for eta in self.etas:
-            input_ = np.zeros(len(self.etas))
-            input_[eta] = 1
-            input_ = np.concatenate([input_, additional_input]).reshape(1, -1)
-            transition_matrix.append(self.model.predict_proba(input_)[0])
-        return self.transform_transition_matrix_to_timestep(
-            np.array(transition_matrix))
-
-    def transition_eta(self, eta, sst):
-        transition_probabilities = self.predict_for_sst(sst)[eta]
-        return np.random.choice(self.etas, p=transition_probabilities)
-
-    def transition_etas(self, etas, ssts):
         input_array = np.zeros(
             (etas.size * len(self.etas),
-             len(self.etas) + self.sst_poly_degree)
+             len(self.etas) + self.sst_poly_degree + len(self.predictors) - 1)
         )
         for eta in range(len(self.etas)):
             rows = range(eta * etas.size, eta * etas.size + etas.size)
@@ -102,8 +97,21 @@ class EtaTransitioner(object):
             for poly_degree in range(1, self.sst_poly_degree + 1):
                 input_array[
                     rows,
-                    len(self.etas) + poly_degree - 1] = (
-                        self.normalize_sst_array(ssts.ravel()) ** poly_degree)
+                    len(self.etas) + poly_degree - 1
+                ] = (
+                    self.normalize_array(
+                        state['SST'].numpy().ravel(),
+                        'SST'
+                    ) ** poly_degree)
+            i_ = 0
+            for predictor in self.predictors:
+                if predictor != 'SST':
+                    input_array[
+                        rows,
+                        len(self.etas) + self.sst_poly_degree + i_] = \
+                            self.normalize_array(
+                                state[predictor].numpy().ravel(), predictor)
+                    i_ += 1
         transition_matrices = self.model.predict_proba(
             input_array).reshape(
             etas.size, len(self.etas), len(self.etas), order='F')

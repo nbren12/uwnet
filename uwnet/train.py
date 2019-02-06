@@ -98,6 +98,7 @@ def my_config():
     )
     step_type = 'instability'
     binning_method = 'precip'
+    base_model_location = None
 
 
 @ex.capture
@@ -124,6 +125,7 @@ def get_data_loader(data: xr.Dataset, x, y, time_sl, vertical_grid_size,
         return Batch(default_collate(batch), prognostics)
 
     train_data = XRTimeSeries(ds)
+    print(eta_to_train)
     if eta_to_train is not None:
         train_data = ConditionalXRSampler(ds, eta_to_train)
     else:
@@ -165,7 +167,7 @@ class Trainer(object):
 
         # get output directory
         self.output_dir = get_output_dir()
-
+        print(self.output_dir)
         self.dataset = get_xarray_dataset()
         self.mass = torch.tensor(self.dataset.layer_mass.values).view(
             -1, 1, 1).float()
@@ -277,6 +279,7 @@ class Trainer(object):
     @ex.capture
     def train(self, epochs):
         """Train the neural network for a fixed number of epochs"""
+        print('training')
         self.engine.run(self.train_loader, max_epochs=epochs)
 
 

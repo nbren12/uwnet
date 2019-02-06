@@ -56,9 +56,7 @@ class StochasticStateModel(nn.Module):
         cmd = f'python -m uwnet.train with {training_config_file}'
         cmd += f' eta_to_train={eta}'
         cmd += f' output_dir=models/stochastic_state_model_adagrad_{eta}'
-        cmd += f" binning_quantiles='{self.binning_quantiles}'"
-        cmd += f" prognostics='{self.prognostics}'"
-        cmd += f" base_model_location='{self.base_model_location}'"
+        # cmd += f" base_model_location='{self.base_model_location}'"
         for key, val in kwargs.items():
             cmd += f' {key}={val}'
         os.system(cmd)
@@ -73,7 +71,7 @@ class StochasticStateModel(nn.Module):
                 # self.train_conditional_model(
                 #     eta, training_config_file, **kwargs)
                 conditional_models[eta] = torch.load(
-                    f'models/stochastic_state_model_{eta}/1.pkl'
+                    f'models/stochastic_state_model_adagrad_{eta}/1.pkl'
                 )
             self.conditional_models = conditional_models
             self.is_trained = True
@@ -81,7 +79,7 @@ class StochasticStateModel(nn.Module):
             raise Exception('Model already trained')
 
     def update_eta(self, x):
-        self.eta = self.eta_transitioner.transition_etas(self.eta, x['SST'])
+        self.eta = self.eta_transitioner.transition_etas(self.eta, x)
 
     def forward(self, x):
         self.update_eta(x)

@@ -108,7 +108,10 @@ def insert_nn_output_precip_ratio_bin_membership(
 
 
 def get_xarray_dataset_with_eta(
-        data, binning_quantiles, binning_method, base_model_location):
+        data,
+        binning_quantiles,
+        binning_method,
+        base_model_location=None):
     try:
         dataset = xr.open_zarr(data)
     except ValueError:
@@ -136,7 +139,7 @@ def get_dataset(
         ds_location,
         binning_quantiles,
         binning_method,
-        base_model_location
+        base_model_location=base_model_location
     )
     if add_precipital_water:
         ds['PW'] = (ds.QT * ds.layer_mass).sum('z') / 1000
