@@ -244,27 +244,27 @@ def compare_true_to_simulated_q1_q2_distributions():
     plt.title('Log Histogram for NN SLI Forcing, with True Eta Transitions')
     plt.show()
 
-    for p in [95, 90, 85, 80]:
+    for p in [.1, .5, 1]:
         print(p)
         fig, ax = plt.subplots()
         loghist(
             qts_true,
             ax=ax,
-            upper_percentile=p,
+            lower_percentile=p,
             label='True',
             gaussian_comparison=False
         )
         loghist(
             qts_pred,
             ax=ax,
-            upper_percentile=p,
+            lower_percentile=p,
             label='Stochastic Model',
             gaussian_comparison=False
         )
         loghist(
             qts_pred_base,
             ax=ax,
-            upper_percentile=p,
+            lower_percentile=p,
             label='Single Model',
             gaussian_comparison=False
         )
