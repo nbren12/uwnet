@@ -81,8 +81,11 @@ class StochasticStateModel(nn.Module):
     def update_eta(self, x):
         self.eta = self.eta_transitioner.transition_etas(self.eta, x)
 
-    def forward(self, x):
-        self.update_eta(x)
+    def forward(self, x, eta=None):
+        if eta is not None:
+            self.eta = eta
+        else:
+            self.update_eta(x)
         output = TensorDict({
             key: torch.zeros_like(x[key]) for key in self.prognostics
         })

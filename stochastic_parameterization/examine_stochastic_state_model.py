@@ -1,13 +1,14 @@
 # Standard Library
 import random
 from collections import defaultdict
+import matplotlib.pyplot as plt
 
 # Thirdparty
 import numpy as np
 import pandas as pd
 import torch
-from sklearn.metrics import r2_score
 from scipy.stats import ks_2samp
+from sklearn.metrics import r2_score
 
 # uwnet
 from uwnet.tensordict import TensorDict
@@ -18,6 +19,7 @@ from stochastic_parameterization.utils import get_dataset
 from stochastic_parameterization.graph_utils import (
     draw_histogram,
     draw_barplot_multi,
+    loghist,
 )
 
 model_dir = '/Users/stewart/projects/uwnet/stochastic_parameterization'
@@ -27,6 +29,21 @@ binning_method = 'precip'
 base_model_location = model_dir + '/full_model/1.pkl'
 model = torch.load(model_location)
 base_model = torch.load(base_model_location)
+
+
+def r2_score_(truth, pred, mean_dims, dims=None, w=1.0):
+    """ R2 score for xarray objects
+    """
+    if dims is None:
+        dims = mean_dims
+
+    mu = truth.mean(mean_dims)
+    sum_squares_error = ((truth - pred)**2 * w).mean(dims)
+    import pdb
+    pdb.set_trace()
+    sum_squares = ((truth - mu)**2 * w).mean(dims)
+
+    return 1 - sum_squares_error / sum_squares
 
 
 def get_true_nn_forcing(time_, ds):
@@ -49,7 +66,10 @@ def predict_for_time(time_, ds, model=model):
         else:
             val = ds_filtered[key_].values.astype(np.float64)
         to_predict[key_] = torch.from_numpy(val)
-    pred = model(TensorDict(to_predict))
+    if hasattr(model, 'eta_transitioner'):
+        pred = model(TensorDict(to_predict), eta=ds_filtered.eta.values)
+    else:
+        pred = model(TensorDict(to_predict))
     return {key: pred[key].detach().numpy() for key in pred}
 
 
@@ -176,10 +196,14 @@ def compare_true_to_simulated_q1_q2_distributions():
     slis_pred_base = np.array(slis_pred_base)
     pred_base_sli_variance = slis_pred_base.var()
     print(f'Base Model sli Variance: {pred_base_sli_variance}')
-    print(f'\n\nSLI R2 Stochastic Model: {r2_score(slis_pred, slis_true)}')
-    print(f'SLI R2 Single Model Model: {r2_score(slis_pred_base, slis_true)}')
-    print(f'QT R2 Stochastic Model: {r2_score(qts_pred, qts_true)}')
-    print(f'QT R2 Single Model Model: {r2_score(qts_pred_base, qts_true)}')
+    print(f'\n\nSLI R2 Stochastic Model:',
+          ' {r2_score(slis_pred, slis_true)}')
+    print(f'SLI R2 Single Model Model:',
+          ' {r2_score(slis_pred_base, slis_true)}')
+    print(f'QT R2 Stochastic Model:',
+          ' {r2_score(qts_pred, qts_true)}')
+    print(f'QT R2 Single Model Model:',
+          ' {r2_score(qts_pred_base, qts_true)}')
 
     qt_true_vs_base_ks = ks_2samp(qts_true, qts_pred_base)
     print('\n\nKS Divergence test: QT true vs single model: {}'.format(
@@ -194,6 +218,60 @@ def compare_true_to_simulated_q1_q2_distributions():
     sli_true_vs_stochastic_ks = ks_2samp(slis_true, slis_pred)
     print('KS Divergence test: SLI true vs stochastic model: {}'.format(
         sli_true_vs_stochastic_ks))
+    fig, ax = plt.subplots()
+    loghist(
+        slis_true,
+        ax=ax,
+        upper_percentile=99.9,
+        label='True',
+        gaussian_comparison=False
+    )
+    loghist(
+        slis_pred,
+        ax=ax,
+        # upper_percentile=99.9,
+        label='Stochastic Model',
+        gaussian_comparison=False
+    )
+    loghist(
+        slis_pred_base,
+        ax=ax,
+        # upper_percentile=99.9,
+        label='Single Model',
+        gaussian_comparison=False
+    )
+    plt.legend()
+    plt.title('Log Histogram for NN SLI Forcing, with True Eta Transitions')
+    plt.show()
+
+    for p in [95, 90, 85, 80]:
+        print(p)
+        fig, ax = plt.subplots()
+        loghist(
+            qts_true,
+            ax=ax,
+            upper_percentile=p,
+            label='True',
+            gaussian_comparison=False
+        )
+        loghist(
+            qts_pred,
+            ax=ax,
+            upper_percentile=p,
+            label='Stochastic Model',
+            gaussian_comparison=False
+        )
+        loghist(
+            qts_pred_base,
+            ax=ax,
+            upper_percentile=p,
+            label='Single Model',
+            gaussian_comparison=False
+        )
+        plt.legend()
+        plt.title('Log Histogram for NN QT Forcing, with True Eta Transitions')
+        plt.show()
+
     draw_histogram(
         [
             trim_extreme_values(slis_true),

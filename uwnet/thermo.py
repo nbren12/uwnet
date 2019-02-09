@@ -136,7 +136,7 @@ def get_geostrophic_winds(p, rho, min_cor=1e-5):
 
     ug = -py/fcor
     ug = ug.where(np.abs(fcor) > min_cor)
-    ug.name="UG"
+    ug.name = "UG"
     return ug, vg
 
 
