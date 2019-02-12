@@ -28,7 +28,7 @@ class StochasticStateModel(nn.Module):
         self.possible_etas = list(range(len(binning_quantiles)))
         self.setup_eta()
         self.base_model_location = base_model_location
-        self.transition_matrix_model = self.setup_eta_transitioner()
+        self.setup_eta_transitioner()
         self.y_indices = np.array(
             [[idx] * dims[1] for idx in range(dims[0])])
 

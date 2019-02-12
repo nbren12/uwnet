@@ -1,5 +1,4 @@
 import numpy as np
-from functools import lru_cache
 import torch
 from uwnet.tensordict import TensorDict
 import xarray as xr
@@ -50,29 +49,48 @@ class BaseModel(object):
         return {key: pred[key].detach().numpy() for key in pred}
 
     def get_qt_ratios(self):
-        qt_ratios = np.ones_like(self.ds.Prec.values)
+        column_integrated_qt_ratios = np.ones_like(self.ds.Prec.values)
+        moistening_ratios = np.ones_like(self.ds.QT.values)
+        heating_ratios = np.ones_like(self.ds.SLI.values)
+        moistening_preds = np.ones_like(self.ds.QT.values)
+        heating_preds = np.ones_like(self.ds.SLI.values)
         time_indices = list(range(len(self.ds.time) - 1))
+        idx = 0
         for time_batch in np.array_split(time_indices, 10):
+            print(f'{idx} of 10')
+            idx += 1
+            pred = self.predict_for_time_idx(time_batch)
+            true = self.get_true_nn_forcing_idx(time_batch)
             q2_preds = np.ma.average(
-                self.predict_for_time_idx(time_batch)['QT'],
+                pred['QT'],
                 axis=1,
                 weights=self.ds.layer_mass.values
             )
             q2_true = np.ma.average(
-                self.get_true_nn_forcing_idx(time_batch)['QT'],
+                true['QT'],
                 axis=1,
                 weights=self.ds.layer_mass.values
             )
-            qt_ratios[time_batch, :, :] = q2_preds / q2_true
-        return qt_ratios
+            column_integrated_qt_ratios[time_batch, :, :] = q2_true / q2_preds
+            moistening_preds[time_batch, :, :, :] = pred['QT']
+            heating_preds[time_batch, :, :, :] = pred['SLI']
+            pred['QT'][pred['QT'] < 10e-5] = 10e-5
+            pred['SLI'][pred['SLI'] < 10e-5] = 10e-5
+            moistening_ratios[time_batch, :, :, :] = true['QT'] / pred['QT']
+            heating_ratios[time_batch, :, :, :] = true['SLI'] / pred['SLI']
+        self.heating_preds = heating_preds
+        self.moistening_preds = moistening_preds
+        self.column_integrated_qt_ratios = column_integrated_qt_ratios
+        self.moistening_ratios = moistening_ratios
+        self.heating_ratios = heating_ratios
 
     def get_bin_membership(self):
-        qt_ratios = self.get_qt_ratios()
+        self.get_qt_ratios()
         bins = [
-            np.quantile(qt_ratios, quantile)
+            np.quantile(self.column_integrated_qt_ratios, quantile)
             for quantile in self.binning_quantiles
         ]
-        return np.digitize(qt_ratios, bins, right=True)
+        return np.digitize(self.column_integrated_qt_ratios, bins, right=True)
 
 
 def insert_precipitation_bin_membership(dataset, binning_quantiles):
@@ -104,6 +122,14 @@ def insert_nn_output_precip_ratio_bin_membership(
     dataset['eta'] = eta_
     dataset['eta'].attrs['units'] = ''
     dataset['eta'].attrs['long_name'] = 'Stochastic State'
+    dataset['nn_moistening_ratio'] = dataset['QT'].copy()
+    dataset['nn_moistening_ratio'].values = base_model.moistening_ratios
+    dataset['nn_heating_ratio'] = dataset['SLI'].copy()
+    dataset['nn_heating_ratio'].values = base_model.heating_ratios
+    dataset['moistening_pred'] = dataset['QT'].copy()
+    dataset['moistening_pred'].values = base_model.moistening_preds
+    dataset['heating_pred'] = dataset['SLI'].copy()
+    dataset['heating_pred'].values = base_model.heating_preds
     return dataset
 
 
@@ -111,12 +137,14 @@ def get_xarray_dataset_with_eta(
         data,
         binning_quantiles,
         binning_method,
-        base_model_location=None):
+        base_model_location=None,
+        t_start=0,
+        t_stop=640):
     try:
         dataset = xr.open_zarr(data)
     except ValueError:
         dataset = xr.open_dataset(data)
-
+    dataset = dataset.isel(time=range(t_start, t_stop))
     if binning_method == 'q2_ratio':
         dataset = insert_nn_output_precip_ratio_bin_membership(
             dataset, binning_quantiles, base_model_location)
@@ -129,17 +157,20 @@ def get_xarray_dataset_with_eta(
         return dataset
 
 
-@lru_cache()
 def get_dataset(
         ds_location="/Users/stewart/projects/uwnet/data/processed/training.nc",
-        binning_method='precip',
+        binning_method=binning_method,
         base_model_location=base_model_location,
-        add_precipital_water=True):
+        add_precipital_water=True,
+        t_start=0,
+        t_stop=640):
     ds = get_xarray_dataset_with_eta(
         ds_location,
         binning_quantiles,
         binning_method,
-        base_model_location=base_model_location
+        base_model_location=base_model_location,
+        t_start=t_start,
+        t_stop=t_stop
     )
     if add_precipital_water:
         ds['PW'] = (ds.QT * ds.layer_mass).sum('z') / 1000

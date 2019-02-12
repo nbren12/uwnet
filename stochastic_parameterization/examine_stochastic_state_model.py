@@ -24,26 +24,24 @@ from stochastic_parameterization.graph_utils import (
 
 model_dir = '/Users/stewart/projects/uwnet/stochastic_parameterization'
 model_location = model_dir + '/stochastic_model.pkl'
-binning_method = 'precip'
-# binning_method = 'q2_ratio'
 base_model_location = model_dir + '/full_model/1.pkl'
 model = torch.load(model_location)
 base_model = torch.load(base_model_location)
 
 
-def r2_score_(truth, pred, mean_dims, dims=None, w=1.0):
+def r2_score_(pred, truth, weights, dims=(0, 2, 3)):
     """ R2 score for xarray objects
     """
-    if dims is None:
-        dims = mean_dims
+    mu = truth.mean(dims)
+    sum_squares_error = ((truth - pred)**2).mean(dims)
+    truth_normalized = truth.copy()
+    for i in range(len(mu)):
+        truth_normalized[:, i, :, :] -= mu[i]
 
-    mu = truth.mean(mean_dims)
-    sum_squares_error = ((truth - pred)**2 * w).mean(dims)
-    import pdb
-    pdb.set_trace()
-    sum_squares = ((truth - mu)**2 * w).mean(dims)
+    sum_squares = (truth_normalized**2).mean(dims)
 
-    return 1 - sum_squares_error / sum_squares
+    r2s = 1 - sum_squares_error / sum_squares
+    return np.average(r2s, weights=weights)
 
 
 def get_true_nn_forcing(time_, ds):
@@ -57,7 +55,7 @@ def get_true_nn_forcing(time_, ds):
     return true_nn_forcing
 
 
-def predict_for_time(time_, ds, model=model):
+def predict_for_time(time_, ds, model=model, true_etas=True):
     ds_filtered = ds.isel(time=time_)
     to_predict = {}
     for key_ in ds.data_vars:
@@ -66,7 +64,7 @@ def predict_for_time(time_, ds, model=model):
         else:
             val = ds_filtered[key_].values.astype(np.float64)
         to_predict[key_] = torch.from_numpy(val)
-    if hasattr(model, 'eta_transitioner'):
+    if hasattr(model, 'eta_transitioner') and true_etas:
         pred = model(TensorDict(to_predict), eta=ds_filtered.eta.values)
     else:
         pred = model(TensorDict(to_predict))
@@ -144,7 +142,7 @@ def trim_extreme_values(array):
     ]
 
 
-def compare_true_to_simulated_q1_q2_distributions():
+def get_column_moistening_and_heating_comparisons(true_etas=True):
     ds = get_dataset()
     layer_mass_sum = ds.layer_mass.values.sum()
     qts_pred = []
@@ -153,9 +151,8 @@ def compare_true_to_simulated_q1_q2_distributions():
     slis_pred = []
     slis_true = []
     slis_pred_base = []
-    simulate_eta(ds, 100)
     for time in range(50, 100):
-        pred = predict_for_time(time, ds)
+        pred = predict_for_time(time, ds, true_etas=true_etas)
         pred_base = predict_for_time(time, ds, base_model)
         true = get_true_nn_forcing(time, ds)
         qts_pred.extend(
@@ -172,38 +169,78 @@ def compare_true_to_simulated_q1_q2_distributions():
         slis_pred_base.extend(
             pred_base['SLI'].T.dot(ds.layer_mass.values).ravel() /
             layer_mass_sum)
-
     qts_true = np.array(qts_true)
+    qts_pred = np.array(qts_pred)
+    qts_pred_base = np.array(qts_pred_base)
+    slis_true = np.array(slis_true)
+    slis_pred = np.array(slis_pred)
+    slis_pred_base = np.array(slis_pred_base)
+    return (
+        qts_true,
+        qts_pred,
+        qts_pred_base,
+        slis_true,
+        slis_pred,
+        slis_pred_base,
+    )
+
+
+def evaluate_stochasticity_of_model(n_simulations=100):
+    ds = get_dataset()
+    max_probs = []
+    etas = []
+    for time in range(n_simulations):
+        etas.append(model.eta)
+        input_data = {}
+        for predictor in model.eta_transitioner.predictors:
+            input_data[predictor] = torch.from_numpy(
+                ds.isel(time=time)[predictor].values)
+        input_to_transitioner_model = \
+            model.eta_transitioner.get_input_array_from_state(
+                model.eta, TensorDict(input_data))
+        transition_probs = model.eta_transitioner.model.predict_proba(
+            input_to_transitioner_model)
+        max_probs.extend(transition_probs[
+            range(len(transition_probs)), transition_probs.argmax(axis=1)
+        ].tolist())
+        model.update_eta(TensorDict(input_data))
+    max_probs = np.array(max_probs)
+    print(f'Median max transition prob: {np.median(max_probs)}')
+    print(f'Mean max transition prob: {max_probs.mean()}')
+    print(f'Variance of max transition probs: {max_probs.var()}')
+    draw_histogram(
+        max_probs, pdf=True, title='PDF of max transition probability')
+
+
+def compare_true_to_simulated_q1_q2_distributions(true_etas=True):
+    (
+        qts_true,
+        qts_pred,
+        qts_pred_base,
+        slis_true,
+        slis_pred,
+        slis_pred_base,
+    ) = get_column_moistening_and_heating_comparisons(true_etas=true_etas)
     true_qt_variance = qts_true.var()
     print(f'True QT Variance: {true_qt_variance}')
-
-    qts_pred = np.array(qts_pred)
     pred_qt_variance = qts_pred.var()
     print(f'Stochastic QT Variance: {pred_qt_variance}')
-
-    qts_pred_base = np.array(qts_pred_base)
     pred_base_qt_variance = qts_pred_base.var()
     print(f'Base Model QT Variance: {pred_base_qt_variance}')
-
-    slis_true = np.array(slis_true)
     true_sli_variance = slis_true.var()
     print(f'True sli Variance: {true_sli_variance}')
-
-    slis_pred = np.array(slis_pred)
     pred_sli_variance = slis_pred.var()
     print(f'Stochastic sli Variance: {pred_sli_variance}')
-
-    slis_pred_base = np.array(slis_pred_base)
     pred_base_sli_variance = slis_pred_base.var()
     print(f'Base Model sli Variance: {pred_base_sli_variance}')
     print(f'\n\nSLI R2 Stochastic Model:',
-          ' {r2_score(slis_pred, slis_true)}')
+          f' {r2_score(slis_true, slis_pred)}')
     print(f'SLI R2 Single Model Model:',
-          ' {r2_score(slis_pred_base, slis_true)}')
+          f' {r2_score(slis_true, slis_pred_base)}')
     print(f'QT R2 Stochastic Model:',
-          ' {r2_score(qts_pred, qts_true)}')
+          f' {r2_score(qts_true, qts_pred)}')
     print(f'QT R2 Single Model Model:',
-          ' {r2_score(qts_pred_base, qts_true)}')
+          f' {r2_score(qts_true, qts_pred_base)}')
 
     qt_true_vs_base_ks = ks_2samp(qts_true, qts_pred_base)
     print('\n\nKS Divergence test: QT true vs single model: {}'.format(
@@ -229,14 +266,14 @@ def compare_true_to_simulated_q1_q2_distributions():
     loghist(
         slis_pred,
         ax=ax,
-        # upper_percentile=99.9,
+        upper_percentile=99.9,
         label='Stochastic Model',
         gaussian_comparison=False
     )
     loghist(
         slis_pred_base,
         ax=ax,
-        # upper_percentile=99.9,
+        upper_percentile=99.9,
         label='Single Model',
         gaussian_comparison=False
     )
@@ -244,60 +281,34 @@ def compare_true_to_simulated_q1_q2_distributions():
     plt.title('Log Histogram for NN SLI Forcing, with True Eta Transitions')
     plt.show()
 
-    for p in [.1, .5, 1]:
-        print(p)
-        fig, ax = plt.subplots()
-        loghist(
-            qts_true,
-            ax=ax,
-            lower_percentile=p,
-            label='True',
-            gaussian_comparison=False
-        )
-        loghist(
-            qts_pred,
-            ax=ax,
-            lower_percentile=p,
-            label='Stochastic Model',
-            gaussian_comparison=False
-        )
-        loghist(
-            qts_pred_base,
-            ax=ax,
-            lower_percentile=p,
-            label='Single Model',
-            gaussian_comparison=False
-        )
-        plt.legend()
-        plt.title('Log Histogram for NN QT Forcing, with True Eta Transitions')
-        plt.show()
-
-    draw_histogram(
-        [
-            trim_extreme_values(slis_true),
-            trim_extreme_values(slis_pred),
-            trim_extreme_values(slis_pred_base)
-        ],
-        label=['True', 'Stochastic Model', 'Base Model'],
-        title='SLI NN forcing comparison',
-        y_label='p',
-        bins=100,
-        pdf=True
+    fig, ax = plt.subplots()
+    loghist(
+        qts_true,
+        ax=ax,
+        lower_percentile=.01,
+        label='True',
+        gaussian_comparison=False
     )
-    draw_histogram(
-        [
-            trim_extreme_values(qts_true),
-            trim_extreme_values(qts_pred),
-            trim_extreme_values(qts_pred_base)
-        ],
-        label=['True', 'Stochastic Model', 'Base Model'],
-        title='QT NN forcing comparison',
-        y_label='p',
-        bins=100,
-        pdf=True
+    loghist(
+        qts_pred,
+        ax=ax,
+        lower_percentile=.01,
+        label='Stochastic Model',
+        gaussian_comparison=False
     )
+    loghist(
+        qts_pred_base,
+        ax=ax,
+        lower_percentile=.01,
+        label='Single Model',
+        gaussian_comparison=False
+    )
+    plt.legend()
+    plt.title('Log Histogram for NN QT Forcing, with True Eta Transitions')
+    plt.show()
 
 
 if __name__ == '__main__':
-    compare_true_to_simulated_q1_q2_distributions()
+    # evaluate_stochasticity_of_model()
     # plot_true_eta_vs_simulated_eta()
+    compare_true_to_simulated_q1_q2_distributions(True)
