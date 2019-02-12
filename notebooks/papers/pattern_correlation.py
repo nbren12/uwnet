@@ -52,11 +52,11 @@ def plot_pane(ax, plotme, title=''):
     plotme.plot.contour(
         x='time',
         levels=[.5],
-        colors='k',
+        colors='white',
         add_labels=False,
         ax=ax, )
     if title:
-        ax.set_title(title)
+        ax.set_title(title, loc='left')
     return im
 
 
@@ -71,9 +71,9 @@ def plot(data):
         sharey=True,
         constrained_layout=True,
         figsize=(common.textwidth,  common.textwidth/3))
-    im = plot_pane(a, corr_nn, title='NN')
-    plot_pane(b, corr_micro, title='Micro + Rad')
-    fig.colorbar(im, ax=[a, b])
+    im = plot_pane(a, corr_nn, title='a) STABLE NN')
+    plot_pane(b, corr_micro, title='b) Control')
+    fig.colorbar(im, ax=[a, b], aspect=40, pad=.02)
     common.label_outer_axes(np.array([[a, b]]), "time (day)", "y (1000 km)")
 
 

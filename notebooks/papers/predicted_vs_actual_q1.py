@@ -32,7 +32,9 @@ q2_pred = predicted_srcs['QT']
 # plot the results
 def plot(args):
     fig, axs = plt.subplots(
-        2, 2, constrained_layout=True, sharey=True, sharex=True)
+        2, 2, figsize=(common.textwidth, 4),
+        constrained_layout=True, sharey=True, sharex=True)
+    
     q1, q1_pred, q2, q2_pred = args
     labels = ['Q1 Truth', 'Q1 Prediction', 'Q2 Truth', 'Q2 Prediction']
 

@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from src.data import open_data
 from uwnet.columns import single_column_simulation
 from uwnet.thermo import compute_apparent_source
+import common
 
 
 def predict_for_each_time(model, location, num_pred_steps=20, num_time=160):
@@ -43,7 +44,8 @@ def predict_for_each_time(model, location, num_pred_steps=20, num_time=160):
              .unstack('concat_dim')
 
 
-def get_data():
+@common.cache
+def get_data(**kwargs):
     # open model and training data
     model = torch.load("../../models/270/2.pkl")
     ds = open_data('training')
@@ -71,5 +73,5 @@ def plot(data):
 
 
 if __name__ == '__main__':
-    plot(get_data())
+    plot(get_data(num_pred_steps=3))
     plt.savefig("spinup.png")
