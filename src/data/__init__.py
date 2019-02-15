@@ -31,7 +31,7 @@ def open_data(tag):
     elif tag == 'training_with_src':
         open_data('training').pipe(assign_apparent_sources)
     elif tag == 'pressure':
-        return open_data('training').p.isel(time=0)
+        return open_data('training').p.isel(time=0).drop('time')
     else:
         return NotImplementedError
 

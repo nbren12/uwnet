@@ -56,7 +56,7 @@ def get_data(**kwargs):
     location = ds.isel(**index)
 
     # run the single column models
-    merged = predict_for_each_time(model, location)
+    merged = predict_for_each_time(model, location, **kwargs)
 
     # compute Q2 for comparison
     location_subset = location.sel(time=merged.time)
@@ -68,10 +68,44 @@ def get_data(**kwargs):
     return plotme
 
 
+def get_title(step):
+    if step == 0:
+        return 'Truth'
+    else:
+        return f"Step = {step-1}"
+
 def plot(data):
-    data.isel(step=[0, 1, 2, 3]).plot(col='step', x='time')
+    p = open_data('pressure')
+
+    fig, axs = plt.subplots(1, 4, sharex=True, sharey=True,
+                            constrained_layout=True,
+                            figsize=(common.textwidth, 2))
+    axs.shape = (1, -1)
+    abcd = 'abcd'
+
+    m = common.get_vmax(data)
+    kw = dict(vmin=-m, vmax=m, cmap='RdBu_r', rasterized=True)
+    for k in range(4):
+        v = data.isel(step=k).squeeze()
+        # import pdb; pdb.set_trace()
+        im = axs[0,k].pcolormesh(
+            v.time, p, v.T, **kw)
+
+        axs[0,k].set_title(f"{abcd[k]}) {get_title(k)}", loc='left')
+        # v.plot(col='step', x='time')
+
+    axs[0,0].invert_yaxis()
+    plt.colorbar(im, ax=axs, orientation='horizontal',
+                 shrink=.3, aspect=2)
+
+    axs[0,0].yaxis.set_major_locator(plt.MaxNLocator(4))
+
+    common.label_outer_axes(axs, "day", "p (mb)")
+
+
 
 
 if __name__ == '__main__':
-    plot(get_data(num_pred_steps=3))
-    plt.savefig("spinup.png")
+    data = get_data(num_pred_steps=3, num_time=60)
+    plot(data)
+    plt.savefig("spinup.pdf")

@@ -74,11 +74,11 @@ def max_signed_eigvals(A, niter=100, m=1):
 
 def dict_jacobian(y, d, progs=['QT', 'SLI']):
     jac = {}
-    for inkey in progs:
-        for outkey in progs:
+    for inkey in d:
+        for outkey in y:
             try:
-                jac.setdefault(inkey, {})[outkey] = jacobian(
-                    y[inkey], d[outkey]).squeeze()
+                jac.setdefault(outkey, {})[inkey] = jacobian(
+                    y[outkey], d[inkey]).squeeze()
             except KeyError:
                 pass
     return jac
