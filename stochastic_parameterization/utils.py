@@ -1,4 +1,5 @@
 import numpy as np
+from functools import lru_cache
 import torch
 from uwnet.tensordict import TensorDict
 import xarray as xr
@@ -23,7 +24,7 @@ class BaseModel(object):
         self.model = torch.load(model_location)
         self.ds = dataset
         self.time_step_days = time_step_days
-        self.time_step_seconds = 86400 / time_step_days
+        self.time_step_seconds = 86400 * time_step_days
         self.binning_quantiles = binning_quantiles
 
     def get_true_nn_forcing_idx(self, time_idx):
@@ -49,9 +50,9 @@ class BaseModel(object):
         return {key: pred[key].detach().numpy() for key in pred}
 
     def get_qt_ratios(self):
-        column_integrated_qt_ratios = np.ones_like(self.ds.Prec.values)
-        moistening_ratios = np.ones_like(self.ds.QT.values)
-        heating_ratios = np.ones_like(self.ds.SLI.values)
+        column_integrated_qt_residuals = np.ones_like(self.ds.Prec.values)
+        moistening_residuals = np.ones_like(self.ds.QT.values)
+        heating_residuals = np.ones_like(self.ds.SLI.values)
         moistening_preds = np.ones_like(self.ds.QT.values)
         heating_preds = np.ones_like(self.ds.SLI.values)
         time_indices = list(range(len(self.ds.time) - 1))
@@ -71,26 +72,26 @@ class BaseModel(object):
                 axis=1,
                 weights=self.ds.layer_mass.values
             )
-            column_integrated_qt_ratios[time_batch, :, :] = q2_true / q2_preds
+            column_integrated_qt_residuals[
+                time_batch, :, :] = q2_true - q2_preds
             moistening_preds[time_batch, :, :, :] = pred['QT']
             heating_preds[time_batch, :, :, :] = pred['SLI']
-            pred['QT'][pred['QT'] < 10e-5] = 10e-5
-            pred['SLI'][pred['SLI'] < 10e-5] = 10e-5
-            moistening_ratios[time_batch, :, :, :] = true['QT'] / pred['QT']
-            heating_ratios[time_batch, :, :, :] = true['SLI'] / pred['SLI']
+            moistening_residuals[time_batch, :, :, :] = true['QT'] - pred['QT']
+            heating_residuals[time_batch, :, :, :] = true['SLI'] - pred['SLI']
         self.heating_preds = heating_preds
         self.moistening_preds = moistening_preds
-        self.column_integrated_qt_ratios = column_integrated_qt_ratios
-        self.moistening_ratios = moistening_ratios
-        self.heating_ratios = heating_ratios
+        self.column_integrated_qt_residuals = column_integrated_qt_residuals
+        self.moistening_residuals = moistening_residuals
+        self.heating_residuals = heating_residuals
 
     def get_bin_membership(self):
         self.get_qt_ratios()
         bins = [
-            np.quantile(self.column_integrated_qt_ratios, quantile)
+            np.quantile(self.column_integrated_qt_residuals, quantile)
             for quantile in self.binning_quantiles
         ]
-        return np.digitize(self.column_integrated_qt_ratios, bins, right=True)
+        return np.digitize(
+            self.column_integrated_qt_residuals, bins, right=True)
 
 
 def insert_precipitation_bin_membership(dataset, binning_quantiles):
@@ -122,10 +123,13 @@ def insert_nn_output_precip_ratio_bin_membership(
     dataset['eta'] = eta_
     dataset['eta'].attrs['units'] = ''
     dataset['eta'].attrs['long_name'] = 'Stochastic State'
-    dataset['nn_moistening_ratio'] = dataset['QT'].copy()
-    dataset['nn_moistening_ratio'].values = base_model.moistening_ratios
-    dataset['nn_heating_ratio'] = dataset['SLI'].copy()
-    dataset['nn_heating_ratio'].values = base_model.heating_ratios
+    dataset['column_integrated_qt_residuals'] = dataset['Prec'].copy()
+    dataset['column_integrated_qt_residuals'].values = \
+        base_model.column_integrated_qt_residuals
+    dataset['nn_moistening_residual'] = dataset['QT'].copy()
+    dataset['nn_moistening_residual'].values = base_model.moistening_residuals
+    dataset['nn_heating_residual'] = dataset['SLI'].copy()
+    dataset['nn_heating_residual'].values = base_model.heating_residuals
     dataset['moistening_pred'] = dataset['QT'].copy()
     dataset['moistening_pred'].values = base_model.moistening_preds
     dataset['heating_pred'] = dataset['SLI'].copy()
@@ -157,6 +161,7 @@ def get_xarray_dataset_with_eta(
         return dataset
 
 
+@lru_cache()
 def get_dataset(
         ds_location="/Users/stewart/projects/uwnet/data/processed/training.nc",
         binning_method=binning_method,

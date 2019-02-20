@@ -5,9 +5,9 @@ from stochastic_parameterization.utils import (
     binning_quantiles,
     get_dataset,
 )
+from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from uwnet.sam_interface import get_model
-from uwnet.tensordict import TensorDict
 from torch import nn
 
 dataset_dt_seconds = 10800
@@ -22,9 +22,8 @@ class StochasticStateModel(nn.Module):
             self,
             dims=(64, 128),
             dt_seconds=10800,
-            training_size=100000,
             prognostics=['QT', 'SLI'],
-            ratio_model_inputs=['SST', 'PW', 'QT', 'SLI'],
+            ratio_model_inputs=['SST', 'QT', 'SLI'],
             base_model_location=base_model_location,
             ratio_model_class=LinearRegression):
         super(StochasticStateModel, self).__init__()
@@ -32,16 +31,16 @@ class StochasticStateModel(nn.Module):
         self.dims = dims
         self.prognostics = prognostics
         self.dt_seconds = dt_seconds
-        self.training_size = training_size
         self.possible_etas = list(range(len(binning_quantiles)))
         self.setup_eta()
         self.ratio_model_class = ratio_model_class
         self.base_model_location = base_model_location
         self.base_model = torch.load(base_model_location)
-        # self.setup_eta_transitioner()
+        self.setup_eta_transitioner()
         self.ratio_model_inputs = ratio_model_inputs
         self.y_indices = np.array(
             [[idx] * dims[1] for idx in range(dims[0])])
+        self.binning_method = 'q2_ratio'
 
     def setup_eta_transitioner(self):
         transitioner = EtaTransitioner(
@@ -60,20 +59,32 @@ class StochasticStateModel(nn.Module):
         if not self.is_trained:
             raise Exception('Model is not trained')
 
-    def format_training_data_for_ratio_model(self, eta, ds):
-        indices = np.argwhere(ds.eta.values == self.eta)
-        y_data = np.hstack([
-            ds.nn_moistening_ratio.values[
+    def format_x_data_for_ratio_model(self, eta, preds, x, indices):
+        x_data = {
+            'QT': preds['QT'][:, indices[:, 0], indices[:, 1]],
+            'SLI': preds['SLI'][:, indices[:, 0], indices[:, 1]]
+        }
+        for variable in self.ratio_model_inputs:
+            data_for_var = x[variable][:, indices[:, 0], indices[:, 1]]
+            for var in ['QT', 'SLI']:
+                x_data[var] = torch.cat([x_data[var], data_for_var.float()])
+        for var in ['QT', 'SLI']:
+            x_data[var] = x_data[var].detach().numpy().T
+        return x_data
+
+    def format_training_data_for_ratio_model(self, indices, ds):
+        y_data = {
+            'QT': ds.nn_moistening_residual.values[
                 indices[:, 0], :, indices[:, 1], indices[:, 2]],
-            ds.nn_heating_ratio.values[
+            'SLI': ds.nn_heating_residual.values[
                 indices[:, 0], :, indices[:, 1], indices[:, 2]]
-        ])
-        x_data = np.hstack([
-            ds.moistening_pred.values[
+        }
+        x_data = {
+            'QT': ds.moistening_pred.values[
                 indices[:, 0], :, indices[:, 1], indices[:, 2]],
-            ds.heating_pred.values[
+            'SLI': ds.heating_pred.values[
                 indices[:, 0], :, indices[:, 1], indices[:, 2]]
-        ])
+        }
         for variable in self.ratio_model_inputs:
             if len(ds[variable].shape) == 4:
                 data_for_var = ds[variable].values[
@@ -83,10 +94,12 @@ class StochasticStateModel(nn.Module):
                 data_for_var = ds[variable].values[
                     indices[:, 0], indices[:, 1], indices[:, 2]
                 ].reshape(-1, 1)
-            x_data = np.hstack([x_data, data_for_var])
+            for var in ['QT', 'SLI']:
+                x_data[var] = np.hstack([x_data[var], data_for_var])
         return x_data, y_data
 
     def train(self):
+        training_data = {}
         if not self.is_trained:
             ds = get_dataset(
                 binning_method='q2_ratio',
@@ -96,19 +109,26 @@ class StochasticStateModel(nn.Module):
             print('Training ratio stochastic state model')
             for eta in self.possible_etas:
                 print(f'Training eta={eta}...')
+                indices = np.argwhere(ds.eta.values == eta)
                 x_data, y_data = self.format_training_data_for_ratio_model(
-                    eta, ds)
-                if len(x_data) > self.training_size:
-                    sample = np.random.choice(
-                        range(len(x_data)),
-                        size=self.training_size,
-                        replace=False)
-                else:
-                    sample = range(len(x_data))
-                ratio_model = self.ratio_model_class()
-                ratio_model.fit(x_data[sample], y_data[sample])
-                residual_ratio_models[eta] = ratio_model
+                    indices, ds)
+                ratio_models = {}
+                training_data_for_eta = {}
+                for var in ['QT', 'SLI']:
+                    x_train, x_test, y_train, y_test = train_test_split(
+                        x_data[var], y_data[var], test_size=0.5)
+                    ratio_model = self.ratio_model_class()
+                    ratio_model.fit(x_train, y_train)
+                    training_data_for_eta[var] = x_train
+                    test_score = ratio_model.score(x_test, y_test)
+                    train_score = ratio_model.score(x_train, y_train)
+                    print(f'{var} test score: {test_score}')
+                    print(f'{var} train score: {train_score}')
+                    ratio_models[var] = ratio_model
+                residual_ratio_models[eta] = ratio_models
+                training_data[eta] = training_data_for_eta
             self.residual_ratio_models = residual_ratio_models
+            self.training_data = training_data
             self.is_trained = True
         else:
             raise Exception('Model already trained')
@@ -121,18 +141,15 @@ class StochasticStateModel(nn.Module):
             self.eta = eta
         else:
             self.update_eta(x)
-        output = TensorDict({
-            key: torch.zeros_like(x[key]) for key in self.prognostics
-        })
-        base_model_pred = self.base_model(x)
+        output = self.base_model(x)
         for eta, model in self.residual_ratio_models.items():
             indices = np.argwhere(self.eta == eta)
-            predictions = model.predict(x)
-            # pred_by_prognostic =
+            x_data = self.format_x_data_for_ratio_model(
+                eta, output, x, indices)
             for key in self.prognostics:
-                output[key][
-                    :, indices[:, 0], indices[:, 1]
-                ] = predictions[key][:, indices[:, 0], indices[:, 1]].double()
+                output[
+                    key][:, indices[:, 0], indices[:, 1]] += torch.from_numpy(
+                        model[key].predict(x_data[key]).T)
         return output
 
 
@@ -151,4 +168,4 @@ if __name__ == '__main__':
     model = get_model(config)
     data = torch.load('/Users/stewart/Desktop/state.pt')
     pred = model(data)
-    print(pred)
+    # print(pred)

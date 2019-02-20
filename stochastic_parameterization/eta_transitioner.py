@@ -18,13 +18,13 @@ predictors = [
     'SLI',
     'FQT',
     'FSLI',
-    'SHF',
-    'LHF',
+    # 'SHF',
+    # 'LHF',
     # 'SOLIN',
     # 'RADSFC',
     # 'RADTOA',
-    'FU',
-    'FV'
+    # 'FU',
+    # 'FV'
 ]
 
 
@@ -54,7 +54,10 @@ class EtaTransitioner(object):
         return transition_matrix
 
     def set_normalization_params(self):
-        ds = get_dataset(binning_method=self.binning_method)
+        ds = get_dataset(
+            binning_method=self.binning_method,
+            t_start=50,
+            t_stop=75)
         self.layer_mass = ds.layer_mass.values
         normalization_params = {}
         for predictor in self.predictors:
@@ -81,7 +84,10 @@ class EtaTransitioner(object):
         ) / self.normalization_params[variable]['std'][degree]
 
     def format_training_data(self):
-        ds = get_dataset(binning_method=self.binning_method)
+        ds = get_dataset(
+            binning_method=self.binning_method,
+            t_start=50,
+            t_stop=75)
         start_times = np.array(range(len(ds.time) - 1))
         stop_times = start_times + 1
         start = ds.isel(time=start_times).eta.values.ravel()

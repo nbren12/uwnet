@@ -12,7 +12,7 @@ from sklearn.metrics import r2_score
 
 # uwnet
 from uwnet.tensordict import TensorDict
-from stochastic_parameterization.stochastic_state_model import (  # noqa
+from stochastic_parameterization.residual_stochastic_state_model import (  # noqa
     StochasticStateModel,
 )
 from stochastic_parameterization.utils import get_dataset
@@ -23,7 +23,8 @@ from stochastic_parameterization.graph_utils import (
 )
 
 model_dir = '/Users/stewart/projects/uwnet/stochastic_parameterization'
-model_location = model_dir + '/stochastic_model.pkl'
+# model_location = model_dir + '/stochastic_model.pkl'
+model_location = model_dir + '/residual_stochastic_model.pkl'
 base_model_location = model_dir + '/full_model/1.pkl'
 model = torch.load(model_location)
 base_model = torch.load(base_model_location)
@@ -65,7 +66,9 @@ def predict_for_time(time_, ds, model=model, true_etas=True):
             val = ds_filtered[key_].values.astype(np.float64)
         to_predict[key_] = torch.from_numpy(val)
     if hasattr(model, 'eta_transitioner') and true_etas:
-        pred = model(TensorDict(to_predict), eta=ds_filtered.eta.values)
+        pred = model(
+            TensorDict(to_predict),
+            eta=ds_filtered.eta.values)
     else:
         pred = model(TensorDict(to_predict))
     return {key: pred[key].detach().numpy() for key in pred}
@@ -82,7 +85,7 @@ def get_layer_mass_averaged_residuals_for_time(time_, ds, layer_mass_sum):
 
 
 def plot_residuals_by_eta():
-    ds = get_dataset()
+    ds = get_dataset(binning_method=model.binning_method)
     layer_mass_sum = ds.layer_mass.values.sum()
     qt_residuals_by_eta = defaultdict(list)
     sli_residuals_by_eta = defaultdict(list)
@@ -102,9 +105,9 @@ def plot_residuals_by_eta():
         draw_histogram(residuals, title=f'SLI residuals for eta={eta}')
 
 
-def simulate_eta(ds, n_simulations=640):
+def simulate_eta(ds):
     etas = []
-    for time in range(n_simulations):
+    for time in range(len(ds.time)):
         etas.append(model.eta)
         input_data = {}
         for predictor in model.eta_transitioner.predictors:
@@ -116,7 +119,10 @@ def simulate_eta(ds, n_simulations=640):
 
 def plot_true_eta_vs_simulated_eta(ds=None):
     if not ds:
-        ds = get_dataset()
+        ds = get_dataset(
+            binning_method=model.binning_method,
+            t_start=50,
+            t_stop=75)
     simulated_eta = simulate_eta(ds)
     true_eta = ds.eta.values
     for eta in range(ds.eta.values.min(), ds.eta.values.max() + 1):
@@ -143,7 +149,10 @@ def trim_extreme_values(array):
 
 
 def get_column_moistening_and_heating_comparisons(true_etas=True):
-    ds = get_dataset()
+    ds = get_dataset(
+        binning_method=model.binning_method,
+        t_start=50,
+        t_stop=75)
     layer_mass_sum = ds.layer_mass.values.sum()
     qts_pred = []
     qts_true = []
@@ -151,7 +160,7 @@ def get_column_moistening_and_heating_comparisons(true_etas=True):
     slis_pred = []
     slis_true = []
     slis_pred_base = []
-    for time in range(50, 100):
+    for time in range(24):
         pred = predict_for_time(time, ds, true_etas=true_etas)
         pred_base = predict_for_time(time, ds, base_model)
         true = get_true_nn_forcing(time, ds)
@@ -185,8 +194,11 @@ def get_column_moistening_and_heating_comparisons(true_etas=True):
     )
 
 
-def evaluate_stochasticity_of_model(n_simulations=100):
-    ds = get_dataset()
+def evaluate_stochasticity_of_model(n_simulations=20):
+    ds = get_dataset(
+        binning_method=model.binning_method,
+        t_start=50,
+        t_stop=75)
     max_probs = []
     etas = []
     for time in range(n_simulations):
@@ -260,6 +272,7 @@ def compare_true_to_simulated_q1_q2_distributions(true_etas=True):
         slis_true,
         ax=ax,
         upper_percentile=99.9,
+        lower_percentile=0.01,
         label='True',
         gaussian_comparison=False
     )
@@ -267,6 +280,7 @@ def compare_true_to_simulated_q1_q2_distributions(true_etas=True):
         slis_pred,
         ax=ax,
         upper_percentile=99.9,
+        lower_percentile=0.01,
         label='Stochastic Model',
         gaussian_comparison=False
     )
@@ -274,6 +288,7 @@ def compare_true_to_simulated_q1_q2_distributions(true_etas=True):
         slis_pred_base,
         ax=ax,
         upper_percentile=99.9,
+        lower_percentile=0.01,
         label='Single Model',
         gaussian_comparison=False
     )
@@ -285,7 +300,7 @@ def compare_true_to_simulated_q1_q2_distributions(true_etas=True):
     loghist(
         qts_true,
         ax=ax,
-        lower_percentile=.01,
+        lower_percentile=.03,
         label='True',
         gaussian_comparison=False
     )
@@ -309,6 +324,6 @@ def compare_true_to_simulated_q1_q2_distributions(true_etas=True):
 
 
 if __name__ == '__main__':
-    # evaluate_stochasticity_of_model()
+    evaluate_stochasticity_of_model()
     # plot_true_eta_vs_simulated_eta()
-    compare_true_to_simulated_q1_q2_distributions(True)
+    compare_true_to_simulated_q1_q2_distributions(False)
