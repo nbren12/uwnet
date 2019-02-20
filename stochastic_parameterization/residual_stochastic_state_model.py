@@ -157,11 +157,11 @@ def train_a_model():
 
 if __name__ == '__main__':
     train_a_model()
-    # config = {
-    #     'type': 'neural_network',
-    #     'path': 'stochastic_parameterization/residual_stochastic_model.pkl'
-    # }
-    # model = get_model(config)
-    # data = torch.load('/Users/stewart/Desktop/state.pt')
-    # pred = model(data)
+    config = {
+        'type': 'neural_network',
+        'path': 'stochastic_parameterization/ratio_stochastic_model.pkl'
+    }
+    model = get_model(config)
+    data = torch.load('/Users/stewart/Desktop/state.pt')
+    pred = model(data)
     # print(pred)
