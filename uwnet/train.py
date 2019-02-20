@@ -32,6 +32,7 @@ import xarray as xr
 from torch.utils.data import DataLoader
 from stochastic_parameterization.utils import (
     get_xarray_dataset_with_eta,
+    binning_method as default_binning_method
 )
 from uwnet.model import get_model
 from uwnet.pre_post import get_pre_post
@@ -97,7 +98,7 @@ def my_config():
         single_column_locations=[(32, 0)]
     )
     step_type = 'instability'
-    binning_method = 'precip'
+    binning_method = default_binning_method
     base_model_location = None
 
 
