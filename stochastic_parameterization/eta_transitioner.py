@@ -14,12 +14,12 @@ default_model = LogisticRegression(
 predictors = [
     'SST',
     'PW',
-    'QT',
-    'SLI',
+    # 'QT',
+    # 'SLI',
     # 'FQT',
     # 'FSLI',
-    'SHF',
-    'LHF',
+    # 'SHF',
+    # 'LHF',
     # 'SOLIN',
     # 'RADSFC',
     # 'RADTOA',
@@ -200,9 +200,6 @@ class EtaTransitioner(object):
         return (u < c).argmax(axis=1).reshape(etas.shape)
 
     def transition_etas(self, etas, state, efficient=True):
-        if 'PW' in self.predictors and 'PW' not in state:
-            state['PW'] = (state['QT'] * state['layer_mass'].reshape(
-                34, 1, 1)).sum(0) / 1000
         if efficient:
             return self.transition_etas_efficient(etas, state)
         return self.transition_etas_true(etas, state)
