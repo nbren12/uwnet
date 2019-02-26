@@ -10,7 +10,8 @@ binning_method = 'precip'
 # binning_method = 'q2_residual'
 base_model_location = model_dir + '/full_model/1.pkl'
 dataset_dt_seconds = 10800
-binning_quantiles = [0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1]
+# binning_quantiles = [0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1]
+binning_quantiles = [.1, .3, .7, .9, 1]
 
 
 class BaseModel(object):
@@ -19,7 +20,7 @@ class BaseModel(object):
             self,
             model_location,
             dataset,
-            binning_quantiles=[0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1],
+            binning_quantiles=binning_quantiles,
             time_step_days=.125):
         self.model = torch.load(model_location)
         self.ds = dataset

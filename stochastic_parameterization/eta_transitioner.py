@@ -142,19 +142,25 @@ class EtaTransitioner(object):
                     i_ += 1
         return input_array
 
-    def transition_etas_true(self, etas, state):
-        if not self.is_trained:
-            raise Exception('Transition Matrix Model not Trained')
+    def get_transition_probabilities_true(self, etas, state):
         input_array = self.get_input_array_from_state_true(etas, state)
         transition_matrices = self.model.predict_proba(
             input_array).reshape(
             etas.size, len(self.etas), len(self.etas), order='F')
         if self.dt_seconds != dataset_dt_seconds:
-            transition_matrices = np.vectorize(
-                self.transform_transition_matrix_to_timestep)(
-                    transition_matrices)
-        probabilities = transition_matrices[
+            transition_matrices = np.array([
+                self.transform_transition_matrix_to_timestep(
+                    transition_matrices[idx])
+                for idx in range(len(transition_matrices))
+            ])
+        return transition_matrices[
             range(len(transition_matrices)), etas.ravel(), :]
+
+    def transition_etas_true(self, etas, state):
+        if not self.is_trained:
+            raise Exception('Transition Matrix Model not Trained')
+        probabilities = self.get_transition_probabilities_true(
+            self, etas, state)
         c = probabilities.cumsum(axis=1)
         u = np.random.rand(len(c), 1)
         return (u < c).argmax(axis=1).reshape(etas.shape)
@@ -185,16 +191,25 @@ class EtaTransitioner(object):
                 i_ += 1
         return input_array
 
-    def transition_etas_efficient(self, etas, state):
+    def get_transition_probabilities_efficient(self, etas, state):
         input_array = self.get_input_array_from_state(etas, state)
         transition_probabilities = self.model.predict_proba(
             input_array)
         if self.dt_seconds != dataset_dt_seconds:
             ratio = self.dt_seconds / dataset_dt_seconds
-            p_stay = transition_probabilities[range(len(input_array)), etas]
+            p_stay = transition_probabilities[
+                range(len(input_array)), etas.ravel()]
             transition_probabilities = transition_probabilities * ratio
-            transition_probabilities[range(len(input_array)), etas] = 1 - (
-                (1 - p_stay) * ratio)
+            transition_probabilities[
+                range(len(input_array)), etas.ravel()] = 1 - (
+                    (1 - p_stay) * ratio)
+        return transition_probabilities
+
+    def transition_etas_efficient(self, etas, state):
+        if not self.is_trained:
+            raise Exception('Transition Matrix Model not Trained')
+        transition_probabilities = self.get_transition_probabilities_efficient(
+            etas, state)
         c = transition_probabilities.cumsum(axis=1)
         u = np.random.rand(len(c), 1)
         return (u < c).argmax(axis=1).reshape(etas.shape)
