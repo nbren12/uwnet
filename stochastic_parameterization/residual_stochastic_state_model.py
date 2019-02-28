@@ -164,8 +164,8 @@ class StochasticStateModel(nn.Module):
             x_data = self.format_x_data_for_residual_model(
                 eta, output, x, indices)
             for key in self.prognostics:
-                output[
-                    key][:, indices[:, 0], indices[:, 1]] += torch.from_numpy(
+                output[key][:, indices[:, 0], indices[:, 1]] += (
+                    self.dt_seconds / dataset_dt_seconds) * torch.from_numpy(
                         model[key].predict(x_data[key]).T).float()
         return output
 
