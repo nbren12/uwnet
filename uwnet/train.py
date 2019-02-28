@@ -22,13 +22,15 @@ To see a list of all the available configuration options run::
 import logging
 import os
 from contextlib import contextmanager
-from os.path import join
 from functools import partial
+from os.path import join
 
+import xarray as xr
 from sacred import Experiment
+from toolz import curry
 
 import torch
-import xarray as xr
+from ignite.engine import Engine, Events
 from torch.utils.data import DataLoader
 from stochastic_parameterization.utils import (
     get_xarray_dataset_with_eta,
@@ -37,11 +39,11 @@ from stochastic_parameterization.utils import (
 from uwnet.model import get_model
 from uwnet.pre_post import get_pre_post
 from uwnet.training_plots import TrainingPlotManager
-from uwnet.loss import (weighted_mean_squared_error, get_step)
 from uwnet.datasets import XRTimeSeries, ConditionalXRSampler, get_timestep
 from ignite.engine import Engine, Events
+from uwnet.loss import get_input_output, get_step, weighted_mean_squared_error
 
-ex = Experiment("Q1")
+ex = Experiment("Q1", interactive=True)
 
 XRTimeSeries = ex.capture(XRTimeSeries)
 TrainingPlotManager = ex.capture(TrainingPlotManager, prefix='plots')
@@ -78,25 +80,24 @@ def my_config():
     }
 
     # y indices to use for training
-    y = (None, None)
-    x = (None, None)
-    time_sl = (None, None)
+    training_slices = dict(
+        y=(None, None),
+        x=(10, None),
+        time=(None, None), )
+
+    validation_slices = dict(
+        y=(None, None),
+        x=(0, 10),
+        time=(None, None), )
+
     output_dir = None
 
     prognostics = ['QT', 'SLI']
-    prepost = dict(
-        kind='pca',
-        path='models/prepost.pkl'
-    )
+    prepost = dict(kind='pca', path='models/prepost.pkl')
 
-    model = dict(
-        kind='inner_model'
-    )
+    model = dict(kind='inner_model')
 
-    plots = dict(
-        interval=1,
-        single_column_locations=[(32, 0)]
-    )
+    plots = dict(interval=1, single_column_locations=[(32, 0)])
     step_type = 'instability'
     binning_method = default_binning_method
     base_model_location = None
@@ -111,16 +112,21 @@ def get_xarray_dataset(
 
 
 @ex.capture
-def get_data_loader(data: xr.Dataset, x, y, time_sl, vertical_grid_size,
-                    batch_size, prognostics, eta_to_train):
-    prognostics = ['QT', 'SLI']
+def get_data_loader(data: xr.Dataset, train, training_slices,
+                    validation_slices, prognostics, batch_size, eta_to_train):
+
     from torch.utils.data.dataloader import default_collate
     from uwnet.timestepper import Batch
+
+    if train:
+        slices = training_slices
+    else:
+        slices = validation_slices
+
     ds = data.isel(
-        z=slice(0, vertical_grid_size),
-        y=slice(*y),
-        x=slice(*x),
-        time=slice(*time_sl))
+        y=slice(*slices['y']),
+        x=slice(*slices['x']),
+        time=slice(*slices['time']))
 
     def my_collate_fn(batch):
         return Batch(default_collate(batch), prognostics)
@@ -136,6 +142,13 @@ def get_data_loader(data: xr.Dataset, x, y, time_sl, vertical_grid_size,
         batch_size=batch_size,
         shuffle=True,
         collate_fn=my_collate_fn)
+
+
+def get_validation_engine(model, dt):
+    def _validate(engine, batch):
+        return get_input_output(model, dt, batch)
+
+    return Engine(_validate)
 
 
 @ex.capture
@@ -180,17 +193,57 @@ class Trainer(object):
         self.criterion = weighted_mean_squared_error(
             weights=self.mass / self.mass.mean(), dim=-3)
         self.plot_manager = TrainingPlotManager(ex, self.model, self.dataset)
+        self.setup_validation_engine()
         self.setup_engine()
+
+    def log_validation_results(self, trainer):
+        self.tester.run(self.test_loader)
+        metrics = self.tester.state.metrics
+
+        log_str = "test metrics: "
+        for name, val in metrics.items():
+            ex.log_scalar("train_" + name, val)
+            log_str += f'{name}: {val:.2f}\t'
+        self.logger.info(log_str)
+
+        metrics = trainer.state.metrics
+        log_str = "train metrics: "
+        for name, val in metrics.items():
+            ex.log_scalar("test_" + name, val)
+            log_str += f'{name}: {val:.2f}\t'
+        self.logger.info(log_str)
+
+    def setup_validation_engine(self):
+        self.tester = get_validation_engine(self.model, self.time_step)
+        self.setup_metrics_for_engine(self.tester)
 
     def setup_engine(self):
         step = partial(get_step(), self)
         self.engine = Engine(step)
-        self.engine.add_event_handler(
-            Events.ITERATION_COMPLETED, self.after_batch)
-        self.engine.add_event_handler(
-            Events.ITERATION_COMPLETED, self.print_loss_info)
-        self.engine.add_event_handler(
-            Events.EPOCH_COMPLETED, self.after_epoch)
+        self.setup_metrics_for_engine(self.engine)
+
+        self.engine.add_event_handler(Events.ITERATION_COMPLETED,
+                                      self.after_batch)
+        self.engine.add_event_handler(Events.ITERATION_COMPLETED,
+                                      self.print_loss_info)
+        self.engine.add_event_handler(Events.EPOCH_COMPLETED, self.after_epoch)
+        self.engine.add_event_handler(Events.EPOCH_COMPLETED,
+                                      self.log_validation_results)
+
+    @ex.capture
+    def setup_metrics_for_engine(self, engine, prognostics):
+        from .metrics import WeightedMeanSquaredError
+
+        @curry
+        def output_transform(key, args):
+            x, y = args
+            return x[key], y[key]
+
+        for key in prognostics:
+            metric = WeightedMeanSquaredError(
+                self.mass, output_transform=output_transform(key))
+
+            metric.attach(engine, key)
 
     def print_loss_info(self, engine):
         n = len(self.train_loader)
@@ -200,46 +253,6 @@ class Trainer(object):
             log_str += f'{key}: {val:.2f}\t'
             ex.log_scalar(key, val)
         self.logger.info(log_str)
-
-    def compute_source_r2(self, batch):
-        from .timestepper import Batch
-        from toolz import merge_with
-        from .loss import weighted_r2_score, r2_score
-        src = self.model(batch)
-
-        # compute the apparent source
-        batch = Batch(batch, self.prognostics)
-        g = batch.get_known_forcings()
-        progs = batch.data[self.prognostics]
-        storage = progs.apply(lambda x: (x[1:] - x[:-1]) / self.time_step)
-        forcing = g.apply(lambda x: (x[1:] + x[:-1]) / 2)
-        src = src.apply(lambda x: (x[1:] + x[:-1]) / 2)
-        true_src = storage - forcing * 86400
-
-        # copmute the metrics
-        def wr2_score(args):
-            x, y = args
-            return weighted_r2_score(x, y, self.mass, dim=-3).item()
-
-        r2s = merge_with(wr2_score, true_src, src)
-        print(r2s)
-
-        # compute the r2 of the integral
-        pred_int = src.apply(lambda x: (x * self.mass).sum(-3))
-        true_int = true_src.apply(lambda x: (x * self.mass).sum(-3))
-
-        def scalar_r2_score(args):
-            return r2_score(*args).item()
-
-        def bias(args):
-            x, y = args
-            return (y.mean() - x.mean()).item() / 1000
-
-        r2s = merge_with(scalar_r2_score, true_int, pred_int)
-        print(r2s)
-
-        r2s = merge_with(bias, true_int, pred_int)
-        print(r2s)
 
     def after_batch(self, engine):
         state = engine.state

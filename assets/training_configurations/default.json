@@ -38,17 +38,5 @@
             ]
         ]
     },
-	"time_sl" : [
-		null,
-		null
-	],
-	"vertical_grid_size" : 34,
-	"x" : [
-		null,
-		null
-	],
-	"y" : [
-		null,
-		null
-	]
+	"vertical_grid_size" : 34
 }

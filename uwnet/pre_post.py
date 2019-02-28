@@ -151,37 +151,30 @@ class Sequential(nn.Sequential):
         return self[-1].outputs
 
 
-def get_pre_post_orig(dataset, n):
-    from .normalization import get_mean_scale, Scaler
+def get_pre_post_orig(data_loader, n):
+    from .normalization import Scaler
     inputs = [('QT', n), ('SLI', n),
               ('SST', 1), ('SOLIN', 1)]
-    mean, scale  = get_mean_scale(dataset)
-    scaler = Scaler(mean, scale)
+    scaler = Scaler().fit_generator(data_loader)
     scaler.outputs = inputs
     scaler.inputs = inputs
     # post processor
     outputs = (('QT', n), ('SLI', n))
-    post = Post(scale['QT'], outputs)
+    post = Post(scaler.scale['QT'], outputs)
     return scaler, post
 
 
-def get_pre_post(data, _config):
+def get_pre_post(data, data_loader, _config):
     kind = _config['kind']
 
     if kind == 'pca':
         return get_pre(data, m=20), get_post(data, m=20)
-    elif kind == 'orig':
-        return get_pre_post_orig(data, *args)
-    elif kind == 'mix':
-        pre = get_pre(data, m=20)
-        _ , post= get_pre_post_orig(data, *args)
-        return pre, post
     elif kind == 'saved':
         path = _config['path']
         logger.info(f"Loading pre/post module from {path}")
         return torch.load(path)
     elif kind == 'lower_atmos':
-        pre, post = get_pre_post_orig(data, n=34)
+        pre, post = get_pre_post_orig(data_loader, n=34)
         lower = LowerAtmosInput()
         pre = Sequential(pre, lower)
         return pre, post
