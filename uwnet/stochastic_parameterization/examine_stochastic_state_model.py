@@ -12,11 +12,11 @@ from sklearn.metrics import r2_score
 
 # uwnet
 from uwnet.tensordict import TensorDict
-from stochastic_parameterization.residual_stochastic_state_model import (  # noqa
+from uwnet.stochastic_parameterization.residual_stochastic_state_model import (  # noqa
     StochasticStateModel,
 )
-from stochastic_parameterization.utils import get_dataset
-from stochastic_parameterization.graph_utils import (
+from uwnet.stochastic_parameterization.utils import get_dataset
+from uwnet.stochastic_parameterization.graph_utils import (
     draw_histogram,
     draw_barplot_multi,
     loghist,

@@ -26,6 +26,9 @@ from toolz import curry, valmap
 import torch
 from uwnet.numpy_interface import NumpyWrapper
 from uwnet.sam_ngaqua import get_ngaqua_nudger
+from uwnet.stochastic_parameterization.residual_stochastic_state_model import (  # noqa
+    StochasticStateModel,
+)
 
 
 def get_configuration_from_environment():

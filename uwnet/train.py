@@ -32,7 +32,7 @@ from toolz import curry
 import torch
 from ignite.engine import Engine, Events
 from torch.utils.data import DataLoader
-from stochastic_parameterization.utils import (
+from uwnet.stochastic_parameterization.utils import (
     get_xarray_dataset_with_eta,
     binning_method as default_binning_method
 )

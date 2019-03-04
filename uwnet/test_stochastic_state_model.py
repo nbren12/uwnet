@@ -1,4 +1,4 @@
-from stochastic_parameterization.stochastic_state_model import (
+from uwnet.stochastic_parameterization.stochastic_state_model import (
     StochasticStateModel,
     dataset_dt_seconds,
 )

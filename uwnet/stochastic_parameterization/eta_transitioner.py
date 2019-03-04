@@ -2,7 +2,7 @@ from scipy import linalg
 import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import GradientBoostingClassifier
-from stochastic_parameterization.utils import (
+from uwnet.stochastic_parameterization.utils import (
     get_dataset,
     dataset_dt_seconds,
     binning_quantiles,
@@ -36,7 +36,11 @@ class EtaTransitioner(object):
             dt_seconds=dataset_dt_seconds,
             model=default_model,
             predictors=predictors,
-            binning_method='precip'):
+            binning_method='precip',
+            t_start=0,
+            t_stop=640):
+        self.t_start = t_start
+        self.t_stop = t_stop
         self.poly_degree = poly_degree
         self.model = model
         self.predictors = predictors
@@ -56,8 +60,9 @@ class EtaTransitioner(object):
     def set_normalization_params(self):
         ds = get_dataset(
             binning_method=self.binning_method,
-            t_start=50,
-            t_stop=75)
+            t_start=self.t_start,
+            t_stop=self.t_stop
+        )
         self.layer_mass = ds.layer_mass.values
         normalization_params = {}
         for predictor in self.predictors:
@@ -86,8 +91,9 @@ class EtaTransitioner(object):
     def format_training_data(self):
         ds = get_dataset(
             binning_method=self.binning_method,
-            t_start=50,
-            t_stop=75)
+            t_start=self.t_start,
+            t_stop=self.t_stop
+        )
         start_times = np.array(range(len(ds.time) - 1))
         stop_times = start_times + 1
         start = ds.isel(time=start_times).eta.values.ravel()

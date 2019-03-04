@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 # from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.model_selection import train_test_split
-from stochastic_parameterization.utils import get_dataset
+from uwnet.stochastic_parameterization.utils import get_dataset
 
 
 ds = get_dataset(binning_method='precip')

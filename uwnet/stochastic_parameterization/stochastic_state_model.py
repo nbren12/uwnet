@@ -1,8 +1,8 @@
 import os
 import numpy as np
 import torch
-from stochastic_parameterization.eta_transitioner import EtaTransitioner
-from stochastic_parameterization.utils import binning_quantiles
+from uwnet.stochastic_parameterization.eta_transitioner import EtaTransitioner
+from uwnet.stochastic_parameterization.utils import binning_quantiles
 from uwnet.sam_interface import get_model
 from uwnet.tensordict import TensorDict
 from torch import nn

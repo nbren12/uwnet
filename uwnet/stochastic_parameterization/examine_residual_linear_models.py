@@ -2,10 +2,10 @@ from functools import lru_cache
 import torch
 from matplotlib import pyplot as plt
 import seaborn as sns
-from stochastic_parameterization.residual_stochastic_state_model import (  # noqa
+from uwnet.stochastic_parameterization.residual_stochastic_state_model import (  # noqa
     StochasticStateModel,
 )
-from stochastic_parameterization.utils import get_dataset
+from uwnet.stochastic_parameterization.utils import get_dataset
 
 model_dir = '/Users/stewart/projects/uwnet/stochastic_parameterization'
 model_location = model_dir + '/residual_stochastic_model.pkl'

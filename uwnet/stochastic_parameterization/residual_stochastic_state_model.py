@@ -1,18 +1,21 @@
 import numpy as np
 import torch
-from stochastic_parameterization.eta_transitioner import EtaTransitioner
-from stochastic_parameterization.utils import (
+from uwnet.stochastic_parameterization.eta_transitioner import EtaTransitioner
+from uwnet.stochastic_parameterization.utils import (
     binning_quantiles,
     get_dataset,
 )
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
-from uwnet.sam_interface import get_model
+# from uwnet.sam_interface import get_model
 from torch import nn
 
 dataset_dt_seconds = 10800
 model_dir = '/Users/stewart/projects/uwnet/stochastic_parameterization'
 base_model_location = model_dir + '/full_model/1.pkl'
+
+t_start = 100
+t_stop = 150
 
 
 class StochasticStateModel(nn.Module):
@@ -34,22 +37,32 @@ class StochasticStateModel(nn.Module):
         self.max_sli_for_residual_model = max_sli_for_residual_model
         self.max_qt_for_residual_model = max_qt_for_residual_model
         self.prognostics = prognostics
-        self.dt_seconds = dt_seconds
         self.filter_high_inputs = filter_high_inputs
         self.possible_etas = list(range(len(binning_quantiles)))
+        self._dt_seconds = dt_seconds
         self.setup_eta()
         self.residual_model_class = residual_model_class
         self.base_model_location = base_model_location
         self.base_model = torch.load(base_model_location)
         self.setup_eta_transitioner()
         self.residual_model_inputs = residual_model_inputs
-        self.y_indices = np.array(
-            [[idx] * dims[1] for idx in range(dims[0])])
-        self.binning_method = 'q2_residual'
+
+    @property
+    def dt_seconds(self):
+        return self._dt_seconds
+
+    @dt_seconds.setter
+    def dt_seconds(self, dt_seconds):
+        self._dt_seconds = dt_seconds
+        if hasattr(self, 'eta_transitioner'):
+            self.eta_transitioner.dt_seconds = dt_seconds
 
     def setup_eta_transitioner(self):
         transitioner = EtaTransitioner(
-            dt_seconds=self.dt_seconds, binning_method='q2_residual')
+            dt_seconds=self.dt_seconds,
+            binning_method='q2_residual',
+            t_start=t_start,
+            t_stop=t_stop)
         transitioner.train()
         self.eta_transitioner = transitioner
 
@@ -120,8 +133,9 @@ class StochasticStateModel(nn.Module):
         if not self.is_trained:
             ds = get_dataset(
                 binning_method='q2_residual',
-                t_start=50,
-                t_stop=75)
+                t_start=t_start,
+                t_stop=t_stop
+            )
             residual_models_by_eta = {}
             print('Training residual stochastic state model')
             for eta in self.possible_etas:
@@ -132,7 +146,7 @@ class StochasticStateModel(nn.Module):
                 residual_models = {}
                 for var in ['QT', 'SLI']:
                     x_train, x_test, y_train, y_test = train_test_split(
-                        x_data[var], y_data[var], test_size=0.5)
+                        x_data[var], y_data[var], test_size=0.2)
                     residual_model = self.residual_model_class()
                     residual_model.fit(x_train, y_train)
                     test_score = residual_model.score(x_test, y_test)
@@ -174,16 +188,16 @@ def train_a_model():
     model = StochasticStateModel()
     model.train()
     torch.save(
-        model, 'stochastic_parameterization/residual_stochastic_model.pkl')
+        model, 'stochastic_parameterization/model.pkl')
 
 
 if __name__ == '__main__':
     train_a_model()
-    config = {
-        'type': 'neural_network',
-        'path': 'stochastic_parameterization/residual_stochastic_model.pkl'
-    }
-    model = get_model(config)
-    data = torch.load('/Users/stewart/Desktop/state.pt')
-    pred = model(data)
+    # config = {
+    #     'type': 'neural_network',
+    #     'path': 'stochastic_parameterization/model.pkl'
+    # }
+    # model = get_model(config)
+    # data = torch.load('/Users/stewart/Desktop/state.pt')
+    # pred = model(data)
     # print(pred)

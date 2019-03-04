@@ -1,10 +1,10 @@
 import torch
 from uwnet.tensordict import TensorDict
 import numpy as np
-from stochastic_parameterization.residual_stochastic_state_model import (
+from uwnet.stochastic_parameterization.residual_stochastic_state_model import (
     StochasticStateModel,
 )
-from stochastic_parameterization.utils import get_dataset
+from uwnet.stochastic_parameterization.utils import get_dataset
 
 model = StochasticStateModel(dt_seconds=15 * 60)
 model.train()
