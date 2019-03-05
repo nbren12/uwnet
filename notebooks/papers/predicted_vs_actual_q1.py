@@ -40,7 +40,7 @@ def plot(args):
         sharex=True)
 
     q1, q1_pred, q2, q2_pred = args
-    labels = ['Q1 Truth', 'Q1 neural network', 'Q2 Truth', 'Q2 neural network']
+    labels = ['Q1 Truth', 'Q1 NN-Lower', 'Q2 Truth', 'Q2 NN-Lower']
     abc = 'abcdef'
 
     for k, (ax, arg, label) in enumerate(zip(axs.flat, args, labels)):

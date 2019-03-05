@@ -35,7 +35,7 @@ def get_data():
     ng = ng.assign(x=nn.x, y=nn.y)
 
     data = [ng, nn, unstable, micro]
-    tags = ['NG-Aqua', 'NN', 'Unstable', 'Micro']
+    tags = ['NG-Aqua', 'NN-Lower', 'NN-All', 'Base']
 
     plotme = xr.concat(
         [run[variables].interp(time=times) for run in data], dim=tags)

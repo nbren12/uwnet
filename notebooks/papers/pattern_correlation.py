@@ -71,12 +71,12 @@ def plot(data):
         sharey=True,
         constrained_layout=True,
         figsize=(common.textwidth,  common.textwidth/3))
-    im = plot_pane(a, corr_nn, title='a) STABLE NN')
-    plot_pane(b, corr_micro, title='b) Control')
+    im = plot_pane(a, corr_nn, title='a) NN-Lower')
+    plot_pane(b, corr_micro, title='b) Base')
     fig.colorbar(im, ax=[a, b], aspect=40, pad=.02)
     common.label_outer_axes(np.array([[a, b]]), "time (day)", "y (1000 km)")
 
 
 if __name__ == '__main__':
     plot(get_data())
-    plt.savefig("pattern_correlation.png")
+    plt.savefig("pattern_correlation.pdf")

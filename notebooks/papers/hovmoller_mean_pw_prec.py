@@ -31,7 +31,7 @@ def get_data():
 
     plotme = xr.concat(
         [ng[variables].interp(time=nn.time), nn[variables], micro[variables]],
-        dim=['NG-Aqua', 'NN', 'Micro'])
+        dim=['NG-Aqua', 'NN-Lower', 'Base'])
 
     return plotme.sel(time=times).mean('x')
 
