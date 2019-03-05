@@ -10,6 +10,8 @@ plt.style.use('tableau-colorblind10')
 memory = joblib.Memory(location='cache', verbose=1)
 cache = memory.cache
 
+run_labels = {'debias': 'NN-Lower', 'unstable': 'NN-All', 'micro': 'Base'}
+
 
 def setup_matplotlib():
 

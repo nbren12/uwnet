@@ -66,10 +66,9 @@ def plot_rms_runs_regions_times(da, ax, title=""):
             val,
             ls=marker[run],
             color=colors[region],
-            markevery=15,
-            label=f'{run} {region}')
+            markevery=15)
         lines.append(l)
-        labels.append(f'{run} in {region}')
+        labels.append(f'{common.run_labels[run]} in {region}')
 
     ax.set_title(title, loc='left')
 
@@ -78,7 +77,12 @@ def plot_rms_runs_regions_times(da, ax, title=""):
 
 def plot(ds):
 
-    fig, (a, b, c) = plt.subplots(3, 1, sharex=True, figsize=(5, 6))
+    fig, axs = plt.subplots(2, 2, sharex=True, figsize=(common.textwidth, 4))
+    
+    a = axs[0,0]
+    b = axs[0,1]
+    c = axs[1,0]
+    
     plot_rms_runs_regions_times(ds.QT, a, title="a) QT (g/kg)")
     plot_rms_runs_regions_times(ds.SLI, b, title="b) SLI (K)")
     lines, labels = plot_rms_runs_regions_times(
@@ -89,13 +93,14 @@ def plot(ds):
     common.label_outer_axes(np.array([[a], [b], [c]]), "time (day)", "")
 
     common.despine_axes([a, b, c])
+    
+    axs[1,1].axis('off')
 
-    plt.subplots_adjust(right=.5)
     fig.legend(
         lines,
         labels,
-        loc="upper left",
-        bbox_to_anchor=(0.5, 0.90),
+        loc="lower right",
+        bbox_to_anchor=(.9, 0.1),
         frameon=False)
 
 
