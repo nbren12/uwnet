@@ -103,14 +103,14 @@ def train_a_model():
     model = StochasticStateModel()
     kwargs = {'epochs': 1}
     model.train(**kwargs)
-    torch.save(model, 'stochastic_parameterization/stochastic_model.pkl')
+    torch.save(model, 'uwnet/stochastic_parameterization/stochastic_model.pkl')
 
 
 if __name__ == '__main__':
     train_a_model()
     config = {
         'type': 'neural_network',
-        'path': 'stochastic_parameterization/stochastic_model.pkl'
+        'path': 'uwnet/stochastic_parameterization/stochastic_model.pkl'
     }
     model = get_model(config)
     # data = torch.load('/Users/stewart/Desktop/state.pt')

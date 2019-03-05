@@ -11,8 +11,9 @@ from sklearn.linear_model import LinearRegression
 from torch import nn
 
 dataset_dt_seconds = 10800
-model_dir = '/Users/stewart/projects/uwnet/stochastic_parameterization'
-base_model_location = model_dir + '/full_model/1.pkl'
+# model_dir = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'
+model_dir = ''
+base_model_location = model_dir + 'full_model/1.pkl'
 
 t_start = 100
 t_stop = 150
@@ -46,6 +47,7 @@ class StochasticStateModel(nn.Module):
         self.base_model = torch.load(base_model_location)
         self.setup_eta_transitioner()
         self.residual_model_inputs = residual_model_inputs
+        self.binning_method = 'q2_residual'
 
     @property
     def dt_seconds(self):
@@ -188,11 +190,12 @@ def train_a_model():
     model = StochasticStateModel()
     model.train()
     torch.save(
-        model, 'stochastic_parameterization/model.pkl')
+        model,
+        'uwnet/stochastic_parameterization/residual_stochastic_model.pkl')
 
 
-if __name__ == '__main__':
-    train_a_model()
+# if __name__ == '__main__':
+#     train_a_model()
     # config = {
     #     'type': 'neural_network',
     #     'path': 'stochastic_parameterization/model.pkl'

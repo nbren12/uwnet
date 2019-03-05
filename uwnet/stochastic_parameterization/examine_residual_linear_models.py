@@ -7,7 +7,7 @@ from uwnet.stochastic_parameterization.residual_stochastic_state_model import ( 
 )
 from uwnet.stochastic_parameterization.utils import get_dataset
 
-model_dir = '/Users/stewart/projects/uwnet/stochastic_parameterization'
+model_dir = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization'
 model_location = model_dir + '/residual_stochastic_model.pkl'
 base_model_location = model_dir + '/full_model/1.pkl'
 model = torch.load(model_location)

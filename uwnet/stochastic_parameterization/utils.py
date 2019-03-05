@@ -4,11 +4,12 @@ import torch
 from uwnet.tensordict import TensorDict
 import xarray as xr
 
-model_dir = '/Users/stewart/projects/uwnet/stochastic_parameterization'
-model_location = model_dir + '/stochastic_model.pkl'
+# model_dir = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'
+model_dir = ''
+model_location = model_dir + 'stochastic_model.pkl'
 binning_method = 'precip'
 # binning_method = 'q2_residual'
-base_model_location = model_dir + '/full_model/1.pkl'
+base_model_location = model_dir + 'full_model/1.pkl'
 dataset_dt_seconds = 10800
 # binning_quantiles = [0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1]
 binning_quantiles = [.1, .3, .7, .9, 1]
@@ -169,7 +170,8 @@ def get_xarray_dataset_with_eta(
 
 @lru_cache()
 def get_dataset(
-        ds_location="/Users/stewart/projects/uwnet/data/processed/training.nc",
+        # ds_location="/Users/stewart/projects/uwnet/data/processed/training.nc",
+        ds_location="training.nc",
         binning_method=binning_method,
         base_model_location=base_model_location,
         add_precipital_water=True,

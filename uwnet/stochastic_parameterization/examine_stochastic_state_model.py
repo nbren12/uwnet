@@ -22,7 +22,7 @@ from uwnet.stochastic_parameterization.graph_utils import (
     loghist,
 )
 
-model_dir = '/Users/stewart/projects/uwnet/stochastic_parameterization'
+model_dir = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization'
 # model_location = model_dir + '/stochastic_model.pkl'
 model_location = model_dir + '/residual_stochastic_model.pkl'
 base_model_location = model_dir + '/full_model/1.pkl'

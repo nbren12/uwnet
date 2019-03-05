@@ -100,7 +100,9 @@ def CFVariableNameAdapter(model, d, label=''):
 def get_model(config):
     type = config['type']
     if type == 'neural_network':
-        model = torch.load(config['path'])
+        # model = torch.load(config['path'])
+        model = StochasticStateModel(dt_seconds=120)
+        model.train()
         model.eval()
         return CFVariableNameAdapter(
             NumpyWrapper(model), label='neural_network')
