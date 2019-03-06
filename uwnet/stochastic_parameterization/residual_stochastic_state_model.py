@@ -183,6 +183,8 @@ class StochasticStateModel(nn.Module):
                 output[key][:, indices[:, 0], indices[:, 1]] += (
                     self.dt_seconds / dataset_dt_seconds) * torch.from_numpy(
                         model[key].predict(x_data[key]).T).float()
+        output['stochastic_state'] = torch.from_numpy(
+            self.eta)
         return output
 
 
