@@ -290,6 +290,7 @@ do while(nstep.lt.nstop.and.nelapse.gt.0)
       if (usepython) then
          call apply_nn_forcings(dtn)
       end if
+      if ((nsavepython .gt. 0) .and. (mod(nstep-1, nsavepython) == 0)) call save_python_state()
 
 !-----------------------------------------------------------
 !    Compute diagnostic fields:

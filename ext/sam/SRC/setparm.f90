@@ -11,6 +11,7 @@ use microphysics, only: micro_setparm
 use sgs, only: sgs_setparm
 use movies, only : irecc
 use instrument_diagnostics, only: zero_instr_diag
+use python_caller, only: nsavepython
 implicit none
 	
 integer icondavg, ierr, ios, ios_missing_namelist, place_holder
@@ -65,7 +66,7 @@ NAMELIST /UWOPTIONS/ rad_simple_fluxdiv1, &
      am_wtg, am_wtg_exp, lambda_wtg
 
 namelist /python/ module_name, function_name, dopython,npython, usepython,&
-     do_debias_lhf, meridional_bndy_size
+     do_debias_lhf, meridional_bndy_size, nsavepython
 
 
 !bloss: Create dummy namelist, so that we can figure out error code

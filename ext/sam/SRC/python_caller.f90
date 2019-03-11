@@ -14,6 +14,7 @@ module python_caller
   real, allocatable, dimension(:,:,:) :: sl_last, qt_last, FQTNN, FSLINN,&
     funn, fvnn
   real, allocatable :: net_prec_xy(:, :), net_heat_xy(:, :)
+  integer :: nsavepython = 0 ! when to save output files
 
   integer ntop
   ! Do not apply neural network within this boundary region
