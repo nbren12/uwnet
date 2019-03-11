@@ -1,7 +1,6 @@
 import attr
 import f90nml
 import xarray as xr
-from os.path import join
 import glob
 
 
@@ -9,14 +8,18 @@ import glob
 class SAMRun(object):
     """Class for opening SAM simulation results"""
     path = attr.ib()
-    case = attr.ib(default='')
+    case = attr.ib(default='control')
 
     def open_ncfiles_in_dir(self, dir, suffix='_'):
-        return xr.open_mfdataset(f"{self.path}/{dir}/*_{self.case}{suffix}*.nc")
+        return xr.open_mfdataset(
+            f"{self.path}/{dir}/*_{self.case}{suffix}*.nc")
 
     @property
     def debug_files(self):
-        return glob.glob(join(self.path, "*.pkl"))
+        suffix = '_'
+        ext = 'pt'
+        pattern = f"{self.path}/OUT_3D/*_{self.case}{suffix}*.{ext}"
+        return glob.glob(pattern)
 
     def open_debug(self, i):
         import torch
