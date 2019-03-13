@@ -1,6 +1,7 @@
 module python_caller
   ! only works with CAM radiation scheme
   use callpy_mod
+  use params, only: usepython
   implicit none
 
   public :: initialize_from_target, initialize_python_caller, state_to_python,&
@@ -291,14 +292,17 @@ contains
 
     ! read in state from python
     print *, 'python_caller.f90::state_to_python retreiving state from python module'
-    call get_state("liquid_ice_static_energy", tmp, nx * ny * nzm)
-    ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
-    t(1:nx, 1:ny, 1:nzm) = tmp
 
-    call get_state("total_water_mixing_ratio", tmp, nx * ny * nzm)
-    tmp = tmp / 1.e3
-    ! tmp(:,:,ntop:nzm) = micro_field(1:nx,1:ny, ntop:nzm, 1)
-    micro_field(1:nx, 1:ny, 1:nzm, 1) = tmp
+    if (usepython) then
+       call get_state("liquid_ice_static_energy", tmp, nx * ny * nzm)
+       ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
+       t(1:nx, 1:ny, 1:nzm) = tmp
+
+       call get_state("total_water_mixing_ratio", tmp, nx * ny * nzm)
+       tmp = tmp / 1.e3
+       ! tmp(:,:,ntop:nzm) = micro_field(1:nx,1:ny, ntop:nzm, 1)
+       micro_field(1:nx, 1:ny, 1:nzm, 1) = tmp
+    end if
 
     call get_state("tendency_of_total_water_mixing_ratio",&
          tmp, nx * ny * nzm)

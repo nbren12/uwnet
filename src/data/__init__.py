@@ -27,13 +27,16 @@ def open_data(tag):
     if tag == "training":
         return xr.open_dataset(training_data).isel(step=0).drop('step')
     elif tag == 'ngaqua_2d':
-        return xr.open_dataset(str(ngaqua / 'coarse' / '2d' / 'all.nc'))
+        return xr.open_dataset(str(ngaqua / 'coarse' / '2d' / 'all.nc'))\
+            .sortby('time')
     elif tag == 'training_with_src':
-        open_data('training').pipe(assign_apparent_sources)
+        return open_data('training').pipe(assign_apparent_sources)
     elif tag == 'pressure':
         return open_data('training').p.isel(time=0).drop('time')
+    elif tag == 'nudge':
+        return runs['nudge']
     else:
-        return NotImplementedError
+        raise NotImplementedError
 
 
 def assign_apparent_sources(ds):
