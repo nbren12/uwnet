@@ -47,7 +47,7 @@ def plot(data):
 
     kwargs = dict(cmap='RdBu_r', norm=norm, rasterized=True)
 
-    fig = plt.figure(figsize=(common.textwidth, common.textwidth))
+    fig = plt.figure(figsize=(common.textwidth, common.textwidth/1.8))
     grid = AxesGrid(
         fig,
         111,  # similar to subplot(144)
@@ -74,9 +74,9 @@ def plot(data):
     fig.colorbar(im, cax=grid.cbar_axes[0])
 
     grid[0].set_title("a) NG-Aqua", loc='left')
-    grid[1].set_title("b) NN Semi-prognostic", loc='left')
-    grid[2].set_title("c) DEBIAS Simulation", loc='left')
-    grid[3].set_title("d) Micro Simulation", loc='left')
+    grid[1].set_title("b) NN-Lower Semi-prognostic", loc='left')
+    grid[2].set_title("c) NN-Lower Simulation", loc='left')
+    grid[3].set_title("d) Base Simulation", loc='left')
 
 
 plot(get_data())
