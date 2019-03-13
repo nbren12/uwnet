@@ -11,10 +11,13 @@ class SAMRun(object):
     case = attr.ib(default='')
     file_limit = attr.ib(default=200)
 
-    def open_ncfiles_in_dir(self, dir, suffix='_'):
+    def list_ncfiles_in_dir(self, dir, suffix='_'):
         pattern = f"{self.path}/{dir}/*_{self.case}{suffix}*.nc"
         files = glob.glob(pattern)
-        files = files[:min(len(files), self.file_limit)]
+        return files[:min(len(files), self.file_limit)]
+
+    def open_ncfiles_in_dir(self, *args, **kwargs):
+        files = self.list_ncfiles_in_dir(*args, **kwargs)
         return xr.open_mfdataset(files)
 
     @property
@@ -35,6 +38,10 @@ class SAMRun(object):
     @property
     def data_3d(self):
         return self.open_ncfiles_in_dir("OUT_3D")
+
+    @property
+    def files_3d(self):
+        return self.list_ncfiles_in_dir('OUT_3D')
 
     @property
     def data_2d(self):
