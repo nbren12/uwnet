@@ -50,3 +50,24 @@ class SAMRun(object):
     @property
     def namelist(self):
         return f90nml.read(f"{self.path}/CASE/prm")
+
+
+def state_to_xarray(state):
+    """Convert output from debug file to xarray"""
+    time = state['day']
+    dims = state['_DIMS']
+    dims['layer_mass'] = 'mid_levels'
+    dims['tendency_of_total_water_mixing_ratio_due_to_neural_network'] = dims[
+        'total_water_mixing_ratio']
+
+    data_vars = {}
+    for key in dims:
+        arr = state[key]
+        ndim = len(dims[key])
+        if ndim == 2:
+            arr = arr[0]
+        data_vars[key] = (dims[key], arr)
+
+    ds = xr.Dataset(data_vars)
+    ds['time'] = time
+    return ds
