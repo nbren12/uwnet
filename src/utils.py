@@ -19,3 +19,16 @@ def get_regions(y):
     tropics = np.abs(percent) <= tropics_bndy
     return xr.where(tropics, 'Tropics',
                     xr.where(subtropics, 'Subtropics', 'Extratropics'))
+
+
+def groupby_region(data_2d):
+    regions = get_regions(data_2d.y)
+    return data_2d.groupby(regions)
+
+
+def plot_tropical_avg(a, **kwargs):
+    groupby_region(a).mean(['y', 'x']).sel(y='Tropics').plot(**kwargs)
+
+
+def plot_tropical_std(a, **kwargs):
+    groupby_region(a).std(['y', 'x']).sel(y='Tropics').plot(**kwargs)
