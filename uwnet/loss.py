@@ -11,7 +11,8 @@ from toolz import curry
 from torch.nn.functional import mse_loss
 
 from uwnet.utils import mean_other_dims
-from .timestepper import predict_multiple_steps
+from .timestepper import predict_multiple_steps, TimeStepper
+from . import tensordict
 
 
 def r2_score(truth, prediction):
@@ -132,15 +133,24 @@ def instability_penalty_step(self, engine, batch):
 
 def multiple_step_loss_step(self, engine, batch):
     self.optimizer.zero_grad()
+    stepper = TimeStepper(self.model, time_step=self.time_step)
 
-    nt = batch.num_time - 1
-    loss = compute_multiple_step_loss(
-        self.criterion, self.model, batch, 0, nt, self.time_step)
-    info = {'multiple': loss.item()}
+    prediction = stepper(batch)
+
+    # TODO: maybe TimeStepper should return a batch object
+    prediction = tensordict.lag(prediction, -1, batch.time_dim)
+    truth = batch.data_for_lag(1)
+
+    loss = ((truth - prediction)**2)
+    combined_var_loss = sum(loss.values())
+    loss = combined_var_loss[combined_var_loss < 100.0].mean()
 
     loss.backward()
     self.optimizer.step()
     self.optimizer.zero_grad()
+
+    info = {"loss": loss.item()}
+
     engine.state.loss_info = info
     return info
 

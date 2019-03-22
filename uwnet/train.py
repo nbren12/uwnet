@@ -95,7 +95,8 @@ def my_config():
 
 
 @ex.capture
-def get_dataset(data):
+def get_dataset(data, _log):
+    _log.info("Opening xarray dataset")
     try:
         dataset = xr.open_zarr(data)
     except ValueError:
@@ -163,9 +164,14 @@ class Trainer(object):
     """
 
     @ex.capture
-    def __init__(self, _run, lr, loss_scale):
+    def __init__(self, _run, lr, loss_scale, step_type):
         # setup logging
         logging.basicConfig(level=logging.INFO)
+
+        if step_type == 'multi':
+            self.compute_metrics = False
+        else:
+            self.compute_metrics = True
 
         # db = MongoDBLogger()
         # experiment = Experiment(api_key="fEusCnWmzAtmrB0FbucyEggW2")
@@ -226,6 +232,9 @@ class Trainer(object):
     @ex.capture
     def setup_metrics_for_engine(self, engine, prognostics):
         from .metrics import WeightedMeanSquaredError
+
+        if not self.compute_metrics:
+            return
 
         @curry
         def output_transform(key, args):
