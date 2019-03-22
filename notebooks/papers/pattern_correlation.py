@@ -47,7 +47,8 @@ def plot_pane(ax, plotme, title=''):
     plotme = plotme.assign_coords(y=plotme.y/1e6)
     plotme.y.attrs['units'] = '1000 km'
     plotme = plotme.sel(time=slice(100, 110))
-    im = plotme.plot(x='time', vmin=0, vmax=1, ax=ax, add_colorbar=False, add_labels=False)
+    im = plotme.plot(
+        x='time', vmin=0, vmax=1, ax=ax, add_colorbar=False, add_labels=False, rasterized=True)
 
     plotme.plot.contour(
         x='time',
@@ -73,7 +74,7 @@ def plot(data):
         figsize=(common.textwidth,  common.textwidth/3))
     im = plot_pane(a, corr_nn, title='a) NN-Lower')
     plot_pane(b, corr_micro, title='b) Base')
-    fig.colorbar(im, ax=[a, b], aspect=40, pad=.02)
+    fig.colorbar(im, ax=[a, b], aspect=40, pad=-.01)
     common.label_outer_axes(np.array([[a, b]]), "time (day)", "y (1000 km)")
 
 

@@ -1,3 +1,4 @@
+import numpy as np
 import matplotlib.pyplot as plt
 import torch
 import xarray as xr
@@ -8,13 +9,18 @@ from uwnet.xarray_interface import call_with_xr
 
 import common
 
+def diverging_levels(m, s):
+    n = m // s + 1
+    return np.r_[-n:n+1] * s
+    
+        
+
 plt.style.use("tableau-colorblind10")
 
-model_path = "../../models/268/5.pkl"
+model_path = "../../models/268/5.debiased.pkl"
 
 # open model
 model = torch.load(model_path)
-model.eval()
 
 # get data
 ds = xr.open_dataset(training_data).isel(
@@ -24,10 +30,15 @@ q2 = compute_apparent_source(ds.QT, 86400 * ds.FQT)
 pres = ds.p[0]
 
 # compute nn output
-predicted_srcs = call_with_xr(model, ds)
+predicted_srcs = model.predict(ds)
 q1_pred = predicted_srcs['SLI']
 q2_pred = predicted_srcs['QT']
 
+
+color_kwargs = {
+    'Q1': dict(levels=diverging_levels(15, 2), cmap='RdBu_r'),
+    'Q2': dict(levels=diverging_levels(10, 2), cmap='BrBG', extend='both')
+}
 
 # plot the results
 def plot(args):
@@ -45,9 +56,10 @@ def plot(args):
 
     for k, (ax, arg, label) in enumerate(zip(axs.flat, args, labels)):
         arg = arg.isel(time=0, x=0)
-        m = common.get_vmax(arg.values)
-        im = ax.pcolormesh(
-            arg.y/1e6, pres, arg, vmin=-m, vmax=m, cmap='RdBu_r', shading='gouraud', rasterized=True)
+        field = label[:2]
+        pcolor_kwargs = color_kwargs[field]
+        im = ax.contourf(
+            arg.y/1e6, pres, arg, **pcolor_kwargs)
         fig.colorbar(im, ax=ax, pad=-.03)
         ax.set_ylim([pres.max(), pres.min()])
         ax.set_title(abc[k] + ') ' + label, loc='left')
@@ -56,6 +68,6 @@ def plot(args):
     return axs
 
 
-# plot([q1, q1_pred, q2, q2_pred])
-# plt.savefig("q1_vs_q2.pdf")
-# plt.savefig("q1_vs_q2.png")
+plot([q1, q1_pred, q2, q2_pred])
+plt.savefig("q1_vs_q2.pdf")
+plt.savefig("q1_vs_q2.png")
