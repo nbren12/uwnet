@@ -1,44 +1,39 @@
 name: uwnet
 channels:
   - pytorch
-  - ioam # needed for holoviews
   - conda-forge
   - defaults
+  - bioconda
 dependencies:
-  - python=3.6
-  - numpy
-  - dask
-  - xarray
-  - holoviews
-  - matplotlib
-  - bokeh
+  - python=3.7
+  - numpy=1.16
+  - dask=1.1
+  - xarray=0.12
+  - matplotlib=3.0
+  - netcdf4=1.4
   - ipython
-  - holoviews
-  - bokeh
   - jupyterlab
   - cython
   - torchvision-cpu
-  - pytorch-cpu
+  - pytorch-cpu=1.0
   - attrs
-  - scikit-learn
+  - scikit-learn=0.20
+  - sphinx=1.7
+  - snakemake-minimal
+  - pytest
   - pip
   - pip:
       - git+https://github.com/nbren12/gnl@master#subdirectory=python
       - tqdm
-      - snakemake
       - metpy
       - flake8
       - f90nml
-      - pytest
-      - torchnet
       - pymongo
-      - comet_ml
       - click
       - zarr
       - f90nml
       - sacred
       - recommonmark
-      - sphinx==1.7
       - pytorch-ignite
       - sphinx_rtd_theme
 

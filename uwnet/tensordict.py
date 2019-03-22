@@ -1,6 +1,6 @@
 import functools
 from abc import ABCMeta
-from collections import KeysView, MutableMapping
+from collections import KeysView, MutableMapping, defaultdict
 
 import torch
 from toolz import curry, first
@@ -95,3 +95,43 @@ class TensorDict(MutableMapping, metaclass=ArithmaticMeta):
             d = dict(zip(self.keys(), vals))
             outputs.append(TensorDict(d))
         return outputs
+
+    def size(self, dim):
+        """The size of a dimension if it is the same for each component tensor
+        """
+        answers = {val.size(dim) for key, val in self.items()}
+        if len(answers) == 1:
+            return first(answers)
+        else:
+            raise ValueError(
+                f"the sizes are unique along dimension {dim}")
+
+
+def stack(seq, dim=0):
+    """Stack tensordicts"""
+    data = defaultdict(list)
+
+    for item in seq:
+        for key, val in item.items():
+            data[key].append(val)
+
+    return TensorDict({key: torch.stack(data[key], dim=dim) for key in data})
+
+
+def lag_tensor(arr: torch.tensor, lag, dim):
+    if lag == 0:
+        return arr
+    elif lag > 0:
+        selector = slice(lag, None)
+    elif lag < 0:
+        selector = slice(0, lag)
+    index = [slice(None)] * arr.dim()
+    index[dim] = selector
+
+    return arr[index]
+
+
+def lag(td, lag, dim):
+    """Lag the arrays in a tensordict"""
+    return td.apply(lambda x: lag_tensor(x, lag, dim))
+
