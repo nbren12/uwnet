@@ -75,7 +75,7 @@ def plot_rms_runs_regions_times(da, ax, title=""):
     return lines, labels
 
 
-def plot(ds):
+def plot_old(ds):
 
     fig, axs = plt.subplots(2, 2, sharex=True, figsize=(common.textwidth, 4))
     
@@ -103,6 +103,56 @@ def plot(ds):
         bbox_to_anchor=(.9, 0.1),
         frameon=False)
 
+    
+def hide_spines(ax, spines):
+    for spine in spines:
+        spine = ax.spines[spine]
+        spine.set_visible(False)
+        
+def plot(df):
+
+    df = df.sel(time=slice(None, 108.5))
+    df['VORT'] *= 1e6
+    
+    fig, axs = plt.subplots(3, 3, figsize=(common.textwidth, common.textwidth/1.3), constrained_layout=True)
+    letters = 'abcdefghijklm'
+    count = 0
+
+    for i in range(3):
+        for j in range(3):
+            for k in range(3):
+
+                ax = axs[i,j]
+                run = str(df.concat_dim[k].values)
+                region = str(df.y[j].values)
+
+                field = ['SLI', 'QT', 'VORT'][i]
+                unit = ['K', 'g/kg', '10^-6 s^-1'][i]
+    #             ylim = [4.5, 3, 50][i]
+
+
+                data = df[field].sel(y=region, concat_dim=run)
+                label = common.run_labels[run]
+
+                ax.plot(data.time, data, label=label)
+    #             ax.set_ylim(top=ylim)
+                ax.xaxis.set_major_locator(plt.MaxNLocator(4))
+
+                if j == 0:
+                    ax.set_ylabel(f'{unit}')
+                hide_spines(ax, ['top',  'right'])
+
+
+                if i == 2:
+                    ax.set_xlabel('day')
+
+                letter = letters[count]
+        #         ax.text(.1, .95, f'{letter})', transform=ax.transAxes)
+                ax.set_title(f'{letter}) {field} {region}', loc='left')
+
+            count += 1
+
+    axs[-1,0].legend(frameon=False)
 
 if __name__ == '__main__':
     df = get_data()
