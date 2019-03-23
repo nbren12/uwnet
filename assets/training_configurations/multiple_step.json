@@ -16,7 +16,7 @@
     "U": 5,
     "V": 5
   },
-  "lr": 0.01,
+  "lr": 0.005,
   "model": {
     "kind": "inner_model"
   },
@@ -40,36 +40,8 @@
     "SLI"
   ],
   "seed": 668752836,
-  "skip": 5,
+  "skip": 10,
   "step_type": "multi",
   "time_length": 20,
-  "training_slices": {
-    "time": [
-      null,
-      null
-    ],
-    "x": [
-      null,
-      null
-    ],
-    "y": [
-      null,
-      null
-    ]
-  },
-  "validation_slices": {
-    "time": [
-      null,
-      null
-    ],
-    "x": [
-      0,
-      10
-    ],
-    "y": [
-      null,
-      null
-    ]
-  },
   "vertical_grid_size": 34
 }

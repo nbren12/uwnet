@@ -12,6 +12,8 @@ cache = memory.cache
 
 run_labels = {'debias': 'NN-Lower', 'unstable': 'NN-All', 'micro': 'Base'}
 
+ignored_input_levels = {'QT': 442, 'SLI': 267}
+
 
 def setup_matplotlib():
 
@@ -56,9 +58,10 @@ def label_outer_axes(axs, xlabel, ylabel):
         ax.set_xlabel(xlabel)
 
 
-def despine_axes(axs):
+def despine_axes(axs, spines=('right', 'top')):
+
     for ax in axs:
-        for spine in ['right', 'top']:
+        for spine in spines:
             ax.spines[spine].set_visible(False)
 
 
@@ -91,6 +94,12 @@ class MidpointNormalize(colors.Normalize):
         # simple example...
         x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
         return np.ma.masked_array(np.interp(value, x, y))
+
+
+def diverging_levels(m, s):
+    n = m // s + 1
+    return np.r_[-n:n+1] * s
+    
 
 textwidth = 6.5
 onecolumn = textwidth/2 - .5
