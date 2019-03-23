@@ -112,6 +112,7 @@ def hide_spines(ax, spines):
 def plot(df):
 
     df = df.sel(time=slice(None, 108.5))
+    df['time'] = df.time - df.time[0]
     df['VORT'] *= 1e6
     
     fig, axs = plt.subplots(3, 3, figsize=(common.textwidth, common.textwidth/1.3), constrained_layout=True)
@@ -144,7 +145,7 @@ def plot(df):
 
 
                 if i == 2:
-                    ax.set_xlabel('day')
+                    ax.set_xlabel('lead time (days)')
 
                 letter = letters[count]
         #         ax.text(.1, .95, f'{letter})', transform=ax.transAxes)

@@ -45,9 +45,9 @@ def predict_for_each_time(model, location, num_pred_steps=20, num_time=160):
 
 
 @common.cache
-def get_data(**kwargs):
+def get_data(model="../../models/277/1.pkl", **kwargs):
     # open model and training data
-    model = torch.load("../../models/270/2.pkl")
+    model = torch.load("../../models/277/1.pkl")
     ds = open_data('training')
 
     # select x=0, y=32
@@ -84,11 +84,11 @@ def plot(data):
     abcd = 'abcd'
 
     m = common.get_vmax(data)
-    kw = dict(vmin=-m, vmax=m, cmap='RdBu_r', rasterized=True)
+    kw = dict(levels=common.diverging_levels(25, 5), cmap='RdBu_r')
     for k in range(4):
         v = data.isel(step=k).squeeze()
         # import pdb; pdb.set_trace()
-        im = axs[0,k].pcolormesh(
+        im = axs[0,k].contourf(
             v.time, p, v.T, **kw)
 
         axs[0,k].set_title(f"{abcd[k]}) {get_title(k)}", loc='left')
@@ -106,6 +106,6 @@ def plot(data):
 
 
 if __name__ == '__main__':
-    data = get_data(num_pred_steps=3, num_time=60)
+    data = get_data(model="../models/277/5.pkl", num_pred_steps=3, num_time=60)
     plot(data)
     plt.savefig("spinup.pdf")
