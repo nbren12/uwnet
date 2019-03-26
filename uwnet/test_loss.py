@@ -23,7 +23,7 @@ def _time_stepping_problem():
         return torch.abs(x - y).mean()
 
     def model(x):
-        return TensorDict({'x': torch.zeros(1).float()})
+        return TensorDict({'x': torch.zeros(1, requires_grad=True).float()})
 
     prognostics = ['x']
     batch = TensorDict(
