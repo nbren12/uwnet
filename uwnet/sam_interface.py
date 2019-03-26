@@ -31,8 +31,11 @@ import json
 
 
 def get_configuration():
-    with open("python_config.json") as f:
-        return json.load(f)
+    try:
+        with open("python_config.json") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {'models': []}
 
 
 def rename_keys(rename_table, d):
@@ -118,6 +121,7 @@ def compute_insolation(lat, day, scon=1367, eccf=1.0):
 
     # cos zenith angle
     mu = -np.cos(2 * np.pi * time_of_day) * np.cos(np.pi * lat / 180)
+    mu[mu < 0] = 0.0
     return scon * eccf * mu
 
 
