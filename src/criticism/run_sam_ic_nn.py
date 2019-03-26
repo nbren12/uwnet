@@ -1,4 +1,5 @@
 import xarray as xr
+from os.path import join
 import json
 
 import click
@@ -16,6 +17,10 @@ NGAQUA_ROOT = "/Users/stewart/projects/uwnet/data/processed/training.nc"
     '--neural-network',
     type=click.Path(),
     help='use the neural network in this pickled model file.')
+@click.option(
+    '--noise',
+    type=click.Path(),
+    help='A noise model stored in a pickle file.')
 @click.option('-ic', '--initial-condition', type=click.Path(), default=None)
 @click.option('-n', '--ngaqua-root', type=click.Path(), default=NGAQUA_ROOT)
 @click.option('-t', type=int, default=0)
@@ -23,6 +28,7 @@ NGAQUA_ROOT = "/Users/stewart/projects/uwnet/data/processed/training.nc"
 @click.option('-d', '--debug',  is_flag=True)
 def main(path,
          neural_network,
+         noise,
          initial_condition,
          ngaqua_root,
          t,
@@ -37,6 +43,8 @@ def main(path,
         parameters = json.load(open(parameters))
     else:
         parameters = default_parameters()
+
+    python_config = {'models': []}
 
     if initial_condition is None:
         initial_condition = get_ngqaua_ic(ngaqua_root, t)
@@ -63,7 +71,14 @@ def main(path,
 
         print(f"Copying neural networks to model directory")
         case.add(neural_network, model_run_path)
-        case.env.update(dict(UWNET_MODEL=model_run_path))
+        python_config['models'].append(
+            {"type": "neural_network", "path": model_run_path})
+
+    if noise:
+        noise_model_path = "noise.pkl"
+        case.add(noise, noise_model_path)
+        python_config['models'].append(
+            {"type": "cf", "path": noise_model_path})
 
     if 'nudging' in parameters:
         config = parameters['nudging']
@@ -77,7 +92,11 @@ def main(path,
             'nstop': 120,
         })
 
+    with open(join(path, "python_config.json"), "w") as f:
+        json.dump(python_config, f)
+
     case.save()
+
 
 if __name__ == '__main__':
     main()

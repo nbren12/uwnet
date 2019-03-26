@@ -5,6 +5,8 @@ grav = 9.81
 cp = 1004
 Lc = 2.5104e6
 rho0 = 1.19
+sec_in_day = 86400
+liquid_water_density = 1000.0
 
 
 def metpy_wrapper(fun):
@@ -14,11 +16,12 @@ def metpy_wrapper(fun):
 
     def func(*args):
         def f(*largs):
-            new_args = [u.Quantity(larg, arg.units)
-                        for larg, arg in zip(largs, args)]
+            new_args = [
+                u.Quantity(larg, arg.units) for larg, arg in zip(largs, args)
+            ]
             return fun(*new_args)
 
-        output_units = f(*[1 for arg in args]).units
+        output_units = f(* [1 for arg in args]).units
         ds = xr.apply_ufunc(f, *args)
         ds.attrs['units'] = str(output_units)
         return ds
@@ -31,14 +34,14 @@ def omega_from_w(w, rho):
 
     omega = dp_0/dt = dp_0/dz dz/dt = - rho_0 g w
     """
-    return - w * rho * grav
+    return -w * rho * grav
 
 
 def liquid_water_temperature(t, qn, qp):
     """This is an approximate calculation neglecting ice and snow
     """
 
-    sl = t + grav/cp * t.z - Lc/cp * (qp + qn)/1000.0
+    sl = t + grav / cp * t.z - Lc / cp * (qp + qn) / 1000.0
     sl.attrs['units'] = 'K'
     return sl
 
@@ -50,7 +53,7 @@ def total_water(qv, qn):
 
 
 def get_dz(z):
-    zext = np.hstack((-z[0], z, 2.0*z[-1] - 1.0*z[-2]))
+    zext = np.hstack((-z[0], z, 2.0 * z[-1] - 1.0 * z[-2]))
     zw = .5 * (zext[1:] + zext[:-1])
     dz = zw[1:] - zw[:-1]
 
@@ -59,18 +62,18 @@ def get_dz(z):
 
 def layer_mass(rho):
     dz = get_dz(rho.z)
-    return (rho*dz).assign_attrs(units='kg/m2')
+    return (rho * dz).assign_attrs(units='kg/m2')
 
 
 def layer_mass_from_p(p, ps=None):
     if ps is None:
-        ps = 2*p[0] - p[1]
+        ps = 2 * p[0] - p[1]
 
-    ptop = p[-1]*2 - p[-2]
+    ptop = p[-1] * 2 - p[-2]
 
     pext = np.hstack((ps, p, ptop))
-    pint = (pext[1:] + pext[:-1])/2
-    dp = - np.diff(pint*100)/grav
+    pint = (pext[1:] + pext[:-1]) / 2
+    dp = -np.diff(pint * 100) / grav
 
     return xr.DataArray(dp, p.coords)
 
@@ -85,18 +88,17 @@ def mass_integrate(p, x, average=False):
     return ans
 
 
-
 def column_rh(QV, TABS, p):
     from metpy.calc import relative_humidity_from_mixing_ratio
     rh = metpy_wrapper(relative_humidity_from_mixing_ratio)(QV, TABS, p)
 
-    return mass_integrate(p, rh/1000, average=True)
+    return mass_integrate(p, rh / 1000, average=True)
 
 
 def ngaqua_y_to_lat(y, y0=5120000):
     rad_earth = 6371e3  # m
     circumference_earth = rad_earth * 2 * np.pi
-    return (y-y0)/circumference_earth * 360
+    return (y - y0) / circumference_earth * 360
 
 
 def coriolis_ngaqua(y):
@@ -127,14 +129,14 @@ def get_geostrophic_winds(p, rho, min_cor=1e-5):
     # get coriolis force
     from gnl.xarray import centderiv
     fcor = coriolis_ngaqua(p.y)
-    px = centderiv(p, dim='x')/rho
-    py = centderiv(p, dim='y')/rho
+    px = centderiv(p, dim='x') / rho
+    py = centderiv(p, dim='y') / rho
 
-    vg = px/fcor
+    vg = px / fcor
     vg = vg.where(np.abs(fcor) > min_cor)
     vg.name = "VG"
 
-    ug = -py/fcor
+    ug = -py / fcor
     ug = ug.where(np.abs(fcor) > min_cor)
     ug.name = "UG"
     return ug, vg
@@ -142,16 +144,15 @@ def get_geostrophic_winds(p, rho, min_cor=1e-5):
 
 def compute_apparent_source(prog, forcing):
     dt = prog.time[1] - prog.time[0]
-    avg_forcing = (forcing + forcing.shift(time=-1))/2
-    return (prog.shift(time=-1) - prog)/dt - avg_forcing
+    avg_forcing = (forcing + forcing.shift(time=-1)) / 2
+    return (prog.shift(time=-1) - prog) / dt - avg_forcing
 
 
 def compute_q2(ngaqua):
-    return compute_apparent_source(ngaqua.QT, ngaqua.FQT*86400)
+    return compute_apparent_source(ngaqua.QT, ngaqua.FQT * 86400)
 
 
-def vorcitity(u, v):
-    f = coriolis_ngaqua(u.y)
+def vorticity(u, v):
     psi = u.differentiate('y') - v.differentiate('x')
     psi.name = 'Vorticity'
     return psi
@@ -163,3 +164,23 @@ def lhf_to_evap(lhf):
     evap.name = 'Evaporation'
     evap.attrs['units'] = 'mm/day'
     return evap
+
+
+def integrate_q1(q1, layer_mass, dim='z'):
+    """Vertically integrate Q1 (K/day) to give W/m2
+    """
+    return (q1 * layer_mass).sum(dim) * (cp / sec_in_day)
+
+
+def integrate_q2(q2, layer_mass, dim='z'):
+    """Vertically integrate Q2 (g/kg/day) to give mm/day
+    """
+    return (q2 * layer_mass).sum(dim) / liquid_water_density
+
+
+def net_heating(prec, shf, swns, swnt, lwns, lwnt):
+    surface_radiation_net_upward = (lwns - swns)
+    toa_radiation_net_upward = (lwnt - swnt)
+    net_radiation = surface_radiation_net_upward - toa_radiation_net_upward
+
+    return prec * (Lc / sec_in_day) + net_radiation

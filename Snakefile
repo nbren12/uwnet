@@ -129,7 +129,9 @@ rule sam_run_report:
              -p caseid {wildcards.id} \
             -p training_data_mean {TRAINING_MEAN} \
             --prepare-only {params.template} {params.ipynb}
-    jupyter nbconvert --execute {params.ipynb}
+    jupyter nbconvert  --ExecutePreprocessor.timeout=600 \
+                       --allow-errors \
+                       --execute {params.ipynb}
     # clean up the notebook
     rm -f {params.ipynb}
     """
@@ -157,10 +159,16 @@ rule nudge_run:
     """
 
 rule micro_run:
-    output: directory(f"data/runs/{TODAY}-microphysics")
+    output: touch(f"data/runs/{TODAY}-{{kind}}/.{{id}}.done")
+    params: rundir=f"data/runs/{TODAY}-{{kind}}"
+    log: f"data/runs/{TODAY}-{{kind}}/{{id}}.log"
     shell: """
+    rm -rf {params.rundir}
     {sys.executable} src/criticism/run_sam_ic_nn.py \
-    -t 0 -p assets/parameters_micro.json {output}
+    -t 0 -p assets/parameters_{wildcards.kind}.json {params.rundir}
+
+    {RUN_SAM_SCRIPT} {params.rundir} >> {log} 2>> {log}
+    exit 0
     """
 
 # Save the state within the SAM-python interface for one time step
@@ -197,3 +205,13 @@ rule debias_trained_model:
     output: "models/{model}.debiased.pkl"
     params: data=TRAINING_DATA, prognostics=['QT', 'SLI']
     script: "src/models/debias.py"
+
+
+rule compute_noise_for_trained_model:
+    input: "models/{model}.pkl"
+    output: "noise/{model}.pkl"
+    run:
+        from uwnet.whitenoise import fit
+        import torch
+        noise = fit(input[0])
+        torch.save(noise, output[0])

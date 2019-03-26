@@ -24,34 +24,18 @@ import numpy as np
 from toolz import curry, valmap
 
 import torch
+from torch import nn
 from uwnet.numpy_interface import NumpyWrapper
 from uwnet.sam_ngaqua import get_ngaqua_nudger
 from uwnet.stochastic_parameterization.residual_stochastic_state_model import (  # noqa
     StochasticStateModel,
 )
+import json
 
 
-def get_configuration_from_environment():
-    models = []
-    try:
-        model = {"type": "neural_network", "path": os.environ['UWNET_MODEL']}
-        models.append(model)
-    except KeyError:
-        pass
-
-    try:
-        models.append({
-            'type':
-            'nudging',
-            'time_scale':
-            float(os.environ['UWNET_NUDGE_TIME_SCALE']),
-            'ngaqua':
-            os.environ['NGAQUA_PATH']
-        })
-    except KeyError:
-        pass
-
-    return {'models': models}
+def get_configuration():
+    with open("python_config.json") as f:
+        return json.load(f)
 
 
 def rename_keys(rename_table, d):
@@ -106,6 +90,8 @@ def get_model(config):
         model.eval()
         return CFVariableNameAdapter(
             NumpyWrapper(model), label='neural_network')
+    elif type == "cf":
+        return torch.load(config['path'])
     elif type == 'nudging':
         return CFVariableNameAdapter(
             get_ngaqua_nudger(config), label='nudging')
@@ -113,7 +99,7 @@ def get_model(config):
         raise NotImplementedError(f"Model type {type} not implemented")
 
 
-CONFIG = get_configuration_from_environment()
+CONFIG = get_configuration()
 MODELS = [get_model(model) for model in CONFIG['models']]
 
 
