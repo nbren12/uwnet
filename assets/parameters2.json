@@ -36,7 +36,7 @@
     "nsave2d": 30,
     "nsave2dend": 99960480,
     "nsave2dstart": 0,
-    "nsave3d": 30,
+    "nsave3d": 3000,
     "nsave3dend": 99960480,
     "nsave3dstart": 0,
     "nstat": 30,
