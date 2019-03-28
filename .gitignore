@@ -21,6 +21,11 @@ data
 *.cb
 *.cb2
 
+## Stochastic parameterization
+*/stochastic_parameterization/CASE*
+*/stochastic_parameterization/OUT*
+*/stochastic_parameterization/RESTART*
+
 ## Intermediate documents:
 *.dvi
 *.xdv
