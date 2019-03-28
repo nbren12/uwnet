@@ -7,8 +7,8 @@ import xarray as xr
 # model_dir = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'
 model_dir = ''
 model_location = model_dir + 'stochastic_model.pkl'
-binning_method = 'precip'
-# binning_method = 'q2_residual'
+# binning_method = 'precip'
+binning_method = 'q2_residual'
 base_model_location = model_dir + 'full_model/1.pkl'
 dataset_dt_seconds = 10800
 # binning_quantiles = [0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1]
