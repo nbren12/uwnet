@@ -22,7 +22,7 @@ data
 *.cb2
 
 ## Stochastic Parameterization:
-*/stochastic_parameterization/CASE*
+# */stochastic_parameterization/CASE*
 */stochastic_parameterization/OUT*
 */stochastic_parameterization/RESTART*
 
