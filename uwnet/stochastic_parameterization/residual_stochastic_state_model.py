@@ -15,8 +15,8 @@ dataset_dt_seconds = 10800
 model_dir = ''
 base_model_location = model_dir + 'full_model/1.pkl'
 
-t_start = 50
-t_stop = 75
+t_start = 100
+t_stop = 150
 
 
 class StochasticStateModel(nn.Module):
