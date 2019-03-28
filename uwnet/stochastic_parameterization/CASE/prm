@@ -37,7 +37,7 @@
     nsave2d = 30
     nsave2dend = 99960480
     nsave2dstart = 0
-    nsave3d = 30
+    nsave3d = 3000
     nsave3dend = 99960480
     nsave3dstart = 0
     nstat = 30
@@ -56,6 +56,7 @@
     function_name = 'call_neural_network'
     module_name = 'uwnet.sam_interface'
     npython = 1
+    nsavepython = 30
     usepython = .true.
 /
 

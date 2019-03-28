@@ -15,8 +15,8 @@ dataset_dt_seconds = 10800
 model_dir = ''
 base_model_location = model_dir + 'full_model/1.pkl'
 
-t_start = 100
-t_stop = 150
+t_start = 50
+t_stop = 75
 
 
 class StochasticStateModel(nn.Module):
@@ -183,8 +183,7 @@ class StochasticStateModel(nn.Module):
                 output[key][:, indices[:, 0], indices[:, 1]] += (
                     self.dt_seconds / dataset_dt_seconds) * torch.from_numpy(
                         model[key].predict(x_data[key]).T).float()
-        output['stochastic_state'] = torch.from_numpy(
-            self.eta)
+        output['stochastic_state'] = torch.from_numpy(self.eta)
         return output
 
 

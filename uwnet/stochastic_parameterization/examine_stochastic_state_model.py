@@ -293,7 +293,11 @@ def compare_true_to_simulated_q1_q2_distributions(true_etas=True):
         gaussian_comparison=False
     )
     plt.legend()
-    plt.title('Log Histogram for NN SLI Forcing, with True Eta Transitions')
+    if true_etas:
+        title = 'Log Histogram for NN SLI Forcing, with True Eta Transitions'
+    else:
+        title = 'Log Histogram for NN SLI Forcing, with Simulated Eta Transitions'  # noqa
+    plt.title(title)
     plt.show()
 
     fig, ax = plt.subplots()
