@@ -95,14 +95,13 @@ rule process_with_sam_once:
     input: DATA_PATH
     output: SAM_PROCESSED
     log: SAM_PROCESSED_LOG
-    params: sam=SAM_PATH,
-            docker='--docker' if DOCKER else '--no-docker'
+    params: sam=SAM_PATH
     shell:
         """
-        {sys.executable} -m src.data.process_ngaqua \
+        {sys.executable} -m src.sam.process_ngaqua \
             -n {input}  \
             --sam {params.sam} \
-            {params.docker} \
+            --parameters  assets/sam_preprocess.json \
             {wildcards.step} {output} > {log} 2> {log}
         """
 
@@ -144,7 +143,7 @@ rule sam_run:
             model="models/{model}/{epoch}.pkl"
     shell: """
     rm -rf {params.rundir}
-    {sys.executable} src/criticism/run_sam_ic_nn.py -nn {params.model} \
+    {sys.executable} -m  src.sam.create_case -nn {params.model} \
         -t 0 -p assets/parameters2.json {params.rundir}
     # run sam
     {RUN_SAM_SCRIPT} {params.rundir} >> {log} 2>> {log}
@@ -154,7 +153,7 @@ rule sam_run:
 rule nudge_run:
     output: directory(f"data/runs/{TODAY}-nudging")
     shell: """
-    {sys.executable} src/criticism/run_sam_ic_nn.py \
+    {sys.executable} -m  src.sam.create_case \
     -t 0 -p assets/parameters_nudging.json {output}
     """
 
@@ -164,7 +163,7 @@ rule micro_run:
     log: f"data/runs/{TODAY}-{{kind}}/{{id}}.log"
     shell: """
     rm -rf {params.rundir}
-    {sys.executable} src/criticism/run_sam_ic_nn.py \
+    {sys.executable}   -m src.sam.create_case \
     -t 0 -p assets/parameters_{wildcards.kind}.json {params.rundir}
 
     {RUN_SAM_SCRIPT} {params.rundir} >> {log} 2>> {log}
@@ -176,7 +175,7 @@ rule save_sam_interface_state:
     output: "assets/state.pt"
     shell:"""
     dir=$(mktemp --directory)
-    {sys.executable} src/criticism/run_sam_ic_nn.py \
+    {sys.executable} -m  src.sam.create_case \
          -p assets/parameters_save_python_state.json \
          $dir
     execute_run.sh $dir

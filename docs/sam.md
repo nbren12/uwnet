@@ -35,12 +35,12 @@ The `build_image` installs all the necessary dependencies in the docker image, b
 
 The SAM model is configured by setting up a so-called "case" directory. This
 case directory needs to have a specific format that is described in the SAM User
-Guide. UWNET provides a script named `src/criticism/run_sam_ic_nn.py` for
+Guide. UWNET provides a script  for
 generating NG-Aqua prediction cases. For instance, the following command will
 setup a coupled SAM+NN simulation initialized with the first available time step
 of the NG-Aqua:
 ```
-python src/criticism/run_sam_ic_nn.py -nn <model file>.pkl -t 0 -p assets/parameters2.json <run directory>
+python -m src.sam.create_case -nn <model file>.pkl -t 0 -p assets/parameters2.json <run directory>
 ```
 Instead of using Fortran namelists to configure the model, this script uses a json file `assets/parameters2.json` with a very similar structure. Internally, this json file is parsed and saved into the Fortran namelist that SAM requires.
 
