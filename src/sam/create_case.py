@@ -4,7 +4,7 @@ import json
 
 import click
 
-from sam.case import InitialConditionCase, get_ngqaua_ic, default_parameters
+from .case import InitialConditionCase, get_ngqaua_ic, default_parameters
 
 NGAQUA_ROOT = "/Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX"
 
@@ -92,8 +92,10 @@ def main(path,
             'nstop': 120,
         })
 
-    with open(join(path, "python_config.json"), "w") as f:
-        json.dump(python_config, f)
+    dopython = case.prm.get('python', {}).get('dopython', False)
+    if dopython:
+        with open(join(path, "python_config.json"), "w") as f:
+            json.dump(python_config, f)
 
     case.save()
 

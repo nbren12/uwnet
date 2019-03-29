@@ -11,6 +11,7 @@ dependencies:
   - xarray=0.12
   - matplotlib=3.0
   - netcdf4=1.4
+  - h5netcdf
   - ipython
   - jupyterlab
   - cython
@@ -23,6 +24,7 @@ dependencies:
   - pytest
   - pip
   - pip:
+      - -e .
       - git+https://github.com/nbren12/gnl@master#subdirectory=python
       - tqdm
       - metpy

@@ -10,7 +10,7 @@ import json
 import click
 
 import xarray as xr
-from sam.case import InitialConditionCase, default_parameters, get_ngqaua_ic
+from .case import InitialConditionCase, default_parameters, get_ngqaua_ic
 
 NGAQUA_ROOT = "/Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX"
 
@@ -35,26 +35,20 @@ def get_parameters(n, dt=30.0):
     prm['parameters']['nstatfrq'] = 1
     prm['parameters']['dt'] = dt
     prm['parameters']['dosgsthermo'] = False
-
     prm['python']['dopython'] = False
     return prm
 
 
-def run_sam_nsteps(ic, prm, sam_src, docker):
+def run_sam_nsteps(ic, prm, sam_src):
     path = tempfile.mkdtemp(dir=".")
     case = InitialConditionCase(
         ic=ic,
         prm=prm,
         path=path,
-        docker_image='nbren12/uwnet',
         sam_src=sam_src)
 
     case.save()
-    if docker:
-        case.run_docker()
-    else:
-        case.run()
-
+    case.run()
     return path
 
 
@@ -63,15 +57,19 @@ def run_sam_nsteps(ic, prm, sam_src, docker):
 @click.argument('t', type=int)
 @click.argument('out_path', type=click.Path())
 @click.option('--sam', type=click.Path(), default='/opt/sam')
-@click.option('--docker/--no-docker', default=True)
-def main(ngaqua_root, out_path, t, sam, docker):
+@click.option('-p', '--parameters', type=click.Path())
+def main(ngaqua_root, out_path, t, sam, parameters):
     dt = 30.0
     n = 10
 
     ic = get_ngqaua_ic(ngaqua_root, t)
 
-    prm = get_parameters(n, dt)
-    path = run_sam_nsteps(ic, prm, sam_src=abspath(sam), docker=docker)
+    if parameters:
+        with open(parameters) as f:
+            prm = json.load(f)
+    else:
+        prm = get_parameters(n, dt)
+    path = run_sam_nsteps(ic, prm, sam_src=abspath(sam))
     files = os.path.join(path, 'OUT_3D', '*.nc')
 
     # open files
