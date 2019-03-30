@@ -71,6 +71,7 @@ def call_with_xr(self, ds, **kwargs):
 class XRCallMixin(object):
     """PyTorch module for predicting Q1, Q2 and maybe Q3"""
     call_with_xr = call_with_xr
+    predict = call_with_xr
 
 
 class XarrayWrapper(object):
