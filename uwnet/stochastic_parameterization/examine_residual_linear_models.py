@@ -17,7 +17,6 @@ model = torch.load(model_location)
 def get_average_of_inputs(eta):
     averages = {}
     ds = get_dataset(
-        binning_method=model.binning_method,
         t_start=50,
         t_stop=75)
     ds = ds.where(ds.eta == eta)

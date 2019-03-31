@@ -85,7 +85,7 @@ def get_layer_mass_averaged_residuals_for_time(time_, ds, layer_mass_sum):
 
 
 def plot_residuals_by_eta():
-    ds = get_dataset(binning_method=model.binning_method)
+    ds = get_dataset()
     layer_mass_sum = ds.layer_mass.values.sum()
     qt_residuals_by_eta = defaultdict(list)
     sli_residuals_by_eta = defaultdict(list)
@@ -119,10 +119,7 @@ def simulate_eta(ds):
 
 def plot_true_eta_vs_simulated_eta(ds=None):
     if not ds:
-        ds = get_dataset(
-            binning_method=model.binning_method,
-            t_start=50,
-            t_stop=75)
+        ds = get_dataset(t_start=50, t_stop=75)
     simulated_eta = simulate_eta(ds)
     true_eta = ds.eta.values
     for eta in range(ds.eta.values.min(), ds.eta.values.max() + 1):
@@ -149,10 +146,7 @@ def trim_extreme_values(array):
 
 
 def get_column_moistening_and_heating_comparisons(true_etas=True):
-    ds = get_dataset(
-        binning_method=model.binning_method,
-        t_start=50,
-        t_stop=75)
+    ds = get_dataset(t_start=50, t_stop=75)
     layer_mass_sum = ds.layer_mass.values.sum()
     qts_pred = []
     qts_true = []
@@ -195,10 +189,7 @@ def get_column_moistening_and_heating_comparisons(true_etas=True):
 
 
 def evaluate_stochasticity_of_model(n_simulations=20):
-    ds = get_dataset(
-        binning_method=model.binning_method,
-        t_start=50,
-        t_stop=75)
+    ds = get_dataset(t_start=50, t_stop=75)
     max_probs = []
     etas = []
     for time in range(n_simulations):

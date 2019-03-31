@@ -47,7 +47,6 @@ class StochasticStateModel(nn.Module):
         self.base_model = torch.load(base_model_location)
         self.setup_eta_transitioner()
         self.residual_model_inputs = residual_model_inputs
-        self.binning_method = 'q2_residual'
 
     @property
     def dt_seconds(self):
@@ -62,7 +61,6 @@ class StochasticStateModel(nn.Module):
     def setup_eta_transitioner(self):
         transitioner = EtaTransitioner(
             dt_seconds=self.dt_seconds,
-            binning_method='q2_residual',
             t_start=t_start,
             t_stop=t_stop)
         transitioner.train()
@@ -133,11 +131,7 @@ class StochasticStateModel(nn.Module):
 
     def train(self):
         if not self.is_trained:
-            ds = get_dataset(
-                binning_method='q2_residual',
-                t_start=t_start,
-                t_stop=t_stop
-            )
+            ds = get_dataset(t_start=t_start, t_stop=t_stop)
             residual_models_by_eta = {}
             print('Training residual stochastic state model')
             for eta in self.possible_etas:

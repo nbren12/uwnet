@@ -4,11 +4,8 @@ import torch
 from uwnet.tensordict import TensorDict
 import xarray as xr
 
-# model_dir = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'
 model_dir = ''
 model_location = model_dir + 'stochastic_model.pkl'
-# binning_method = 'precip'
-binning_method = 'q2_residual'
 base_model_location = model_dir + 'full_model/1.pkl'
 dataset_dt_seconds = 10800
 # binning_quantiles = [0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1]
@@ -75,12 +72,6 @@ class BaseModel(object):
             )
             column_integrated_qt_residuals[
                 time_batch, :, :] = q2_true - q2_preds
-            # column_integrated_qt_residuals[
-            #     time_batch, :, :] = np.ma.average(
-            #         (true['QT'] - pred['QT']) ** 2,
-            #         axis=1,
-            #         weights=self.ds.layer_mass.values
-            #     )
             moistening_preds[time_batch, :, :, :] = pred['QT']
             heating_preds[time_batch, :, :, :] = pred['SLI']
             moistening_residuals[time_batch, :, :, :] = true['QT'] - pred['QT']
@@ -99,21 +90,6 @@ class BaseModel(object):
         ]
         return np.digitize(
             self.column_integrated_qt_residuals, bins, right=True)
-
-
-def insert_precipitation_bin_membership(dataset, binning_quantiles):
-    if not binning_quantiles:
-        return dataset
-    bins = [
-        dataset.Prec.quantile(quantile).values
-        for quantile in binning_quantiles
-    ]
-    eta_ = dataset['Prec'].copy()
-    eta_.values = np.digitize(dataset.Prec.values, bins, right=True)
-    dataset['eta'] = eta_
-    dataset['eta'].attrs['units'] = ''
-    dataset['eta'].attrs['long_name'] = 'Stochastic State'
-    return dataset
 
 
 def insert_nn_output_precip_ratio_bin_membership(
@@ -147,7 +123,6 @@ def insert_nn_output_precip_ratio_bin_membership(
 def get_xarray_dataset_with_eta(
         data,
         binning_quantiles,
-        binning_method,
         base_model_location=None,
         t_start=0,
         t_stop=640):
@@ -156,12 +131,8 @@ def get_xarray_dataset_with_eta(
     except ValueError:
         dataset = xr.open_dataset(data)
     dataset = dataset.isel(time=range(t_start, t_stop))
-    if binning_method == 'q2_residual':
-        dataset = insert_nn_output_precip_ratio_bin_membership(
-            dataset, binning_quantiles, base_model_location)
-    elif binning_method == 'precip':
-        dataset = insert_precipitation_bin_membership(
-            dataset, binning_quantiles)
+    dataset = insert_nn_output_precip_ratio_bin_membership(
+        dataset, binning_quantiles, base_model_location)
     try:
         return dataset.isel(step=0).drop('step').drop('p')
     except Exception:
@@ -170,9 +141,7 @@ def get_xarray_dataset_with_eta(
 
 @lru_cache()
 def get_dataset(
-        # ds_location="/Users/stewart/projects/uwnet/data/processed/training.nc",
         ds_location="training.nc",
-        binning_method=binning_method,
         base_model_location=base_model_location,
         add_precipital_water=True,
         t_start=0,
@@ -180,7 +149,6 @@ def get_dataset(
     ds = get_xarray_dataset_with_eta(
         ds_location,
         binning_quantiles,
-        binning_method,
         base_model_location=base_model_location,
         t_start=t_start,
         t_stop=t_stop

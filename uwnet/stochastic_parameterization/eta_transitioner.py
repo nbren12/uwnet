@@ -36,7 +36,6 @@ class EtaTransitioner(object):
             dt_seconds=dataset_dt_seconds,
             model=default_model,
             predictors=predictors,
-            binning_method='precip',
             t_start=0,
             t_stop=640):
         self.t_start = t_start
@@ -44,7 +43,6 @@ class EtaTransitioner(object):
         self.poly_degree = poly_degree
         self.model = model
         self.predictors = predictors
-        self.binning_method = binning_method
         self.is_trained = False
         self.set_normalization_params()
         self.etas = list(range(len(binning_quantiles)))
@@ -59,7 +57,6 @@ class EtaTransitioner(object):
 
     def set_normalization_params(self):
         ds = get_dataset(
-            binning_method=self.binning_method,
             t_start=self.t_start,
             t_stop=self.t_stop
         )
@@ -90,7 +87,6 @@ class EtaTransitioner(object):
 
     def format_training_data(self):
         ds = get_dataset(
-            binning_method=self.binning_method,
             t_start=self.t_start,
             t_stop=self.t_stop
         )

@@ -32,14 +32,10 @@ from toolz import curry
 import torch
 from ignite.engine import Engine, Events
 from torch.utils.data import DataLoader
-from uwnet.stochastic_parameterization.utils import (
-    get_xarray_dataset_with_eta,
-    binning_method as default_binning_method
-)
 from uwnet.model import get_model
 from uwnet.pre_post import get_pre_post
 from uwnet.training_plots import TrainingPlotManager
-from uwnet.datasets import XRTimeSeries, ConditionalXRSampler, get_timestep
+from uwnet.datasets import XRTimeSeries, get_timestep
 from ignite.engine import Engine, Events
 from uwnet.loss import get_input_output, get_step, weighted_mean_squared_error
 
@@ -63,8 +59,6 @@ def my_config():
     time_length = None
     batch_size = 256
     vertical_grid_size = 34
-    binning_quantiles = None
-    eta_to_train = None
     loss_scale = {
         'LHF': 150,
         'SHF': 10,
@@ -99,21 +93,23 @@ def my_config():
 
     plots = dict(interval=1, single_column_locations=[(32, 0)])
     step_type = 'instability'
-    binning_method = default_binning_method
-    base_model_location = None
 
 
 @ex.capture
-def get_xarray_dataset(
-        data, binning_quantiles, binning_method, base_model_location):
-    return get_xarray_dataset_with_eta(
-        data, binning_quantiles, binning_method, base_model_location
-    )
+def get_dataset(data):
+    try:
+        dataset = xr.open_zarr(data)
+    except ValueError:
+        dataset = xr.open_dataset(data)
+    try:
+        return dataset.isel(step=0).drop('step').drop('p')
+    except Exception:
+        return dataset
 
 
 @ex.capture
 def get_data_loader(data: xr.Dataset, train, training_slices,
-                    validation_slices, prognostics, batch_size, eta_to_train):
+                    validation_slices, prognostics, batch_size):
 
     from torch.utils.data.dataloader import default_collate
     from uwnet.timestepper import Batch
@@ -132,11 +128,6 @@ def get_data_loader(data: xr.Dataset, train, training_slices,
         return Batch(default_collate(batch), prognostics)
 
     train_data = XRTimeSeries(ds)
-    print(eta_to_train)
-    if eta_to_train is not None:
-        train_data = ConditionalXRSampler(ds, eta_to_train)
-    else:
-        train_data = XRTimeSeries(ds)
     return DataLoader(
         train_data,
         batch_size=batch_size,
@@ -181,8 +172,7 @@ class Trainer(object):
 
         # get output directory
         self.output_dir = get_output_dir()
-        print(self.output_dir)
-        self.dataset = get_xarray_dataset()
+        self.dataset = get_dataset()
         self.mass = torch.tensor(self.dataset.layer_mass.values).view(
             -1, 1, 1).float()
         self.z = torch.tensor(self.dataset.z.values).float()
@@ -293,14 +283,13 @@ class Trainer(object):
     @ex.capture
     def train(self, epochs):
         """Train the neural network for a fixed number of epochs"""
-        print('training')
         self.engine.run(self.train_loader, max_epochs=epochs)
 
 
 @ex.command()
 def train_pre_post(prepost):
     """Train the pre and post processing modules"""
-    dataset = get_xarray_dataset()
+    dataset = get_dataset()
     logging.info(f"Saving Pre/Post module to {prepost['path']}")
     torch.save(get_pre_post(dataset), prepost['path'])
 

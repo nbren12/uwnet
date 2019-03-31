@@ -9,10 +9,7 @@ from uwnet.stochastic_parameterization.utils import get_dataset
 model = StochasticStateModel(dt_seconds=15 * 60)
 model.train()
 state = torch.load('/Users/stewart/Desktop/state.pt')
-ds = get_dataset(
-    binning_method=model.binning_method,
-    t_start=50,
-    t_stop=75)
+ds = get_dataset(t_start=50, t_stop=75)
 
 
 def get_state_for_time(time_):
