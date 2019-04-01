@@ -111,11 +111,12 @@ class EtaTransitioner(object):
         return x_data, y_data
 
     def train(self):
-        x_data, y_data = self.format_training_data()
-        from sklearn.model_selection import train_test_split
-        x_data, x_test, y_data, y_test = train_test_split(
-            x_data, y_data, test_size=0.9)
-        self.model.fit(x_data, y_data)
+        if len(self.etas) > 1:
+            x_data, y_data = self.format_training_data()
+            from sklearn.model_selection import train_test_split
+            x_data, x_test, y_data, y_test = train_test_split(
+                x_data, y_data, test_size=0.9)
+            self.model.fit(x_data, y_data)
         self.is_trained = True
 
     def get_input_array_from_state_true(self, etas, state):

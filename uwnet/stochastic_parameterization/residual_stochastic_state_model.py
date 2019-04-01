@@ -7,11 +7,9 @@ from uwnet.stochastic_parameterization.utils import (
 )
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
-# from uwnet.sam_interface import get_model
 from torch import nn
 
 dataset_dt_seconds = 10800
-# model_dir = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'
 model_dir = ''
 base_model_location = model_dir + 'full_model/1.pkl'
 
@@ -157,7 +155,8 @@ class StochasticStateModel(nn.Module):
             raise Exception('Model already trained')
 
     def update_eta(self, x):
-        self.eta = self.eta_transitioner.transition_etas(self.eta, x)
+        if len(binning_quantiles) > 1:
+            self.eta = self.eta_transitioner.transition_etas(self.eta, x)
 
     def forward(self, x, eta=None):
         if (('PW' in self.residual_model_inputs) or (
@@ -187,15 +186,3 @@ def train_a_model():
     torch.save(
         model,
         'uwnet/stochastic_parameterization/residual_stochastic_model.pkl')
-
-
-# if __name__ == '__main__':
-#     train_a_model()
-    # config = {
-    #     'type': 'neural_network',
-    #     'path': 'stochastic_parameterization/model.pkl'
-    # }
-    # model = get_model(config)
-    # data = torch.load('/Users/stewart/Desktop/state.pt')
-    # pred = model(data)
-    # print(pred)
