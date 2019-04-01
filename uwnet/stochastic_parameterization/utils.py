@@ -5,6 +5,7 @@ from uwnet.tensordict import TensorDict
 import xarray as xr
 
 model_dir = ''
+# model_dir = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'
 model_location = model_dir + 'stochastic_model.pkl'
 base_model_location = model_dir + 'full_model/1.pkl'
 dataset_dt_seconds = 10800
@@ -126,14 +127,16 @@ def get_xarray_dataset_with_eta(
         binning_quantiles,
         base_model_location=None,
         t_start=0,
-        t_stop=640):
+        t_stop=640,
+        set_eta=True):
     try:
         dataset = xr.open_zarr(data)
     except ValueError:
         dataset = xr.open_dataset(data)
     dataset = dataset.isel(time=range(t_start, t_stop))
-    dataset = insert_nn_output_precip_ratio_bin_membership(
-        dataset, binning_quantiles, base_model_location)
+    if set_eta:
+        dataset = insert_nn_output_precip_ratio_bin_membership(
+            dataset, binning_quantiles, base_model_location)
     try:
         return dataset.isel(step=0).drop('step').drop('p')
     except Exception:
@@ -142,17 +145,20 @@ def get_xarray_dataset_with_eta(
 
 @lru_cache()
 def get_dataset(
+        # ds_location="uwnet/stochastic_parameterization/training.nc",
         ds_location="training.nc",
         base_model_location=base_model_location,
         add_precipital_water=True,
         t_start=0,
-        t_stop=640):
+        t_stop=640,
+        set_eta=True):
     ds = get_xarray_dataset_with_eta(
         ds_location,
         binning_quantiles,
         base_model_location=base_model_location,
         t_start=t_start,
-        t_stop=t_stop
+        t_stop=t_stop,
+        set_eta=set_eta
     )
     if add_precipital_water:
         ds['PW'] = (ds.QT * ds.layer_mass).sum('z') / 1000

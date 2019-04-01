@@ -24,9 +24,9 @@ from uwnet.stochastic_parameterization.graph_utils import (
 
 model_dir = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization'
 # model_location = model_dir + '/stochastic_model.pkl'
-model_location = model_dir + '/residual_stochastic_model.pkl'
 base_model_location = model_dir + '/full_model/1.pkl'
-model = torch.load(model_location)
+model = StochasticStateModel()
+model.train()
 base_model = torch.load(base_model_location)
 
 
@@ -319,6 +319,6 @@ def compare_true_to_simulated_q1_q2_distributions(true_etas=True):
 
 
 if __name__ == '__main__':
-    evaluate_stochasticity_of_model()
+    # evaluate_stochasticity_of_model()
     # plot_true_eta_vs_simulated_eta()
     compare_true_to_simulated_q1_q2_distributions(False)

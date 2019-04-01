@@ -33,7 +33,7 @@
     "nprint": 240,
     "nrad": 30,
     "nrestart": 0,
-    "nsave2d": 30,
+    "nsave2d": 90,
     "nsave2dend": 99960480,
     "nsave2dstart": 0,
     "nsave3d": 3000,
@@ -57,6 +57,7 @@
     "dopython": true,
     "usepython": true,
     "npython": 1,
+    "nsavepython": 90,
     "function_name": "call_neural_network",
     "module_name": "uwnet.sam_interface",
     "do_debias_lhf": true

@@ -10,11 +10,13 @@ from sklearn.linear_model import LinearRegression
 from torch import nn
 
 dataset_dt_seconds = 10800
+# model_dir = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'  # noqa
 model_dir = ''
 base_model_location = model_dir + 'full_model/1.pkl'
 
 t_start = 100
 t_stop = 150
+model_inputs = ['SST', 'QT', 'SLI', 'SOLIN']
 
 
 class StochasticStateModel(nn.Module):
@@ -24,11 +26,10 @@ class StochasticStateModel(nn.Module):
             dims=(64, 128),
             dt_seconds=10800,
             prognostics=['QT', 'SLI'],
-            residual_model_inputs=['SST', 'QT', 'SLI', 'SHF', 'LHF'],
+            residual_model_inputs=model_inputs,
             base_model_location=base_model_location,
             max_sli_for_residual_model=18,
             max_qt_for_residual_model=15,
-            filter_high_inputs=True,
             residual_model_class=LinearRegression):
         super(StochasticStateModel, self).__init__()
         self.is_trained = False
@@ -36,7 +37,6 @@ class StochasticStateModel(nn.Module):
         self.max_sli_for_residual_model = max_sli_for_residual_model
         self.max_qt_for_residual_model = max_qt_for_residual_model
         self.prognostics = prognostics
-        self.filter_high_inputs = filter_high_inputs
         self.possible_etas = list(range(len(binning_quantiles)))
         self._dt_seconds = dt_seconds
         self.setup_eta()
@@ -77,8 +77,14 @@ class StochasticStateModel(nn.Module):
 
     def format_x_data_for_residual_model(self, eta, preds, x, indices):
         pred_input = torch.cat([
-            preds['QT'][:, indices[:, 0], indices[:, 1]],
-            preds['SLI'][:, indices[:, 0], indices[:, 1]],
+            preds['QT'][
+                :self.max_qt_for_residual_model,
+                indices[:, 0],
+                indices[:, 1]],
+            preds['SLI'][
+                :self.max_sli_for_residual_model,
+                indices[:, 0],
+                indices[:, 1]],
         ])
         x_data = {'QT': pred_input, 'SLI': pred_input}
         for variable in self.residual_model_inputs:
@@ -98,14 +104,13 @@ class StochasticStateModel(nn.Module):
         }
         preds = np.hstack([
             ds.moistening_pred.values[
-                indices[:, 0], :, indices[:, 1], indices[:, 2]],
+                indices[:, 0], :, indices[:, 1], indices[:, 2]
+            ][:, :self.max_qt_for_residual_model],
             ds.heating_pred.values[
-                indices[:, 0], :, indices[:, 1], indices[:, 2]]
+                indices[:, 0], :, indices[:, 1], indices[:, 2]
+            ][:, :self.max_sli_for_residual_model]
         ])
-        x_data = {
-            'QT': preds,
-            'SLI': preds
-        }
+        x_data = {'QT': preds, 'SLI': preds}
         for variable in self.residual_model_inputs:
             if len(ds[variable].shape) == 4:
                 data_for_var = ds[variable].values[
@@ -117,14 +122,6 @@ class StochasticStateModel(nn.Module):
                 ].reshape(-1, 1)
             for var in ['QT', 'SLI']:
                 x_data[var] = np.hstack([x_data[var], data_for_var])
-        if self.filter_high_inputs:
-            rows_to_keep = (
-                (x_data['QT'][:, :34] < self.max_qt_for_residual_model) &
-                (x_data['QT'][:, 34:68] < self.max_sli_for_residual_model)
-            ).all(axis=1)
-            for var in ['QT', 'SLI']:
-                x_data[var] = x_data[var][rows_to_keep]
-                y_data[var] = y_data[var][rows_to_keep]
         return x_data, y_data
 
     def train(self):
