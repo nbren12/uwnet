@@ -178,6 +178,20 @@ def integrate_q2(q2, layer_mass, dim='z'):
     return (q2 * layer_mass).sum(dim) / liquid_water_density
 
 
+def net_precipitation_from_training(data):
+    """Compute Net Precipitation from Q2
+
+    This is not exactly equivalent to precipitation minus evaporation due to
+    sampling issue.
+    """
+    return -integrate_q2(
+        compute_apparent_source(data.QT, data.FQT * 86400), data.layer_mass)
+
+
+def net_precipitation_from_prec_evap(data):
+    return data.Prec - lhf_to_evap(data.LHF)
+
+
 def net_heating(prec, shf, swns, swnt, lwns, lwnt):
     surface_radiation_net_upward = (lwns - swns)
     toa_radiation_net_upward = (lwnt - swnt)
