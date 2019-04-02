@@ -106,7 +106,7 @@ def plot(plotme):
     cm = 'viridis'
 
 
-    kw = dict(vmin=0, vmax=50, rasterized=True, cmap=cm)
+    kw = dict(vmin=0, vmax=60, rasterized=True, cmap=cm)
 
     for j, run in enumerate(plotme.concat_dim):
         
@@ -123,7 +123,7 @@ def plot(plotme):
         ax.set_title(f'{abc[count]}) {run}', loc='left')
         count += 1
         
-        if run in['NN-All', 'Base']:
+        if run in['NN-All']:
             plot_inset_nn_all(ax, val)
 
     axs = np.reshape(grid, (2, 2))
