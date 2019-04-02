@@ -57,7 +57,7 @@ def plot_tropics_eta_distribution_over_time():
         np.array(distributions).T,
         list(range(len(distributions))),
         legend_labels=legend_labels,
-        title='Distribution of Etas over Time')
+        title='Distribution of Etas by Day in Tropics')
 
 
 if __name__ == '__main__':
