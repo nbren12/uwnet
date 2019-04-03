@@ -1,3 +1,5 @@
+"""Thermodynamic and other math calculations
+"""
 import numpy as np
 import xarray as xr
 
@@ -198,3 +200,21 @@ def net_heating(prec, shf, swns, swnt, lwns, lwnt):
     net_radiation = surface_radiation_net_upward - toa_radiation_net_upward
 
     return prec * (Lc / sec_in_day) + net_radiation
+
+
+def periodogram(pw: xr.DataArray, dim='x', freq_name='f'):
+    from scipy import signal
+    axis = pw.get_axis_num(dim)
+
+    x = pw.values
+
+    coord = pw[dim]
+    d = float(coord[1]-coord[0])
+    f, x = signal.periodogram(x, axis=axis, fs=1/d)
+
+    dims = list(pw.dims)
+    dims[pw.get_axis_num(dim)] = freq_name
+    coords = {key: pw[key] for key in pw.dims if key != dim}
+    coords[freq_name] = f
+
+    return xr.DataArray(x, dims=dims, coords=coords)
