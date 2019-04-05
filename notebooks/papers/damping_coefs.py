@@ -1,4 +1,4 @@
-200import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import xarray as xr
 import numpy as np
 
@@ -39,7 +39,7 @@ def plot(data):
     plot_pres_vs_y(
         q_damping, pres, ax, fig, title='QT damping (1/day)')
 
-    qt_dyn_label = r'$\left( \frac{\partial q_T}{\partial t} \right)_{dyn}$'
+    qt_dyn_label = r'$\left( \frac{\partial q_T}{\partial t} \right)_{GCM}$'
     keys = ['QT', 'FQT']
     df['FQT'] *= 86400
     labels = [r'$q_T$ [g/kg]', qt_dyn_label + ' [g/kg/d]']
@@ -94,3 +94,4 @@ def get_time_series_data():
 
 
 plot(get_data())
+plt.savefig("damping.pdf")
