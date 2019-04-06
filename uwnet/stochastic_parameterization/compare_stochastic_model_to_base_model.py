@@ -56,10 +56,10 @@ def plot_pw_tropics_zonal_variance_over_time():
     ds_b.isel(y=range(28, 36)).NPNN.mean('y').var('x').plot(label='Base Model')
     ds_true.isel(y=range(28, 36)).NPNN.mean('y').var('x').plot(
         label='True Data')
-    plt.ylabel('Equator Zonal Variancein Net Precipital Water (mm)')
+    plt.ylabel('Equator Zonal Variance in Net Precipitation (mm)')
     plt.xlabel('Time')
     plt.legend(loc='best')
-    plt.title('Equator Zonal Variance Net Precipital Water over Time')
+    plt.title('Equator Zonal Variance Net Precipitation over Time')
     plt.show()
 
 

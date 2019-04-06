@@ -15,16 +15,16 @@ from uwnet.tensordict import TensorDict
 from uwnet.stochastic_parameterization.residual_stochastic_state_model import (  # noqa
     StochasticStateModel,
 )
-from uwnet.stochastic_parameterization.utils import get_dataset
+from uwnet.stochastic_parameterization.utils import (
+    get_dataset,
+    base_model_location,
+)
 from uwnet.stochastic_parameterization.graph_utils import (
     draw_histogram,
     draw_barplot_multi,
     loghist,
 )
 
-model_dir = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization'
-# model_location = model_dir + '/stochastic_model.pkl'
-base_model_location = model_dir + '/full_model/1.pkl'
 model = StochasticStateModel()
 model.train()
 base_model = torch.load(base_model_location)

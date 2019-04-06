@@ -1,25 +1,27 @@
 import numpy as np
+from sklearn.preprocessing import quantile_transform
 import torch
+import xarray as xr
 from uwnet.stochastic_parameterization.eta_transitioner import EtaTransitioner
 from uwnet.stochastic_parameterization.utils import (
     binning_quantiles,
     get_dataset,
+    model_dir,
+    base_model_location,
+    dataset_dt_seconds,
 )
+from uwnet.xarray_interface import XRCallMixin
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from torch import nn
 
-dataset_dt_seconds = 10800
-# model_dir = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'  # noqa
-model_dir = ''
-base_model_location = model_dir + 'full_model/1.pkl'
-
 t_start = 100
 t_stop = 150
 model_inputs = ['SST', 'QT', 'SLI', 'SOLIN']
+quantile_transform_data = False
 
 
-class StochasticStateModel(nn.Module):
+class StochasticStateModel(nn.Module, XRCallMixin):
 
     def __init__(
             self,
@@ -60,16 +62,14 @@ class StochasticStateModel(nn.Module):
         transitioner = EtaTransitioner(
             dt_seconds=self.dt_seconds,
             t_start=t_start,
-            t_stop=t_stop)
+            t_stop=t_stop,
+            quantile_transform_data=quantile_transform_data)
         transitioner.train()
         self.eta_transitioner = transitioner
 
     def setup_eta(self):
-        self.eta = np.random.choice(
-            self.possible_etas,
-            self.dims,
-            p=np.ediff1d([0] + list(binning_quantiles))
-        )
+        ds = get_dataset(t_start=t_start, t_stop=t_stop)
+        self.eta = ds.sel(time=np.random.choice(ds.time)).eta.values
 
     def eval(self):
         if not self.is_trained:
@@ -92,7 +92,11 @@ class StochasticStateModel(nn.Module):
             for var in ['QT', 'SLI']:
                 x_data[var] = torch.cat([x_data[var], data_for_var.float()])
         for var in ['QT', 'SLI']:
-            x_data[var] = x_data[var].detach().numpy().T
+            if quantile_transform_data:
+                x_data[var] = quantile_transform(
+                    x_data[var].detach().numpy().T, axis=0)
+            else:
+                x_data[var] = x_data[var].detach().numpy().T
         return x_data
 
     def format_training_data_for_residual_model(self, indices, ds):
@@ -122,6 +126,9 @@ class StochasticStateModel(nn.Module):
                 ].reshape(-1, 1)
             for var in ['QT', 'SLI']:
                 x_data[var] = np.hstack([x_data[var], data_for_var])
+        if quantile_transform_data:
+            for var in ['QT', 'SLI']:
+                x_data[var] = quantile_transform(x_data[var], axis=0)
         return x_data, y_data
 
     def train(self):
@@ -167,14 +174,24 @@ class StochasticStateModel(nn.Module):
         output = self.base_model(x)
         for eta, model in self.residual_models_by_eta.items():
             indices = np.argwhere(self.eta == eta)
-            x_data = self.format_x_data_for_residual_model(
-                eta, output, x, indices)
-            for key in self.prognostics:
-                output[key][:, indices[:, 0], indices[:, 1]] += (
-                    self.dt_seconds / dataset_dt_seconds) * torch.from_numpy(
-                        model[key].predict(x_data[key]).T).float()
-        output['stochastic_state'] = torch.from_numpy(self.eta)
+            if len(indices) > 0:
+                x_data = self.format_x_data_for_residual_model(
+                    eta, output, x, indices)
+                for key in self.prognostics:
+                    output[key][:, indices[:, 0], indices[:, 1]] += (
+                        self.dt_seconds / dataset_dt_seconds) * (
+                            torch.from_numpy(
+                                model[key].predict(x_data[key]).T).float())
+        # output['stochastic_state'] = torch.from_numpy(self.eta)
         return output
+
+    def predict(self, x):
+        outputs = []
+        for time in x.time:
+            row_for_time = x.sel(time=time)
+            output_for_time = self.call_with_xr(row_for_time)
+            outputs.append(output_for_time)
+        return xr.concat(outputs, dim='time')
 
 
 def train_a_model():
@@ -182,4 +199,4 @@ def train_a_model():
     model.train()
     torch.save(
         model,
-        'uwnet/stochastic_parameterization/residual_stochastic_model.pkl')
+        model_dir + 'residual_stochastic_model.pkl')

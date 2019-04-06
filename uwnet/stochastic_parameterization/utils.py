@@ -5,13 +5,16 @@ from uwnet.tensordict import TensorDict
 import xarray as xr
 
 model_dir = ''
-# model_dir = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'
+# model_dir = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'  # noqa
 model_location = model_dir + 'stochastic_model.pkl'
 base_model_location = model_dir + 'full_model/1.pkl'
 dataset_dt_seconds = 10800
-# binning_quantiles = [0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1]
+binning_method = 'precip'
+# binning_method = 'column_integrated_qt_residuals'
+binning_quantiles = [0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1]
 # binning_quantiles = [.1, .3, .7, .9, 1]
-binning_quantiles = [1]
+# binning_quantiles = [1]
+# binning_quantiles = [.01, .05, .15, .35, .65, .85, .95, .99, 1]
 
 
 class BaseModel(object):
@@ -86,12 +89,21 @@ class BaseModel(object):
 
     def get_bin_membership(self):
         self.get_qt_ratios()
-        bins = [
-            np.quantile(self.column_integrated_qt_residuals, quantile)
-            for quantile in self.binning_quantiles
-        ]
-        return np.digitize(
-            self.column_integrated_qt_residuals, bins, right=True)
+        if binning_method == 'precip':
+            bins = [
+                np.quantile(self.ds.Prec.values, quantile)
+                for quantile in self.binning_quantiles
+            ]
+            return np.digitize(
+                self.ds.Prec.values, bins, right=True)
+        elif binning_method == 'column_integrated_qt_residuals':
+            bins = [
+                np.quantile(self.column_integrated_qt_residuals, quantile)
+                for quantile in self.binning_quantiles
+            ]
+            return np.digitize(
+                self.column_integrated_qt_residuals, bins, right=True)
+        raise Exception(f'Binning method {binning_method} not recognized')
 
 
 def insert_nn_output_precip_ratio_bin_membership(
@@ -100,7 +112,8 @@ def insert_nn_output_precip_ratio_bin_membership(
         base_model_location):
     base_model = BaseModel(
         base_model_location,
-        dataset
+        dataset,
+        binning_quantiles=binning_quantiles
     )
     bin_membership = base_model.get_bin_membership()
     eta_ = dataset['Prec'].copy()
@@ -151,7 +164,8 @@ def get_dataset(
         add_precipital_water=True,
         t_start=0,
         t_stop=640,
-        set_eta=True):
+        set_eta=True,
+        binning_quantiles=binning_quantiles):
     ds = get_xarray_dataset_with_eta(
         ds_location,
         binning_quantiles,

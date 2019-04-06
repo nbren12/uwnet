@@ -1,6 +1,7 @@
 from scipy import linalg
 import numpy as np
 from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import quantile_transform
 from sklearn.ensemble import GradientBoostingClassifier
 from uwnet.stochastic_parameterization.utils import (
     get_dataset,
@@ -37,7 +38,8 @@ class EtaTransitioner(object):
             model=default_model,
             predictors=predictors,
             t_start=0,
-            t_stop=640):
+            t_stop=640,
+            quantile_transform_data=False):
         self.t_start = t_start
         self.t_stop = t_stop
         self.poly_degree = poly_degree
@@ -47,6 +49,7 @@ class EtaTransitioner(object):
         self.set_normalization_params()
         self.etas = list(range(len(binning_quantiles)))
         self.dt_seconds = dt_seconds
+        self.quantile_transform_data = quantile_transform_data
 
     def transform_transition_matrix_to_timestep(self, transition_matrix):
         if self.dt_seconds != dataset_dt_seconds:
@@ -108,14 +111,16 @@ class EtaTransitioner(object):
                     degree)
                 x_data = np.append(
                     x_data, data_for_predictor.reshape(-1, 1), 1)
+        if self.quantile_transform_data:
+            x_data = quantile_transform(x_data, axis=0)
         return x_data, y_data
 
     def train(self):
         if len(self.etas) > 1:
             x_data, y_data = self.format_training_data()
-            # from sklearn.model_selection import train_test_split
-            # x_data, x_test, y_data, y_test = train_test_split(
-            #     x_data, y_data, test_size=0.9)
+            from sklearn.model_selection import train_test_split
+            x_data, x_test, y_data, y_test = train_test_split(
+                x_data, y_data, test_size=0.9)
             self.model.fit(x_data, y_data)
         self.is_trained = True
 
@@ -143,6 +148,8 @@ class EtaTransitioner(object):
                             degree
                     )
                     i_ += 1
+        if self.quantile_transform_data:
+            return quantile_transform(input_array, axis=0)
         return input_array
 
     def get_transition_probabilities_true(self, etas, state):
