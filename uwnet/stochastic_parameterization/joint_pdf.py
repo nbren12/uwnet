@@ -8,21 +8,13 @@ import matplotlib.pyplot as plt
 import torch
 import pandas as pd
 
-from argparse import ArgumentParser
-
-parser = ArgumentParser()
-parser.add_argument('-m', '--model')
-parser.add_argument('-n', '--ngaqua', action='store_true')
-
-args = parser.parse_args()
-
 pw_name = 'pw'
 netprec_name = 'net_precip'
 
 
-def get_data(model=torch.load(args.model)):
+def get_data(model, **kwargs):
     # get data
-    ds = get_dataset(set_eta=False)
+    ds = get_dataset(set_eta=False, **kwargs)
     model.eta = model.eta[(ds.y > 4.5e6) & (ds.y < 5.5e6)]
     ds = ds.sel(
         time=slice(100, 115), y=slice(4.5e6, 5.5e6))
@@ -43,8 +35,8 @@ def get_data(model=torch.load(args.model)):
     return ds.to_dataframe()
 
 
-def get_ng():
-    ds = get_dataset(set_eta=False).sel(
+def get_ng(**kwargs):
+    ds = get_dataset(set_eta=False, **kwargs).sel(
         time=slice(100, 115), y=slice(4.5e6, 5.5e6))
     # ds = get_dataset(set_eta=False).sel(time=slice(100, 115))
 
@@ -118,19 +110,18 @@ def plot(df, title=''):
     plt.title(title)
 
 
-def main():
+def main(ngaqua):
 
-    if args.ngaqua:
+    if ngaqua:
         df = get_ng()
     else:
-        df = get_data()
+        df = get_data(torch.load('residual_stochastic_model.pkl'))
     plot(df)
     stats(df)
     plt.show()
 
 
 def plot_df(df, title=''):
-    plot(df)
     plot(df, title)
     plt.show()
 

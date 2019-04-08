@@ -4,13 +4,16 @@ import torch
 import xarray as xr
 from uwnet.stochastic_parameterization.eta_transitioner import EtaTransitioner
 from uwnet.stochastic_parameterization.utils import (
-    binning_quantiles,
+    default_binning_quantiles,
+    default_binning_method,
     get_dataset,
     model_dir,
-    base_model_location,
     dataset_dt_seconds,
+    default_ds_location,
+    default_base_model_location,
 )
 from uwnet.xarray_interface import XRCallMixin
+from uwnet.tensordict import TensorDict
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from torch import nn
@@ -18,7 +21,7 @@ from torch import nn
 t_start = 100
 t_stop = 150
 model_inputs = ['SST', 'QT', 'SLI', 'SOLIN']
-quantile_transform_data = False
+default_quantile_transform_data = False
 
 
 class StochasticStateModel(nn.Module, XRCallMixin):
@@ -29,11 +32,22 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             dt_seconds=10800,
             prognostics=['QT', 'SLI'],
             residual_model_inputs=model_inputs,
-            base_model_location=base_model_location,
             max_sli_for_residual_model=18,
             max_qt_for_residual_model=15,
-            residual_model_class=LinearRegression):
+            residual_model_class=LinearRegression,
+            binning_quantiles=default_binning_quantiles,
+            binning_method=default_binning_method,
+            ds_location=default_ds_location,
+            base_model_location=default_base_model_location,
+            quantile_transform_data=default_quantile_transform_data,
+            verbose=True):
         super(StochasticStateModel, self).__init__()
+        self.binning_quantiles = binning_quantiles
+        self.binning_method = binning_method
+        self.base_model_location = base_model_location
+        self.verbose = verbose
+        self.quantile_transform_data = quantile_transform_data
+        self.ds_location = ds_location
         self.is_trained = False
         self.dims = dims
         self.max_sli_for_residual_model = max_sli_for_residual_model
@@ -43,7 +57,6 @@ class StochasticStateModel(nn.Module, XRCallMixin):
         self._dt_seconds = dt_seconds
         self.setup_eta()
         self.residual_model_class = residual_model_class
-        self.base_model_location = base_model_location
         self.base_model = torch.load(base_model_location)
         self.setup_eta_transitioner()
         self.residual_model_inputs = residual_model_inputs
@@ -60,16 +73,43 @@ class StochasticStateModel(nn.Module, XRCallMixin):
 
     def setup_eta_transitioner(self):
         transitioner = EtaTransitioner(
+            ds_location=self.ds_location,
             dt_seconds=self.dt_seconds,
             t_start=t_start,
             t_stop=t_stop,
-            quantile_transform_data=quantile_transform_data)
+            quantile_transform_data=self.quantile_transform_data,
+            binning_quantiles=self.binning_quantiles,
+            binning_method=self.binning_method,
+            base_model_location=self.base_model_location)
         transitioner.train()
         self.eta_transitioner = transitioner
 
     def setup_eta(self):
-        ds = get_dataset(t_start=t_start, t_stop=t_stop)
+        ds = get_dataset(
+            ds_location=self.ds_location,
+            t_start=t_start,
+            t_stop=t_stop,
+            binning_quantiles=self.binning_quantiles,
+            binning_method=self.binning_method,
+            base_model_location=self.base_model_location
+        )
         self.eta = ds.sel(time=np.random.choice(ds.time)).eta.values
+
+    def simulate_eta(self, n_time_steps=50):
+        self.setup_eta()
+        ds = get_dataset(
+                ds_location=self.ds_location,
+                t_start=t_start,
+                t_stop=t_start + n_time_steps,
+                binning_quantiles=self.binning_quantiles,
+                binning_method=self.binning_method,
+                base_model_location=self.base_model_location)
+        for time in range(len(ds.time)):
+            input_data = {}
+            for predictor in self.eta_transitioner.predictors:
+                input_data[predictor] = torch.from_numpy(
+                    ds.isel(time=time)[predictor].values)
+            self.update_eta(TensorDict(input_data))
 
     def eval(self):
         if not self.is_trained:
@@ -92,7 +132,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             for var in ['QT', 'SLI']:
                 x_data[var] = torch.cat([x_data[var], data_for_var.float()])
         for var in ['QT', 'SLI']:
-            if quantile_transform_data:
+            if self.quantile_transform_data:
                 x_data[var] = quantile_transform(
                     x_data[var].detach().numpy().T, axis=0)
             else:
@@ -126,18 +166,26 @@ class StochasticStateModel(nn.Module, XRCallMixin):
                 ].reshape(-1, 1)
             for var in ['QT', 'SLI']:
                 x_data[var] = np.hstack([x_data[var], data_for_var])
-        if quantile_transform_data:
+        if self.quantile_transform_data:
             for var in ['QT', 'SLI']:
                 x_data[var] = quantile_transform(x_data[var], axis=0)
         return x_data, y_data
 
     def train(self):
         if not self.is_trained:
-            ds = get_dataset(t_start=t_start, t_stop=t_stop)
+            ds = get_dataset(
+                ds_location=self.ds_location,
+                t_start=t_start,
+                t_stop=t_stop,
+                binning_quantiles=self.binning_quantiles,
+                binning_method=self.binning_method,
+                base_model_location=self.base_model_location)
             residual_models_by_eta = {}
-            print('Training residual stochastic state model')
+            if self.verbose:
+                print('Training residual stochastic state model')
             for eta in self.possible_etas:
-                print(f'Training eta={eta}...')
+                if self.verbose:
+                    print(f'Training eta={eta}...')
                 indices = np.argwhere(ds.eta.values == eta)
                 x_data, y_data = self.format_training_data_for_residual_model(
                     indices, ds)
@@ -149,8 +197,9 @@ class StochasticStateModel(nn.Module, XRCallMixin):
                     residual_model.fit(x_train, y_train)
                     test_score = residual_model.score(x_test, y_test)
                     train_score = residual_model.score(x_train, y_train)
-                    print(f'{var} test score: {test_score}')
-                    print(f'{var} train score: {train_score}')
+                    if self.verbose:
+                        print(f'{var} test score: {test_score}')
+                        print(f'{var} train score: {train_score}')
                     residual_models[var] = residual_model
                 residual_models_by_eta[eta] = residual_models
             self.residual_models_by_eta = residual_models_by_eta
@@ -159,7 +208,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             raise Exception('Model already trained')
 
     def update_eta(self, x):
-        if len(binning_quantiles) > 1:
+        if len(self.binning_quantiles) > 1:
             self.eta = self.eta_transitioner.transition_etas(self.eta, x)
 
     def forward(self, x, eta=None):

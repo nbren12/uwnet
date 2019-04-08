@@ -6,7 +6,10 @@ from sklearn.ensemble import GradientBoostingClassifier
 from uwnet.stochastic_parameterization.utils import (
     get_dataset,
     dataset_dt_seconds,
-    binning_quantiles,
+    default_binning_quantiles,
+    default_binning_method,
+    default_ds_location,
+    default_base_model_location,
 )
 
 default_model = GradientBoostingClassifier(max_depth=500, verbose=2)
@@ -39,17 +42,25 @@ class EtaTransitioner(object):
             predictors=predictors,
             t_start=0,
             t_stop=640,
-            quantile_transform_data=False):
+            quantile_transform_data=False,
+            binning_quantiles=default_binning_quantiles,
+            binning_method=default_binning_method,
+            ds_location=default_ds_location,
+            base_model_location=default_base_model_location):
         self.t_start = t_start
         self.t_stop = t_stop
         self.poly_degree = poly_degree
         self.model = model
         self.predictors = predictors
         self.is_trained = False
-        self.set_normalization_params()
+        self.ds_location = ds_location
+        self.binning_quantiles = binning_quantiles
         self.etas = list(range(len(binning_quantiles)))
         self.dt_seconds = dt_seconds
         self.quantile_transform_data = quantile_transform_data
+        self.binning_method = binning_method
+        self.base_model_location = base_model_location
+        self.set_normalization_params()
 
     def transform_transition_matrix_to_timestep(self, transition_matrix):
         if self.dt_seconds != dataset_dt_seconds:
@@ -60,8 +71,12 @@ class EtaTransitioner(object):
 
     def set_normalization_params(self):
         ds = get_dataset(
+            ds_location=self.ds_location,
             t_start=self.t_start,
-            t_stop=self.t_stop
+            t_stop=self.t_stop,
+            binning_quantiles=self.binning_quantiles,
+            binning_method=self.binning_method,
+            base_model_location=self.base_model_location
         )
         self.layer_mass = ds.layer_mass.values
         normalization_params = {}
@@ -90,8 +105,12 @@ class EtaTransitioner(object):
 
     def format_training_data(self):
         ds = get_dataset(
+            ds_location=self.ds_location,
             t_start=self.t_start,
-            t_stop=self.t_stop
+            t_stop=self.t_stop,
+            binning_quantiles=self.binning_quantiles,
+            binning_method=self.binning_method,
+            base_model_location=self.base_model_location
         )
         start_times = np.array(range(len(ds.time) - 1))
         stop_times = start_times + 1

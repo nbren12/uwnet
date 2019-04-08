@@ -7,14 +7,16 @@ import xarray as xr
 model_dir = ''
 # model_dir = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'  # noqa
 model_location = model_dir + 'stochastic_model.pkl'
-base_model_location = model_dir + 'full_model/1.pkl'
+default_base_model_location = model_dir + 'full_model/1.pkl'
+default_ds_location = "training.nc"
+# default_ds_location = "uwnet/stochastic_parameterization/training.nc"
 dataset_dt_seconds = 10800
-binning_method = 'precip'
-# binning_method = 'column_integrated_qt_residuals'
-binning_quantiles = [0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1]
-# binning_quantiles = [.1, .3, .7, .9, 1]
-# binning_quantiles = [1]
-# binning_quantiles = [.01, .05, .15, .35, .65, .85, .95, .99, 1]
+# default_binning_method = 'precip'
+default_binning_method = 'column_integrated_qt_residuals'
+default_binning_quantiles = (0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1)
+# default_binning_quantiles = (.1, .3, .7, .9, 1)
+# default_binning_quantiles = (1)
+# default_binning_quantiles = (.01, .05, .15, .35, .65, .85, .95, .99, 1)
 
 
 class BaseModel(object):
@@ -23,13 +25,15 @@ class BaseModel(object):
             self,
             model_location,
             dataset,
-            binning_quantiles=binning_quantiles,
-            time_step_days=.125):
+            binning_quantiles=default_binning_quantiles,
+            time_step_days=.125,
+            binning_method=default_binning_method):
         self.model = torch.load(model_location)
         self.ds = dataset
         self.time_step_days = time_step_days
         self.time_step_seconds = 86400 * time_step_days
         self.binning_quantiles = binning_quantiles
+        self.binning_method = binning_method
 
     def get_true_nn_forcing_idx(self, time_idx):
         start = self.ds.isel(time=time_idx)
@@ -89,31 +93,33 @@ class BaseModel(object):
 
     def get_bin_membership(self):
         self.get_qt_ratios()
-        if binning_method == 'precip':
+        if self.binning_method == 'precip':
             bins = [
                 np.quantile(self.ds.Prec.values, quantile)
                 for quantile in self.binning_quantiles
             ]
             return np.digitize(
                 self.ds.Prec.values, bins, right=True)
-        elif binning_method == 'column_integrated_qt_residuals':
+        elif self.binning_method == 'column_integrated_qt_residuals':
             bins = [
                 np.quantile(self.column_integrated_qt_residuals, quantile)
                 for quantile in self.binning_quantiles
             ]
             return np.digitize(
                 self.column_integrated_qt_residuals, bins, right=True)
-        raise Exception(f'Binning method {binning_method} not recognized')
+        raise Exception(f'Binning method {self.binning_method} not recognized')
 
 
 def insert_nn_output_precip_ratio_bin_membership(
         dataset,
         binning_quantiles,
-        base_model_location):
+        base_model_location,
+        binning_method):
     base_model = BaseModel(
         base_model_location,
         dataset,
-        binning_quantiles=binning_quantiles
+        binning_quantiles=binning_quantiles,
+        binning_method=binning_method
     )
     bin_membership = base_model.get_bin_membership()
     eta_ = dataset['Prec'].copy()
@@ -141,7 +147,8 @@ def get_xarray_dataset_with_eta(
         base_model_location=None,
         t_start=0,
         t_stop=640,
-        set_eta=True):
+        set_eta=True,
+        binning_method=default_binning_method):
     try:
         dataset = xr.open_zarr(data)
     except ValueError:
@@ -149,7 +156,7 @@ def get_xarray_dataset_with_eta(
     dataset = dataset.isel(time=range(t_start, t_stop))
     if set_eta:
         dataset = insert_nn_output_precip_ratio_bin_membership(
-            dataset, binning_quantiles, base_model_location)
+            dataset, binning_quantiles, base_model_location, binning_method)
     try:
         return dataset.isel(step=0).drop('step').drop('p')
     except Exception:
@@ -158,21 +165,22 @@ def get_xarray_dataset_with_eta(
 
 @lru_cache()
 def get_dataset(
-        # ds_location="uwnet/stochastic_parameterization/training.nc",
-        ds_location="training.nc",
-        base_model_location=base_model_location,
+        ds_location=default_ds_location,
+        base_model_location=default_base_model_location,
         add_precipital_water=True,
         t_start=0,
         t_stop=640,
         set_eta=True,
-        binning_quantiles=binning_quantiles):
+        binning_quantiles=default_binning_quantiles,
+        binning_method=default_binning_method):
     ds = get_xarray_dataset_with_eta(
         ds_location,
         binning_quantiles,
         base_model_location=base_model_location,
         t_start=t_start,
         t_stop=t_stop,
-        set_eta=set_eta
+        set_eta=set_eta,
+        binning_method=binning_method
     )
     if add_precipital_water:
         ds['PW'] = (ds.QT * ds.layer_mass).sum('z') / 1000
