@@ -5,7 +5,8 @@ from uwnet.thermo import lhf_to_evap
 
 
 dir_ = '/Users/stewart/Desktop/'
-ds_s = xr.open_dataset(dir_ + 'stochastic_model_gcm_output.nc')
+# ds_s = xr.open_dataset(dir_ + 'stochastic_model_gcm_output.nc')
+ds_s = xr.open_dataset(dir_ + 'no_hyper_diffuse.nc')
 ds_b = xr.open_dataset(dir_ + 'base_model_gcm_output.nc')
 ds_true = get_dataset(
     ds_location="/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/training.nc",  # noqa

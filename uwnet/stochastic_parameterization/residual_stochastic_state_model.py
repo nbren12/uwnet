@@ -128,7 +128,18 @@ class StochasticStateModel(nn.Module, XRCallMixin):
         ])
         x_data = {'QT': pred_input, 'SLI': pred_input}
         for variable in self.residual_model_inputs:
-            data_for_var = x[variable][:, indices[:, 0], indices[:, 1]]
+            if variable == 'QT':
+                data_for_var = x[variable][
+                    :self.max_qt_for_residual_model,
+                    indices[:, 0],
+                    indices[:, 1]]
+            elif variable == 'SLI':
+                data_for_var = x[variable][
+                    :self.max_sli_for_residual_model,
+                    indices[:, 0],
+                    indices[:, 1]]
+            else:
+                data_for_var = x[variable][:, indices[:, 0], indices[:, 1]]
             for var in ['QT', 'SLI']:
                 x_data[var] = torch.cat([x_data[var], data_for_var.float()])
         for var in ['QT', 'SLI']:
@@ -156,7 +167,21 @@ class StochasticStateModel(nn.Module, XRCallMixin):
         ])
         x_data = {'QT': preds, 'SLI': preds}
         for variable in self.residual_model_inputs:
-            if len(ds[variable].shape) == 4:
+            if variable == 'QT':
+                data_for_var = ds[variable].values[
+                    indices[:, 0],
+                    :self.max_qt_for_residual_model,
+                    indices[:, 1],
+                    indices[:, 2]
+                ]
+            elif variable == 'SLI':
+                data_for_var = ds[variable].values[
+                    indices[:, 0],
+                    :self.max_sli_for_residual_model,
+                    indices[:, 1],
+                    indices[:, 2]
+                ]
+            elif len(ds[variable].shape) == 4:
                 data_for_var = ds[variable].values[
                     indices[:, 0], :, indices[:, 1], indices[:, 2]
                 ]

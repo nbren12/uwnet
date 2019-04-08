@@ -17,7 +17,6 @@ from uwnet.stochastic_parameterization.residual_stochastic_state_model import ( 
 )
 from uwnet.stochastic_parameterization.utils import (
     get_dataset,
-    base_model_location,
 )
 from uwnet.stochastic_parameterization.graph_utils import (
     draw_histogram,
@@ -25,9 +24,14 @@ from uwnet.stochastic_parameterization.graph_utils import (
     loghist,
 )
 
-model = StochasticStateModel()
+dir_ = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'
+ds_location = dir_ + 'training.nc'
+model = StochasticStateModel(
+    ds_location=ds_location,
+    base_model_location=dir_ + 'full_model/1.pkl'
+)
 model.train()
-base_model = torch.load(base_model_location)
+base_model = torch.load(dir_ + 'full_model/1.pkl')
 
 
 def r2_score_(pred, truth, weights, dims=(0, 2, 3)):
@@ -85,7 +89,9 @@ def get_layer_mass_averaged_residuals_for_time(time_, ds, layer_mass_sum):
 
 
 def plot_residuals_by_eta():
-    ds = get_dataset()
+    ds = get_dataset(
+        ds_location=ds_location,
+        base_model_location=dir_ + 'full_model/1.pkl')
     layer_mass_sum = ds.layer_mass.values.sum()
     qt_residuals_by_eta = defaultdict(list)
     sli_residuals_by_eta = defaultdict(list)
@@ -119,7 +125,11 @@ def simulate_eta(ds):
 
 def plot_true_eta_vs_simulated_eta(ds=None):
     if not ds:
-        ds = get_dataset(t_start=50, t_stop=75)
+        ds = get_dataset(
+            ds_location=ds_location,
+            base_model_location=dir_ + 'full_model/1.pkl',
+            t_start=50,
+            t_stop=75)
     simulated_eta = simulate_eta(ds)
     true_eta = ds.eta.values
     for eta in range(ds.eta.values.min(), ds.eta.values.max() + 1):
@@ -146,7 +156,11 @@ def trim_extreme_values(array):
 
 
 def get_column_moistening_and_heating_comparisons(true_etas=True):
-    ds = get_dataset(t_start=50, t_stop=75)
+    ds = get_dataset(
+            ds_location=ds_location,
+            base_model_location=dir_ + 'full_model/1.pkl',
+            t_start=50,
+            t_stop=75)
     layer_mass_sum = ds.layer_mass.values.sum()
     qts_pred = []
     qts_true = []
@@ -189,7 +203,11 @@ def get_column_moistening_and_heating_comparisons(true_etas=True):
 
 
 def evaluate_stochasticity_of_model(n_simulations=20):
-    ds = get_dataset(t_start=50, t_stop=75)
+    ds = get_dataset(
+        ds_location=ds_location,
+        base_model_location=dir_ + 'full_model/1.pkl',
+        t_start=50,
+        t_stop=75)
     max_probs = []
     etas = []
     for time in range(n_simulations):
