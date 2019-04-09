@@ -86,6 +86,15 @@ if(flag.eq.4) then
 end if
 
 
+! hyperdiffusion
+if(flag.eq.5) then
+   call bound_exchange(u,dimx1_u,dimx2_u,dimy1_u,dimy2_u,nzm,2,3,2+NADV,2+NADV,1)
+   call bound_exchange(v,dimx1_v,dimx2_v,dimy1_v,dimy2_v,nzm,2+NADV,2+NADV,2,3,2)
+   call bound_exchange(w,dimx1_w,dimx2_w,dimy1_w,dimy2_w,nz,2+NADV,2+NADV,2+NADV,2+NADV,3)	
+
+
+endif
+
         
         
 end subroutine periodic

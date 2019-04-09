@@ -8,7 +8,7 @@ use sgs, only: tk, grdf_x, grdf_y, grdf_z
 use params, only: docolumn, dowallx, dowally
 implicit none
 
-real rdx2,rdy2,rdz2,rdz,rdx25,rdy25
+real rdx2,rdy2,rdz2,rdz,rdx25,rdy25, rdx16, rdy16
 real rdx21,rdy21,rdx251,rdy251,rdz25
 real dxy,dxz,dyx,dyz,dzx,dzy
 
@@ -21,6 +21,18 @@ rdy2=1./(dy*dy)
 
 rdx25=0.25*rdx2
 rdy25=0.25*rdy2
+
+rdx16 = rdx25*rdx25
+rdy16 = rdy25*rdy25
+
+! standard value for 250m was 0.1e8
+! khyp = 1.5e4
+! make grid-scale hyperdiffusive Reynold's number order 1 with velocity scale
+! U ~ 50 m/s
+! khyp = 0.5 * dx**4 /  (dx / 50.0)
+! This value of hyperdiffusion recommended by Jablonowski in 
+! The Pros and Cons of Diffusion, Filters and Fixers in Atmospheric General Circulation Models
+! near Eq. 13.50
 
 dxy=dx/dy
 dxz=dx/dz
@@ -188,6 +200,4 @@ do j=1,ny
    end do
   end do
  end do ! k
-
-
 end subroutine diffuse_mom3D

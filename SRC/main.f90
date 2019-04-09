@@ -5,6 +5,7 @@ program crm
 use vars
 use hbuffer
 use microphysics
+use hyperdiffusion
 use sgs
 use tracers
 use movies, only: init_movies
@@ -40,6 +41,7 @@ call t_stampf(init_time,usrtime,systime)
 
 call init()                    ! initialize some statistics arrays
 call setparm()                 ! set all parameters and constants
+if (dopython) call initialize_python_caller()
 
 !------------------------------------------------------------------
 ! Initialize or restart from the save-dataset:
@@ -73,7 +75,6 @@ call stat_2Dinit(1) ! argument of 1 means storage terms in stats are reset
 call tracers_init() ! initialize tracers
 call setforcing()
 
-if (dopython) call initialize_python_caller()
 
 if(masterproc) call printout()
 !------------------------------------------------------------------
@@ -211,9 +212,11 @@ do while(nstep.lt.nstop.and.nelapse.gt.0)
 
 !----------------------------------------------------------
 !	SGS effects on momentum:
-
+     if (dosgs) call boundaries(5)
      if(dosgs) call sgs_mom()
-
+     call hyper_diffuse()
+     if (.not. doheldsuarez) call hs_damp_velocity()
+     if (usepython) call apply_python_momentum()
 !-----------------------------------------------------------
 !       Coriolis force:
 	     
@@ -284,6 +287,10 @@ do while(nstep.lt.nstop.and.nelapse.gt.0)
 ! Neural network
 
       if (dopython .and. (mod(nstep-1, npython) == 0)) call state_to_python(dtn)
+      if (usepython) then
+         call apply_nn_forcings(dtn)
+      end if
+      if ((nsavepython .gt. 0) .and. (mod(nstep-1, nsavepython) == 0)) call save_python_state()
 
 !-----------------------------------------------------------
 !    Compute diagnostic fields:

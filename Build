@@ -70,26 +70,26 @@ if !(-d OBJ) ln -s $SAM_OBJ  OBJ
 #--------------------------------------------
 #bloss: add "make clean" if MICRO or RAD options
 #        have changed.
-cat > MICRO_RAD_OPTIONS.new <<EOF
-$HOSTNAME
-$ADV_DIR
-$SGS_DIR
-$MICRO_DIR
-$RAD_DIR
-EOF
+# cat > MICRO_RAD_OPTIONS.new <<EOF
+# $HOSTNAME
+# $ADV_DIR
+# $SGS_DIR
+# $MICRO_DIR
+# $RAD_DIR
+# EOF
 
-if (-e $SAM_OBJ/MICRO_RAD_OPTIONS) then
-  # use of cmp suggested by http://docs.hp.com/en/B2355-90046/ch14s03.html
-  cmp -s $SAM_OBJ/MICRO_RAD_OPTIONS MICRO_RAD_OPTIONS.new
-  if ($status != 0) then
-    # the file has changed -- remove everything from SAM_OBJ
-    #   so that we get a fresh compile of the model
-    echo "MICRO or RAD option changed in Build.  Removing all object files from OBJ/"
-    rm -f $SAM_OBJ/*
-  endif
-endif
-# move the new options into $SAM_OBJ/MICRO_RAD_OPTIONS
-mv -f MICRO_RAD_OPTIONS.new $SAM_OBJ/MICRO_RAD_OPTIONS
+# if (-e $SAM_OBJ/MICRO_RAD_OPTIONS) then
+#   # use of cmp suggested by http://docs.hp.com/en/B2355-90046/ch14s03.html
+#   cmp -s $SAM_OBJ/MICRO_RAD_OPTIONS MICRO_RAD_OPTIONS.new
+#   if ($status != 0) then
+#     # the file has changed -- remove everything from SAM_OBJ
+#     #   so that we get a fresh compile of the model
+#     echo "MICRO or RAD option changed in Build.  Removing all object files from OBJ/"
+#     rm -f $SAM_OBJ/*
+#   endif
+# endif
+# # move the new options into $SAM_OBJ/MICRO_RAD_OPTIONS
+# mv -f MICRO_RAD_OPTIONS.new $SAM_OBJ/MICRO_RAD_OPTIONS
 #--------------------------------------------
 
 

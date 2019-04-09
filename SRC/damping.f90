@@ -10,7 +10,7 @@ implicit none
 real tau_min	! minimum damping time-scale (at the top)
 real tau_max    ! maxim damping time-scale (base of damping layer)
 real damp_depth ! damping depth as a fraction of the domain height
-parameter(tau_min=1200., tau_max=86400., damp_depth=0.3)
+parameter(tau_min=600., tau_max=10800., damp_depth=0.3)
 real tau(nzm)   
 integer i, j, k, n_damp
 

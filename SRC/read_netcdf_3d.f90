@@ -42,7 +42,7 @@ contains
     ! initialize microphysics
     call micro_init()
 
-    use_nf_real = .true.
+    use_nf_real = .false.
     required = .true.
 
     nmicro = size(micro_field, 4)

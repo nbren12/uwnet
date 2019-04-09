@@ -335,7 +335,7 @@ subroutine sgs_scalars()
   use vars
   use microphysics
   use tracers
-  use params, only: dotracers
+  use params, only: dotracers, dosgsthermo
   implicit none
 
     real dummy(nz)
@@ -343,8 +343,6 @@ subroutine sgs_scalars()
     integer k
 
 
-      call diffuse_scalar(t,fluxbt,fluxtt,tdiff,twsb, &
-                           t2lediff,t2lediss,twlediff,.true.)
     
       if(advect_sgs) then
          call diffuse_scalar(tke,fzero,fzero,dummy,sgswsb, &
@@ -357,20 +355,27 @@ subroutine sgs_scalars()
 !
 !bloss      call micro_flux()
 
-      total_water_evap = total_water_evap - total_water()
+      if (dosgsthermo) then
 
-      do k = 1,nmicro_fields
-        if(   k.eq.index_water_vapor             &! transport water-vapor variable no metter what
-         .or. docloud.and.flag_precip(k).ne.1    & ! transport non-precipitation vars
-         .or. doprecip.and.flag_precip(k).eq.1 ) then
-           fluxbtmp(1:nx,1:ny) = fluxbmk(1:nx,1:ny,k)
-           fluxttmp(1:nx,1:ny) = fluxtmk(1:nx,1:ny,k)
-           call diffuse_scalar(micro_field(:,:,:,k),fluxbtmp,fluxttmp, &
-                mkdiff(:,k),mkwsb(:,k), dummy,dummy,dummy,.false.)
-       end if
-      end do
+         call diffuse_scalar(t,fluxbt,fluxtt,tdiff,twsb, &
+              t2lediff,t2lediss,twlediff,.true.)
 
-      total_water_evap = total_water_evap + total_water()
+         total_water_evap = total_water_evap - total_water()
+
+         do k = 1,nmicro_fields
+            if(   k.eq.index_water_vapor             &! transport water-vapor variable no metter what
+                 .or. docloud.and.flag_precip(k).ne.1    & ! transport non-precipitation vars
+                 .or. doprecip.and.flag_precip(k).eq.1 ) then
+               fluxbtmp(1:nx,1:ny) = fluxbmk(1:nx,1:ny,k)
+               fluxttmp(1:nx,1:ny) = fluxtmk(1:nx,1:ny,k)
+               call diffuse_scalar(micro_field(:,:,:,k),fluxbtmp,fluxttmp, &
+                    mkdiff(:,k),mkwsb(:,k), dummy,dummy,dummy,.false.)
+            end if
+         end do
+
+         total_water_evap = total_water_evap + total_water()
+
+      end if
 
  ! diffusion of tracers:
 

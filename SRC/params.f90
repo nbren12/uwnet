@@ -112,6 +112,9 @@ logical:: doseasons = .false.
 logical:: doequinox = .false.  ! Noah added
 logical:: dopython = .false. ! added by NDB
 logical:: usepython = .false. ! added by NDB
+! Controls whether to use the SGS scheme for the thermodynamic variables
+! turn off if using explicit parametrizations of surface processes
+logical:: dosgsthermo = .true. ! NDB
 integer:: npython = 1 ! added by NDB
 logical:: doradhomo = .false. 
 logical:: dosfchomo = .false.
@@ -122,6 +125,7 @@ logical:: dotracers = .false.
 logical:: dosmoke = .false. 
 logical:: notracegases = .false.
 logical:: doseawater = .true. !bloss(Set UW default to true!!) .false.
+real :: khyp = 1.0e16 ! noah: hyper diffusion coefficient for coarse resolution
 
 ! Specify solar constant and zenith angle for perpetual insolation.
 ! Based onn Tompkins and Graig (1998)
