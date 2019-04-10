@@ -154,7 +154,7 @@ class EtaTransitioner(object):
             i_ = 0
             for predictor in self.predictors:
                 data = state[predictor].numpy()
-                if data.shape[0] > 1:
+                if len(data.shape) > 2 and data.shape[0] > 1:
                     data = np.average(
                         data, axis=0, weights=self.layer_mass)
                 for degree in range(1, self.poly_degree + 1):
@@ -188,8 +188,7 @@ class EtaTransitioner(object):
     def transition_etas_true(self, etas, state):
         if not self.is_trained:
             raise Exception('Transition Matrix Model not Trained')
-        probabilities = self.get_transition_probabilities_true(
-            self, etas, state)
+        probabilities = self.get_transition_probabilities_true(etas, state)
         c = probabilities.cumsum(axis=1)
         u = np.random.rand(len(c), 1)
         return (u < c).argmax(axis=1).reshape(etas.shape)
@@ -218,6 +217,8 @@ class EtaTransitioner(object):
                         degree
                 )
                 i_ += 1
+        if self.quantile_transform_data:
+            return quantile_transform(input_array, axis=0)
         return input_array
 
     def get_transition_probabilities_efficient(self, etas, state):
@@ -237,9 +238,9 @@ class EtaTransitioner(object):
     def transition_etas_efficient(self, etas, state):
         if not self.is_trained:
             raise Exception('Transition Matrix Model not Trained')
-        transition_probabilities = self.get_transition_probabilities_efficient(
+        probabilities = self.get_transition_probabilities_efficient(
             etas, state)
-        c = transition_probabilities.cumsum(axis=1)
+        c = probabilities.cumsum(axis=1)
         u = np.random.rand(len(c), 1)
         return (u < c).argmax(axis=1).reshape(etas.shape)
 

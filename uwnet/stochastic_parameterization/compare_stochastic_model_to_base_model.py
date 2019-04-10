@@ -5,9 +5,10 @@ from uwnet.thermo import lhf_to_evap
 
 
 dir_ = '/Users/stewart/Desktop/'
-# ds_s = xr.open_dataset(dir_ + 'stochastic_model_gcm_output.nc')
-ds_s = xr.open_dataset(dir_ + 'no_hyper_diffuse.nc')
+ds_s = xr.open_dataset(dir_ + 'stochastic_model_gcm_output.nc')
+# ds_s = xr.open_dataset(dir_ + 'no_hyper_diffuse.nc')
 ds_b = xr.open_dataset(dir_ + 'base_model_gcm_output.nc')
+# ds_b = xr.open_dataset(dir_ + 'no_hyper_diffuse_base_model.nc')
 ds_true = get_dataset(
     ds_location="/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/training.nc",  # noqa
     set_eta=False,
@@ -52,15 +53,15 @@ def plot_zonal_mean_net_precip_over_time():
 
 
 def plot_pw_tropics_zonal_variance_over_time():
-    ds_s.isel(y=range(28, 36)).NPNN.mean('y').var('x').plot(
+    ds_s.isel(y=range(28, 36)).PW.mean('y').var('x').plot(
         label='Stochastic Model')
-    ds_b.isel(y=range(28, 36)).NPNN.mean('y').var('x').plot(label='Base Model')
-    ds_true.isel(y=range(28, 36)).NPNN.mean('y').var('x').plot(
+    ds_b.isel(y=range(28, 36)).PW.mean('y').var('x').plot(label='Base Model')
+    ds_true.isel(y=range(28, 36)).PW.mean('y').var('x').plot(
         label='True Data')
-    plt.ylabel('Equator Zonal Variance in Net Precipitation (mm)')
+    plt.ylabel('Equator Zonal Variance in PW (mm)')
     plt.xlabel('Time')
     plt.legend(loc='best')
-    plt.title('Equator Zonal Variance Net Precipitation over Time')
+    plt.title('Equator Zonal Variance PW over Time')
     plt.show()
 
 

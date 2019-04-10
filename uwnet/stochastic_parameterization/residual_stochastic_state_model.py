@@ -17,6 +17,10 @@ from uwnet.tensordict import TensorDict
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from torch import nn
+from torch.serialization import SourceChangeWarning
+import warnings
+
+warnings.filterwarnings("ignore", category=SourceChangeWarning)
 
 t_start = 100
 t_stop = 150
@@ -40,10 +44,12 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             ds_location=default_ds_location,
             base_model_location=default_base_model_location,
             quantile_transform_data=default_quantile_transform_data,
+            return_stochastic_state=True,
             verbose=True):
         super(StochasticStateModel, self).__init__()
         self.binning_quantiles = binning_quantiles
         self.binning_method = binning_method
+        self.return_stochastic_state = return_stochastic_state
         self.base_model_location = base_model_location
         self.verbose = verbose
         self.quantile_transform_data = quantile_transform_data
@@ -95,7 +101,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
         )
         self.eta = ds.sel(time=np.random.choice(ds.time)).eta.values
 
-    def simulate_eta(self, n_time_steps=50):
+    def simulate_eta(self, t_start=t_start, n_time_steps=50):
         self.setup_eta()
         ds = get_dataset(
                 ds_location=self.ds_location,
@@ -256,7 +262,8 @@ class StochasticStateModel(nn.Module, XRCallMixin):
                         self.dt_seconds / dataset_dt_seconds) * (
                             torch.from_numpy(
                                 model[key].predict(x_data[key]).T).float())
-        # output['stochastic_state'] = torch.from_numpy(self.eta)
+        if self.return_stochastic_state:
+            output['stochastic_state'] = torch.from_numpy(self.eta)
         return output
 
     def predict(self, x):
