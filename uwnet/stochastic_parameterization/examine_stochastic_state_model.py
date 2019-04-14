@@ -23,14 +23,16 @@ from uwnet.stochastic_parameterization.graph_utils import (
     draw_barplot_multi,
     loghist,
 )
+from uwnet.thermo import (
+    compute_apparent_source,
+    liquid_water_density,
+    cp,
+    sec_in_day,
+)
 
 dir_ = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'
 ds_location = dir_ + 'training.nc'
-model = StochasticStateModel(
-    ds_location=ds_location,
-    base_model_location=dir_ + 'full_model/1.pkl'
-)
-model.train()
+model = None
 base_model = torch.load(dir_ + 'full_model/1.pkl')
 
 
@@ -50,14 +52,14 @@ def r2_score_(pred, truth, weights, dims=(0, 2, 3)):
 
 
 def get_true_nn_forcing(time_, ds):
-    start = ds.isel(time=time_)
-    stop = ds.isel(time=time_ + 1)
-    true_nn_forcing = {}
-    for key in ['QT', 'SLI']:
-        forcing = (start[f'F{key}'] + stop[f'F{key}']) / 2
-        true_nn_forcing[key] = (stop[key] - start[key] - (
-            10800 * forcing)).values / .125
-    return true_nn_forcing
+    ds_for_time = ds.isel(time=[time_, time_ + 1])
+    qt_forcing = compute_apparent_source(
+        ds_for_time.QT,
+        ds_for_time.FQT * 86400).isel(time=0).values
+    sli_forcing = compute_apparent_source(
+        ds_for_time.SLI,
+        ds_for_time.FSLI * 86400).isel(time=0).values
+    return {'QT': qt_forcing, 'SLI': sli_forcing}
 
 
 def predict_for_time(time_, ds, model=model, true_etas=True):
@@ -155,13 +157,12 @@ def trim_extreme_values(array):
     ]
 
 
-def get_column_moistening_and_heating_comparisons(true_etas=True):
+def get_column_moistening_and_heating_comparisons(model, true_etas=True):
     ds = get_dataset(
-            ds_location=ds_location,
-            base_model_location=dir_ + 'full_model/1.pkl',
-            t_start=50,
-            t_stop=75)
-    layer_mass_sum = ds.layer_mass.values.sum()
+        ds_location=ds_location,
+        base_model_location=dir_ + 'full_model/1.pkl',
+        t_start=50,
+        t_stop=75)
     qts_pred = []
     qts_true = []
     qts_pred_base = []
@@ -169,23 +170,27 @@ def get_column_moistening_and_heating_comparisons(true_etas=True):
     slis_true = []
     slis_pred_base = []
     for time in range(24):
-        pred = predict_for_time(time, ds, true_etas=true_etas)
+        pred = predict_for_time(time, ds, model=model, true_etas=true_etas)
         pred_base = predict_for_time(time, ds, base_model)
         true = get_true_nn_forcing(time, ds)
         qts_pred.extend(
-            pred['QT'].T.dot(ds.layer_mass.values).ravel() / layer_mass_sum)
+            pred['QT'].T.dot(
+                ds.layer_mass.values).ravel() / liquid_water_density)
         qts_true.extend(
-            true['QT'].T.dot(ds.layer_mass.values).ravel() / layer_mass_sum)
+            true['QT'].T.dot(
+                ds.layer_mass.values).ravel() / liquid_water_density)
         qts_pred_base.extend(
-            pred_base['QT'].T.dot(ds.layer_mass.values).ravel() /
-            layer_mass_sum)
+            pred_base['QT'].T.dot(
+                ds.layer_mass.values).ravel() / liquid_water_density)
         slis_pred.extend(
-            pred['SLI'].T.dot(ds.layer_mass.values).ravel() / layer_mass_sum)
+            pred['SLI'].T.dot(
+                ds.layer_mass.values).ravel() * (cp / sec_in_day))
         slis_true.extend(
-            true['SLI'].T.dot(ds.layer_mass.values).ravel() / layer_mass_sum)
+            true['SLI'].T.dot(
+                ds.layer_mass.values).ravel() * (cp / sec_in_day))
         slis_pred_base.extend(
-            pred_base['SLI'].T.dot(ds.layer_mass.values).ravel() /
-            layer_mass_sum)
+            pred_base['SLI'].T.dot(
+                ds.layer_mass.values).ravel() * (cp / sec_in_day))
     qts_true = np.array(qts_true)
     qts_pred = np.array(qts_pred)
     qts_pred_base = np.array(qts_pred_base)
@@ -233,7 +238,10 @@ def evaluate_stochasticity_of_model(n_simulations=20):
         max_probs, pdf=True, title='PDF of max transition probability')
 
 
-def compare_true_to_simulated_q1_q2_distributions(true_etas=True):
+def compare_true_to_simulated_q1_q2_distributions(
+        model,
+        true_etas=False,
+        title_prefix=''):
     (
         qts_true,
         qts_pred,
@@ -241,7 +249,8 @@ def compare_true_to_simulated_q1_q2_distributions(true_etas=True):
         slis_true,
         slis_pred,
         slis_pred_base,
-    ) = get_column_moistening_and_heating_comparisons(true_etas=true_etas)
+    ) = get_column_moistening_and_heating_comparisons(
+        model, true_etas=true_etas)
     true_qt_variance = qts_true.var()
     print(f'True QT Variance: {true_qt_variance}')
     pred_qt_variance = qts_pred.var()
@@ -280,7 +289,7 @@ def compare_true_to_simulated_q1_q2_distributions(true_etas=True):
     loghist(
         slis_true,
         ax=ax,
-        upper_percentile=99.9,
+        upper_percentile=99.99,
         lower_percentile=0.01,
         label='True',
         gaussian_comparison=False
@@ -288,7 +297,7 @@ def compare_true_to_simulated_q1_q2_distributions(true_etas=True):
     loghist(
         slis_pred,
         ax=ax,
-        upper_percentile=99.9,
+        upper_percentile=99.99,
         lower_percentile=0.01,
         label='Stochastic Model',
         gaussian_comparison=False
@@ -296,7 +305,7 @@ def compare_true_to_simulated_q1_q2_distributions(true_etas=True):
     loghist(
         slis_pred_base,
         ax=ax,
-        upper_percentile=99.9,
+        upper_percentile=99.99,
         lower_percentile=0.01,
         label='Single Model',
         gaussian_comparison=False
@@ -306,14 +315,14 @@ def compare_true_to_simulated_q1_q2_distributions(true_etas=True):
         title = 'Log Histogram for NN SLI Forcing, with True Eta Transitions'
     else:
         title = 'Log Histogram for NN SLI Forcing, with Simulated Eta Transitions'  # noqa
-    plt.title(title)
+    plt.title(title_prefix + title)
     plt.show()
 
     fig, ax = plt.subplots()
     loghist(
         qts_true,
         ax=ax,
-        lower_percentile=.03,
+        lower_percentile=.01,
         label='True',
         gaussian_comparison=False
     )
@@ -332,11 +341,23 @@ def compare_true_to_simulated_q1_q2_distributions(true_etas=True):
         gaussian_comparison=False
     )
     plt.legend()
-    plt.title('Log Histogram for NN QT Forcing, with True Eta Transitions')
+    if true_etas:
+        title = 'Log Histogram for NN QT Forcing, with True Eta Transitions'
+    else:
+        title = 'Log Histogram for NN QT Forcing, with Simulated Eta Transitions'  # noqa
+    plt.title(title_prefix + title)
     plt.show()
 
 
 if __name__ == '__main__':
+    model = StochasticStateModel(
+        ds_location=ds_location,
+        base_model_location=dir_ + 'full_model/1.pkl',
+        verbose=False,
+        markov_process=True,
+        average_z_direction_for_transitioner=True
+    )
+    model.train()
     # evaluate_stochasticity_of_model()
     # plot_true_eta_vs_simulated_eta()
-    compare_true_to_simulated_q1_q2_distributions(False)
+    compare_true_to_simulated_q1_q2_distributions(model, False)

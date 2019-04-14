@@ -2,6 +2,7 @@ import numpy as np
 from functools import lru_cache
 import torch
 from uwnet.tensordict import TensorDict
+from uwnet.thermo import compute_apparent_source
 import xarray as xr
 
 model_dir = ''
@@ -13,6 +14,7 @@ default_ds_location = "training.nc"
 dataset_dt_seconds = 10800
 # default_binning_method = 'precip'
 default_binning_method = 'column_integrated_qt_residuals'
+# default_binning_method = 'column_integrated_sli_residuals'
 default_binning_quantiles = (0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1)
 # default_binning_quantiles = (.1, .3, .7, .9, 1)
 # default_binning_quantiles = (1,)
@@ -35,15 +37,14 @@ class BaseModel(object):
         self.binning_quantiles = binning_quantiles
         self.binning_method = binning_method
 
-    def get_true_nn_forcing_idx(self, time_idx):
-        start = self.ds.isel(time=time_idx)
-        stop = self.ds.isel(time=time_idx + 1)
-        true_nn_forcing = {}
-        for key in ['QT', 'SLI']:
-            forcing = (start[f'F{key}'].values + stop[f'F{key}'].values) / 2
-            true_nn_forcing[key] = (stop[key].values - start[key].values - (
-                self.time_step_seconds * forcing)) / self.time_step_days
-        return true_nn_forcing
+    def get_true_forcings(self):
+        qt_forcing = compute_apparent_source(
+            self.ds.QT,
+            self.ds.FQT * 86400)
+        sli_forcing = compute_apparent_source(
+            self.ds.SLI,
+            self.ds.FSLI * 86400)
+        return xr.Dataset({'QT': qt_forcing, 'SLI': sli_forcing})
 
     def predict_for_time_idx(self, time_idx):
         ds_filtered = self.ds.isel(time=time_idx)
@@ -59,35 +60,52 @@ class BaseModel(object):
 
     def get_qt_ratios(self):
         column_integrated_qt_residuals = np.ones_like(self.ds.Prec.values)
+        column_integrated_sli_residuals = np.ones_like(self.ds.Prec.values)
         moistening_residuals = np.ones_like(self.ds.QT.values)
         heating_residuals = np.ones_like(self.ds.SLI.values)
         moistening_preds = np.ones_like(self.ds.QT.values)
         heating_preds = np.ones_like(self.ds.SLI.values)
         time_indices = list(range(len(self.ds.time) - 1))
+        true_forcings = self.get_true_forcings()
         idx = 0
         for time_batch in np.array_split(time_indices, 10):
             idx += 1
             pred = self.predict_for_time_idx(time_batch)
-            true = self.get_true_nn_forcing_idx(time_batch)
+            true_qt = true_forcings.isel(time=time_batch).QT
+            true_sli = true_forcings.isel(time=time_batch).SLI
             q2_preds = np.ma.average(
                 pred['QT'],
                 axis=1,
                 weights=self.ds.layer_mass.values
             )
             q2_true = np.ma.average(
-                true['QT'],
+                true_qt,
                 axis=1,
                 weights=self.ds.layer_mass.values
             )
             column_integrated_qt_residuals[
                 time_batch, :, :] = q2_true - q2_preds
+            q1_preds = np.ma.average(
+                pred['SLI'],
+                axis=1,
+                weights=self.ds.layer_mass.values
+            )
+            q1_true = np.ma.average(
+                true_sli,
+                axis=1,
+                weights=self.ds.layer_mass.values
+            )
+            column_integrated_sli_residuals[
+                time_batch, :, :] = q1_true - q1_preds
+
             moistening_preds[time_batch, :, :, :] = pred['QT']
             heating_preds[time_batch, :, :, :] = pred['SLI']
-            moistening_residuals[time_batch, :, :, :] = true['QT'] - pred['QT']
-            heating_residuals[time_batch, :, :, :] = true['SLI'] - pred['SLI']
+            moistening_residuals[time_batch, :, :, :] = true_qt - pred['QT']
+            heating_residuals[time_batch, :, :, :] = true_sli - pred['SLI']
         self.heating_preds = heating_preds
         self.moistening_preds = moistening_preds
         self.column_integrated_qt_residuals = column_integrated_qt_residuals
+        self.column_integrated_sli_residuals = column_integrated_sli_residuals
         self.moistening_residuals = moistening_residuals
         self.heating_residuals = heating_residuals
 
@@ -107,6 +125,13 @@ class BaseModel(object):
             ]
             return np.digitize(
                 self.column_integrated_qt_residuals, bins, right=True)
+        elif self.binning_method == 'column_integrated_sli_residuals':
+            bins = [
+                np.quantile(self.column_integrated_sli_residuals, quantile)
+                for quantile in self.binning_quantiles
+            ]
+            return np.digitize(
+                self.column_integrated_sli_residuals, bins, right=True)
         raise Exception(f'Binning method {self.binning_method} not recognized')
 
 
@@ -138,6 +163,7 @@ def insert_nn_output_precip_ratio_bin_membership(
     dataset['moistening_pred'].values = base_model.moistening_preds
     dataset['heating_pred'] = dataset['SLI'].copy()
     dataset['heating_pred'].values = base_model.heating_preds
+    del base_model
     return dataset
 
 
