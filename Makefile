@@ -68,6 +68,10 @@ train: #${TRAINING_DATA}
 	     epochs=5 \
 		 'training_slices.x=(None,None)'\
          output_dir=rapid_train
+train_no_stability_penalty:
+	python -m uwnet.train with assets/training_configurations/default.json \
+		step.kwargs.alpha=0.0  -m uwnet
+
 
 train_momentum: ${TRAINING_DATA}
 	python -m uwnet.train with data=${TRAINING_DATA} examples/momentum.yaml

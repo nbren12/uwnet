@@ -144,7 +144,7 @@ rule sam_run:
     shell: """
     rm -rf {params.rundir}
     {sys.executable} -m  src.sam.create_case -nn {params.model} \
-        -t 0 -p assets/parameters2.json {params.rundir}
+        -t 0 -p assets/parameters_sam_neural_network.json {params.rundir}
     # run sam
     {RUN_SAM_SCRIPT} {params.rundir} >> {log} 2>> {log}
     exit 0
