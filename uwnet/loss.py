@@ -102,33 +102,28 @@ def equilibrium_penalty(criterion, model, batch, dt, n=20):
     return compute_loss(criterion, mean, state)
 
 
-def total_loss(criterion, model, z, batch, time_step=.125):
-    """Compute the loss across multiple time steps with an Euler stepper
-    """
-    dt = time_step
-    pred, x1 = get_input_output(model, dt, batch)
-
-    l1 = compute_loss(criterion, x1, pred)
-    l2 = equilibrium_penalty(criterion, model, batch, dt)
-
-    loss = l1 + l2
-    loss_info = {
-            'Q1/Q2': l1.item(),
-            'equilibrium': l2.item(),
-            'total': loss.item(),
-        }
-
-    return loss, loss_info, (pred, x1)
-
-
-def instability_penalty_step(self, engine, batch):
+def instability_penalty_step(self, engine, batch, alpha=1.0):
     self.optimizer.zero_grad()
-    loss, info, (y_pred, y) = total_loss(self.criterion, self.model, self.z, batch)
+
+    dt = .125
+    pred, x1 = get_input_output(self.model, dt, batch)
+
+    l1 = compute_loss(self.criterion, x1, pred)
+    l2 = equilibrium_penalty(self.criterion, self.model, batch, dt)
+
+    loss = l1 + alpha * l2
+
+    info = {
+        'Q1/Q2': l1.item(),
+        'equilibrium': l2.item(),
+        'total': loss.item(),
+    }
+
     loss.backward()
     self.optimizer.step()
     self.optimizer.zero_grad()
     engine.state.loss_info = info
-    return y_pred, y
+    return pred, x1
 
 
 def multiple_step_loss_step(self, engine, batch):
@@ -174,11 +169,13 @@ def get_input_output(model, dt, batch):
     return src, (x1-x0)/dt - 86400 * forcing
 
 
-def get_step(step_type, _config):
-    if step_type == 'instability':
-        return instability_penalty_step
-    elif step_type == 'multi':
-        return multiple_step_loss_step
+def get_step(name, self, kwargs):
+    if name == 'instability':
+        fun = instability_penalty_step
+    elif name == 'multi':
+        fun = multiple_step_loss_step
     else:
         raise NotImplementedError(
-            f"Training step type '{step_type}' is not implemented")
+            f"Training step type '{name}' is not implemented")
+
+    return curry(fun, self, **kwargs)
