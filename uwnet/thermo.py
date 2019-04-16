@@ -62,6 +62,11 @@ def get_dz(z):
     return xr.DataArray(dz, z.coords)
 
 
+def interface_heights(z):
+    zext = np.hstack((-z[0], z, 2.0 * z[-1] - 1.0 * z[-2]))
+    return .5 * (zext[1:] + zext[:-1])
+
+
 def layer_mass(rho):
     dz = get_dz(rho.z)
     return (rho * dz).assign_attrs(units='kg/m2')
