@@ -73,10 +73,12 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy import sparse
+from toolz import curry
 
 import torch
 from src.data import open_data
 from uwnet.jacobian import dict_jacobian
+from uwnet.tensordict import TensorDict
 from uwnet.thermo import interface_heights
 from uwnet.utils import centered_difference
 
@@ -148,7 +150,7 @@ def get_elliptic_matrix_easy(rho, z):
 
 class WaveEq:
 
-    field_order = ('w', 's')
+    field_order = ('w', 's', 'q')
 
     def __init__(self, source_fn, base_state, density, interface_heights,
                  center_heights):
@@ -205,16 +207,22 @@ class WaveEq:
         }
 
         if self.source_fn is not None:
-            srcs = self.source_fn({'SLI': s, 'QT': q})
-            outs['s'] += srcs['SLI'] / 86400.0
-            outs['q'] += srcs['QT'] / 86400.0
+            srcs = self.source_fn({
+                'SLI': s,
+                'QT': q,
+                'SST': self.base_state['SST'],
+                'SOLIN': self.base_state['SOLIN'] * 10
+            })
+            outs['s'] += srcs['SLI'] / 86400
+            outs['q'] += srcs['QT'] / 86400
+            outs['w'] += srcs['W']
 
         jac = dict_jacobian(outs, ins)
 
         matrix = []
         for out_key in self.field_order:
-            row = torch.cat([jac[out_key][in_key] for in_key in
-                             self.field_order], dim=-1)
+            row = torch.cat(
+                [jac[out_key][in_key] for in_key in self.field_order], dim=-1)
             matrix.append(row)
         return torch.cat(matrix, dim=0).detach().numpy()
 
@@ -229,22 +237,25 @@ class WaveEq:
         return np.linalg.eig(self.system_matrix(k))
 
     def matrices(self):
-        k = np.r_[:64] / 160e3
+        k = np.r_[:64] / 1000e3
         As = [self.system_matrix(kk) for kk in k]
         return k, As
 
 
-def wave_from_xarray(mean):
+def wave_from_xarray(mean, src=None):
     """Wave problem from xarray dataset"""
 
-    base_state = {'SLI': xarray2torch(mean.SLI), 'QT': xarray2torch(mean.QT)}
+    base_state = {}
+
+    for key in ['SLI', 'QT', 'SOLIN', 'SST']:
+        base_state[key] = xarray2torch(mean[key])
 
     density = xarray2torch(mean.rho).float()
     zint = torch.tensor(interface_heights(mean.z), requires_grad=True).float()
     zc = xarray2torch(mean.z)
 
     return WaveEq(
-        None,
+        src,
         base_state=base_state,
         density=density,
         interface_heights=zint,
@@ -316,7 +327,41 @@ def init_test_wave():
         center_heights=zc), speed
 
 
-def get_wave_from_training_data():
+def get_wave_from_training_data(src=None):
     ds = open_data('training')
     mean = ds.isel(y=32, time=slice(0, 10)).mean(['x', 'time'])
-    return wave_from_xarray(mean)
+    return wave_from_xarray(mean, src)
+
+
+def _expand_horiz_dims(d):
+    out = {}
+    for key in d:
+        arr = d[key]
+        n = arr.dim()
+        if n == 1:
+            out[key] = arr.unsqueeze(-1).unsqueeze(-1).unsqueeze(0)
+        elif n == 0:
+            out[key] = arr.unsqueeze(-1).unsqueeze(-1).unsqueeze(-1)
+        else:
+            raise NotImplementedError
+    return out
+
+
+@curry
+def model_plus_damping(model, x, d0=1 / 86400.0):
+    """Compute output of uwnet model with damping for vertical velocity
+
+    Expands the appropriate dimensions of the inputs and outputs
+    """
+
+    d0 = 1 / 86400.0
+
+    x = TensorDict(x)
+    w = torch.zeros_like(x['SLI'])
+    d = _expand_horiz_dims(x)
+    inputs = TensorDict(d)
+    outputs = model(inputs)
+    outputs = outputs.apply(torch.squeeze)
+    outputs['W'] = -w * d0
+
+    return outputs
