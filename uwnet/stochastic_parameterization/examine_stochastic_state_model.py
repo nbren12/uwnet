@@ -63,21 +63,14 @@ def get_true_nn_forcing(time_, ds):
 
 
 def predict_for_time(time_, ds, model=model, true_etas=True):
-    ds_filtered = ds.isel(time=time_)
-    to_predict = {}
-    for key_ in ds.data_vars:
-        if len(ds_filtered[key_].values.shape) == 2:
-            val = ds_filtered[key_].values[np.newaxis, :, :]
-        else:
-            val = ds_filtered[key_].values.astype(np.float64)
-        to_predict[key_] = torch.from_numpy(val)
+    ds_filtered = ds.isel(time=[time_])
     if hasattr(model, 'eta_transitioner') and true_etas:
-        pred = model(
-            TensorDict(to_predict),
-            eta=ds_filtered.eta.values)
+        pred = model.predict(
+            ds_filtered, eta=ds_filtered.isel(time=0).eta.values)
     else:
-        pred = model(TensorDict(to_predict))
-    return {key: pred[key].detach().numpy() for key in pred}
+        pred = model.predict(ds_filtered)
+    pred = pred.isel(time=0)
+    return {key: pred[key].values for key in pred}
 
 
 def get_layer_mass_averaged_residuals_for_time(time_, ds, layer_mass_sum):
@@ -157,40 +150,45 @@ def trim_extreme_values(array):
     ]
 
 
-def get_column_moistening_and_heating_comparisons(model, true_etas=True):
+def get_column_moistening_and_heating_comparisons(
+        model,
+        true_etas=True,
+        only_tropics=False,
+        use_true_eta_start=True):
     ds = get_dataset(
         ds_location=ds_location,
         base_model_location=dir_ + 'full_model/1.pkl',
         t_start=50,
         t_stop=75)
+    if use_true_eta_start:
+        model.eta = ds.isel(time=0).eta.values
     qts_pred = []
     qts_true = []
     qts_pred_base = []
     slis_pred = []
     slis_true = []
     slis_pred_base = []
-    for time in range(24):
+    layer_mass = ds.layer_mass.values
+    for time in range(1, 24):
         pred = predict_for_time(time, ds, model=model, true_etas=true_etas)
         pred_base = predict_for_time(time, ds, base_model)
         true = get_true_nn_forcing(time, ds)
+        if only_tropics:
+            for forcing in [pred, pred_base, true]:
+                for var in ['QT', 'SLI']:
+                    forcing[var] = forcing[var][:, 28:36, :]
         qts_pred.extend(
-            pred['QT'].T.dot(
-                ds.layer_mass.values).ravel() / liquid_water_density)
+            pred['QT'].T.dot(layer_mass).ravel() / liquid_water_density)
         qts_true.extend(
-            true['QT'].T.dot(
-                ds.layer_mass.values).ravel() / liquid_water_density)
+            true['QT'].T.dot(layer_mass).ravel() / liquid_water_density)
         qts_pred_base.extend(
-            pred_base['QT'].T.dot(
-                ds.layer_mass.values).ravel() / liquid_water_density)
+            pred_base['QT'].T.dot(layer_mass).ravel() / liquid_water_density)
         slis_pred.extend(
-            pred['SLI'].T.dot(
-                ds.layer_mass.values).ravel() * (cp / sec_in_day))
+            pred['SLI'].T.dot(layer_mass).ravel() * (cp / sec_in_day))
         slis_true.extend(
-            true['SLI'].T.dot(
-                ds.layer_mass.values).ravel() * (cp / sec_in_day))
+            true['SLI'].T.dot(layer_mass).ravel() * (cp / sec_in_day))
         slis_pred_base.extend(
-            pred_base['SLI'].T.dot(
-                ds.layer_mass.values).ravel() * (cp / sec_in_day))
+            pred_base['SLI'].T.dot(layer_mass).ravel() * (cp / sec_in_day))
     qts_true = np.array(qts_true)
     qts_pred = np.array(qts_pred)
     qts_pred_base = np.array(qts_pred_base)
@@ -207,7 +205,7 @@ def get_column_moistening_and_heating_comparisons(model, true_etas=True):
     )
 
 
-def evaluate_stochasticity_of_model(n_simulations=20):
+def evaluate_stochasticity_of_model(model, n_simulations=20):
     ds = get_dataset(
         ds_location=ds_location,
         base_model_location=dir_ + 'full_model/1.pkl',
@@ -241,7 +239,10 @@ def evaluate_stochasticity_of_model(n_simulations=20):
 def compare_true_to_simulated_q1_q2_distributions(
         model,
         true_etas=False,
-        title_prefix=''):
+        only_tropics=False,
+        use_true_eta_start=True,
+        title_prefix='',
+        print_stats=True):
     (
         qts_true,
         qts_pred,
@@ -250,41 +251,47 @@ def compare_true_to_simulated_q1_q2_distributions(
         slis_pred,
         slis_pred_base,
     ) = get_column_moistening_and_heating_comparisons(
-        model, true_etas=true_etas)
+        model,
+        true_etas=true_etas,
+        only_tropics=only_tropics,
+        use_true_eta_start=use_true_eta_start)
     true_qt_variance = qts_true.var()
-    print(f'True QT Variance: {true_qt_variance}')
     pred_qt_variance = qts_pred.var()
-    print(f'Stochastic QT Variance: {pred_qt_variance}')
     pred_base_qt_variance = qts_pred_base.var()
-    print(f'Base Model QT Variance: {pred_base_qt_variance}')
     true_sli_variance = slis_true.var()
-    print(f'True sli Variance: {true_sli_variance}')
     pred_sli_variance = slis_pred.var()
-    print(f'Stochastic sli Variance: {pred_sli_variance}')
     pred_base_sli_variance = slis_pred_base.var()
-    print(f'Base Model sli Variance: {pred_base_sli_variance}')
-    print(f'\n\nSLI R2 Stochastic Model:',
-          f' {r2_score(slis_true, slis_pred)}')
-    print(f'SLI R2 Single Model Model:',
-          f' {r2_score(slis_true, slis_pred_base)}')
-    print(f'QT R2 Stochastic Model:',
-          f' {r2_score(qts_true, qts_pred)}')
-    print(f'QT R2 Single Model Model:',
-          f' {r2_score(qts_true, qts_pred_base)}')
+    if print_stats:
+        print(f'True QT Variance: {true_qt_variance}')
+        print(f'Stochastic QT Variance: {pred_qt_variance}')
+        print(f'Base Model QT Variance: {pred_base_qt_variance}')
+        print(f'True sli Variance: {true_sli_variance}')
+        print(f'Stochastic sli Variance: {pred_sli_variance}')
+        print(f'Base Model sli Variance: {pred_base_sli_variance}')
+        print(f'\n\nSLI R2 Stochastic Model:',
+              f' {r2_score(slis_true, slis_pred)}')
+        print(f'SLI R2 Single Model Model:',
+              f' {r2_score(slis_true, slis_pred_base)}')
+        print(f'QT R2 Stochastic Model:',
+              f' {r2_score(qts_true, qts_pred)}')
+        print(f'QT R2 Single Model Model:',
+              f' {r2_score(qts_true, qts_pred_base)}')
 
     qt_true_vs_base_ks = ks_2samp(qts_true, qts_pred_base)
-    print('\n\nKS Divergence test: QT true vs single model: {}'.format(
-        qt_true_vs_base_ks))
     qt_true_vs_stochastic_ks = ks_2samp(qts_true, qts_pred)
-    print('KS Divergence test: QT true vs stochastic model: {}'.format(
-        qt_true_vs_stochastic_ks))
 
     sli_true_vs_base_ks = ks_2samp(slis_true, slis_pred_base)
-    print('KS Divergence test: SLI true vs single model: {}'.format(
-        sli_true_vs_base_ks))
     sli_true_vs_stochastic_ks = ks_2samp(slis_true, slis_pred)
-    print('KS Divergence test: SLI true vs stochastic model: {}'.format(
-        sli_true_vs_stochastic_ks))
+
+    if print_stats:
+        print('\n\nKS Divergence test: QT true vs single model: {}'.format(
+            qt_true_vs_base_ks))
+        print('KS Divergence test: QT true vs stochastic model: {}'.format(
+            qt_true_vs_stochastic_ks))
+        print('KS Divergence test: SLI true vs single model: {}'.format(
+            sli_true_vs_base_ks))
+        print('KS Divergence test: SLI true vs stochastic model: {}'.format(
+            sli_true_vs_stochastic_ks))
     fig, ax = plt.subplots()
     loghist(
         slis_true,
@@ -353,11 +360,13 @@ if __name__ == '__main__':
     model = StochasticStateModel(
         ds_location=ds_location,
         base_model_location=dir_ + 'full_model/1.pkl',
-        verbose=False,
+        verbose=True,
         markov_process=True,
-        average_z_direction_for_transitioner=True
+        average_z_direction_for_transitioner=True,
+        include_output_in_transition_model=True
     )
     model.train()
-    # evaluate_stochasticity_of_model()
+    # evaluate_stochasticity_of_model(model)
     # plot_true_eta_vs_simulated_eta()
-    compare_true_to_simulated_q1_q2_distributions(model, False)
+    compare_true_to_simulated_q1_q2_distributions(
+        model, False, only_tropics=False)

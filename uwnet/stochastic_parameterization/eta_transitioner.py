@@ -1,8 +1,7 @@
 from scipy import linalg
+from copy import copy
 import numpy as np
-from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import quantile_transform
-from sklearn.ensemble import GradientBoostingClassifier
 from uwnet.stochastic_parameterization.utils import (
     get_dataset,
     dataset_dt_seconds,
@@ -10,55 +9,41 @@ from uwnet.stochastic_parameterization.utils import (
     default_binning_method,
     default_ds_location,
     default_base_model_location,
+    default_eta_transitioner_model,
+    default_eta_transitioner_poly_degree,
+    default_eta_transitioner_predictors,
 )
-
-default_model = GradientBoostingClassifier(max_depth=500, verbose=2)
-default_model = LogisticRegression(
-    multi_class='multinomial', solver='lbfgs', max_iter=10000)
-predictors = [
-    'SST',
-    'PW',
-    'QT',
-    'SLI',
-    # 'FQT',
-    # 'FSLI',
-    'SHF',
-    'LHF',
-    'SOLIN',
-    # 'RADSFC',
-    # 'RADTOA',
-    # 'FU',
-    # 'FV'
-]
 
 
 class EtaTransitioner(object):
 
     def __init__(
             self,
-            poly_degree=4,
-            dt_seconds=dataset_dt_seconds,
-            model=default_model,
-            predictors=predictors,
+            poly_degree=copy(default_eta_transitioner_poly_degree),
+            dt_seconds=copy(dataset_dt_seconds),
+            model=copy(default_eta_transitioner_model),
+            predictors_to_use=copy(default_eta_transitioner_predictors),
             t_start=0,
             t_stop=640,
             quantile_transform_data=False,
-            binning_quantiles=default_binning_quantiles,
-            binning_method=default_binning_method,
-            ds_location=default_ds_location,
+            binning_quantiles=copy(default_binning_quantiles),
+            binning_method=copy(default_binning_method),
+            ds_location=copy(default_ds_location),
             average_z_direction=True,
             max_qt_for_residual_model=15,
+            verbose=True,
             max_sli_for_residual_model=18,
             markov_process=True,
-            base_model_location=default_base_model_location):
+            base_model_location=copy(default_base_model_location)):
+        self.verbose = verbose
         self.t_start = t_start
         self.t_stop = t_stop
+        self.predictors = predictors_to_use
         self.max_qt_for_residual_model = max_qt_for_residual_model
         self.max_sli_for_residual_model = max_sli_for_residual_model
         self.poly_degree = poly_degree
         self.average_z_direction = average_z_direction
         self.model = model
-        self.predictors = predictors
         self.is_trained = False
         self.ds_location = ds_location
         self.binning_quantiles = binning_quantiles
@@ -101,11 +86,11 @@ class EtaTransitioner(object):
                 else:
                     data = np.swapaxes(
                         data, 1, 3).reshape((int(data.size / 34), 34))
-                    if predictor == 'QT':
+                    if predictor in ['QT', 'moistening_pred']:
                         data = data[:, :self.max_qt_for_residual_model]
                         layer_mass = ds.layer_mass.values[
                             :self.max_qt_for_residual_model]
-                    elif predictor == 'SLI':
+                    elif predictor in ['SLI', 'heating_pred']:
                         data = data[:, :self.max_sli_for_residual_model]
                         layer_mass = ds.layer_mass.values[
                             :self.max_sli_for_residual_model]
@@ -159,10 +144,10 @@ class EtaTransitioner(object):
                 else:
                     data_for_predictor = np.swapaxes(
                         data, 1, 3).reshape((len(y_data), 34))
-                    if predictor == 'QT':
+                    if predictor in ['moistening_pred', 'QT']:
                         data_for_predictor = data_for_predictor[
                             :, :self.max_qt_for_residual_model]
-                    elif predictor == 'SLI':
+                    elif predictor in ['heating_pred', 'SLI']:
                         data_for_predictor = data_for_predictor[
                             :, :self.max_sli_for_residual_model]
             else:
@@ -183,6 +168,11 @@ class EtaTransitioner(object):
             x_data, x_test, y_data, y_test = train_test_split(
                 x_data, y_data, test_size=0.6)
             self.model.fit(x_data, y_data)
+        if self.verbose:
+            print('\n\nTransitioner Train Score:',
+                  f'{self.model.score(x_data, y_data)}')
+            print('\n\nTransitioner Test Score:',
+                  f'{self.model.score(x_test, y_test)}')
         self.is_trained = True
 
     def get_input_array_from_state_true(self, etas, state):
@@ -252,9 +242,9 @@ class EtaTransitioner(object):
                 else:
                     data = np.swapaxes(data, 0, 2).reshape(
                         (len(input_array), 34))
-                    if predictor == 'QT':
+                    if predictor in ['moistening_pred', 'QT']:
                         data = data[:, :self.max_qt_for_residual_model]
-                    elif predictor == 'SLI':
+                    elif predictor in ['heating_pred', 'SLI']:
                         data = data[:, :self.max_sli_for_residual_model]
             else:
                 data = data.ravel().reshape(-1, 1)
@@ -268,7 +258,8 @@ class EtaTransitioner(object):
             return quantile_transform(input_array, axis=0)
         return input_array
 
-    def get_transition_probabilities_efficient(self, etas, state):
+    def get_transition_probabilities_efficient(
+            self, etas, state):
         input_array = self.get_input_array_from_state(etas, state)
         transition_probabilities = self.model.predict_proba(
             input_array)
@@ -291,7 +282,11 @@ class EtaTransitioner(object):
         u = np.random.rand(len(c), 1)
         return (u < c).argmax(axis=1).reshape(etas.shape)
 
-    def transition_etas(self, etas, state, efficient=True):
+    def transition_etas(
+            self, etas, state, efficient=True, output=None):
+        if output:
+            state['moistening_pred'] = output['QT'].detach()
+            state['heating_pred'] = output['SLI'].detach()
         if efficient:
             return self.transition_etas_efficient(etas, state)
         return self.transition_etas_true(etas, state)

@@ -1,10 +1,20 @@
-import numpy as np
+# Standard Library
 from functools import lru_cache
+
+# Thirdparty
+import numpy as np
+from sklearn.linear_model import LogisticRegression
+from sklearn.neural_network import MLPClassifier
+from sklearn.ensemble import GradientBoostingClassifier
 import torch
-from uwnet.tensordict import TensorDict
-from uwnet.thermo import compute_apparent_source
 import xarray as xr
 
+# uwnet
+from uwnet.tensordict import TensorDict
+from uwnet.thermo import compute_apparent_source
+
+
+# ---- data location ----
 model_dir = ''
 # model_dir = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'  # noqa
 model_location = model_dir + 'stochastic_model.pkl'
@@ -12,13 +22,42 @@ default_base_model_location = model_dir + 'full_model/1.pkl'
 default_ds_location = "training.nc"
 # default_ds_location = "uwnet/stochastic_parameterization/training.nc"
 dataset_dt_seconds = 10800
+
+# ---- binning method ----
 # default_binning_method = 'precip'
 default_binning_method = 'column_integrated_qt_residuals'
 # default_binning_method = 'column_integrated_sli_residuals'
+
+# ---- binning quantiles ----
 default_binning_quantiles = (0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1)
 # default_binning_quantiles = (.1, .3, .7, .9, 1)
 # default_binning_quantiles = (1,)
 # default_binning_quantiles = (.01, .05, .15, .35, .5, .65, .85, .95, .99, 1)
+
+# ---- eta transitioner model ----
+gbc = GradientBoostingClassifier(max_depth=500, verbose=2)
+lr = LogisticRegression(
+    multi_class='multinomial', solver='lbfgs', max_iter=10000)
+mlp = MLPClassifier(hidden_layer_sizes=(250,))
+default_eta_transitioner_poly_degree = 3
+default_eta_transitioner_model = lr
+default_eta_transitioner_predictors = [
+    'SST',
+    'PW',
+    'QT',
+    'SLI',
+    # 'FQT',
+    # 'FSLI',
+    # 'SHF',
+    # 'LHF',
+    'SOLIN',
+    # 'RADSFC',
+    # 'RADTOA',
+    # 'U',
+    # 'V'
+    # 'FU',
+    # 'FV'
+]
 
 
 class BaseModel(object):
@@ -60,7 +99,7 @@ class BaseModel(object):
 
     def get_qt_ratios(self):
         column_integrated_qt_residuals = np.ones_like(self.ds.Prec.values)
-        column_integrated_sli_residuals = np.ones_like(self.ds.Prec.values)
+        # column_integrated_sli_residuals = np.ones_like(self.ds.Prec.values)
         moistening_residuals = np.ones_like(self.ds.QT.values)
         heating_residuals = np.ones_like(self.ds.SLI.values)
         moistening_preds = np.ones_like(self.ds.QT.values)
@@ -85,18 +124,18 @@ class BaseModel(object):
             )
             column_integrated_qt_residuals[
                 time_batch, :, :] = q2_true - q2_preds
-            q1_preds = np.ma.average(
-                pred['SLI'],
-                axis=1,
-                weights=self.ds.layer_mass.values
-            )
-            q1_true = np.ma.average(
-                true_sli,
-                axis=1,
-                weights=self.ds.layer_mass.values
-            )
-            column_integrated_sli_residuals[
-                time_batch, :, :] = q1_true - q1_preds
+            # q1_preds = np.ma.average(
+            #     pred['SLI'],
+            #     axis=1,
+            #     weights=self.ds.layer_mass.values
+            # )
+            # q1_true = np.ma.average(
+            #     true_sli,
+            #     axis=1,
+            #     weights=self.ds.layer_mass.values
+            # )
+            # column_integrated_sli_residuals[
+            #     time_batch, :, :] = q1_true - q1_preds
 
             moistening_preds[time_batch, :, :, :] = pred['QT']
             heating_preds[time_batch, :, :, :] = pred['SLI']
@@ -105,7 +144,7 @@ class BaseModel(object):
         self.heating_preds = heating_preds
         self.moistening_preds = moistening_preds
         self.column_integrated_qt_residuals = column_integrated_qt_residuals
-        self.column_integrated_sli_residuals = column_integrated_sli_residuals
+        # self.column_integrated_sli_residuals = column_integrated_sli_residuals
         self.moistening_residuals = moistening_residuals
         self.heating_residuals = heating_residuals
 

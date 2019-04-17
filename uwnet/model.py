@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-
+import xarray as xr
 import uwnet.modules as um
 
 from .xarray_interface import XRCallMixin
@@ -32,6 +32,14 @@ class InnerModel(nn.Module, XRCallMixin):
 
     def forward(self, x):
         return self.model(x[self.input_names])
+
+    def predict(self, x):
+        outputs = []
+        for time in x.time:
+            row_for_time = x.sel(time=time)
+            output_for_time = self.call_with_xr(row_for_time)
+            outputs.append(output_for_time)
+        return xr.concat(outputs, dim='time')
 
 
 def get_model(pre, post, _config):

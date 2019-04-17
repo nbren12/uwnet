@@ -18,13 +18,11 @@ NGAQUA_PATH : path to target ngaqua data
 """
 # import debug
 import logging
-import os
 
 import numpy as np
 from toolz import curry, valmap
 
 import torch
-from torch import nn
 from uwnet.numpy_interface import NumpyWrapper
 from uwnet.sam_ngaqua import get_ngaqua_nudger
 from uwnet.stochastic_parameterization.residual_stochastic_state_model import (  # noqa
@@ -85,7 +83,14 @@ def get_model(config):
     type = config['type']
     if type == 'neural_network':
         # model = torch.load(config['path'])
-        model = StochasticStateModel(dt_seconds=120)
+        model = StochasticStateModel(
+            dt_seconds=120,
+            markov_process=False,
+            average_z_direction_for_transitioner=True,
+            include_output_in_transition_model=True,
+            t_start=0,
+            t_stop=100,
+            time_idx_to_use_for_eta_initialization=0)
         model.train()
         model.eval()
         return CFVariableNameAdapter(
