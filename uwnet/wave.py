@@ -148,6 +148,15 @@ def get_elliptic_matrix_easy(rho, z):
     return get_elliptic_matrix(rhoi, zi, rho, z)
 
 
+def dict_to_matrix(d, order):
+    matrix = []
+    for out_key in order:
+        row = torch.cat(
+            [d[out_key][in_key] for in_key in order], dim=-1)
+        matrix.append(row)
+    return torch.cat(matrix, dim=0).detach().numpy()
+
+
 class WaveEq:
 
     field_order = ('w', 's', 'q')
@@ -211,24 +220,18 @@ class WaveEq:
                 'SLI': s,
                 'QT': q,
                 'SST': self.base_state['SST'],
-                'SOLIN': self.base_state['SOLIN'] * 10
+                'SOLIN': self.base_state['SOLIN']
             })
             outs['s'] += srcs['SLI'] / 86400
             outs['q'] += srcs['QT'] / 86400
             outs['w'] += srcs['W']
 
         jac = dict_jacobian(outs, ins)
+        return dict_to_matrix(jac, self.field_order)
 
-        matrix = []
-        for out_key in self.field_order:
-            row = torch.cat(
-                [jac[out_key][in_key] for in_key in self.field_order], dim=-1)
-            matrix.append(row)
-        return torch.cat(matrix, dim=0).detach().numpy()
 
-    def plot_eigs_spectrum(wave):
-        k = np.r_[:64] / 160e3
-        As = [wave.system_matrix(kk) for kk in k]
+    def plot_eigs_spectrum(self):
+        k, As = self.matrices()
         eigs = np.linalg.eigvals(As) / k[:, np.newaxis]
 
         plt.plot(k, eigs.imag, '.')
@@ -332,6 +335,16 @@ def get_wave_from_training_data(src=None):
     mean = ds.isel(y=32, time=slice(0, 10)).mean(['x', 'time'])
     return wave_from_xarray(mean, src)
 
+def get_base_state_from_training_data():
+    ds = open_data('training')
+
+    mean = ds.isel(y=32, time=slice(0, 10)).mean(['x', 'time'])
+    base_state = {}
+
+    for key in ['SLI', 'QT', 'SOLIN', 'SST']:
+        base_state[key] = xarray2torch(mean[key])
+    return base_state
+
 
 def _expand_horiz_dims(d):
     out = {}
@@ -365,3 +378,25 @@ def model_plus_damping(model, x, d0=1 / 86400.0):
     outputs['W'] = -w * d0
 
     return outputs
+
+
+@curry
+def marginize_model_over_solin(model, solin, inputs):
+    """Marginalize out the diurnal cycle
+    """
+    outputs = []
+    for sol in solin:
+        inputs['SOLIN'] = torch.ones_like(inputs['SOLIN']) * sol
+        outputs.append(model(inputs))
+    return sum(outputs)/len(outputs)
+
+
+def plot_struct_2d(w, z, n=256, **kwargs):
+    """Plot structure of eigenfunction over one phase of oscillation
+    """
+    phase = 2*np.pi * np.r_[:n]/n
+    phi = np.exp(1j * phase)[:,None]
+    real_component = (w * phi).real
+    plt.contourf(phase, z, real_component.T, **kwargs)
+    plt.xlabel("phase")
+    plt.ylabel("z (m)")
