@@ -75,6 +75,7 @@ import numpy as np
 from scipy import sparse
 from toolz import curry
 
+from collections import namedtuple
 import torch
 from src.data import open_data
 from uwnet.jacobian import dict_jacobian
@@ -165,14 +166,23 @@ def subslice_blocks(jac, ind):
     return out
 
 
+def get_test_solution(base_state):
+    from collections import namedtuple
+    s, q = base_state['SLI'].detach(), base_state['QT'].detach()
+    s.requires_grad = True
+    q.requires_grad = True
+    w = torch.zeros(s.size(0), requires_grad=True)
+    soln = namedtuple('Solution', ['w', 's', 'q'])
+    return soln(w=w, s=s, q=q)
+
+
 class WaveEq:
 
     field_order = ('w', 's', 'q')
 
-    def __init__(self, source_fn, base_state, density, interface_heights,
+    def __init__(self, base_state, density, interface_heights,
                  center_heights):
         self.base_state = base_state
-        self.source_fn = source_fn
         self.density = density
         self.interface_heights = interface_heights
         self.center_heights = center_heights
@@ -209,17 +219,8 @@ class WaveEq:
     def advection_q(self, w):
         return -self.qz * w
 
-    def system_matrix(self, k):
-        return self.wave_matrix(k) + self.source_jacobian()
-
     def get_test_solution(self):
-        from collections import namedtuple
-        s, q = self.base_state['SLI'].detach(), self.base_state['QT'].detach()
-        s.requires_grad = True
-        q.requires_grad = True
-        w = torch.zeros(s.size(0), requires_grad=True)
-        soln = namedtuple('Solution', ['w', 's', 'q'])
-        return soln(w=w, s=s, q=q)
+        return get_test_solution(self.base_state)
 
     def wave_matrix(self, k):
         soln = self.get_test_solution()
@@ -233,9 +234,27 @@ class WaveEq:
         jac = dict_to_matrix(jac, self.field_order)
         return jac
 
-    def source_jacobian(self):
-        sol = self.get_test_solution()
 
+class WaveCoupler:
+
+    def __init__(self, wave, src, base_state):
+        self.wave = wave
+        self.source_fn = src
+        self.base_state = base_state
+
+    @property
+    def field_order(self):
+        return self.wave.field_order
+
+    def system_matrix(self, k):
+        return self.wave.wave_matrix(k) + self.source_jacobian()
+
+    def get_test_solution(self):
+        return get_test_solution(self.base_state)
+
+    def source_jacobian(self):
+
+        sol = self.get_test_solution()
         outs = {}
         if self.source_fn is not None:
             srcs = self.source_fn({
@@ -285,12 +304,13 @@ def wave_from_xarray(mean, src=None):
     zint = torch.tensor(interface_heights(mean.z), requires_grad=True).float()
     zc = xarray2torch(mean.z)
 
-    return WaveEq(
-        src,
+    wave = WaveEq(
         base_state=base_state,
         density=density,
         interface_heights=zint,
         center_heights=zc)
+
+    return WaveCoupler(wave, src, base_state)
 
 
 def init_test_wave():
@@ -351,7 +371,6 @@ def init_test_wave():
     speed = H / np.pi * np.sqrt(c / s0)
 
     return WaveEq(
-        None,
         base_state=base_state,
         density=density,
         interface_heights=zint,
