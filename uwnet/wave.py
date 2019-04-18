@@ -157,6 +157,14 @@ def dict_to_matrix(d, order):
     return torch.cat(matrix, dim=0).detach().numpy()
 
 
+def subslice_blocks(jac, ind):
+    out = jac.copy()
+    for a in jac:
+        for b in jac[a]:
+            out[a][b] = jac[a][b][ind, ind]
+    return out
+
+
 class WaveEq:
 
     field_order = ('w', 's', 'q')
@@ -202,33 +210,53 @@ class WaveEq:
         return -self.qz * w
 
     def system_matrix(self, k):
+        return self.wave_matrix(k) + self.source_jacobian()
 
+    def get_test_solution(self):
+        from collections import namedtuple
         s, q = self.base_state['SLI'].detach(), self.base_state['QT'].detach()
         s.requires_grad = True
         q.requires_grad = True
         w = torch.zeros(s.size(0), requires_grad=True)
+        soln = namedtuple('Solution', ['w', 's', 'q'])
+        return soln(w=w, s=s, q=q)
 
-        ins = {'s': s, 'w': w, 'q': q}
+    def wave_matrix(self, k):
+        soln = self.get_test_solution()
         outs = {
-            's': self.advection_s(w),
-            'w': k**2 * self.invert_buoyancy(s, q),
-            'q': self.advection_q(w)
+            's': self.advection_s(soln.w),
+            'w': k**2 * self.invert_buoyancy(soln.s, soln.q),
+            'q': self.advection_q(soln.w)
         }
+        ins = soln._asdict()
+        jac = dict_jacobian(outs, ins)
+        jac = dict_to_matrix(jac, self.field_order)
+        return jac
 
+    def source_jacobian(self):
+        sol = self.get_test_solution()
+
+        outs = {}
         if self.source_fn is not None:
             srcs = self.source_fn({
-                'SLI': s,
-                'QT': q,
+                'SLI': sol.s,
+                'QT': sol.q,
                 'SST': self.base_state['SST'],
                 'SOLIN': self.base_state['SOLIN']
             })
-            outs['s'] += srcs['SLI'] / 86400
-            outs['q'] += srcs['QT'] / 86400
-            outs['w'] += srcs['W']
+            outs['s'] = srcs['SLI'] / 86400
+            outs['q'] = srcs['QT'] / 86400
 
+        ins = sol._asdict()
         jac = dict_jacobian(outs, ins)
-        return dict_to_matrix(jac, self.field_order)
 
+        # fill in zeros
+        jac['w'] = {}
+        a = jac['s']['s']
+        for key in self.field_order:
+            jac['w'][key] = torch.zeros_like(a)
+
+        return dict_to_matrix(jac, self.field_order)
 
     def plot_eigs_spectrum(self):
         k, As = self.matrices()
