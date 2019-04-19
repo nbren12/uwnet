@@ -188,8 +188,9 @@ class WaveEq:
         self.center_heights = center_heights
 
     def buoyancy(self, s, q):
+        grav = 9.81
         s0 = self.base_state['SLI']
-        return (s - s0) / s0
+        return grav * (s - s0) / s0
 
     @property
     def elliptic_operator(self):
