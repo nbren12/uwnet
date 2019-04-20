@@ -439,12 +439,13 @@ def marginize_model_over_solin(model, solin, inputs):
     return sum(outputs)/len(outputs)
 
 
-def plot_struct_2d(w, z, n=256, **kwargs):
+def plot_struct_2d(w, z, n=256, ax=None, **kwargs):
     """Plot structure of eigenfunction over one phase of oscillation
     """
     phase = 2*np.pi * np.r_[:n]/n
     phi = np.exp(1j * phase)[:,None]
     real_component = (w * phi).real
-    plt.contourf(phase, z, real_component.T, **kwargs)
-    plt.xlabel("phase")
-    plt.ylabel("z (m)")
+    im = ax.contourf(phase, z, real_component.T, **kwargs)
+    ax.set_xlabel("phase")
+    ax.set_ylabel("z (m)")
+    return im
