@@ -44,7 +44,6 @@ XRTimeSeries = ex.capture(XRTimeSeries)
 TrainingPlotManager = ex.capture(TrainingPlotManager, prefix='plots')
 get_model = ex.capture(get_model, prefix='model')
 get_pre_post = ex.capture(get_pre_post, prefix='prepost')
-get_step = ex.capture(get_step)
 
 
 @ex.config
@@ -91,7 +90,10 @@ def my_config():
     model = dict(kind='inner_model')
 
     plots = dict(interval=1, single_column_locations=[(32, 0)])
-    step_type = 'instability'
+    step = dict(
+        name='instability',
+        kwargs={'alpha': 1.0}
+    )
 
 
 @ex.capture
@@ -164,17 +166,12 @@ class Trainer(object):
     """
 
     @ex.capture
-    def __init__(self, _run, lr, loss_scale, step_type):
+    def __init__(self, _run, lr, loss_scale):
         # setup logging
         logging.basicConfig(level=logging.INFO)
 
-        if step_type == 'multi':
-            self.compute_metrics = False
-        else:
-            self.compute_metrics = True
+        self.compute_metrics = False
 
-        # db = MongoDBLogger()
-        # experiment = Experiment(api_key="fEusCnWmzAtmrB0FbucyEggW2")
         self.logger = logging.getLogger(__name__)
 
         # get output directory
@@ -216,8 +213,18 @@ class Trainer(object):
         self.tester = get_validation_engine(self.model, self.time_step)
         self.setup_metrics_for_engine(self.tester)
 
+    @ex.capture(prefix='step')
+    def get_step(self, name, kwargs, _log):
+        _log.info(f"Using `{name}` gradient stepper")
+        if name == 'multi':
+            self.logger.info(f"Disabling computation of metrics")
+            self.compute_metrics = False
+        else:
+            self.compute_metrics = True
+        return get_step(name, self, kwargs)
+
     def setup_engine(self):
-        step = partial(get_step(), self)
+        step = self.get_step()
         self.engine = Engine(step)
         self.setup_metrics_for_engine(self.engine)
 
