@@ -2,8 +2,12 @@ import torch
 from torch import nn
 import xarray as xr
 import uwnet.modules as um
+import warnings
+from torch.serialization import SourceChangeWarning
 
 from .xarray_interface import XRCallMixin
+
+warnings.filterwarnings("ignore", category=SourceChangeWarning)
 
 
 class InnerModel(nn.Module, XRCallMixin):

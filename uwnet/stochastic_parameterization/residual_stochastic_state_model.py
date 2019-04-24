@@ -42,6 +42,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             max_qt_for_residual_model=15,
             t_start=copy(default_t_start),
             t_stop=copy(default_t_stop),
+            eta_coarsening=None,
             residual_model_class=LinearRegression,
             binning_quantiles=copy(default_binning_quantiles),
             binning_method=copy(default_binning_method),
@@ -49,20 +50,18 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             base_model_location=copy(default_base_model_location),
             quantile_transform_data=copy(default_quantile_transform_data),
             eta_predictors=copy(default_eta_transitioner_predictors),
-            include_output_in_transition_model=False,
+            include_output_in_transition_model=True,
             time_idx_to_use_for_eta_initialization='random',
-            average_z_direction_for_transitioner=True,
             markov_process=True,
             verbose=True):
         super(StochasticStateModel, self).__init__()
         self.t_start = t_start
         self.t_stop = t_stop
+        self.eta_coarsening = eta_coarsening
         self.eta_predictors = eta_predictors
         self.binning_quantiles = binning_quantiles
         self.include_output_in_transition_model = \
             include_output_in_transition_model
-        self.average_z_direction_for_transitioner = \
-            average_z_direction_for_transitioner
         self.markov_process = markov_process
         self.binning_method = binning_method
         self.base_model_location = base_model_location
@@ -99,16 +98,16 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             t_start=self.t_start,
             t_stop=self.t_stop,
             verbose=self.verbose,
+            eta_coarsening=self.eta_coarsening,
+            use_nn_output=self.include_output_in_transition_model,
             quantile_transform_data=self.quantile_transform_data,
             binning_quantiles=self.binning_quantiles,
             binning_method=self.binning_method,
             markov_process=self.markov_process,
             max_qt_for_residual_model=self.max_qt_for_residual_model,
             max_sli_for_residual_model=self.max_sli_for_residual_model,
-            average_z_direction=self.average_z_direction_for_transitioner,
             predictors_to_use=self.eta_predictors,
             base_model_location=self.base_model_location)
-        transitioner.train()
         self.eta_transitioner = transitioner
 
     def setup_eta(self, time_idx_to_use_for_eta_initialization=0):
@@ -116,6 +115,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             ds_location=self.ds_location,
             t_start=self.t_start,
             t_stop=self.t_stop,
+            eta_coarsening=self.eta_coarsening,
             binning_quantiles=self.binning_quantiles,
             binning_method=self.binning_method,
             base_model_location=self.base_model_location
@@ -137,6 +137,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             ds_location=self.ds_location,
             t_start=t_start,
             t_stop=t_start + n_time_steps,
+            eta_coarsening=self.eta_coarsening,
             binning_quantiles=self.binning_quantiles,
             binning_method=self.binning_method,
             base_model_location=self.base_model_location)
@@ -234,10 +235,12 @@ class StochasticStateModel(nn.Module, XRCallMixin):
 
     def train(self):
         if not self.is_trained:
+            self.eta_transitioner.train()
             ds = get_dataset(
                 ds_location=self.ds_location,
                 t_start=self.t_start,
                 t_stop=self.t_stop,
+                eta_coarsening=None,
                 binning_quantiles=self.binning_quantiles,
                 binning_method=self.binning_method,
                 base_model_location=self.base_model_location)
@@ -253,7 +256,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
                 residual_models = {}
                 for var in ['QT', 'SLI']:
                     x_train, x_test, y_train, y_test = train_test_split(
-                        x_data[var], y_data[var], test_size=0.2)
+                        x_data[var], y_data[var], test_size=0.5)
                     residual_model = self.residual_model_class()
                     residual_model.fit(x_train, y_train)
                     test_score = residual_model.score(x_test, y_test)

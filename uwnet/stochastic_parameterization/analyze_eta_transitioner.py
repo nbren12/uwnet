@@ -59,10 +59,11 @@ if __name__ == '__main__':
         ds_location=ds_location,
         binning_method='column_integrated_qt_residuals',
         time_idx_to_use_for_eta_initialization=0,
+        eta_coarsening=2,
         t_start=100,
         t_stop=150,
         verbose=False,
-        markov_process=False,
+        markov_process=True,
         include_output_in_transition_model=True,
         eta_predictors=eta_transitoner_predictors_with_state)
     stochastic_model.train()

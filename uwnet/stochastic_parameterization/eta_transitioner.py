@@ -4,6 +4,7 @@ import numpy as np
 from sklearn.preprocessing import quantile_transform
 from uwnet.stochastic_parameterization.utils import (
     get_dataset,
+    coarsen_array,
     dataset_dt_seconds,
     default_binning_quantiles,
     default_binning_method,
@@ -12,6 +13,7 @@ from uwnet.stochastic_parameterization.utils import (
     default_eta_transitioner_model,
     default_eta_transitioner_poly_degree,
     default_eta_transitioner_predictors,
+    uncoarsen_2d_array,
 )
 
 
@@ -25,24 +27,29 @@ class EtaTransitioner(object):
             predictors_to_use=copy(default_eta_transitioner_predictors),
             t_start=0,
             t_stop=640,
+            eta_coarsening=None,
             quantile_transform_data=False,
             binning_quantiles=copy(default_binning_quantiles),
             binning_method=copy(default_binning_method),
             ds_location=copy(default_ds_location),
-            average_z_direction=True,
             max_qt_for_residual_model=15,
             verbose=True,
             max_sli_for_residual_model=18,
+            use_nn_output=False,
             markov_process=True,
             base_model_location=copy(default_base_model_location)):
         self.verbose = verbose
+        self.eta_coarsening = eta_coarsening
         self.t_start = t_start
         self.t_stop = t_stop
         self.predictors = predictors_to_use
+        if use_nn_output:
+            self.predictors = self.predictors + [
+                'moistening_pred', 'heating_pred'
+            ]
         self.max_qt_for_residual_model = max_qt_for_residual_model
         self.max_sli_for_residual_model = max_sli_for_residual_model
         self.poly_degree = poly_degree
-        self.average_z_direction = average_z_direction
         self.model = model
         self.is_trained = False
         self.ds_location = ds_location
@@ -67,6 +74,7 @@ class EtaTransitioner(object):
             ds_location=self.ds_location,
             t_start=self.t_start,
             t_stop=self.t_stop,
+            eta_coarsening=self.eta_coarsening,
             binning_quantiles=self.binning_quantiles,
             binning_method=self.binning_method,
             base_model_location=self.base_model_location
@@ -78,31 +86,18 @@ class EtaTransitioner(object):
             std_by_degree = {}
             data = ds[predictor].values
             if len(data.shape) == 4:
-                if self.average_z_direction:
-                    data = np.average(
-                        data, axis=1, weights=ds.layer_mass.values).reshape(
-                            -1, 1)
-                    data_for_std = data.copy()
-                else:
-                    data = np.swapaxes(
-                        data, 1, 3).reshape((int(data.size / 34), 34))
-                    if predictor in ['QT', 'moistening_pred']:
-                        data = data[:, :self.max_qt_for_residual_model]
-                        layer_mass = ds.layer_mass.values[
-                            :self.max_qt_for_residual_model]
-                    elif predictor in ['SLI', 'heating_pred']:
-                        data = data[:, :self.max_sli_for_residual_model]
-                        layer_mass = ds.layer_mass.values[
-                            :self.max_sli_for_residual_model]
-                    else:
-                        layer_mass = ds.layer_mass.values
-                    data_for_std = data.dot(layer_mass).copy()
+                data = np.average(
+                    data,
+                    axis=1,
+                    weights=ds.layer_mass.values)
             else:
-                data = data.ravel().reshape(-1, 1)
-                data_for_std = data.copy()
+                data = data
+            if self.eta_coarsening:
+                data = coarsen_array(data, self.eta_coarsening)
+            data = data.ravel().reshape(-1, 1)
             for degree in range(1, self.poly_degree + 1):
                 mean = (data ** degree).mean(axis=0)
-                std = (data_for_std ** degree).std()
+                std = (data ** degree).std()
                 mean_by_degree[degree] = mean
                 std_by_degree[degree] = std
             normalization_params[predictor] = {
@@ -121,41 +116,37 @@ class EtaTransitioner(object):
             ds_location=self.ds_location,
             t_start=self.t_start,
             t_stop=self.t_stop,
+            eta_coarsening=self.eta_coarsening,
             binning_quantiles=self.binning_quantiles,
             binning_method=self.binning_method,
             base_model_location=self.base_model_location
         )
         start_times = np.array(range(len(ds.time) - 1))
         stop_times = start_times + 1
-        start = ds.isel(time=start_times).eta.values.ravel()
-        y_data = ds.isel(time=stop_times).eta.values.ravel()
+        start = ds.isel(time=start_times).eta.values
+        y_data = ds.isel(time=stop_times).eta.values
+        if self.eta_coarsening:
+            y_data = coarsen_array(y_data, self.eta_coarsening)
+            start = coarsen_array(start, self.eta_coarsening)
+        y_data = y_data.ravel()
+        start = start.ravel()
         if self.markov_process:
             x_data = np.zeros((len(start), len(self.etas)))
-            x_data[np.arange(len(y_data)), start] = 1
+            x_data[np.arange(len(y_data)), start.astype(int)] = 1
         else:
             x_data = np.zeros((len(start), 0))
         for predictor in self.predictors:
             data = ds.isel(time=start_times)[predictor].values
             if len(data.shape) == 4:
-                if self.average_z_direction:
-                    data_for_predictor = np.average(
-                        data, axis=1, weights=ds.layer_mass.values).reshape(
-                            -1, 1)
-                else:
-                    data_for_predictor = np.swapaxes(
-                        data, 1, 3).reshape((len(y_data), 34))
-                    if predictor in ['moistening_pred', 'QT']:
-                        data_for_predictor = data_for_predictor[
-                            :, :self.max_qt_for_residual_model]
-                    elif predictor in ['heating_pred', 'SLI']:
-                        data_for_predictor = data_for_predictor[
-                            :, :self.max_sli_for_residual_model]
-            else:
-                data_for_predictor = data.ravel().reshape(-1, 1)
+                data = np.average(
+                    data, axis=1, weights=ds.layer_mass.values)
+            if self.eta_coarsening:
+                data = coarsen_array(data, self.eta_coarsening)
+            data = data.ravel().reshape(-1, 1)
             for degree in range(1, self.poly_degree + 1):
                 x_data = np.hstack([
                     x_data,
-                    self.normalize_array(data_for_predictor, predictor, degree)
+                    self.normalize_array(data, predictor, degree)
                 ])
         if self.quantile_transform_data:
             x_data = quantile_transform(x_data, axis=0)
@@ -168,14 +159,16 @@ class EtaTransitioner(object):
             x_data, x_test, y_data, y_test = train_test_split(
                 x_data, y_data, test_size=0.6)
             self.model.fit(x_data, y_data)
-        if self.verbose:
-            print('\n\nTransitioner Train Score:',
-                  f'{self.model.score(x_data, y_data)}')
-            print('\n\nTransitioner Test Score:',
-                  f'{self.model.score(x_test, y_test)}')
+            if self.verbose:
+                print('\n\nTransitioner Train Score:',
+                      f'{self.model.score(x_data, y_data)}')
+                print('\n\nTransitioner Test Score:',
+                      f'{self.model.score(x_test, y_test)}')
         self.is_trained = True
 
     def get_input_array_from_state_true(self, etas, state):
+        print('Warning! This true eta transitioning has not been maintained,',
+              'use to efficient eta transitioning.')
         input_array = np.zeros(
             (etas.size * len(self.etas),
              len(self.etas) + (self.poly_degree * len(self.predictors)))
@@ -235,19 +228,11 @@ class EtaTransitioner(object):
         for predictor in self.predictors:
             data = state[predictor].numpy()
             if len(data.shape) > 2 and data.shape[0] > 1:
-                if self.average_z_direction:
-                    data = np.average(
-                        data, axis=0, weights=self.layer_mass).ravel().reshape(
-                            -1, 1)
-                else:
-                    data = np.swapaxes(data, 0, 2).reshape(
-                        (len(input_array), 34))
-                    if predictor in ['moistening_pred', 'QT']:
-                        data = data[:, :self.max_qt_for_residual_model]
-                    elif predictor in ['heating_pred', 'SLI']:
-                        data = data[:, :self.max_sli_for_residual_model]
-            else:
-                data = data.ravel().reshape(-1, 1)
+                data = np.average(
+                    data, axis=0, weights=self.layer_mass)
+            if self.eta_coarsening:
+                data = coarsen_array(data, self.eta_coarsening)
+            data = data.ravel().reshape(-1, 1)
             for degree in range(1, self.poly_degree + 1):
                 input_array = np.hstack([
                     input_array,
@@ -267,10 +252,12 @@ class EtaTransitioner(object):
             ratio = self.dt_seconds / dataset_dt_seconds
             p_stay = transition_probabilities[
                 range(len(input_array)), etas.ravel()]
+            p_transition = 1 - p_stay
+            p_transition_new = p_transition * ratio
+            p_stay_new = 1 - p_transition_new
             transition_probabilities = transition_probabilities * ratio
             transition_probabilities[
-                range(len(input_array)), etas.ravel()] = 1 - (
-                    (1 - p_stay) * ratio)
+                range(len(input_array)), etas.ravel()] = p_stay_new
         return transition_probabilities
 
     def transition_etas_efficient(self, etas, state):
@@ -284,9 +271,14 @@ class EtaTransitioner(object):
 
     def transition_etas(
             self, etas, state, efficient=True, output=None):
+        if self.eta_coarsening:
+            etas = coarsen_array(etas, self.eta_coarsening).astype(int)
         if output:
             state['moistening_pred'] = output['QT'].detach()
             state['heating_pred'] = output['SLI'].detach()
         if efficient:
-            return self.transition_etas_efficient(etas, state)
+            new_etas = self.transition_etas_efficient(etas, state)
+            if self.eta_coarsening:
+                new_etas = uncoarsen_2d_array(new_etas)
+            return new_etas
         return self.transition_etas_true(etas, state)

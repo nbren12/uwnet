@@ -7,6 +7,9 @@ from uwnet.stochastic_parameterization.utils import get_dataset
 import matplotlib.pyplot as plt
 import torch
 import pandas as pd
+from uwnet.stochastic_parameterization.residual_stochastic_state_model import (
+    StochasticStateModel,
+)
 
 pw_name = 'pw'
 netprec_name = 'net_precip'
@@ -110,14 +113,29 @@ def plot(df, title=''):
     plt.title(title)
 
 
-def main(ngaqua):
+def main(ngaqua, get_stats=True):
 
     if ngaqua:
         df = get_ng()
     else:
-        df = get_data(torch.load('residual_stochastic_model.pkl'))
+        dir_ = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'  # noqa
+        ds_location = dir_ + 'training.nc'
+        base_model_location = dir_ + 'full_model/1.pkl'
+        model = StochasticStateModel(
+            ds_location=ds_location,
+            base_model_location=base_model_location,
+            verbose=True,
+            markov_process=False,
+            include_output_in_transition_model=True
+        )
+        model.train()
+        df = get_data(
+            model,
+            ds_location=ds_location,
+            base_model_location=base_model_location)
     plot(df)
-    stats(df)
+    if get_stats:
+        stats(df)
     plt.show()
 
 
@@ -127,4 +145,4 @@ def plot_df(df, title=''):
 
 
 if __name__ == '__main__':
-    main()
+    main(False, False)

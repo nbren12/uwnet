@@ -159,7 +159,7 @@ def get_column_moistening_and_heating_comparisons(
         ds_location=ds_location,
         base_model_location=dir_ + 'full_model/1.pkl',
         t_start=50,
-        t_stop=75)
+        t_stop=100)
     if use_true_eta_start:
         model.eta = ds.isel(time=0).eta.values
     qts_pred = []
@@ -169,7 +169,7 @@ def get_column_moistening_and_heating_comparisons(
     slis_true = []
     slis_pred_base = []
     layer_mass = ds.layer_mass.values
-    for time in range(1, 24):
+    for time in range(1, 48):
         pred = predict_for_time(time, ds, model=model, true_etas=true_etas)
         pred_base = predict_for_time(time, ds, base_model)
         true = get_true_nn_forcing(time, ds)
@@ -359,14 +359,14 @@ def compare_true_to_simulated_q1_q2_distributions(
 if __name__ == '__main__':
     model = StochasticStateModel(
         ds_location=ds_location,
+        eta_coarsening=2,
         base_model_location=dir_ + 'full_model/1.pkl',
         verbose=True,
         markov_process=True,
-        average_z_direction_for_transitioner=True,
         include_output_in_transition_model=True
     )
     model.train()
     # evaluate_stochasticity_of_model(model)
     # plot_true_eta_vs_simulated_eta()
     compare_true_to_simulated_q1_q2_distributions(
-        model, False, only_tropics=False)
+        model, true_etas=False, only_tropics=False)

@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import GradientBoostingClassifier
+from PIL import Image
 import torch
 import xarray as xr
 
@@ -15,12 +16,12 @@ from uwnet.thermo import compute_apparent_source
 
 
 # ---- data location ----
-model_dir = ''
-# model_dir = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'  # noqa
+# model_dir = ''
+model_dir = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'  # noqa
 model_location = model_dir + 'stochastic_model.pkl'
 default_base_model_location = model_dir + 'full_model/1.pkl'
-default_ds_location = "training.nc"
-# default_ds_location = "uwnet/stochastic_parameterization/training.nc"
+# default_ds_location = "training.nc"
+default_ds_location = "uwnet/stochastic_parameterization/training.nc"
 dataset_dt_seconds = 10800
 
 # ---- binning method ----
@@ -29,7 +30,7 @@ default_binning_method = 'column_integrated_qt_residuals'
 # default_binning_method = 'column_integrated_sli_residuals'
 
 # ---- binning quantiles ----
-default_binning_quantiles = (0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1)
+default_binning_quantiles = (0.06, 0.15, 0.30, .5, 0.70, 0.85, 0.94, 1)
 # default_binning_quantiles = (.1, .3, .7, .9, 1)
 # default_binning_quantiles = (1,)
 # default_binning_quantiles = (.01, .05, .15, .35, .5, .65, .85, .95, .99, 1)
@@ -60,6 +61,33 @@ default_eta_transitioner_predictors = [
 ]
 
 
+def coarsen_array(array_, patch_width):
+    if len(array_.shape) == 3:
+        return np.stack([
+            coarsen_array(array_2d, patch_width) for array_2d in array_])
+    new_size = (
+        int(array_.shape[1] / patch_width),
+        int(array_.shape[0] / patch_width)
+    )
+    return np.array(Image.fromarray(array_.astype(float)).resize(
+        new_size, Image.BOX))
+
+
+def uncoarsen_2d_array(array_, new_size=(64, 128)):
+    return np.array(Image.fromarray(array_.astype(float)).resize(
+        (new_size[1], new_size[0])))
+
+
+def uncoarsen_array(array_, new_size=(64, 128)):
+    if len(array_.shape) == 4:
+        return np.stack([
+            uncoarsen_array(array_3d, new_size) for array_3d in array_])
+    if len(array_.shape) == 3:
+        return np.stack([
+            uncoarsen_2d_array(array_2d, new_size) for array_2d in array_])
+    return np.array(Image.fromarray(array_).resize((new_size[1], new_size[0])))
+
+
 class BaseModel(object):
 
     def __init__(
@@ -68,9 +96,15 @@ class BaseModel(object):
             dataset,
             binning_quantiles=default_binning_quantiles,
             time_step_days=.125,
-            binning_method=default_binning_method):
+            binning_method=default_binning_method,
+            eta_coarsening=None):
         self.model = torch.load(model_location)
-        self.ds = dataset
+        if eta_coarsening is not None:
+            self.ds = dataset.coarsen(
+                {'x': eta_coarsening, 'y': eta_coarsening}).mean()
+        else:
+            self.ds = dataset
+        self.eta_coarsening = eta_coarsening
         self.time_step_days = time_step_days
         self.time_step_seconds = 86400 * time_step_days
         self.binning_quantiles = binning_quantiles
@@ -98,17 +132,25 @@ class BaseModel(object):
         return {key: pred[key].detach().numpy() for key in pred}
 
     def get_qt_ratios(self):
-        column_integrated_qt_residuals = np.ones_like(self.ds.Prec.values)
-        # column_integrated_sli_residuals = np.ones_like(self.ds.Prec.values)
-        moistening_residuals = np.ones_like(self.ds.QT.values)
-        heating_residuals = np.ones_like(self.ds.SLI.values)
-        moistening_preds = np.ones_like(self.ds.QT.values)
-        heating_preds = np.ones_like(self.ds.SLI.values)
+        shape_3d = (
+            self.ds.dims['time'] - 1,
+            self.ds.dims['z'],
+            self.ds.dims['y'],
+            self.ds.dims['x']
+        )
+        shape_2d = (
+            self.ds.dims['time'] - 1,
+            self.ds.dims['y'],
+            self.ds.dims['x']
+        )
+        column_integrated_qt_residuals = np.ones(shape_2d)
+        moistening_residuals = np.ones(shape_3d)
+        heating_residuals = np.ones(shape_3d)
+        moistening_preds = np.ones(shape_3d)
+        heating_preds = np.ones(shape_3d)
         time_indices = list(range(len(self.ds.time) - 1))
         true_forcings = self.get_true_forcings()
-        idx = 0
         for time_batch in np.array_split(time_indices, 10):
-            idx += 1
             pred = self.predict_for_time_idx(time_batch)
             true_qt = true_forcings.isel(time=time_batch).QT
             true_sli = true_forcings.isel(time=time_batch).SLI
@@ -124,29 +166,21 @@ class BaseModel(object):
             )
             column_integrated_qt_residuals[
                 time_batch, :, :] = q2_true - q2_preds
-            # q1_preds = np.ma.average(
-            #     pred['SLI'],
-            #     axis=1,
-            #     weights=self.ds.layer_mass.values
-            # )
-            # q1_true = np.ma.average(
-            #     true_sli,
-            #     axis=1,
-            #     weights=self.ds.layer_mass.values
-            # )
-            # column_integrated_sli_residuals[
-            #     time_batch, :, :] = q1_true - q1_preds
-
             moistening_preds[time_batch, :, :, :] = pred['QT']
             heating_preds[time_batch, :, :, :] = pred['SLI']
             moistening_residuals[time_batch, :, :, :] = true_qt - pred['QT']
             heating_residuals[time_batch, :, :, :] = true_sli - pred['SLI']
-        self.heating_preds = heating_preds
-        self.moistening_preds = moistening_preds
-        self.column_integrated_qt_residuals = column_integrated_qt_residuals
-        # self.column_integrated_sli_residuals = column_integrated_sli_residuals
-        self.moistening_residuals = moistening_residuals
-        self.heating_residuals = heating_residuals
+        if self.eta_coarsening:
+            transform_func = uncoarsen_array
+        else:
+            transform_func = lambda x: x  # noqa
+        self.heating_preds = transform_func(
+            heating_preds)
+        self.moistening_preds = transform_func(moistening_preds)
+        self.column_integrated_qt_residuals = transform_func(
+            column_integrated_qt_residuals)
+        self.moistening_residuals = transform_func(moistening_residuals)
+        self.heating_residuals = transform_func(heating_residuals)
 
     def get_bin_membership(self):
         self.get_qt_ratios()
@@ -174,21 +208,23 @@ class BaseModel(object):
         raise Exception(f'Binning method {self.binning_method} not recognized')
 
 
-def insert_nn_output_precip_ratio_bin_membership(
+def insert_eta_bin_membership(
         dataset,
         binning_quantiles,
         base_model_location,
-        binning_method):
+        binning_method,
+        eta_coarsening):
     base_model = BaseModel(
         base_model_location,
         dataset,
         binning_quantiles=binning_quantiles,
-        binning_method=binning_method
+        binning_method=binning_method,
+        eta_coarsening=eta_coarsening
     )
     bin_membership = base_model.get_bin_membership()
-    eta_ = dataset['Prec'].copy()
-    eta_.values = bin_membership
-    dataset['eta'] = eta_
+    dataset = dataset.isel(time=range(len(dataset.time) - 1))
+    dataset['eta'] = dataset['Prec'].copy()
+    dataset['eta'].values = bin_membership
     dataset['eta'].attrs['units'] = ''
     dataset['eta'].attrs['long_name'] = 'Stochastic State'
     dataset['column_integrated_qt_residuals'] = dataset['Prec'].copy()
@@ -210,6 +246,7 @@ def get_xarray_dataset_with_eta(
         data,
         binning_quantiles,
         base_model_location=None,
+        eta_coarsening=None,
         t_start=0,
         t_stop=640,
         set_eta=True,
@@ -220,8 +257,12 @@ def get_xarray_dataset_with_eta(
         dataset = xr.open_dataset(data)
     dataset = dataset.isel(time=range(t_start, t_stop))
     if set_eta:
-        dataset = insert_nn_output_precip_ratio_bin_membership(
-            dataset, binning_quantiles, base_model_location, binning_method)
+        dataset = insert_eta_bin_membership(
+            dataset,
+            binning_quantiles,
+            base_model_location,
+            binning_method,
+            eta_coarsening)
     try:
         return dataset.isel(step=0).drop('step').drop('p')
     except Exception:
@@ -236,12 +277,14 @@ def get_dataset(
         t_start=0,
         t_stop=640,
         set_eta=True,
+        eta_coarsening=None,
         binning_quantiles=default_binning_quantiles,
         binning_method=default_binning_method):
     ds = get_xarray_dataset_with_eta(
         ds_location,
         binning_quantiles,
         base_model_location=base_model_location,
+        eta_coarsening=eta_coarsening,
         t_start=t_start,
         t_stop=t_stop,
         set_eta=set_eta,
