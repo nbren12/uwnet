@@ -11,6 +11,7 @@ FFLAGS = -O2 -fp-model source
 # FFLAGS_NOOPT = -O0 -g -ftrapuv -check all -fp-model source
 FFLAGS_NOOPT = -O0 -g -ftrapuv -check all -fp-model source -traceback
 # FFLAGS = -g -ftrapuv -check all # for debugging
+# FFLAGS = -g  # for debugging
 # FFLAGS = ${FFLAGS_NOOPT}
 
 ifeq ($(HOSTNAME),oly01)

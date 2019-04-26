@@ -121,7 +121,8 @@ rule process_with_sam_once:
     rundir=$(dirname {output})
     rm -rf $rundir
     {sys.executable} src/criticism/run_sam_ic_nn.py  \
-        -t 0 -p assets/parameters_process.json \
+        -t {wildcards.step} \
+        -p assets/parameters_process.json \
         -n data/raw/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX \
         -s {SAM_PATH} \
         $rundir
@@ -166,11 +167,18 @@ rule sam_run:
     output: touch("data/runs/model{model}-epoch{epoch}/.{id}.done")
     log: "data/runs/model{model}-epoch{epoch}/{id}.log"
     params: rundir="data/runs/model{model}-epoch{epoch}/",
-            model="models/{model}/{epoch}.pkl"
+            model="models/{model}/{epoch}.pkl",
+            step=0
     shell: """
     rm -rf {params.rundir}
-    {sys.executable} src/criticism/run_sam_ic_nn.py -nn {params.model} \
-        -t 0 -p assets/parameters2.json {params.rundir}
+    {sys.executable} src/criticism/run_sam_ic_nn.py  \
+        -t {params.step} \
+        -p assets/parameters2.json \
+        -n data/raw/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX \
+        -s {SAM_PATH} \
+        -nn {params.model} \
+        {params.rundir}
+
     # run sam
     {RUN_SAM_SCRIPT} {params.rundir} >> {log} 2>> {log}
     exit 0

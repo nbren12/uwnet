@@ -56,8 +56,9 @@ print_sam_checks:
 	@grep Prec data/samNN/checks/sam_nn.txt
 
 ## Call nextflow to produce the training data.
-${TRAINING_DATA}:
-	snakemake data/processed/training.nc
+data:
+	snakemake zonal_time_mean --configfile setup/olympus/config.yaml  -j 20
+.PHONY: data
 
 train: #${TRAINING_DATA}
 	python -m uwnet.train with data=data/processed/training.nc batch_size=32 lr=.01 epochs=5 -m uwnet

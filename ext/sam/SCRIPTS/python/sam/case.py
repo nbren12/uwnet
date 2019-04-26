@@ -353,9 +353,13 @@ class InitialConditionCase(Case):
         super(InitialConditionCase, self).save()
         self.save_ic()
 
+    def get_day(self):
+        return float(self.ic.time)
+
     def get_prm(self):
         path = os.path.relpath(self.initial_condition_path, self.path)
         self.prm['parameters']['initial_condition_netcdf'] = path
+        self.prm['parameters']['day0'] = self.get_day()
         self.prm['parameters']['perturb_type'] = 23
         return self.prm
 

@@ -18,3 +18,6 @@ export LD_LIBRARY_PATH=$UWNET/ext/callpy/lib:$LD_LIBRARY_PATH
 NETCDF_ROOT=$(dirname $(dirname $(which mpif90)))
 export LD_LIBRARY_PATH=$NETCDF_ROOT/lib/:$LD_LIBRARY_PATH
 export PATH=$UWNET/ext/sam/UTIL:$PATH
+
+# CALL PY
+export PYTHONPATH=$UWNET/ext/sam/ext/call_py_fort/src:$PYTHONPATH
