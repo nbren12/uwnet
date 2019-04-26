@@ -1,9 +1,12 @@
 module python_caller
   ! only works with CAM radiation scheme
-  use callpy_mod
+  use callpy_mod, only: set_dims, set_attribute, set_state, set_state2d,&
+    set_state_1d, get_state, set_state_scalar, set_state_char, call_function 
+  use params, only: usepython
   implicit none
 
-  public :: initialize_from_target, initialize_python_caller, state_to_python, push_state
+  public :: initialize_from_target, initialize_python_caller, state_to_python,&
+       push_state, save_python_state, apply_python_momentum
 
 
   character(len=256) :: module_name, function_name
@@ -13,6 +16,7 @@ module python_caller
   real, allocatable, dimension(:,:,:) :: sl_last, qt_last, FQTNN, FSLINN,&
     funn, fvnn
   real, allocatable :: net_prec_xy(:, :), net_heat_xy(:, :)
+  integer :: nsavepython = 0 ! when to save output files
 
   integer ntop
   ! Do not apply neural network within this boundary region
@@ -109,8 +113,8 @@ contains
   end subroutine initialize_from_target
 
   subroutine push_state()
-    use vars, only: t, u, v,w, tabs,&
-         shf_xy, lhf_xy, sstxy, t00, prec_xy,&
+    use vars, only: dudt, dvdt, na, t, u, v,w, tabs,&
+         psfc_xy, shf_xy, lhf_xy, sstxy, t00, prec_xy,&
          latitude, longitude,&
          nx, ny, nzm, rho, adz, dz, pres, presi, time, nstep, day, caseid, case, nz, dtn,&
          fluxbq, fluxbt, rhow
@@ -123,6 +127,7 @@ contains
     real(4), dimension(1:nx, 1:ny, 1:nzm) :: tmp
     real, dimension(1:nx, 1:ny) :: lhf_no_bias
     real :: dt
+    character(len=256) :: name
 
     ntop = nzm
     dt = time - last_time_called
@@ -133,66 +138,129 @@ contains
     ! ! Send the arrays to a global array in the python module
     ! ! This is a much easier architecture than trying to write functions
     ! ! which take all of these arguments
+
+    name = "liquid_ice_static_energy"
     tmp = t(1:nx,1:ny,1:nzm)
-    call set_state("SLI", tmp)
+    call set_state(name, tmp)
+    call set_dims(name, "mid_levels,y,x")
+    call set_attribute(name, "units", "K")
 
+    name = "total_water_mixing_ratio"
     tmp = micro_field(1:nx,1:ny,1:nzm, 1) * 1.e3
-    call set_state("QT", tmp)
+    call set_state(name, tmp)
+    call set_dims(name, "mid_levels,y,x")
+    call set_attribute(name, "units", "g/kg")
 
+    name = "air_temperature"
     tmp =  tabs(1:nx,1:ny,1:nzm)
-    call set_state("TABS", tmp)
+    call set_state(name, tmp)
+    call set_dims(name, "mid_levels,y,x")
+    call set_attribute(name, "units", "K")
+
+    name ="upward_air_velocity"
     tmp =  w(1:nx,1:ny,1:nzm)
-    call set_state("W", tmp)
+    call set_state(name, tmp)
+    call set_dims(name, "interface_level,y,x")
+    call set_attribute(name, "units", "m/s")
+
+    name ="x_wind"
+    tmp =  u(1:nx,1:ny,1:nzm)
+    call set_state(name, tmp)
+    call set_dims(name, "mid_levels,y,x")
+    call set_attribute(name, "units", "m/s")
+
+    name ="y_wind"
+    tmp =  v(1:nx,1:ny,1:nzm)
+    call set_state("y_wind", tmp)
+    call set_dims(name, "mid_levels,y,x")
+    call set_attribute(name, "units", "m/s")
 
     tmp =  fqt
-    call set_state("FQT", tmp)
+    name = "tendency_of_total_water_mixing_ratio_due_to_dynamics"
+    call set_state(name, tmp)
+    call set_dims(name, "mid_levels,y,x")
+    call set_attribute(name, "units", "m/s")
 
     tmp =  fsl
-    call set_state("FSLI", tmp)
+    name = "tendency_of_liquid_ice_static_energy_due_to_dynamics"
+    call set_state(name, tmp)
+    call set_dims(name, "mid_levels,y,x")
+    call set_attribute(name, "units", "m/s")
 
-    tmp =  u(1:nx,1:ny,1:nzm)
-    call set_state("U", tmp)
+    name = "tendency_of_x_wind_due_to_dynamics"
+    tmp = dudt(1:nx,:,:,na) * 86400
+    call set_state(name, tmp)
+    call set_dims(name, "mid_levels,y,x")
+    call set_attribute(name, "units", "m/s")
 
-    tmp =  v(1:nx,1:ny,1:nzm)
-    call set_state("V", tmp)
+    name = "tendency_of_y_wind_due_to_dynamics"
+    tmp = dvdt(1:nx,1:ny,:,na) * 86400
+    call set_state(name, tmp)
+    call set_dims(name, "mid_levels,y,x")
+    call set_attribute(name, "units", "m/s")
 
+    name = "latitude"
     tmp(1:nx,1:ny,1) = latitude
-    call set_state2d("lat", tmp(1:nx,1:ny,1))
+    call set_state2d(name, tmp(1:nx,1:ny,1))
+    call set_dims(name, "y,x")
+    call set_attribute(name, "units", "degreeN")
 
+    name = "longitude"
     tmp(1:nx,1:ny,1) = longitude
-    call set_state2d("lon", tmp(1:nx,1:ny,1))
+    call set_state2d(name, tmp(1:nx,1:ny,1))
+    call set_dims(name, "y,x")
+    call set_attribute(name, "units", "degreeN")
 
     ! for some reason set_state2d has some extremee side ffects
     ! that can cause the model to crash
+    name = "sea_surface_temperature"
     tmp(:,:,1) = sstxy(1:nx, 1:ny) + t00
-    call set_state2d("SST", tmp(:,:,1))
+    call set_state2d(name, tmp(:,:,1))
+    call set_dims(name, "y,x")
+    call set_attribute(name, "units", "K")
 
+    name = "surface_air_pressure"
+    tmp(:,:,1) = presi(1)
+    call set_state2d(name, tmp(:,:,1))
+    call set_dims(name, "y,x")
+    call set_attribute(name, "units", "mbar")
+
+    name = "toa_incoming_shortwave_flux"
     tmp(:,:,1) = solinxy(1:nx, 1:ny)
-    call set_state2d("SOLIN", tmp(:,:,1))
+    call set_state2d(name, tmp(:,:,1))
+    call set_dims(name, "y,x")
+    call set_attribute(name, "units", "W m^-2")
 
+    name = "surface_upward_sensible_heat_flux"
     tmp(:,:,1) = fluxbt(1:nx, 1:ny) * cp * rhow(1)
-    call set_state2d("SHF", tmp(:,:,1))
+    call set_state2d(name, tmp(:,:,1))
+    call set_dims(name, "y,x")
+    call set_attribute(name, "units", "W m^-2")
 
+    name = "surface_upward_latent_heat_flux"
     if (do_debias_lhf) then
       call bias_correct_lhf(fluxbq(1:nx, 1:ny) * lcond * rhow(1), lhf_no_bias)
       tmp(:,:,1) = lhf_no_bias
     else
         tmp(:,:,1) = fluxbq(1:nx, 1:ny) * lcond * rhow(1)
     end if
-    call set_state2d("LHF", tmp(:,:,1))
+    call set_state2d(name, tmp(:,:,1))
+    call set_dims(name, "y,x")
+    call set_attribute(name, "units", "W m^-2")
 
     tmp_vert = rho * adz * dz
     call set_state_1d("layer_mass", tmp_vert)
 
     tmp_vert = pres
-    call set_state_1d("p", tmp_vert)
+    name ="air_pressure"
+    call set_state_1d(name, tmp_vert)
+    call set_dims(name, "mid_levels")
+    call set_attribute(name, "units", "hPa")
 
     tmp_vertw = presi
-    call set_state_1d("pi", tmp_vertw)
-
+    call set_state_1d("air_pressure_on_interface_levels", tmp_vertw)
 
     tmp_scalar = dtn
-    call set_state_scalar("p0", tmp_scalar)
     call set_state_scalar("dt", tmp_scalar)
 
     tmp_scalar = time
@@ -225,32 +293,35 @@ contains
 
     ! read in state from python
     print *, 'python_caller.f90::state_to_python retreiving state from python module'
-    call get_state("SLI", tmp, nx * ny * nzm)
-    ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
-    t(1:nx, 1:ny, 1:nzm) = tmp
 
-    call get_state("QT", tmp, nx * ny * nzm)
-    tmp = tmp / 1.e3
-    ! tmp(:,:,ntop:nzm) = micro_field(1:nx,1:ny, ntop:nzm, 1)
-    micro_field(1:nx, 1:ny, 1:nzm, 1) = tmp
+    if (usepython) then
+       call get_state("liquid_ice_static_energy", tmp, nx * ny * nzm)
+       ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
+       t(1:nx, 1:ny, 1:nzm) = tmp
 
+       call get_state("total_water_mixing_ratio", tmp, nx * ny * nzm)
+       tmp = tmp / 1.e3
+       ! tmp(:,:,ntop:nzm) = micro_field(1:nx,1:ny, ntop:nzm, 1)
+       micro_field(1:nx, 1:ny, 1:nzm, 1) = tmp
+    end if
 
-    call get_state("FQTNN", tmp, nx * ny * nzm)
-    ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
-    print *, 'SUM OF FQTNN ', sum(tmp**2)
+    call get_state("tendency_of_total_water_mixing_ratio",&
+         tmp, nx * ny * nzm)
+    print *, 'SUM OF NN QT tendency ', sum(tmp**2)
     fqtnn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
-    call get_state("FSLINN", tmp, nx * ny * nzm)
+    call get_state("tendency_of_liquid_ice_static_energy",&
+         tmp, nx * ny * nzm)
     ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
     fslinn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
-    call get_state("FUNN", tmp, nx * ny * nzm)
+    call get_state("tendency_of_x_wind", tmp, nx * ny * nzm)
     ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
-    funn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
+    funn(1:nx, 1:ny, 1:nzm) = tmp(:,:,:)
 
-    call get_state("FVNN", tmp, nx * ny * nzm)
+    call get_state("tendency_of_y_wind", tmp, nx * ny * nzm)
     ! tmp(:,:,ntop:nzm) = t(1:nx,1:ny, ntop:nzm)
-    fvnn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
+    fvnn(1:nx, 1:ny, 1:nzm) = tmp(:,:,:)
 
     call get_state("QN", tmp, nx*ny*nzm)
     tmp = tmp / 1.e3
@@ -333,14 +404,23 @@ contains
     micro_field(1:nx, 1:ny, 1:nzm, 1) = micro_field(1:nx, 1:ny, 1:nzm, 1) &
          + fqtnn(1:nx, 1:ny, 1:nzm) * dt_days  / gkg_to_kgkg
 
-    dudt(1:nx, 1:ny, 1:nzm,na) = dudt(1:nx, 1:ny, 1:nzm,na) + funn * dt_days
-    dvdt(1:nx, 1:ny, 1:nzm,na) = dvdt(1:nx, 1:ny, 1:nzm,na) + fvnn * dt_days
-
     ! mm / day
     net_prec_xy = - vertical_sum(fqtnn, layer_mass) / gkg_to_kgkg
     ! W/m2
     net_heat_xy = vertical_sum(fslinn, layer_mass) * cp / seconds_in_day
   end subroutine apply_nn_forcings
+
+  subroutine apply_python_momentum()
+    use vars, only: dudt, dvdt, na, t, u, v,w, tabs,&
+         latitude, longitude, na, &
+         nx, ny, nzm, rho, adz, dz, pres, presi, time, nstep, dudt, dvdt
+    real, parameter :: seconds_in_day = 86400.0
+
+    dudt(1:nx, 1:ny, 1:nzm,na) = dudt(1:nx, 1:ny, 1:nzm,na) + funn / seconds_in_day
+    dvdt(1:nx, 1:ny, 1:nzm,na) = dvdt(1:nx, 1:ny, 1:nzm,na) + fvnn / seconds_in_day
+
+  end subroutine apply_python_momentum
+
 
   function vertical_sum(x, w)
     real, intent(in) :: x(:,:,:), w(:)
@@ -356,5 +436,9 @@ contains
     end do
 
   end function vertical_sum
+
+  subroutine save_python_state
+    call call_function("uwnet.sam_interface", "call_save_state")
+  end subroutine save_python_state
 
 end module python_caller

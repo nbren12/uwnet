@@ -12,6 +12,8 @@ Welcome to UWNET's documentation!
    :caption: Contents
 
    quickstart
+   sam
+   sacred
 
 
 .. toctree::
@@ -21,7 +23,6 @@ Welcome to UWNET's documentation!
    post-processing
    training
    constraints
-   sam
    training-data-header
    smoother
 

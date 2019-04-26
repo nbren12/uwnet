@@ -1,0 +1,12 @@
+version: '3'
+services:
+  sam:
+    build: ./
+    environment:
+      - LOCAL_FLAGS=/uwnet/setup/docker/local_flags.mk
+      - REDIS_URL=redis
+      - NGAQUA_PATH=/uwnet/data/processed/training.nc
+    volumes:
+      - ./uwnet:/opt/uwnet
+      - ./:/uwnet
+      - ./ext/sam:/opt/sam

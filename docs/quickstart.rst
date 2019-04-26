@@ -69,6 +69,16 @@ choice by including ``output_dir=<path to desired output_dir>`` after the
 
   python -m uwnet.train with data=<path> lr=.001 output_dir=<path to desired output_dir>
 
+.. NOTE::
+
+  A good default configuration for running the training is available at
+  ``assets/training_configurations/default.json``. To use it and store the outputs
+  in a directory ``my_run`` use the following command::
+
+    python -m uwnet.train with \
+        assets/training_configurations/default.json \
+        output_dir=my_run
+
 
 Training Outputs
 ----------------

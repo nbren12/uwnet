@@ -1,13 +1,14 @@
-import torch
-from .normalization import Scaler
+import numpy as np
 import pytest
+import torch
 from toolz import curry
+from .testing import assert_tensors_allclose, mock_data
+from .normalization import Scaler
 
 approx = curry(pytest.approx, abs=1e-6)
 
 
-def test_Scaler():
-
+def test_scaler():
     x = torch.rand(10)
     mean = x.mean()
     scale = x.std()
@@ -17,3 +18,28 @@ def test_Scaler():
     scaled = y['x']
     assert scaled.mean().item() == approx(0.0)
     assert scaled.std().item() == approx(1.0)
+
+
+def test_scaler_fit_xarray():
+    name = 'a'
+    ds = mock_data(init=np.random.random).to_dataset(name=name)
+    scaler = Scaler().fit_xarray(ds)
+
+    expected = torch.from_numpy(ds.groupby('z').mean()[name].values)
+    assert_tensors_allclose(scaler.mean[name], expected)
+
+
+def test_scaler_fit_generator():
+    shape = (10, 3, 4, 1, 1)
+    name = 'a'
+    a = torch.rand(shape)
+
+    def generator():
+        from uwnet.timestepper import Batch
+        for arr in a.split(2, dim=0):
+            yield Batch({name: a}, prognostics=[name])
+
+    scaler = Scaler().fit_generator(generator())
+
+    expected_mean = a.mean(0).mean(0).squeeze()
+    assert_tensors_allclose(scaler.mean[name], expected_mean)

@@ -120,7 +120,7 @@ rule process_with_sam_once:
     shell: """
     rundir=$(dirname {output})
     rm -rf $rundir
-    {sys.executable} src/criticism/run_sam_ic_nn.py  \
+    {sys.executable} -m src.sam.create_case  \
         -t {wildcards.step} \
         -p assets/parameters_process.json \
         -n data/raw/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX \
@@ -157,7 +157,9 @@ rule sam_run_report:
              -p caseid {wildcards.id} \
             -p training_data_mean {TRAINING_MEAN} \
             --prepare-only {params.template} {params.ipynb}
-    jupyter nbconvert --execute {params.ipynb}
+    jupyter nbconvert  --ExecutePreprocessor.timeout=600 \
+                       --allow-errors \
+                       --execute {params.ipynb}
     # clean up the notebook
     rm -f {params.ipynb}
     """
@@ -171,14 +173,8 @@ rule sam_run:
             step=0
     shell: """
     rm -rf {params.rundir}
-    {sys.executable} src/criticism/run_sam_ic_nn.py  \
-        -t {params.step} \
-        -p assets/parameters2.json \
-        -n data/raw/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX \
-        -s {SAM_PATH} \
-        -nn {params.model} \
-        {params.rundir}
-
+    {sys.executable} -m  src.sam.create_case -nn {params.model} \
+        -t {params.step} -p assets/parameters_sam_neural_network.json {params.rundir}
     # run sam
     {RUN_SAM_SCRIPT} {params.rundir} >> {log} 2>> {log}
     exit 0
@@ -187,15 +183,34 @@ rule sam_run:
 rule nudge_run:
     output: directory(f"data/runs/{TODAY}-nudging")
     shell: """
-    {sys.executable} src/criticism/run_sam_ic_nn.py \
+    {sys.executable} -m  src.sam.create_case \
     -t 0 -p assets/parameters_nudging.json {output}
     """
 
 rule micro_run:
-    output: directory(f"data/runs/{TODAY}-microphysics")
+    output: touch(f"data/runs/{TODAY}-{{kind}}/.{{id}}.done")
+    params: rundir=f"data/runs/{TODAY}-{{kind}}"
+    log: f"data/runs/{TODAY}-{{kind}}/{{id}}.log"
     shell: """
-    {sys.executable} src/criticism/run_sam_ic_nn.py \
-    -t 0 -p assets/parameters_micro.json {output}
+    rm -rf {params.rundir}
+    {sys.executable}   -m src.sam.create_case \
+    -t 0 -p assets/parameters_{wildcards.kind}.json {params.rundir}
+
+    {RUN_SAM_SCRIPT} {params.rundir} >> {log} 2>> {log}
+    exit 0
+    """
+
+# Save the state within the SAM-python interface for one time step
+rule save_sam_interface_state:
+    output: "assets/state.pt"
+    shell:"""
+    dir=$(mktemp --directory)
+    {sys.executable} -m  src.sam.create_case \
+         -p assets/parameters_save_python_state.json \
+         $dir
+    execute_run.sh $dir
+    mv -f $dir/state.pt assets/
+    rm -rf $dir
     """
 
 ## Model Training Rules ########################################
@@ -213,3 +228,19 @@ rule train_model:
     python -m uwnet.train with data={TRAINING_DATA} prepost.path={input} prepost.kind='saved' \
         batch_size=64 lr=.005 epochs=5 -m uwnet
     """
+
+rule debias_trained_model:
+    input: "models/{model}.pkl"
+    output: "models/{model}.debiased.pkl"
+    params: data=TRAINING_DATA, prognostics=['QT', 'SLI']
+    script: "src/models/debias.py"
+
+
+rule compute_noise_for_trained_model:
+    input: "models/{model}.pkl"
+    output: "noise/{model}.pkl"
+    run:
+        from uwnet.whitenoise import fit
+        import torch
+        noise = fit(input[0])
+        torch.save(noise, output[0])

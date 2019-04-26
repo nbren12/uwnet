@@ -17,6 +17,7 @@ class XarrayBatch(Batch):
     """An Xarray-aware version of batch"""
 
     def __init__(self, dataset, **kwargs):
+        self._dataset = dataset
         data = _convert_dataset_to_dict(dataset)
         super(XarrayBatch, self).__init__(data, **kwargs)
 
@@ -32,6 +33,10 @@ class XarrayBatch(Batch):
             except ValueError:
                 pass
         return xr.Dataset(inputs)
+
+    def get_prognostics_at_time(self, t):
+        return self._dataset[self.prognostics].isel(time=t)
+
 
 def _get_time_step(ds):
     return float(ds.time.diff('time')[0] * 86400)
@@ -69,8 +74,13 @@ def single_column_simulation(model,
         prediction_length=end - start,
         time_step=time_step)
     datasets = []
-    for k, state in pred_generator:
-        datasets.append(xr.Dataset(state).assign_coords(time=dataset.time[k]))
+    for k, state, diag in pred_generator:
+
+        for key in diag:
+            if key in state:
+                diag = diag.rename({key: 'F' + key + 'NN'})
+
+        datasets.append(xr.Dataset(state).assign_coords(time=dataset.time[k]).merge(diag))
     output_time_series = xr.concat(datasets, dim='time')
     return output_time_series
 

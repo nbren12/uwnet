@@ -1,13 +1,6 @@
 #!/bin/sh
 # Execute SAM run on docker
 
-UWNET=$(pwd)
-run=$(realpath $1)
+run=$1
+docker-compose run -w /run -v $(realpath $run):/run sam ./run.sh $run
 
-docker run -it \
-    -v /Users:/Users  \
-    -v $UWNET/uwnet:/opt/uwnet \
-    -v $UWNET/ext/sam:/opt/sam \
-    -w "$run" \
-    -e LOCAL_FLAGS=$UWNET/setup/docker/local_flags.mk \
-    nbren12/uwnet:latest ./run.sh

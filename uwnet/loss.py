@@ -1,25 +1,18 @@
+"""
+
+Step Types:
+
+- instability
+- multi
+
+"""
 import torch
 from toolz import curry
 from torch.nn.functional import mse_loss
-from .timestepper import predict_multiple_steps
-from .wtg import wtg_penalty
 
-
-def get_other_dims(x, dim):
-    return set(range(x.dim())) - {dim}
-
-
-def mean_over_dims(x, dims):
-    """Take a mean over a list of dimensions keeping the as singletons"""
-    for dim in dims:
-        x = x.mean(dim=dim, keepdim=True)
-    return x
-
-
-def mean_other_dims(x, dim):
-    """Take a mean over all dimensions but the one specified"""
-    other_dims = get_other_dims(x, dim)
-    return mean_over_dims(x, other_dims)
+from uwnet.utils import mean_other_dims
+from .timestepper import predict_multiple_steps, TimeStepper
+from . import tensordict
 
 
 def r2_score(truth, prediction):
@@ -73,8 +66,7 @@ def compute_loss(criterion, prognostics, y):
     return sum(criterion(prognostics[key], y[key]) for key in prognostics)
 
 
-def compute_multiple_step_loss(criterion, model, batch, prognostics, *args,
-                               **kwargs):
+def compute_multiple_step_loss(criterion, model, batch, *args, **kwargs):
     """Compute the loss across multiple time steps with an Euler stepper
 
     Yields
@@ -89,7 +81,7 @@ def compute_multiple_step_loss(criterion, model, batch, prognostics, *args,
                                                   **kwargs)
     return sum(
         compute_loss(criterion, prediction, batch.get_prognostics_at_time(t))
-        for t, prediction in prediction_generator)
+        for t, prediction, _ in prediction_generator)
 
 
 def equilibrium_penalty(criterion, model, batch, dt, n=20):
@@ -110,45 +102,80 @@ def equilibrium_penalty(criterion, model, batch, dt, n=20):
     return compute_loss(criterion, mean, state)
 
 
-def total_loss(criterion, model, z, batch, time_step=.125):
-    """Compute the loss across multiple time steps with an Euler stepper
-    """
-    dt = time_step
-    src = model(batch.data)
+def instability_penalty_step(self, engine, batch, alpha=1.0):
+    self.optimizer.zero_grad()
 
+    dt = .125
+    pred, x1 = get_input_output(self.model, dt, batch)
 
+    l1 = compute_loss(self.criterion, x1, pred)
+    l2 = equilibrium_penalty(self.criterion, self.model, batch, dt)
 
-    g = batch.get_known_forcings()
-    progs = batch.get_prognostics()
-
-
-    forcing = g.apply(lambda x: (x[:,1:] + x[:,:-1]) / 2)
-    x0 = progs.apply(lambda x: x[:,:-1])
-    x1 = progs.apply(lambda x: x[:,1:])
-    src = src.apply(lambda x: x[:,:-1])
-
-    pred = x0 + dt * src + dt * 86400 * forcing
-
-    l1 = compute_loss(criterion, x1, pred) / dt
-    l2 = equilibrium_penalty(criterion, model, batch, dt)
-
-    # w = criterion.keywords['weights']
-    # x = (src * w).apply(lambda x: x.sum(-3).sum(0)) / 1000
-    # pred = (g * w).apply(lambda x: -x.sum(-3).sum(0)) / 1000 * 86400
-    # l3 = mse_loss(x['QT'], pred['QT'])
-
-    loss = l1 + l2 * .1
-
-    # WTG penalty
-    eig1, eig2 = wtg_penalty(model, z, batch)
+    loss = l1 + alpha * l2
 
     info = {
         'Q1/Q2': l1.item(),
         'equilibrium': l2.item(),
-        # 'pw_imbalance': l3.item(),
-        'eig1': eig1,
-        'eig2': eig2,
-        'total': loss.item()
+        'total': loss.item(),
     }
 
-    return loss, info
+    loss.backward()
+    self.optimizer.step()
+    self.optimizer.zero_grad()
+    engine.state.loss_info = info
+    return pred, x1
+
+
+def multiple_step_loss_step(self, engine, batch):
+    self.optimizer.zero_grad()
+    stepper = TimeStepper(self.model, time_step=self.time_step)
+
+    prediction = stepper(batch)
+
+    # TODO: maybe TimeStepper should return a batch object
+    prediction = tensordict.lag(prediction, -1, batch.time_dim)
+    truth = batch.data_for_lag(1)
+
+    loss = ((truth - prediction)**2)
+    combined_var_loss = sum(loss.values())
+    loss = combined_var_loss[combined_var_loss < 100.0].mean()
+
+    loss.backward()
+    self.optimizer.step()
+    self.optimizer.zero_grad()
+
+    info = {"loss": loss.item()}
+
+    engine.state.loss_info = info
+    return info
+
+
+@curry
+def get_input_output(model, dt, batch):
+    src = model(batch.data)
+
+    g = batch.get_known_forcings()
+    progs = batch.get_prognostics()
+
+    forcing = g.apply(lambda x: (x[:, 1:] + x[:, :-1]) / 2)
+    x0 = progs.apply(lambda x: x[:, :-1])
+    x1 = progs.apply(lambda x: x[:, 1:])
+    src = src.apply(lambda x: x[:, :-1])
+
+    # pred = x0 + dt * src + dt * 86400 * forcing
+    # return pred, x1
+
+    # pred = x0 + dt * src + dt * 86400 * forcing
+    return src, (x1-x0)/dt - 86400 * forcing
+
+
+def get_step(name, self, kwargs):
+    if name == 'instability':
+        fun = instability_penalty_step
+    elif name == 'multi':
+        fun = multiple_step_loss_step
+    else:
+        raise NotImplementedError(
+            f"Training step type '{name}' is not implemented")
+
+    return curry(fun, self, **kwargs)

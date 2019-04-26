@@ -263,3 +263,4 @@ models/
 *.pdf
 *.h5
 /TAGS
+*.png

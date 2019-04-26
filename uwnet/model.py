@@ -34,7 +34,10 @@ class InnerModel(nn.Module, XRCallMixin):
         return self.model(x[self.input_names])
 
 
-def get_model(*args):
+def get_model(pre, post, _config):
     """Create an MLP with scaled inputs and outputs
     """
-    return InnerModel(*args).to(dtype=torch.float)
+    kind = _config['kind']
+
+    if kind == 'inner_model':
+        return InnerModel(pre, post).to(dtype=torch.float)

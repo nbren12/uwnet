@@ -216,7 +216,7 @@ do while(nstep.lt.nstop.and.nelapse.gt.0)
      if(dosgs) call sgs_mom()
      call hyper_diffuse()
      if (.not. doheldsuarez) call hs_damp_velocity()
-
+     if (usepython) call apply_python_momentum()
 !-----------------------------------------------------------
 !       Coriolis force:
 	     
@@ -290,6 +290,7 @@ do while(nstep.lt.nstop.and.nelapse.gt.0)
       if (usepython) then
          call apply_nn_forcings(dtn)
       end if
+      if ((nsavepython .gt. 0) .and. (mod(nstep-1, nsavepython) == 0)) call save_python_state()
 
 !-----------------------------------------------------------
 !    Compute diagnostic fields:

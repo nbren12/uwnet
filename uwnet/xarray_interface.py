@@ -7,7 +7,7 @@ from .tensordict import TensorDict
 
 
 def _is_at_least_2d(da):
-    return set(da.dims) > {'x', 'y'}
+    return set(da.dims) >= {'x', 'y'}
 
 
 def _array_to_tensor(da):
@@ -71,3 +71,12 @@ def call_with_xr(self, ds, **kwargs):
 class XRCallMixin(object):
     """PyTorch module for predicting Q1, Q2 and maybe Q3"""
     call_with_xr = call_with_xr
+    predict = call_with_xr
+
+
+class XarrayWrapper(object):
+    def __init__(self, model):
+        self.model = model
+
+    def __call__(self, *args, **kwargs):
+        return call_with_xr(self.model, *args, **kwargs)
