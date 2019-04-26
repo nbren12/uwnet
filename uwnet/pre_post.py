@@ -180,3 +180,7 @@ def get_pre_post(data, data_loader, _config):
         lower = LowerAtmosInput()
         pre = Sequential(pre, lower)
         return pre, post
+    if kind == 'orig':
+        return get_pre_post_orig(data, data_loader, n=34)
+    else:
+        raise NotImplementedError
