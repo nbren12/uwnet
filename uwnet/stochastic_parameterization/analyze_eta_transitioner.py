@@ -1,4 +1,4 @@
-from uwnet.stochastic_parameterization.residual_stochastic_state_model import (
+from uwnet.stochastic_parameterization.stochastic_state_model import (
     StochasticStateModel,
 )
 from uwnet.thermo import integrate_q2, compute_apparent_source

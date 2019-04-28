@@ -26,7 +26,7 @@ warnings.filterwarnings("ignore", category=SourceChangeWarning)
 
 default_t_start = 100
 default_t_stop = 150
-model_inputs = ['SST', 'QT', 'SLI', 'SOLIN']
+model_inputs = ['SST', 'QT_blurred', 'SLI_blurred', 'SOLIN']
 default_quantile_transform_data = False
 
 
@@ -42,6 +42,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             max_qt_for_residual_model=15,
             t_start=copy(default_t_start),
             t_stop=copy(default_t_stop),
+            blur_sigma=None,
             eta_coarsening=None,
             residual_model_class=LinearRegression,
             binning_quantiles=copy(default_binning_quantiles),
@@ -53,10 +54,13 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             include_output_in_transition_model=True,
             time_idx_to_use_for_eta_initialization='random',
             markov_process=True,
+            is_gcm=False,
             verbose=True):
         super(StochasticStateModel, self).__init__()
         self.t_start = t_start
         self.t_stop = t_stop
+        self.is_gcm = is_gcm
+        self.blur_sigma = blur_sigma
         self.eta_coarsening = eta_coarsening
         self.eta_predictors = eta_predictors
         self.binning_quantiles = binning_quantiles
@@ -107,7 +111,8 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             max_qt_for_residual_model=self.max_qt_for_residual_model,
             max_sli_for_residual_model=self.max_sli_for_residual_model,
             predictors_to_use=self.eta_predictors,
-            base_model_location=self.base_model_location)
+            base_model_location=self.base_model_location,
+            blur_sigma=self.blur_sigma)
         self.eta_transitioner = transitioner
 
     def setup_eta(self, time_idx_to_use_for_eta_initialization=0):
@@ -118,7 +123,8 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             eta_coarsening=self.eta_coarsening,
             binning_quantiles=self.binning_quantiles,
             binning_method=self.binning_method,
-            base_model_location=self.base_model_location
+            base_model_location=self.base_model_location,
+            blur_sigma=self.blur_sigma
         )
         if time_idx_to_use_for_eta_initialization == 'random':
             time_idx_to_use_for_eta_initialization = np.random.choice(
@@ -140,7 +146,8 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             eta_coarsening=self.eta_coarsening,
             binning_quantiles=self.binning_quantiles,
             binning_method=self.binning_method,
-            base_model_location=self.base_model_location)
+            base_model_location=self.base_model_location,
+            blur_sigma=self.blur_sigma)
         for time in range(len(ds.time)):
             input_data = {}
             for predictor in self.eta_transitioner.predictors:
@@ -165,12 +172,12 @@ class StochasticStateModel(nn.Module, XRCallMixin):
         ])
         x_data = {'QT': pred_input, 'SLI': pred_input}
         for variable in self.residual_model_inputs:
-            if variable == 'QT':
+            if 'QT' in variable:
                 data_for_var = x[variable][
                     :self.max_qt_for_residual_model,
                     indices[:, 0],
                     indices[:, 1]]
-            elif variable == 'SLI':
+            elif 'SLI' in variable:
                 data_for_var = x[variable][
                     :self.max_sli_for_residual_model,
                     indices[:, 0],
@@ -204,14 +211,14 @@ class StochasticStateModel(nn.Module, XRCallMixin):
         ])
         x_data = {'QT': preds, 'SLI': preds}
         for variable in self.residual_model_inputs:
-            if variable == 'QT':
+            if 'QT' in variable:
                 data_for_var = ds[variable].values[
                     indices[:, 0],
                     :self.max_qt_for_residual_model,
                     indices[:, 1],
                     indices[:, 2]
                 ]
-            elif variable == 'SLI':
+            elif 'SLI' in variable:
                 data_for_var = ds[variable].values[
                     indices[:, 0],
                     :self.max_sli_for_residual_model,
@@ -243,7 +250,8 @@ class StochasticStateModel(nn.Module, XRCallMixin):
                 eta_coarsening=None,
                 binning_quantiles=self.binning_quantiles,
                 binning_method=self.binning_method,
-                base_model_location=self.base_model_location)
+                base_model_location=self.base_model_location,
+                blur_sigma=self.blur_sigma)
             residual_models_by_eta = {}
             if self.verbose:
                 print('Training residual stochastic state model')
@@ -268,6 +276,23 @@ class StochasticStateModel(nn.Module, XRCallMixin):
                 residual_models_by_eta[eta] = residual_models
             self.residual_models_by_eta = residual_models_by_eta
             self.is_trained = True
+            if self.is_gcm and self.blur_sigma:
+                unblurred_vars = []
+                for variable in self.residual_model_inputs:
+                    if '_blurred' in variable:
+                        unblurred_vars.append(variable.replace('_blurred', ''))
+                    else:
+                        unblurred_vars.append(variable)
+                self.residual_model_inputs = unblurred_vars
+                unblurred_transitioner_vars = []
+                for variable in self.eta_transitioner.predictors:
+                    if '_blurred' in variable:
+                        unblurred_transitioner_vars.append(
+                            variable.replace('_blurred', ''))
+                    else:
+                        unblurred_transitioner_vars.append(variable)
+                    self.eta_transitioner.predictors = \
+                        unblurred_transitioner_vars
         else:
             raise Exception('Model already trained')
 

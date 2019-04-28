@@ -1,7 +1,7 @@
 import torch
 from uwnet.tensordict import TensorDict
 import numpy as np
-from uwnet.stochastic_parameterization.residual_stochastic_state_model import (
+from uwnet.stochastic_parameterization.stochastic_state_model import (
     StochasticStateModel,
 )
 from uwnet.stochastic_parameterization.utils import get_dataset

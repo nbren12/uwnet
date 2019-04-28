@@ -37,8 +37,10 @@ class EtaTransitioner(object):
             max_sli_for_residual_model=18,
             use_nn_output=False,
             markov_process=True,
-            base_model_location=copy(default_base_model_location)):
+            base_model_location=copy(default_base_model_location),
+            blur_sigma=None):
         self.verbose = verbose
+        self.blur_sigma = blur_sigma
         self.eta_coarsening = eta_coarsening
         self.t_start = t_start
         self.t_stop = t_stop
@@ -77,7 +79,8 @@ class EtaTransitioner(object):
             eta_coarsening=self.eta_coarsening,
             binning_quantiles=self.binning_quantiles,
             binning_method=self.binning_method,
-            base_model_location=self.base_model_location
+            base_model_location=self.base_model_location,
+            blur_sigma=self.blur_sigma
         )
         self.layer_mass = ds.layer_mass.values
         normalization_params = {}
@@ -103,6 +106,10 @@ class EtaTransitioner(object):
             normalization_params[predictor] = {
                 'mean': mean_by_degree, 'std': std_by_degree
             }
+            if '_blurred' in predictor:
+                normalization_params[predictor.replace('_blurred', '')] = {
+                    'mean': mean_by_degree, 'std': std_by_degree
+                }
         self.normalization_params = normalization_params
 
     def normalize_array(self, array, variable, degree):
@@ -119,12 +126,13 @@ class EtaTransitioner(object):
             eta_coarsening=self.eta_coarsening,
             binning_quantiles=self.binning_quantiles,
             binning_method=self.binning_method,
-            base_model_location=self.base_model_location
+            base_model_location=self.base_model_location,
+            blur_sigma=self.blur_sigma
         )
         start_times = np.array(range(len(ds.time) - 1))
         stop_times = start_times + 1
-        start = ds.isel(time=start_times).eta.values
-        y_data = ds.isel(time=stop_times).eta.values
+        start = ds.isel(time=start_times).eta_coarse.values
+        y_data = ds.isel(time=stop_times).eta_coarse.values
         if self.eta_coarsening:
             y_data = coarsen_array(y_data, self.eta_coarsening)
             start = coarsen_array(start, self.eta_coarsening)

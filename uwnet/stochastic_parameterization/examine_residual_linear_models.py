@@ -2,7 +2,7 @@ from functools import lru_cache
 import torch
 from matplotlib import pyplot as plt
 import seaborn as sns
-from uwnet.stochastic_parameterization.residual_stochastic_state_model import (  # noqa
+from uwnet.stochastic_parameterization.stochastic_state_model import (  # noqa
     StochasticStateModel,
 )
 from uwnet.stochastic_parameterization.utils import get_dataset

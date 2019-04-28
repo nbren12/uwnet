@@ -3,6 +3,7 @@ from functools import lru_cache
 
 # Thirdparty
 import numpy as np
+from scipy.ndimage import gaussian_filter1d
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
 from sklearn.ensemble import GradientBoostingClassifier
@@ -30,7 +31,7 @@ default_binning_method = 'column_integrated_qt_residuals'
 # default_binning_method = 'column_integrated_sli_residuals'
 
 # ---- binning quantiles ----
-default_binning_quantiles = (0.06, 0.15, 0.30, .5, 0.70, 0.85, 0.94, 1)
+default_binning_quantiles = (0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1)
 # default_binning_quantiles = (.1, .3, .7, .9, 1)
 # default_binning_quantiles = (1,)
 # default_binning_quantiles = (.01, .05, .15, .35, .5, .65, .85, .95, .99, 1)
@@ -45,8 +46,8 @@ default_eta_transitioner_model = lr
 default_eta_transitioner_predictors = [
     'SST',
     'PW',
-    'QT',
-    'SLI',
+    'QT_blurred',
+    'SLI_blurred',
     # 'FQT',
     # 'FSLI',
     # 'SHF',
@@ -88,6 +89,33 @@ def uncoarsen_array(array_, new_size=(64, 128)):
     return np.array(Image.fromarray(array_).resize((new_size[1], new_size[0])))
 
 
+def blur(arr, sigma):
+    if not {'x', 'y'} <= set(arr.dims):
+        raise ValueError
+    if sigma <= 1e-8:
+        raise ValueError
+    return gaussian_filter1d(
+        gaussian_filter1d(
+            arr, sigma, axis=arr.dims.index('x'), mode='wrap'),
+        sigma, axis=arr.dims.index('y'), mode='nearest'
+    )
+
+
+def blur_dataset(data, sigma):
+    for x in data:
+        if x in ['QT', 'SLI', 'PW']:
+            try:
+                blurred_data = blur(data[x], sigma)
+                if x in ['QT', 'SLI']:
+                    data[x + '_blurred'] = data[x].copy()
+                    data[x + '_blurred'].values = blurred_data
+                else:
+                    data[x].values = blurred_data
+            except ValueError:
+                continue
+    return data
+
+
 class BaseModel(object):
 
     def __init__(
@@ -99,12 +127,12 @@ class BaseModel(object):
             binning_method=default_binning_method,
             eta_coarsening=None):
         self.model = torch.load(model_location)
-        if eta_coarsening is not None:
+        self.eta_coarsening = eta_coarsening
+        if self.eta_coarsening is not None:
             self.ds = dataset.coarsen(
                 {'x': eta_coarsening, 'y': eta_coarsening}).mean()
         else:
             self.ds = dataset
-        self.eta_coarsening = eta_coarsening
         self.time_step_days = time_step_days
         self.time_step_seconds = 86400 * time_step_days
         self.binning_quantiles = binning_quantiles
@@ -219,10 +247,21 @@ def insert_eta_bin_membership(
         dataset,
         binning_quantiles=binning_quantiles,
         binning_method=binning_method,
-        eta_coarsening=eta_coarsening
+        # eta_coarsening=eta_coarsening,
+        eta_coarsening=None,
     )
+    coarse_bin_membership = BaseModel(
+        base_model_location,
+        dataset,
+        binning_quantiles=binning_quantiles,
+        binning_method=binning_method,
+        eta_coarsening=eta_coarsening
+    ).get_bin_membership()
     bin_membership = base_model.get_bin_membership()
     dataset = dataset.isel(time=range(len(dataset.time) - 1))
+    dataset['eta_coarse'] = dataset['Prec'].copy()
+    dataset['eta_coarse'].values = coarse_bin_membership
+    # dataset['eta_coarse'].values = bin_membership
     dataset['eta'] = dataset['Prec'].copy()
     dataset['eta'].values = bin_membership
     dataset['eta'].attrs['units'] = ''
@@ -250,12 +289,15 @@ def get_xarray_dataset_with_eta(
         t_start=0,
         t_stop=640,
         set_eta=True,
+        blur_sigma=None,
         binning_method=default_binning_method):
     try:
         dataset = xr.open_zarr(data)
     except ValueError:
         dataset = xr.open_dataset(data)
     dataset = dataset.isel(time=range(t_start, t_stop))
+    if blur_sigma:
+        dataset = blur_dataset(dataset, blur_sigma)
     if set_eta:
         dataset = insert_eta_bin_membership(
             dataset,
@@ -278,6 +320,7 @@ def get_dataset(
         t_stop=640,
         set_eta=True,
         eta_coarsening=None,
+        blur_sigma=None,
         binning_quantiles=default_binning_quantiles,
         binning_method=default_binning_method):
     ds = get_xarray_dataset_with_eta(
@@ -288,6 +331,7 @@ def get_dataset(
         t_start=t_start,
         t_stop=t_stop,
         set_eta=set_eta,
+        blur_sigma=blur_sigma,
         binning_method=binning_method
     )
     if add_precipital_water:

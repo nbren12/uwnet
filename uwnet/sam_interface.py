@@ -25,7 +25,7 @@ from toolz import curry, valmap
 import torch
 from uwnet.numpy_interface import NumpyWrapper
 from uwnet.sam_ngaqua import get_ngaqua_nudger
-from uwnet.stochastic_parameterization.residual_stochastic_state_model import (
+from uwnet.stochastic_parameterization.stochastic_state_model import (
     StochasticStateModel,
 )
 import json
@@ -88,8 +88,10 @@ def get_model(config):
             markov_process=True,
             include_output_in_transition_model=True,
             t_start=0,
-            t_stop=50,
+            t_stop=40,
+            is_gcm=True,
             eta_coarsening=2,
+            blur_sigma=1.0,
             base_model_location='full_model/1.pkl',
             ds_location='training.nc',
             time_idx_to_use_for_eta_initialization=0)

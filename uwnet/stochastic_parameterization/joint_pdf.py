@@ -5,9 +5,8 @@ import seaborn as sns
 from uwnet.thermo import compute_apparent_source
 from uwnet.stochastic_parameterization.utils import get_dataset
 import matplotlib.pyplot as plt
-import torch
 import pandas as pd
-from uwnet.stochastic_parameterization.residual_stochastic_state_model import (
+from uwnet.stochastic_parameterization.stochastic_state_model import (
     StochasticStateModel,
 )
 
