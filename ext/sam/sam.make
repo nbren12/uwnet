@@ -24,12 +24,16 @@ dirs := . $(shell cat Filepath)
 VPATH    := $(foreach dir,$(dirs),$(wildcard $(dir)))
 
 .SUFFIXES:
-.SUFFIXES: .f .f90 .c .o
+.SUFFIXES: .f .f90 .c .o .F90
+
+NUM_PROCESSES = $(shell expr $(NSUBX) \* $(NSUBY))
 
 
+all: command #$(SAM_OBJ)/$(SAM)
 
-all: $(SAM_DIR)/$(SAM)
 
+command: $(SAM)
+	echo "mpirun -np $(NUM_PROCESSES) $(SAM_OBJ)/$(SAM)" > $@
 
 SOURCES   := $(shell cat Srcfiles)
 
@@ -41,7 +45,7 @@ Srcfiles: Filepath
 
 OBJS      := $(addsuffix .o, $(basename $(SOURCES)))
 
-$(SAM_DIR)/$(SAM): $(OBJS)
+$(SAM_OBJ)/$(SAM): $(OBJS)
 	$(LD) -o $@ $(OBJS) $(LDFLAGS)
 
 tests :
@@ -56,12 +60,10 @@ test_read_sound: $(SAM_SRC)/TESTS/test_read_sound.f90 read_netcdf_3d.o grid.o ta
 .c.o:
 	${CC}  ${CFLAGS} -I$(SAM_SRC)/TIMING $(NOTIMERS) $<
 
-domain.o : domain.f90
-	${FF90} ${FFLAGS} ${CPPFLAGS} -cpp $<
+domain.f90 : $(SAM_SRC)/domain.F90
+	gfortran -E -D'NX=$(NX)' -D'NY=$(NY)' -D'NZ=$(NZ)' -D'NSUBX=$(NSUBX)' -D'NSUBY=$(NSUBY)' $< > $@
 
 include Depends
-
-
 
 clean:
 	rm ./OBJ/*
