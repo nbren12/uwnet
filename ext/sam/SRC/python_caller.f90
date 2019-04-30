@@ -3,6 +3,7 @@ module python_caller
   use callpy_mod, only: set_dims, set_attribute, set_state, set_state2d,&
     set_state_1d, get_state, set_state_scalar, set_state_char, call_function 
   use params, only: usepython
+  use grid, only: masterproc
   implicit none
 
   public :: initialize_from_target, initialize_python_caller, state_to_python,&
@@ -57,6 +58,8 @@ contains
     sl_last = t(1:nx, 1:ny, 1:nzm)
     qt_last = micro_field(1:nx, 1:ny, 1:nzm, 1)
     last_time_called = time
+
+    if (masterproc) &
     print *, 'python_caller.f90::initialize_python_caller: storing sl and qt to sl_last and qt_last at time', time
 
     tmp = rho * adz * dz
@@ -70,6 +73,7 @@ contains
 
     call set_state_char("caseid", caseid)
     call set_state_char("case", case)
+
   end subroutine initialize_python_caller
 
   subroutine initialize_from_target
@@ -83,6 +87,7 @@ contains
     real(4) :: tmp(1:nx, 1:ny, 1:nzm)
     ! locals
 
+    if (masterproc) &
     print *, 'Initializing state from target'
 
     ! call check(compute_next_state())
@@ -129,8 +134,11 @@ contains
     real :: dt
     character(len=256) :: name
 
+    call t_startf('python_push_state')
     ntop = nzm
     dt = time - last_time_called
+
+    if (masterproc) &
     print *, 'python_caller.f90::push_state computing FSL and FQT with dt=', dt
     fsl = (t(1:nx, 1:ny, 1:nzm) - sl_last)/dt
     fqt = (micro_field(1:nx, 1:ny, 1:nzm, 1) - qt_last)/dt
@@ -274,6 +282,7 @@ contains
     call set_state_char("caseid", caseid)
     call set_state_char("case", case)
 
+    call t_stopf('python_push_state')
   end subroutine push_state
 
   subroutine get_state_from_python()
@@ -282,14 +291,27 @@ contains
          latitude, longitude,&
          nx, ny, nzm, rho, adz, dz, pres, presi, time, nstep
     use microphysics, only: micro_field, qn, qp, micro_diagnose
+    use grid, only: nsubdomains_x, rank, nsubdomains
     ! locals
     real(4) :: tmp(1:nx, 1:ny, 1:nzm)
 
     integer js, jn
 
+    call t_startf('python_get_state')
+
     ! get furthest north and south grid points to use NN output from
-    js = 1 + meridional_bndy_size
-    jn = ny - meridional_bndy_size
+    ! if on south boundary
+    js = 1
+    jn = ny
+    if(rank.lt.nsubdomains_x) then
+       js = 1 + meridional_bndy_size
+    end if
+
+    ! if on north boundary
+    if(rank.gt.nsubdomains-nsubdomains_x-1) then
+       jn = ny - meridional_bndy_size
+    end if
+
 
     ! read in state from python
     print *, 'python_caller.f90::state_to_python retreiving state from python module'
@@ -307,6 +329,7 @@ contains
 
     call get_state("tendency_of_total_water_mixing_ratio",&
          tmp, nx * ny * nzm)
+    if (masterproc) &
     print *, 'SUM OF NN QT tendency ', sum(tmp**2)
     fqtnn(1:nx, js:jn, 1:nzm) = tmp(:,js:jn,:)
 
@@ -354,6 +377,7 @@ contains
     ! diagnose is called in main.f90, so we don't need to call that here
     ! ...I hate all these global variables
     call micro_diagnose()
+    call t_stopf('python_get_state')
 
   end subroutine get_state_from_python
 
@@ -375,11 +399,13 @@ contains
     call push_state()
 
     ! Compute the necessary variables
-    print *, 'python_caller.f90::state_to_python calling python code'
+    ! print *, 'python_caller.f90::state_to_python calling python code'
+    call t_startf('python_call')
     call call_function(module_name, function_name)
+    call t_stopf('python_call')
     call get_state_from_python()
 
-    print *, 'python_caller.f90::state_to_python storing state to sl_last and qt_last at time', time
+    ! print *, 'python_caller.f90::state_to_python storing state to sl_last and qt_last at time', time
     sl_last = t(1:nx, 1:ny, 1:nzm)
     qt_last = micro_field(1:nx, 1:ny, 1:nzm, 1)
     last_time_called = time
