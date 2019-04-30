@@ -4,6 +4,7 @@ contains
     use vars
     use microphysics, only: micro_field, index_water_vapor
     use params, only: docolumn, dowallx, dowally, khyp
+    use grid, only: masterproc
     implicit none
 
     real rdx2,rdy2,rdz2,rdz,rdx25,rdy25, rdx16, rdy16
@@ -15,6 +16,7 @@ contains
     real fu(0:nx,0:ny,nz),fv(0:nx,0:ny,nz),fw(0:nx,0:ny,nz)
     real  tsrc
 
+    if (masterproc) &
     print *, 'hyperdiffusion.f90: diffusing momentum khyp=', khyp
 
     rdx2=1./(dx*dx)

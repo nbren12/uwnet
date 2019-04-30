@@ -212,9 +212,11 @@ do while(nstep.lt.nstop.and.nelapse.gt.0)
 
 !----------------------------------------------------------
 !	SGS effects on momentum:
-     if (dosgs) call boundaries(5)
      if(dosgs) call sgs_mom()
-     call hyper_diffuse()
+     if (dohyperdiffusion) then
+        call boundaries(5)
+        call hyper_diffuse()
+     end if
      if (.not. doheldsuarez) call hs_damp_velocity()
      if (usepython) call apply_python_momentum()
 !-----------------------------------------------------------
