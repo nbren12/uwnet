@@ -32,7 +32,7 @@ NUM_PROCESSES = $(shell expr $(NSUBX) \* $(NSUBY))
 all: command #$(SAM_OBJ)/$(SAM)
 
 
-command: $(SAM)
+command: $(SAM_OBJ)/$(SAM)
 	echo "mpirun -np $(NUM_PROCESSES) $(SAM_OBJ)/$(SAM)" > $@
 
 SOURCES   := $(shell cat Srcfiles)

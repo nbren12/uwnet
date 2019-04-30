@@ -24,3 +24,4 @@ export PYTHONPATH=$UWNET/ext/sam/ext/call_py_fort/src:$PYTHONPATH
 
 export PATH=$(pwd)/setup/olympus/:$PATH
 alias mpirun_clean='mpirun  -mca btl tcp,self'
+export MACHINE=olympus
