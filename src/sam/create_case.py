@@ -27,6 +27,7 @@ NGAQUA_ROOT = "/Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX"
 @click.option('-p', '--parameters', type=click.Path(), default=None)
 @click.option('-d', '--debug',  is_flag=True)
 @click.option('-s', '--sam-src', type=str, default='/opt/sam')
+@click.option('-r', '--run-data', type=str, default='/opt/sam/RUNDATA')
 def main(path,
          neural_network,
          noise,
@@ -36,7 +37,8 @@ def main(path,
          model_run_path='model.pkl',
          parameters=None,
          debug=False,
-         sam_src='/opt/sam'):
+         sam_src='/opt/sam',
+         run_data='/opt/sam/RUNDATA'):
     """Create SAM case directory for an NGAqua initial value problem and optionally
     run the model with docker.
 
@@ -54,7 +56,7 @@ def main(path,
         initial_condition = xr.open_dataset(initial_condition)
 
     case = InitialConditionCase(path=path, ic=initial_condition,
-                                sam_src=sam_src,
+                                sam_src=sam_src, run_data=run_data,
                                 prm=parameters)
 
     # configure neural network run

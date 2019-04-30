@@ -19,7 +19,6 @@ run_script = Template("""#!/bin/sh
 export {{key}}={{val}}
 {% endfor %}
 
-ln -s {{SAM}}/RUNDATA .
 # {{SAM}}/docker/cleancase.sh CASE
 {{SAM}}/SAM_*
 {{SAM}}/docker/convert_files.sh
@@ -239,6 +238,7 @@ class Case(object):
     path = attr.ib(factory=_path_factory, converter=os.path.abspath)
     docker_image = attr.ib(default="nbren12/samuwgh:latest")
     env = attr.ib(factory=dict)
+    run_data = attr.ib(default='/opt/sam', converter=os.path.abspath)
 
     @property
     def exe(self):
@@ -272,6 +272,7 @@ class Case(object):
         self.save_grd(self._z, grd)
         self.save_snd(snd)
         self.save_script()
+        self.link_run_data()
 
         with open(casename, "w") as f:
             f.write(self.name)
@@ -289,6 +290,9 @@ class Case(object):
     def save_snd(path):
         with open(path, "w") as f:
             f.write(sounding_template)
+
+    def link_run_data(self):
+        os.symlink(self.run_data, os.path.join(self.path, 'RUNDATA'))
 
     def save_rundata(self, path):
         src = f"{self.sam_src}/RUNDATA"
