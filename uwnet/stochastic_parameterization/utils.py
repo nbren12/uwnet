@@ -66,6 +66,7 @@ residual_model_variables = [
     'nn_moistening_residual',
     'nn_heating_residual'
 ]
+blur_variables = ['QT', 'SLI', 'PW']
 
 
 def coarsen_array(array_, patch_width):
@@ -108,11 +109,9 @@ def blur(arr, sigma):
 
 
 def blur_dataset(data, sigma):
-    for x in ['QT', 'SLI', 'PW']:
+    for x in blur_variables:
         data[x + '_blurred'] = data[x].copy()
         data[x + '_blurred'].values = blur(data[x], sigma)
-    for x in ['moistening_pred', 'heating_pred']:
-        data[x].values = blur(data[x], sigma)
     return data
 
 
@@ -131,11 +130,17 @@ def initialize_stochastic_model_features_for_dataset(dataset):
     return dataset
 
 
-def get_residual_model_variables(dataset, base_model_location):
+def get_residual_model_variables(
+        dataset, base_model_location, blur_sigma):
     base_model = torch.load(base_model_location)
     dataset = initialize_stochastic_model_features_for_dataset(dataset)
     time_indices = list(range(len(dataset.time) - 1))
     true_forcings = get_true_forcings(dataset)
+
+    if blur_sigma:
+        for var in blur_variables:
+            dataset[var + '_unblurred'] = dataset[var].copy()
+            dataset[var].values = dataset[var + '_blurred'].values
 
     for time_batch in np.array_split(time_indices, 10):
         pred = base_model.predict(dataset.isel(time=time_batch))
@@ -159,6 +164,11 @@ def get_residual_model_variables(dataset, base_model_location):
             time_batch, :, :, :] = true_qt - pred['QT']
         dataset['nn_heating_residual'][
             time_batch, :, :, :] = true_sli - pred['SLI']
+
+    if blur_sigma:
+        for var in blur_variables:
+            dataset[var].values = dataset[var + '_unblurred'].values
+            dataset = dataset.drop(var + '_unblurred')
     return dataset
 
 
@@ -187,8 +197,10 @@ def insert_eta_bin_membership(
         binning_quantiles,
         base_model_location,
         binning_method,
-        eta_coarsening):
-    dataset = get_residual_model_variables(dataset, base_model_location)
+        eta_coarsening,
+        blur_sigma):
+    dataset = get_residual_model_variables(
+        dataset, base_model_location, blur_sigma)
     dataset = dataset.isel(time=range(len(dataset.time) - 1))
     dataset['eta'] = dataset['Prec'].copy()
     dataset['eta'].values = get_bin_membership(
@@ -215,15 +227,16 @@ def get_xarray_dataset_with_eta(
         dataset = xr.open_dataset(data)
     dataset = dataset.isel(time=range(t_start, t_stop))
     dataset['PW'] = (dataset.QT * dataset.layer_mass).sum('z') / 1000
+    if blur_sigma:
+        dataset = blur_dataset(dataset, blur_sigma)
     if set_eta:
         dataset = insert_eta_bin_membership(
             dataset,
             binning_quantiles,
             base_model_location,
             binning_method,
-            eta_coarsening)
-    if blur_sigma:
-        dataset = blur_dataset(dataset, blur_sigma)
+            eta_coarsening,
+            blur_sigma)
     try:
         return dataset.isel(step=0).drop('step').drop('p')
     except Exception:

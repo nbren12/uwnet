@@ -30,6 +30,7 @@ from uwnet.thermo import (
     sec_in_day,
 )
 
+plt.style.use('tableau-colorblind10')
 dir_ = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'
 ds_location = dir_ + 'training.nc'
 model = None
@@ -158,7 +159,6 @@ def get_column_moistening_and_heating_comparisons(
     ds = get_dataset(
         ds_location=ds_location,
         base_model_location=dir_ + 'full_model/1.pkl',
-        blur_sigma=model.blur_sigma,
         t_start=50,
         t_stop=100)
     if use_true_eta_start:
@@ -360,14 +360,13 @@ def compare_true_to_simulated_q1_q2_distributions(
 if __name__ == '__main__':
     model = StochasticStateModel(
         ds_location=ds_location,
-        # eta_coarsening=2,
+        eta_coarsening=None,
         t_start=0,
         t_stop=50,
         blur_sigma=1,
         base_model_location=dir_ + 'full_model/1.pkl',
         verbose=True,
         markov_process=True,
-        include_output_in_transition_model=True
     )
     model.train()
     # evaluate_stochasticity_of_model(model)

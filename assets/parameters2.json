@@ -57,7 +57,7 @@
     "dopython": true,
     "usepython": true,
     "npython": 1,
-    "nsavepython": 900,
+    "nsavepython": 90,
     "function_name": "call_neural_network",
     "module_name": "uwnet.sam_interface",
     "do_debias_lhf": true

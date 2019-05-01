@@ -25,6 +25,9 @@ data
 # */stochastic_parameterization/CASE*
 */stochastic_parameterization/OUT*
 */stochastic_parameterization/RESTART*
+*/stochastic_parameterization/CASE
+*/stochastic_parameterization/CASE/*
+*/stochastic_parameterization/timing.0
 
 ## Intermediate documents:
 *.dvi

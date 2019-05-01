@@ -54,7 +54,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             include_output_in_transition_model=True,
             time_idx_to_use_for_eta_initialization='random',
             markov_process=True,
-            change_blurred_var_names=False,
+            change_blurred_var_names=True,
             verbose=True):
         super(StochasticStateModel, self).__init__()
         self.t_start = t_start
@@ -334,8 +334,6 @@ class StochasticStateModel(nn.Module, XRCallMixin):
                                 model[key].predict(x_data[key]).T).float())
         if return_stochastic_state:
             output['stochastic_state'] = torch.from_numpy(self.eta)
-        for key in output:
-            output[key] = output[key] * 0
         return output
 
     def predict(self, x, eta=None):
