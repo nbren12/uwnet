@@ -87,11 +87,37 @@ def plot_pw_tropics_zonal_variance_over_time(
     plt.show()
 
 
+def plot_u_rmse_over_time(ds_s, ds_b, ds_true, ds_no_parameterization=None):
+    stochastic_model_error = ((
+            ds_s.U200.values - ds_true.sel(z=24000).U.values) ** 2).mean(
+            axis=1).mean(axis=1)
+    base_model_error = ((
+            ds_b.U200.values - ds_true.sel(z=24000).U.values) ** 2).mean(
+            axis=1).mean(axis=1)
+    plt.plot(base_model_error, label='Base Model')
+    plt.plot(stochastic_model_error, label='Stochastic Model')
+    plt.legend(loc='best')
+    plt.show()
+
+
+def plot_pw_rmse_over_time(ds_s, ds_b, ds_true, ds_no_parameterization=None):
+    stochastic_model_error = ((
+            ds_s.PW.values - ds_true.PW.values) ** 2).mean(
+            axis=1).mean(axis=1)
+    base_model_error = ((
+            ds_b.PW.values - ds_true.PW.values) ** 2).mean(
+            axis=1).mean(axis=1)
+    plt.plot(base_model_error, label='Base Model')
+    plt.plot(stochastic_model_error, label='Stochastic Model')
+    plt.legend(loc='best')
+    plt.show()
+
+
 if __name__ == '__main__':
     dir_ = '/Users/stewart/Desktop/'
     # ds_s = xr.open_dataset(dir_ + 'no_parameterization.nc')
-    ds_s = xr.open_dataset(dir_ + 'stochastic_model_gcm_output.nc')
-    # ds_s = xr.open_dataset(dir_ + 'no_hyper_diffuse.nc')
+    # ds_s = xr.open_dataset(dir_ + 'stochastic_model_gcm_output.nc')
+    ds_s = xr.open_dataset(dir_ + 'no_hyper_diffuse.nc')
     ds_b = xr.open_dataset(dir_ + 'base_model_gcm_output.nc')
     # ds_b = xr.open_dataset(dir_ + 'no_hyper_diffuse_base_model.nc')
     ds_true = get_dataset(
@@ -100,8 +126,11 @@ if __name__ == '__main__':
         t_start=0,
         t_stop=len(ds_s.time))
     ds_true['NPNN'] = ds_true.Prec - lhf_to_evap(ds_true.LHF)
-    plot_total_pw_over_time(ds_s, ds_b, ds_true)
-    plot_equator_pw_over_time(ds_s, ds_b, ds_true)
-    plot_npnn_over_time_equator(ds_s, ds_b, ds_true)
-    plot_zonal_mean_net_precip_over_time(ds_s, ds_b, ds_true)
-    plot_pw_tropics_zonal_variance_over_time(ds_s, ds_b, ds_true)
+
+    plot_pw_rmse_over_time(ds_s, ds_b, ds_true)
+    plot_u_rmse_over_time(ds_s, ds_b, ds_true)
+    # plot_total_pw_over_time(ds_s, ds_b, ds_true)
+    # plot_equator_pw_over_time(ds_s, ds_b, ds_true)
+    # plot_npnn_over_time_equator(ds_s, ds_b, ds_true)
+    # plot_zonal_mean_net_precip_over_time(ds_s, ds_b, ds_true)
+    # plot_pw_tropics_zonal_variance_over_time(ds_s, ds_b, ds_true)

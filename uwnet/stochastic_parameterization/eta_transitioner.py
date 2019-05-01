@@ -49,6 +49,14 @@ class EtaTransitioner(object):
             self.predictors = self.predictors + [
                 'moistening_pred', 'heating_pred'
             ]
+        if self.blur_sigma:
+            blurred_predictors = []
+            for input_ in self.predictors:
+                if input_ in ['PW', 'QT', 'SLI']:
+                    blurred_predictors.append(input_ + '_blurred')
+                else:
+                    blurred_predictors.append(input_)
+            self.predictors = blurred_predictors
         self.max_qt_for_residual_model = max_qt_for_residual_model
         self.max_sli_for_residual_model = max_sli_for_residual_model
         self.poly_degree = poly_degree

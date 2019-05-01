@@ -26,7 +26,7 @@ warnings.filterwarnings("ignore", category=SourceChangeWarning)
 
 default_t_start = 100
 default_t_stop = 150
-model_inputs = ['SST', 'QT_blurred', 'SLI_blurred', 'SOLIN']
+model_inputs = ['SST', 'QT', 'SLI', 'SOLIN']
 default_quantile_transform_data = False
 
 
@@ -54,12 +54,12 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             include_output_in_transition_model=True,
             time_idx_to_use_for_eta_initialization='random',
             markov_process=True,
-            is_gcm=False,
+            change_blurred_var_names=False,
             verbose=True):
         super(StochasticStateModel, self).__init__()
         self.t_start = t_start
         self.t_stop = t_stop
-        self.is_gcm = is_gcm
+        self.change_blurred_var_names = change_blurred_var_names
         self.blur_sigma = blur_sigma
         self.eta_coarsening = eta_coarsening
         self.eta_predictors = eta_predictors
@@ -84,6 +84,14 @@ class StochasticStateModel(nn.Module, XRCallMixin):
         self.base_model = torch.load(base_model_location)
         self.setup_eta_transitioner()
         self.residual_model_inputs = residual_model_inputs
+        if self.blur_sigma:
+            blurred_inputs = []
+            for input_ in self.residual_model_inputs:
+                if input_ in ['PW', 'QT', 'SLI']:
+                    blurred_inputs.append(input_ + '_blurred')
+                else:
+                    blurred_inputs.append(input_)
+            self.residual_model_inputs = blurred_inputs
 
     @property
     def dt_seconds(self):
@@ -276,7 +284,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
                 residual_models_by_eta[eta] = residual_models
             self.residual_models_by_eta = residual_models_by_eta
             self.is_trained = True
-            if self.is_gcm and self.blur_sigma:
+            if self.change_blurred_var_names and self.blur_sigma:
                 unblurred_vars = []
                 for variable in self.residual_model_inputs:
                     if '_blurred' in variable:
@@ -326,6 +334,8 @@ class StochasticStateModel(nn.Module, XRCallMixin):
                                 model[key].predict(x_data[key]).T).float())
         if return_stochastic_state:
             output['stochastic_state'] = torch.from_numpy(self.eta)
+        for key in output:
+            output[key] = output[key] * 0
         return output
 
     def predict(self, x, eta=None):

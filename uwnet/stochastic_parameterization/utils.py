@@ -12,7 +12,6 @@ import torch
 import xarray as xr
 
 # uwnet
-from uwnet.tensordict import TensorDict
 from uwnet.thermo import compute_apparent_source
 
 
@@ -46,8 +45,8 @@ default_eta_transitioner_model = lr
 default_eta_transitioner_predictors = [
     'SST',
     'PW',
-    'QT_blurred',
-    'SLI_blurred',
+    'QT',
+    'SLI',
     # 'FQT',
     # 'FSLI',
     # 'SHF',
@@ -59,6 +58,13 @@ default_eta_transitioner_predictors = [
     # 'V'
     # 'FU',
     # 'FV'
+]
+residual_model_variables = [
+    'heating_pred',
+    'moistening_pred',
+    'column_integrated_qt_residuals',
+    'nn_moistening_residual',
+    'nn_heating_residual'
 ]
 
 
@@ -102,138 +108,78 @@ def blur(arr, sigma):
 
 
 def blur_dataset(data, sigma):
-    for x in data:
-        if x in ['QT', 'SLI', 'PW']:
-            try:
-                blurred_data = blur(data[x], sigma)
-                if x in ['QT', 'SLI']:
-                    data[x + '_blurred'] = data[x].copy()
-                    data[x + '_blurred'].values = blurred_data
-                else:
-                    data[x].values = blurred_data
-            except ValueError:
-                continue
+    for x in ['QT', 'SLI', 'PW']:
+        data[x + '_blurred'] = data[x].copy()
+        data[x + '_blurred'].values = blur(data[x], sigma)
+    for x in ['moistening_pred', 'heating_pred']:
+        data[x].values = blur(data[x], sigma)
     return data
 
 
-class BaseModel(object):
+def get_true_forcings(ds):
+    qt_forcing = compute_apparent_source(ds.QT, ds.FQT * 86400)
+    sli_forcing = compute_apparent_source(ds.SLI, ds.FSLI * 86400)
+    return xr.Dataset({'QT': qt_forcing, 'SLI': sli_forcing})
 
-    def __init__(
-            self,
-            model_location,
-            dataset,
-            binning_quantiles=default_binning_quantiles,
-            time_step_days=.125,
-            binning_method=default_binning_method,
-            eta_coarsening=None):
-        self.model = torch.load(model_location)
-        self.eta_coarsening = eta_coarsening
-        if self.eta_coarsening is not None:
-            self.ds = dataset.coarsen(
-                {'x': eta_coarsening, 'y': eta_coarsening}).mean()
-        else:
-            self.ds = dataset
-        self.time_step_days = time_step_days
-        self.time_step_seconds = 86400 * time_step_days
-        self.binning_quantiles = binning_quantiles
-        self.binning_method = binning_method
 
-    def get_true_forcings(self):
-        qt_forcing = compute_apparent_source(
-            self.ds.QT,
-            self.ds.FQT * 86400)
-        sli_forcing = compute_apparent_source(
-            self.ds.SLI,
-            self.ds.FSLI * 86400)
-        return xr.Dataset({'QT': qt_forcing, 'SLI': sli_forcing})
+def initialize_stochastic_model_features_for_dataset(dataset):
+    dataset['column_integrated_qt_residuals'] = dataset['Prec'].copy()
+    dataset['nn_moistening_residual'] = dataset['QT'].copy()
+    dataset['nn_heating_residual'] = dataset['SLI'].copy()
+    dataset['moistening_pred'] = dataset['QT'].copy()
+    dataset['heating_pred'] = dataset['SLI'].copy()
+    return dataset
 
-    def predict_for_time_idx(self, time_idx):
-        ds_filtered = self.ds.isel(time=time_idx)
-        to_predict = {}
-        for key_ in self.ds.data_vars:
-            if len(ds_filtered[key_].values.shape) == 2:
-                val = ds_filtered[key_].values[np.newaxis, :, :]
-            else:
-                val = ds_filtered[key_].values.astype(np.float64)
-            to_predict[key_] = torch.from_numpy(val)
-        pred = self.model(TensorDict(to_predict))
-        return {key: pred[key].detach().numpy() for key in pred}
 
-    def get_qt_ratios(self):
-        shape_3d = (
-            self.ds.dims['time'] - 1,
-            self.ds.dims['z'],
-            self.ds.dims['y'],
-            self.ds.dims['x']
+def get_residual_model_variables(dataset, base_model_location):
+    base_model = torch.load(base_model_location)
+    dataset = initialize_stochastic_model_features_for_dataset(dataset)
+    time_indices = list(range(len(dataset.time) - 1))
+    true_forcings = get_true_forcings(dataset)
+
+    for time_batch in np.array_split(time_indices, 10):
+        pred = base_model.predict(dataset.isel(time=time_batch))
+        true_qt = true_forcings.isel(time=time_batch).QT
+        true_sli = true_forcings.isel(time=time_batch).SLI
+        q2_preds = np.ma.average(
+            pred['QT'],
+            axis=1,
+            weights=dataset.layer_mass.values
         )
-        shape_2d = (
-            self.ds.dims['time'] - 1,
-            self.ds.dims['y'],
-            self.ds.dims['x']
+        q2_true = np.ma.average(
+            true_qt,
+            axis=1,
+            weights=dataset.layer_mass.values
         )
-        column_integrated_qt_residuals = np.ones(shape_2d)
-        moistening_residuals = np.ones(shape_3d)
-        heating_residuals = np.ones(shape_3d)
-        moistening_preds = np.ones(shape_3d)
-        heating_preds = np.ones(shape_3d)
-        time_indices = list(range(len(self.ds.time) - 1))
-        true_forcings = self.get_true_forcings()
-        for time_batch in np.array_split(time_indices, 10):
-            pred = self.predict_for_time_idx(time_batch)
-            true_qt = true_forcings.isel(time=time_batch).QT
-            true_sli = true_forcings.isel(time=time_batch).SLI
-            q2_preds = np.ma.average(
-                pred['QT'],
-                axis=1,
-                weights=self.ds.layer_mass.values
-            )
-            q2_true = np.ma.average(
-                true_qt,
-                axis=1,
-                weights=self.ds.layer_mass.values
-            )
-            column_integrated_qt_residuals[
-                time_batch, :, :] = q2_true - q2_preds
-            moistening_preds[time_batch, :, :, :] = pred['QT']
-            heating_preds[time_batch, :, :, :] = pred['SLI']
-            moistening_residuals[time_batch, :, :, :] = true_qt - pred['QT']
-            heating_residuals[time_batch, :, :, :] = true_sli - pred['SLI']
-        if self.eta_coarsening:
-            transform_func = uncoarsen_array
-        else:
-            transform_func = lambda x: x  # noqa
-        self.heating_preds = transform_func(
-            heating_preds)
-        self.moistening_preds = transform_func(moistening_preds)
-        self.column_integrated_qt_residuals = transform_func(
-            column_integrated_qt_residuals)
-        self.moistening_residuals = transform_func(moistening_residuals)
-        self.heating_residuals = transform_func(heating_residuals)
+        dataset['column_integrated_qt_residuals'][
+            time_batch, :, :] = q2_true - q2_preds
+        dataset['moistening_pred'][time_batch, :, :, :] = pred['QT']
+        dataset['heating_pred'][time_batch, :, :, :] = pred['SLI']
+        dataset['nn_moistening_residual'][
+            time_batch, :, :, :] = true_qt - pred['QT']
+        dataset['nn_heating_residual'][
+            time_batch, :, :, :] = true_sli - pred['SLI']
+    return dataset
 
-    def get_bin_membership(self):
-        self.get_qt_ratios()
-        if self.binning_method == 'precip':
-            bins = [
-                np.quantile(self.ds.Prec.values, quantile)
-                for quantile in self.binning_quantiles
-            ]
-            return np.digitize(
-                self.ds.Prec.values, bins, right=True)
-        elif self.binning_method == 'column_integrated_qt_residuals':
-            bins = [
-                np.quantile(self.column_integrated_qt_residuals, quantile)
-                for quantile in self.binning_quantiles
-            ]
-            return np.digitize(
-                self.column_integrated_qt_residuals, bins, right=True)
-        elif self.binning_method == 'column_integrated_sli_residuals':
-            bins = [
-                np.quantile(self.column_integrated_sli_residuals, quantile)
-                for quantile in self.binning_quantiles
-            ]
-            return np.digitize(
-                self.column_integrated_sli_residuals, bins, right=True)
-        raise Exception(f'Binning method {self.binning_method} not recognized')
+
+def get_bin_membership(
+        dataset, binning_method, binning_quantiles, eta_coarsening):
+    if binning_method == 'precip':
+        binning_method_var = 'Prec'
+    else:
+        binning_method_var = binning_method
+    binned_variable = dataset[binning_method_var]
+    if eta_coarsening is not None:
+        binned_variable = binned_variable.coarsen(
+            {'x': eta_coarsening, 'y': eta_coarsening}).mean()
+    bins = [
+        binned_variable.quantile(quantile).values
+        for quantile in binning_quantiles
+    ]
+    etas = np.digitize(binned_variable.values, bins, right=True)
+    if eta_coarsening:
+        etas = uncoarsen_array(etas)
+    return etas
 
 
 def insert_eta_bin_membership(
@@ -242,42 +188,14 @@ def insert_eta_bin_membership(
         base_model_location,
         binning_method,
         eta_coarsening):
-    base_model = BaseModel(
-        base_model_location,
-        dataset,
-        binning_quantiles=binning_quantiles,
-        binning_method=binning_method,
-        # eta_coarsening=eta_coarsening,
-        eta_coarsening=None,
-    )
-    coarse_bin_membership = BaseModel(
-        base_model_location,
-        dataset,
-        binning_quantiles=binning_quantiles,
-        binning_method=binning_method,
-        eta_coarsening=eta_coarsening
-    ).get_bin_membership()
-    bin_membership = base_model.get_bin_membership()
+    dataset = get_residual_model_variables(dataset, base_model_location)
     dataset = dataset.isel(time=range(len(dataset.time) - 1))
-    dataset['eta_coarse'] = dataset['Prec'].copy()
-    dataset['eta_coarse'].values = coarse_bin_membership
-    # dataset['eta_coarse'].values = bin_membership
     dataset['eta'] = dataset['Prec'].copy()
-    dataset['eta'].values = bin_membership
-    dataset['eta'].attrs['units'] = ''
-    dataset['eta'].attrs['long_name'] = 'Stochastic State'
-    dataset['column_integrated_qt_residuals'] = dataset['Prec'].copy()
-    dataset['column_integrated_qt_residuals'].values = \
-        base_model.column_integrated_qt_residuals
-    dataset['nn_moistening_residual'] = dataset['QT'].copy()
-    dataset['nn_moistening_residual'].values = base_model.moistening_residuals
-    dataset['nn_heating_residual'] = dataset['SLI'].copy()
-    dataset['nn_heating_residual'].values = base_model.heating_residuals
-    dataset['moistening_pred'] = dataset['QT'].copy()
-    dataset['moistening_pred'].values = base_model.moistening_preds
-    dataset['heating_pred'] = dataset['SLI'].copy()
-    dataset['heating_pred'].values = base_model.heating_preds
-    del base_model
+    dataset['eta'].values = get_bin_membership(
+        dataset, binning_method, binning_quantiles, eta_coarsening)
+    dataset['eta_coarse'] = dataset['Prec'].copy()
+    dataset['eta_coarse'].values = dataset['eta'].values
+    # TODO: set eta_coarse differently than eta
     return dataset
 
 
@@ -296,8 +214,7 @@ def get_xarray_dataset_with_eta(
     except ValueError:
         dataset = xr.open_dataset(data)
     dataset = dataset.isel(time=range(t_start, t_stop))
-    if blur_sigma:
-        dataset = blur_dataset(dataset, blur_sigma)
+    dataset['PW'] = (dataset.QT * dataset.layer_mass).sum('z') / 1000
     if set_eta:
         dataset = insert_eta_bin_membership(
             dataset,
@@ -305,6 +222,8 @@ def get_xarray_dataset_with_eta(
             base_model_location,
             binning_method,
             eta_coarsening)
+    if blur_sigma:
+        dataset = blur_dataset(dataset, blur_sigma)
     try:
         return dataset.isel(step=0).drop('step').drop('p')
     except Exception:
@@ -334,8 +253,6 @@ def get_dataset(
         blur_sigma=blur_sigma,
         binning_method=binning_method
     )
-    if add_precipital_water:
-        ds['PW'] = (ds.QT * ds.layer_mass).sum('z') / 1000
     return ds
 
 
