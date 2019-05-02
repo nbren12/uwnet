@@ -129,6 +129,9 @@ compile_sam:
 build_image:
 	docker-compose build sam
 
+enter:
+	docker-compose run -w /uwnet sam
+
 test:
 	$(MACHINE_SCRIPTS)/run_tests.sh
 
