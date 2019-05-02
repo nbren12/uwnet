@@ -1,7 +1,7 @@
 {
 	"__doc__" : "Default configurations managed by sacred",
 	"batch_size" : 64,
-	"data" : "data/processed/training.nc",
+	"data" : "uwnet/stochastic_parameterization/training.nc",
 	"epochs" : 5,
 	"loss_scale" : {
 		"LHF" : 150,
@@ -17,9 +17,9 @@
 		"V" : 5
 	},
 	"lr" : 0.005,
+    "train": true,
 	"model_dir" : "models",
 	"output_dir" : null,
-	"binning_quantiles": [0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1],
 	"prepost" : {
 		"kind" : "lower_atmos",
 		"path" : "models/prepost.pkl"
