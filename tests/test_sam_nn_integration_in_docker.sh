@@ -22,7 +22,7 @@ checkRun()
 
 rm -rf $rundir
 
-python src/criticism/run_sam_ic_nn.py \
+python -m src.sam.create_case \
        -ic assets/NG1/ic.nc \
        -nn assets/2018-12-23_model.pkl \
        -p assets/test_nn_interface.json \

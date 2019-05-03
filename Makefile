@@ -65,8 +65,13 @@ ${TRAINING_DATA}:
 train: #${TRAINING_DATA}
 	python -m uwnet.train with assets/training_configurations/default.json  \
          data=data/processed/2018-12-15-longitude-slice-ngaqua.nc \
-	       epochs=1 \
+	     epochs=5 \
+		 'training_slices.x=(None,None)'\
          output_dir=rapid_train
+train_no_stability_penalty:
+	python -m uwnet.train with assets/training_configurations/default.json \
+		step.kwargs.alpha=0.0  -m uwnet
+
 
 train_momentum: ${TRAINING_DATA}
 	python -m uwnet.train with data=${TRAINING_DATA} examples/momentum.yaml
@@ -92,6 +97,9 @@ upload_reports:
 
 
 setup:  create_environment install_hooks build_image
+
+update_environment:
+	conda env update -f environment.yml
 
 create_environment:
 	@echo ">>> creating environment from file"

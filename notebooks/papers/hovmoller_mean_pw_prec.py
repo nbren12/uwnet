@@ -77,7 +77,7 @@ def main():
 
     plot_row(
         iterate_over_dim(plotme.net_precip, 'concat_dim'),
-        label='Column Drying (mm/day)',
+        label='Net Precipitation (mm/day)',
         cbar_kwargs=dict(pad=.02),
         levels=np.r_[-10:11:2],
         cmap='RdBu_r',

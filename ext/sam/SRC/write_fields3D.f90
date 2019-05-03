@@ -24,8 +24,6 @@ real(4) tmp(nx,ny,nzm)
 integer, external :: lenstr
 
 
-call save_python_state()
-
 nfields=10 + nfields3D_micro ! number of 3D fields to save
 if(.not. (docloud .or. dopython))  nfields=nfields-1
 if(.not.(doprecip .or. dopython)) nfields=nfields-1

@@ -8,11 +8,6 @@ from uwnet.thermo import compute_apparent_source
 from uwnet.xarray_interface import call_with_xr
 
 import common
-
-def diverging_levels(m, s):
-    n = m // s + 1
-    return np.r_[-n:n+1] * s
-    
         
 
 plt.style.use("tableau-colorblind10")
@@ -36,8 +31,8 @@ q2_pred = predicted_srcs['QT']
 
 
 color_kwargs = {
-    'Q1': dict(levels=diverging_levels(15, 2), cmap='RdBu_r'),
-    'Q2': dict(levels=diverging_levels(10, 2), cmap='BrBG', extend='both')
+    'Q1': dict(levels=common.diverging_levels(15, 2), cmap='RdBu_r'),
+    'Q2': dict(levels=common.diverging_levels(10, 2), cmap='BrBG', extend='both')
 }
 
 # plot the results
@@ -63,6 +58,12 @@ def plot(args):
         fig.colorbar(im, ax=ax, pad=-.03)
         ax.set_ylim([pres.max(), pres.min()])
         ax.set_title(abc[k] + ') ' + label, loc='left')
+        
+        q1_or_q2 = label[:2]
+        input_var = {'Q1': 'SLI', 'Q2': 'QT'}[q1_or_q2]
+        ignore_level = common.ignored_input_levels[input_var]
+        ax.axhline(ignore_level, ls='--', c='k')
+        
 
     common.label_outer_axes(axs, 'y (1000 km)', 'p (mb)')
     return axs

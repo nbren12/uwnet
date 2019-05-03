@@ -151,11 +151,12 @@ class Sequential(nn.Sequential):
         return self[-1].outputs
 
 
-def get_pre_post_orig(data_loader, n):
+def get_pre_post_orig(data, data_loader, n):
     from .normalization import Scaler
     inputs = [('QT', n), ('SLI', n),
               ('SST', 1), ('SOLIN', 1)]
-    scaler = Scaler().fit_generator(data_loader)
+    # scaler = Scaler().fit_generator(data_loader)
+    scaler = Scaler().fit_xarray(data)
     scaler.outputs = inputs
     scaler.inputs = inputs
     # post processor
@@ -166,6 +167,7 @@ def get_pre_post_orig(data_loader, n):
 
 def get_pre_post(data, data_loader, _config):
     kind = _config['kind']
+    logger.info(f"Getting pre/post processor of type {kind}")
 
     if kind == 'pca':
         return get_pre(data, m=20), get_post(data, m=20)
@@ -174,7 +176,11 @@ def get_pre_post(data, data_loader, _config):
         logger.info(f"Loading pre/post module from {path}")
         return torch.load(path)
     elif kind == 'lower_atmos':
-        pre, post = get_pre_post_orig(data_loader, n=34)
+        pre, post = get_pre_post_orig(data, data_loader, n=34)
         lower = LowerAtmosInput()
         pre = Sequential(pre, lower)
         return pre, post
+    if kind == 'orig':
+        return get_pre_post_orig(data, data_loader, n=34)
+    else:
+        raise NotImplementedError
