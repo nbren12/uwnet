@@ -262,6 +262,12 @@ def compare_true_to_simulated_q1_q2_distributions(
     true_sli_variance = slis_true.var()
     pred_sli_variance = slis_pred.var()
     pred_base_sli_variance = slis_pred_base.var()
+    true_qt_mean = qts_true.mean()
+    pred_qt_mean = qts_pred.mean()
+    pred_base_qt_mean = qts_pred_base.mean()
+    true_sli_mean = slis_true.mean()
+    pred_sli_mean = slis_pred.mean()
+    pred_base_sli_mean = slis_pred_base.mean()
     if print_stats:
         print(f'True QT Variance: {true_qt_variance}')
         print(f'Stochastic QT Variance: {pred_qt_variance}')
@@ -269,6 +275,14 @@ def compare_true_to_simulated_q1_q2_distributions(
         print(f'True sli Variance: {true_sli_variance}')
         print(f'Stochastic sli Variance: {pred_sli_variance}')
         print(f'Base Model sli Variance: {pred_base_sli_variance}')
+
+        print(f'True QT Mean: {true_qt_mean}')
+        print(f'Stochastic QT Mean: {pred_qt_mean}')
+        print(f'Base Model QT Mean: {pred_base_qt_mean}')
+        print(f'True sli Mean: {true_sli_mean}')
+        print(f'Stochastic sli Mean: {pred_sli_mean}')
+        print(f'Base Model sli Mean: {pred_base_sli_mean}')
+
         print(f'\n\nSLI R2 Stochastic Model:',
               f' {r2_score(slis_true, slis_pred)}')
         print(f'SLI R2 Single Model Model:',
@@ -360,10 +374,10 @@ def compare_true_to_simulated_q1_q2_distributions(
 if __name__ == '__main__':
     model = StochasticStateModel(
         ds_location=ds_location,
-        eta_coarsening=None,
+        eta_coarsening=2,
         t_start=0,
         t_stop=50,
-        blur_sigma=1,
+        blur_sigma=2,
         base_model_location=dir_ + 'full_model/1.pkl',
         verbose=True,
         markov_process=True,
@@ -372,4 +386,4 @@ if __name__ == '__main__':
     # evaluate_stochasticity_of_model(model)
     # plot_true_eta_vs_simulated_eta()
     compare_true_to_simulated_q1_q2_distributions(
-        model, true_etas=False, only_tropics=False)
+        model, true_etas=False, only_tropics=True)

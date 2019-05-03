@@ -25,16 +25,16 @@ def plot_total_pw_over_time(
 
 def plot_equator_pw_over_time(
         ds_s, ds_b, ds_true, ds_no_parameterization=None):
-    ds_s.isel(y=32).PW.mean('x').plot(label='Stochastic Model')
-    ds_b.isel(y=32).PW.mean('x').plot(label='Base Model')
-    ds_true.isel(y=32).PW.mean('x').plot(label='True Data')
+    ds_s.isel(y=list(range(26, 36))).PW.mean('x').plot(label='Stochastic Model')
+    ds_b.isel(y=list(range(26, 36))).PW.mean('x').plot(label='Base Model')
+    ds_true.isel(y=list(range(26, 36))).PW.mean('x').plot(label='True Data')
     if ds_no_parameterization:
-        ds_no_parameterization.isel(y=32).PW.mean('x').plot(
+        ds_no_parameterization.isel(y=list(range(26, 36))).PW.mean('x').plot(
             label='No Parameterization')
-    plt.ylabel('Equator Mean Precipital Water (mm)')
+    plt.ylabel('Tropics PW Water (mm)')
     plt.xlabel('Time')
     plt.legend(loc='best')
-    plt.title('Equator Mean Net Precip over Time')
+    plt.title('Tropics Mean PW over Time')
     plt.show()
 
 
@@ -42,10 +42,10 @@ def plot_npnn_over_time_equator(ds_s, ds_b, ds_true):
     ds_s.isel(y=32).NPNN.mean('x').plot(label='Stochastic Model')
     ds_b.isel(y=32).NPNN.mean('x').plot(label='Base Model')
     ds_true.isel(y=32).NPNN.mean('x').plot(label='True Data')
-    plt.ylabel('Equator Mean Precipital Water (mm)')
+    plt.ylabel('Equator NPNN Water (mm / day)')
     plt.xlabel('Time')
     plt.legend(loc='best')
-    plt.title('Equator Mean Net Precip over Time')
+    plt.title('Equator NPNN over Time')
     plt.show()
 
 
@@ -162,10 +162,10 @@ if __name__ == '__main__':
         t_stop=len(ds_s.time))
     ds_true['NPNN'] = ds_true.Prec - lhf_to_evap(ds_true.LHF)
 
-    plot_u_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param)
-    plot_v_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param)
-    plot_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param, 'PW')
-    plot_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param, 'NPNN')
+    # plot_u_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param)
+    # plot_v_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param)
+    # plot_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param, 'PW')
+    # plot_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param, 'NPNN')
     plot_total_pw_over_time(ds_s, ds_b, ds_true)
     plot_equator_pw_over_time(ds_s, ds_b, ds_true)
     plot_npnn_over_time_equator(ds_s, ds_b, ds_true)
