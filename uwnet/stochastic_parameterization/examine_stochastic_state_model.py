@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import torch
 from scipy.stats import ks_2samp
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score, mean_squared_error
 
 # uwnet
 from uwnet.tensordict import TensorDict
@@ -35,21 +35,6 @@ dir_ = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'
 ds_location = dir_ + 'training.nc'
 model = None
 base_model = torch.load(dir_ + 'full_model/1.pkl')
-
-
-def r2_score_(pred, truth, weights, dims=(0, 2, 3)):
-    """ R2 score for xarray objects
-    """
-    mu = truth.mean(dims)
-    sum_squares_error = ((truth - pred)**2).mean(dims)
-    truth_normalized = truth.copy()
-    for i in range(len(mu)):
-        truth_normalized[:, i, :, :] -= mu[i]
-
-    sum_squares = (truth_normalized**2).mean(dims)
-
-    r2s = 1 - sum_squares_error / sum_squares
-    return np.average(r2s, weights=weights)
 
 
 def get_true_nn_forcing(time_, ds):
@@ -278,6 +263,15 @@ def compare_true_to_simulated_q1_q2_distributions(
         print(f'QT R2 Single Model Model:',
               f' {r2_score(qts_true, qts_pred_base)}')
 
+        print(f'\n\nSLI MSE Stochastic Model:',
+              f' {mean_squared_error(slis_true, slis_pred)}')
+        print(f'SLI MSE Single Model Model:',
+              f' {mean_squared_error(slis_true, slis_pred_base)}')
+        print(f'QT MSE Stochastic Model:',
+              f' {mean_squared_error(qts_true, qts_pred)}')
+        print(f'QT MSE Single Model Model:',
+              f' {mean_squared_error(qts_true, qts_pred_base)}')
+
     qt_true_vs_base_ks = ks_2samp(qts_true, qts_pred_base)
     qt_true_vs_stochastic_ks = ks_2samp(qts_true, qts_pred)
 
@@ -360,10 +354,10 @@ def compare_true_to_simulated_q1_q2_distributions(
 if __name__ == '__main__':
     model = StochasticStateModel(
         ds_location=ds_location,
-        eta_coarsening=None,
+        eta_coarsening=2,
         t_start=0,
-        t_stop=50,
-        blur_sigma=1,
+        t_stop=40,
+        blur_sigma=None,
         base_model_location=dir_ + 'full_model/1.pkl',
         verbose=True,
         markov_process=True,
@@ -372,4 +366,4 @@ if __name__ == '__main__':
     # evaluate_stochasticity_of_model(model)
     # plot_true_eta_vs_simulated_eta()
     compare_true_to_simulated_q1_q2_distributions(
-        model, true_etas=False, only_tropics=False)
+        model, true_etas=False, only_tropics=True)

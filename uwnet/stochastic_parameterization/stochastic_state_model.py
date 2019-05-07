@@ -310,6 +310,10 @@ class StochasticStateModel(nn.Module, XRCallMixin):
                 self.eta, x, output=output)
 
     def forward(self, x, eta=None, return_stochastic_state=True):
+        return {
+            'QT': torch.zeros(34, 64, 128),
+            'SLI': torch.zeros(34, 64, 128),
+        }
         if (('PW' in self.residual_model_inputs) or (
                 'PW' in self.eta_transitioner.predictors)) and 'PW' not in x:
             x['PW'] = (x['QT'] * x['layer_mass'].reshape(
