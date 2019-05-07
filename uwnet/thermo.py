@@ -1,3 +1,5 @@
+"""Thermodynamic and other math calculations
+"""
 import numpy as np
 import xarray as xr
 
@@ -58,6 +60,11 @@ def get_dz(z):
     dz = zw[1:] - zw[:-1]
 
     return xr.DataArray(dz, z.coords)
+
+
+def interface_heights(z):
+    zext = np.hstack((-z[0], z, 2.0 * z[-1] - 1.0 * z[-2]))
+    return .5 * (zext[1:] + zext[:-1])
 
 
 def layer_mass(rho):
@@ -178,9 +185,41 @@ def integrate_q2(q2, layer_mass, dim='z'):
     return (q2 * layer_mass).sum(dim) / liquid_water_density
 
 
+def net_precipitation_from_training(data):
+    """Compute Net Precipitation from Q2
+
+    This is not exactly equivalent to precipitation minus evaporation due to
+    sampling issue.
+    """
+    return -integrate_q2(
+        compute_apparent_source(data.QT, data.FQT * 86400), data.layer_mass)
+
+
+def net_precipitation_from_prec_evap(data):
+    return data.Prec - lhf_to_evap(data.LHF)
+
+
 def net_heating(prec, shf, swns, swnt, lwns, lwnt):
     surface_radiation_net_upward = (lwns - swns)
     toa_radiation_net_upward = (lwnt - swnt)
     net_radiation = surface_radiation_net_upward - toa_radiation_net_upward
 
     return prec * (Lc / sec_in_day) + net_radiation
+
+
+def periodogram(pw: xr.DataArray, dim='x', freq_name='f'):
+    from scipy import signal
+    axis = pw.get_axis_num(dim)
+
+    x = pw.values
+
+    coord = pw[dim]
+    d = float(coord[1]-coord[0])
+    f, x = signal.periodogram(x, axis=axis, fs=1/d)
+
+    dims = list(pw.dims)
+    dims[pw.get_axis_num(dim)] = freq_name
+    coords = {key: pw[key] for key in pw.dims if key != dim}
+    coords[freq_name] = f
+
+    return xr.DataArray(x, dims=dims, coords=coords)

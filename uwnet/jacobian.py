@@ -27,7 +27,9 @@ def jacobian(y, x):
     n = len(y)
     jac = []
     for i in range(n):
-        y_x = grad(y[i], x, create_graph=True)[0]
+        y_x = grad(y[i], x, create_graph=True, allow_unused=True)[0]
+        if y_x is None:
+            y_x = torch.zeros(x.size(0))
         jac.append(y_x)
     return torch.stack(jac)
 

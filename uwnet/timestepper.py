@@ -1,6 +1,7 @@
 """Time steppers"""
 import attr
 from toolz import merge, first
+from . import tensordict
 from .tensordict import TensorDict
 
 
@@ -9,6 +10,8 @@ class Batch(object):
     """A object for getting appropriate fields from a batch of data"""
     data = attr.ib(converter=TensorDict)
     prognostics = attr.ib()
+    time_dim = 1
+    batch_dim = 0
 
     @property
     def forcings(self):
@@ -47,22 +50,43 @@ class Batch(object):
 
     @property
     def num_time(self):
-        item = first(self.data.values())
-        return item.shape[1]
+        return self.data.size(self.time_dim)
 
     @property
     def size(self):
-        item = first(self.data.values())
-        return item.shape[0]
+        """The batch size"""
+        return self.data.size(self.batch_dim)
 
     def get_time_mean(self, key):
-        return self.data[key].mean(-4)
+        return self.data[key].mean(self.time_dim)
+
+    def data_for_lag(self, lag):
+        return tensordict.lag(self.data[self.prognostics], lag, self.time_dim)
+
+
+class TimeStepper:
+
+    def __init__(self, source_function, time_step):
+        self.source_function = source_function
+        self.time_step = time_step
+
+    def __call__(self, batch, initial_time=0, prediction_length=None):
+
+        if prediction_length is None:
+            prediction_length = batch.num_time - initial_time
+
+        steps = predict_multiple_steps(
+            self.source_function, batch, initial_time, prediction_length,
+            self.time_step)
+        state = [state for t, state, diags in steps]
+        return tensordict.stack(state, dim=batch.time_dim)
 
 
 def predict_multiple_steps(model, batch: Batch, initial_time,
                            prediction_length, time_step):
     """Yield Euler step predictions with a neural network"""
     state = batch.get_prognostics_at_time(initial_time)
+    # yield initial_time, state, {}
     for t in range(initial_time, initial_time + prediction_length):
         inputs = batch.get_model_inputs(t, state)
         apparent_sources = model(inputs)

@@ -300,22 +300,7 @@ class Case(object):
         os.chmod(self.exe, 0o755)
 
     def run(self):
-        subprocess.call(['bash', 'run.sh'], cwd=self.path)
-
-    def run_docker(self):
-        print(f"Running NGAqua in {self.path}")
-        cmd = make_docker_cmd(
-            image=self.docker_image,
-            exe='/run/run.sh',
-            flags='-i',
-            volumes=[(self.path, '/run')],
-            workdir="/run")
-
-        # Write docker script to disk
-        with open(os.path.join(self.path, "run_with_docker.sh"), "w") as f:
-            f.write(' '.join(cmd))
-
-        return subprocess.call(cmd)
+        subprocess.run(['execute_run.sh', self.path])
 
     def convert_files_to_netcdf(self):
         cmd = make_docker_cmd(

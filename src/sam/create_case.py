@@ -4,7 +4,7 @@ import json
 
 import click
 
-from sam.case import InitialConditionCase, get_ngqaua_ic, default_parameters
+from .case import InitialConditionCase, get_ngqaua_ic, default_parameters
 
 NGAQUA_ROOT = "/Users/stewart/projects/uwnet/data/processed/training.nc"
 
@@ -92,8 +92,10 @@ def main(path,
             'nstop': 120,
         })
 
-    with open(join(path, "python_config.json"), "w") as f:
-        json.dump(python_config, f)
+    dopython = case.prm.get('python', {}).get('dopython', False)
+    if dopython:
+        with open(join(path, "python_config.json"), "w") as f:
+            json.dump(python_config, f)
 
     case.save()
 

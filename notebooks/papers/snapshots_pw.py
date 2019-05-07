@@ -2,6 +2,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import xarray as xr
 from mpl_toolkits.axes_grid1 import AxesGrid, ImageGrid
+from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset, inset_axes
+from mpl_toolkits.axes_grid1.colorbar import colorbar
+
+
 
 import common
 from src.data import open_data, runs
@@ -43,36 +47,84 @@ def get_data():
     return plotme.sel(time=times).squeeze('time')
 
 
+def plot_inset_nn_all(ax, pw, xlim=(12e6,16e6), ylim=(4e6,6e6)):
+    
+    pw = pw.sel(x=slice(*xlim), y=slice(*ylim))
+    x, y, z = pw.x / 1e6, pw.y / 1e6, pw.values
+    
+    c = "w"
+    
+    styles = {'axes.edgecolor': c,
+              'axes.labelcolor': c,
+              'xtick.color':c,
+              'ytick.color': c
+             }
+ 
+    with plt.rc_context(styles):
+        axins = zoomed_inset_axes(ax, 2,loc='center left')  # zoom = 6
+        im = axins.pcolormesh(x, y, z, rasterized=True)
+        # colorbar
+        cax = inset_axes(axins,
+                     width="100%",  # width = 10% of parent_bbox width
+                     height="20%",  # height : 50%
+                     loc="lower center",
+    #                  bbox_to_anchor=(1.05, 0., 1, 1),
+                      bbox_to_anchor=(0.0, -.30, 1., 1),
+                     bbox_transform=axins.transAxes,
+                     borderpad=0,
+                     )
+
+        colorbar(im, cax=cax, orientation='horizontal')
+
+        axins.set_xticklabels('')
+        axins.set_yticklabels('')
+        mark_inset(ax, axins, loc1=1, loc2=4, fc="none", ec=c)
+
+
 def plot(plotme):
-    fig = plt.figure(1, figsize=(common.textwidth, common.textwidth/2))
+    w= common.textwidth + 1
+    fig = plt.figure(1, figsize=(w, w/2))
 
     grid = AxesGrid(
         fig,
         111,  # similar to subplot(144)
         nrows_ncols=(2, 2),
         aspect=True,
-        axes_pad=(.4, .3),
+        axes_pad=(.1, .3),
         label_mode="L",
         share_all=True,
         cbar_location="right",
-        cbar_mode="each",
+        cbar_mode="single",
         cbar_size="3%",
         cbar_pad="2%", )
 
     count = 0
     abc = 'abcdefghijk'
+
+
+    cm = plt.cm.viridis
+    cm = 'viridis'
+
+
+    kw = dict(vmin=0, vmax=60, rasterized=True, cmap=cm)
+
     for j, run in enumerate(plotme.concat_dim):
+        
         cax = grid.cbar_axes[count]
         ax = grid[count]
 
         val = plotme.PW[j]
-        im = ax.pcolormesh(val.x / 1e6, val.y / 1e6, val.values,
-                           rasterized=True)
+        x, y, z = val.x / 1e6, val.y / 1e6, val.values
+
+        im = ax.pcolormesh(x, y, z, **kw)
         cax.colorbar(im)
 
         run = str(run.values)
         ax.set_title(f'{abc[count]}) {run}', loc='left')
         count += 1
+        
+        if run in['NN-All']:
+            plot_inset_nn_all(ax, val)
 
     axs = np.reshape(grid, (2, 2))
     common.label_outer_axes(axs, "x (1000 km)", "y (1000 km)")
