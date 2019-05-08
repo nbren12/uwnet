@@ -254,14 +254,14 @@ def compare_true_to_simulated_q1_q2_distributions(
     pred_sli_mean = slis_pred.mean()
     pred_base_sli_mean = slis_pred_base.mean()
     if print_stats:
-        print(f'True QT Variance: {true_qt_variance}')
+        print(f'\n\nTrue QT Variance: {true_qt_variance}')
         print(f'Stochastic QT Variance: {pred_qt_variance}')
         print(f'Base Model QT Variance: {pred_base_qt_variance}')
         print(f'True sli Variance: {true_sli_variance}')
         print(f'Stochastic sli Variance: {pred_sli_variance}')
         print(f'Base Model sli Variance: {pred_base_sli_variance}')
 
-        print(f'True QT Mean: {true_qt_mean}')
+        print(f'\n\nTrue QT Mean: {true_qt_mean}')
         print(f'Stochastic QT Mean: {pred_qt_mean}')
         print(f'Base Model QT Mean: {pred_base_qt_mean}')
         print(f'True sli Mean: {true_sli_mean}')
@@ -374,7 +374,7 @@ if __name__ == '__main__':
         blur_sigma=None,
         base_model_location=dir_ + 'full_model/1.pkl',
         verbose=True,
-        markov_process=True,
+        markov_process=True
     )
     model.train()
     # evaluate_stochasticity_of_model(model)

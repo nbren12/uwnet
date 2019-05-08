@@ -139,8 +139,8 @@ class EtaTransitioner(object):
         )
         start_times = np.array(range(len(ds.time) - 1))
         stop_times = start_times + 1
-        start = ds.isel(time=start_times).eta_coarse.values
-        y_data = ds.isel(time=stop_times).eta_coarse.values
+        start = ds.isel(time=start_times).eta.values
+        y_data = ds.isel(time=stop_times).eta.values
         if self.eta_coarsening:
             y_data = coarsen_array(y_data, self.eta_coarsening)
             start = coarsen_array(start, self.eta_coarsening)

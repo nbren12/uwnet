@@ -40,8 +40,8 @@ gbc = GradientBoostingClassifier(max_depth=500, verbose=2)
 lr = LogisticRegression(
     multi_class='multinomial', solver='lbfgs', max_iter=10000)
 mlp = MLPClassifier(hidden_layer_sizes=(250,))
-default_eta_transitioner_poly_degree = 3
-default_eta_transitioner_model = lr
+default_eta_transitioner_poly_degree = 1
+default_eta_transitioner_model = mlp
 default_eta_transitioner_predictors = [
     'SST',
     'PW',
@@ -205,9 +205,6 @@ def insert_eta_bin_membership(
     dataset['eta'] = dataset['Prec'].copy()
     dataset['eta'].values = get_bin_membership(
         dataset, binning_method, binning_quantiles, eta_coarsening)
-    dataset['eta_coarse'] = dataset['Prec'].copy()
-    dataset['eta_coarse'].values = dataset['eta'].values
-    # TODO: set eta_coarse differently than eta
     return dataset
 
 

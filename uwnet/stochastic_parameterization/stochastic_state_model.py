@@ -36,6 +36,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             self,
             dims=(64, 128),
             dt_seconds=10800,
+            eta_transitioner_dt_seconds=10800,
             prognostics=['QT', 'SLI'],
             residual_model_inputs=model_inputs,
             max_sli_for_residual_model=18,
@@ -79,6 +80,10 @@ class StochasticStateModel(nn.Module, XRCallMixin):
         self.prognostics = prognostics
         self.possible_etas = list(range(len(binning_quantiles)))
         self._dt_seconds = dt_seconds
+        self.eta_transitioner_dt_seconds = eta_transitioner_dt_seconds
+        if eta_transitioner_dt_seconds != dt_seconds:
+            warnings.warn(
+                'Eta Transitioner and Stochastic Model have differnet dts')
         self.setup_eta(time_idx_to_use_for_eta_initialization)
         self.residual_model_class = residual_model_class
         self.base_model = torch.load(base_model_location)
@@ -106,7 +111,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
     def setup_eta_transitioner(self):
         transitioner = EtaTransitioner(
             ds_location=self.ds_location,
-            dt_seconds=self.dt_seconds,
+            dt_seconds=self.eta_transitioner_dt_seconds,
             t_start=self.t_start,
             t_stop=self.t_stop,
             verbose=self.verbose,
@@ -310,10 +315,10 @@ class StochasticStateModel(nn.Module, XRCallMixin):
                 self.eta, x, output=output)
 
     def forward(self, x, eta=None, return_stochastic_state=True):
-        return {
-            'QT': torch.zeros(34, 64, 128),
-            'SLI': torch.zeros(34, 64, 128),
-        }
+        # return {
+        #     'QT': torch.zeros(34, 64, 128),
+        #     'SLI': torch.zeros(34, 64, 128),
+        # }
         if (('PW' in self.residual_model_inputs) or (
                 'PW' in self.eta_transitioner.predictors)) and 'PW' not in x:
             x['PW'] = (x['QT'] * x['layer_mass'].reshape(

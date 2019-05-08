@@ -131,11 +131,11 @@ def plot_rmse_over_time(ds_s, ds_b, ds_true, no_param, var):
 if __name__ == '__main__':
     dir_ = '/Users/stewart/Desktop/'
     ds_no_param = xr.open_dataset(dir_ + 'no_parameterization.nc')
-    ds_s = xr.open_dataset(dir_ + 'stochastic_model_gcm_output_long_run.nc')
-    # ds_s = xr.open_dataset(dir_ + 'stochastic_model_gcm_output.nc')
+    # ds_s = xr.open_dataset(dir_ + 'stochastic_model_gcm_output_long_run.nc')
+    ds_s = xr.open_dataset(dir_ + 'stochastic_model_gcm_output_3.nc')
     # ds_s = xr.open_dataset(dir_ + 'no_hyper_diffuse.nc')
-    ds_b = xr.open_dataset(dir_ + 'base_model_gcm_output_long_run.nc')
-    # ds_b = xr.open_dataset(dir_ + 'base_model_gcm_output.nc')
+    # ds_b = xr.open_dataset(dir_ + 'base_model_gcm_output_long_run.nc')
+    ds_b = xr.open_dataset(dir_ + 'base_model_gcm_output.nc')
     # ds_b = xr.open_dataset(dir_ + 'no_hyper_diffuse_base_model.nc')
     ds_true = get_dataset(
         ds_location="/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/training.nc",  # noqa
