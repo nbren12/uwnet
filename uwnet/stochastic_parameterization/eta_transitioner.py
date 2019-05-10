@@ -209,8 +209,8 @@ class EtaTransitioner(object):
             x_data = quantile_transform(x_data, axis=0)
         return {
             eta: (
-                x_data[x_data[:, 0]][:, 1:] == eta,
-                y_data[x_data[:, 0]] == eta
+                x_data[x_data[:, 0] == eta][:, 1:],
+                y_data[x_data[:, 0] == eta]
             )
             for eta in self.etas
         }
