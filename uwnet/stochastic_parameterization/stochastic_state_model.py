@@ -55,6 +55,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             include_output_in_transition_model=True,
             time_idx_to_use_for_eta_initialization='random',
             markov_process=True,
+            multi_model_transitioner=False,
             change_blurred_var_names=True,
             verbose=True):
         super(StochasticStateModel, self).__init__()
@@ -67,6 +68,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
         self.binning_quantiles = binning_quantiles
         self.include_output_in_transition_model = \
             include_output_in_transition_model
+        self.multi_model_transitioner = multi_model_transitioner
         self.markov_process = markov_process
         self.binning_method = binning_method
         self.base_model_location = base_model_location
@@ -115,6 +117,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             t_start=self.t_start,
             t_stop=self.t_stop,
             verbose=self.verbose,
+            multi_model_transitioner=self.multi_model_transitioner,
             eta_coarsening=self.eta_coarsening,
             use_nn_output=self.include_output_in_transition_model,
             quantile_transform_data=self.quantile_transform_data,

@@ -34,7 +34,6 @@ plt.style.use('tableau-colorblind10')
 dir_ = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'
 ds_location = dir_ + 'training.nc'
 model = None
-base_model = torch.load(dir_ + 'full_model/1.pkl')
 
 
 def get_true_nn_forcing(time_, ds):
@@ -144,8 +143,8 @@ def get_column_moistening_and_heating_comparisons(
     ds = get_dataset(
         ds_location=ds_location,
         base_model_location=dir_ + 'full_model/1.pkl',
-        t_start=50,
-        t_stop=100)
+        t_start=100,
+        t_stop=200)
     if use_true_eta_start:
         model.eta = ds.isel(time=0).eta.values
     qts_pred = []
@@ -155,7 +154,7 @@ def get_column_moistening_and_heating_comparisons(
     slis_true = []
     slis_pred_base = []
     layer_mass = ds.layer_mass.values
-    for time in range(1, 48):
+    for time in range(1, 98):
         pred = predict_for_time(time, ds, model=model, true_etas=true_etas)
         pred_base = predict_for_time(time, ds, base_model)
         true = get_true_nn_forcing(time, ds)
@@ -366,15 +365,25 @@ def compare_true_to_simulated_q1_q2_distributions(
 
 
 if __name__ == '__main__':
-    model = StochasticStateModel(
-        ds_location=ds_location,
-        eta_coarsening=2,
+    base_model = StochasticStateModel(
+        ds_location,
         t_start=0,
         t_stop=50,
+        base_model_location=dir_ + 'full_model/1.pkl',
+        verbose=False,
+        binning_quantiles=(1,),
+    )
+    base_model.train()
+    # base_model = torch.load(dir_ + 'full_model/1.pkl')
+    model = StochasticStateModel(
+        ds_location=ds_location,
+        eta_coarsening=None,
+        t_start=0,
+        t_stop=100,
         blur_sigma=None,
         base_model_location=dir_ + 'full_model/1.pkl',
         verbose=True,
-        markov_process=True
+        markov_process=False
     )
     model.train()
     # evaluate_stochasticity_of_model(model)
