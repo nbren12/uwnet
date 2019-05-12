@@ -88,11 +88,12 @@ def get_model(config):
         # model = torch.load(config['path'])
         model = StochasticStateModel(
             dt_seconds=120,
+            eta_transitioner_dt_seconds=30,
             markov_process=True,
             t_start=0,
             t_stop=100,
             eta_coarsening=2,
-            blur_sigma=.5,
+            blur_sigma=None,
             base_model_location='full_model/1.pkl',
             ds_location='training.nc',
             # binning_quantiles=(1,),

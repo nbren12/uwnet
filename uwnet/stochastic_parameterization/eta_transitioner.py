@@ -1,3 +1,4 @@
+from sklearn.model_selection import train_test_split
 from scipy import linalg
 from copy import copy
 import numpy as np
@@ -33,6 +34,7 @@ class EtaTransitioner(object):
             binning_method=copy(default_binning_method),
             ds_location=copy(default_ds_location),
             max_qt_for_residual_model=15,
+            multi_model_transitioner=False,
             verbose=True,
             max_sli_for_residual_model=18,
             use_nn_output=False,
@@ -40,6 +42,7 @@ class EtaTransitioner(object):
             base_model_location=copy(default_base_model_location),
             blur_sigma=None):
         self.verbose = verbose
+        self.multi_model_transitioner = multi_model_transitioner
         self.blur_sigma = blur_sigma
         self.eta_coarsening = eta_coarsening
         self.t_start = t_start
@@ -126,7 +129,7 @@ class EtaTransitioner(object):
             self.normalization_params[variable]['mean'][degree]
         ) / self.normalization_params[variable]['std'][degree]
 
-    def format_training_data(self):
+    def format_training_data_one_model(self):
         ds = get_dataset(
             ds_location=self.ds_location,
             t_start=self.t_start,
@@ -168,18 +171,73 @@ class EtaTransitioner(object):
             x_data = quantile_transform(x_data, axis=0)
         return x_data, y_data
 
+    def format_training_data_multi_model(self):
+        ds = get_dataset(
+            ds_location=self.ds_location,
+            t_start=self.t_start,
+            t_stop=self.t_stop,
+            eta_coarsening=self.eta_coarsening,
+            binning_quantiles=self.binning_quantiles,
+            binning_method=self.binning_method,
+            base_model_location=self.base_model_location,
+            blur_sigma=self.blur_sigma
+        )
+        start_times = np.array(range(len(ds.time) - 1))
+        stop_times = start_times + 1
+        start = ds.isel(time=start_times).eta.values
+        y_data = ds.isel(time=stop_times).eta.values
+        if self.eta_coarsening:
+            y_data = coarsen_array(y_data, self.eta_coarsening)
+            start = coarsen_array(start, self.eta_coarsening)
+        y_data = y_data.ravel()
+        x_data = start.ravel().reshape(-1, 1)
+
+        for predictor in self.predictors:
+            data = ds.isel(time=start_times)[predictor].values
+            if len(data.shape) == 4:
+                data = np.average(
+                    data, axis=1, weights=ds.layer_mass.values)
+            if self.eta_coarsening:
+                data = coarsen_array(data, self.eta_coarsening)
+            data = data.ravel().reshape(-1, 1)
+            for degree in range(1, self.poly_degree + 1):
+                x_data = np.hstack([
+                    x_data,
+                    self.normalize_array(data, predictor, degree)
+                ])
+        if self.quantile_transform_data:
+            x_data = quantile_transform(x_data, axis=0)
+        return {
+            eta: (
+                x_data[x_data[:, 0] == eta][:, 1:],
+                y_data[x_data[:, 0] == eta]
+            )
+            for eta in self.etas
+        }
+
+    def train_model(self, x_data, y_data):
+        x_data, x_test, y_data, y_test = train_test_split(
+            x_data, y_data, test_size=0.1)
+        model = copy(self.model).fit(x_data, y_data)
+        if self.verbose:
+            print('\n\nTransitioner Train Score:',
+                  f'{model.score(x_data, y_data)}')
+            print('\n\nTransitioner Test Score:',
+                  f'{model.score(x_test, y_test)}')
+        return model
+
     def train(self):
         if len(self.etas) > 1:
-            x_data, y_data = self.format_training_data()
-            from sklearn.model_selection import train_test_split
-            x_data, x_test, y_data, y_test = train_test_split(
-                x_data, y_data, test_size=0.6)
-            self.model.fit(x_data, y_data)
-            if self.verbose:
-                print('\n\nTransitioner Train Score:',
-                      f'{self.model.score(x_data, y_data)}')
-                print('\n\nTransitioner Test Score:',
-                      f'{self.model.score(x_test, y_test)}')
+            if self.multi_model_transitioner:
+                training_data = self.format_training_data_multi_model()
+                models = {}
+                for eta in self.etas:
+                    x_data, y_data = training_data[eta]
+                    models[eta] = self.train_model(x_data, y_data)
+                self.transitioner_model = models
+            else:
+                x_data, y_data = self.format_training_data_one_model()
+                self.transitioner_model = self.train_model(x_data, y_data)
         self.is_trained = True
 
     def get_input_array_from_state_true(self, etas, state):
@@ -214,7 +272,7 @@ class EtaTransitioner(object):
 
     def get_transition_probabilities_true(self, etas, state):
         input_array = self.get_input_array_from_state_true(etas, state)
-        transition_matrices = self.model.predict_proba(
+        transition_matrices = self.transitioner_model.predict_proba(
             input_array).reshape(
             etas.size, len(self.etas), len(self.etas), order='F')
         if self.dt_seconds != dataset_dt_seconds:
@@ -259,10 +317,55 @@ class EtaTransitioner(object):
             return quantile_transform(input_array, axis=0)
         return input_array
 
-    def get_transition_probabilities_efficient(
+    def get_input_array_from_state_multi_model(self, etas, state):
+        input_array = etas.ravel().reshape(-1, 1)
+        i_ = 0
+        for predictor in self.predictors:
+            data = state[predictor].numpy()
+            if len(data.shape) > 2 and data.shape[0] > 1:
+                data = np.average(
+                    data, axis=0, weights=self.layer_mass)
+            if self.eta_coarsening:
+                data = coarsen_array(data, self.eta_coarsening)
+            data = data.ravel().reshape(-1, 1)
+            for degree in range(1, self.poly_degree + 1):
+                input_array = np.hstack([
+                    input_array,
+                    self.normalize_array(data, predictor, degree)
+                ])
+                i_ += 1
+        if self.quantile_transform_data:
+            return quantile_transform(input_array, axis=0)
+        return {
+            eta: input_array[input_array[:, 0]][:, 1:] == eta
+            for eta in self.etas
+        }
+
+    def get_transition_probabilities_efficient_multi_model(
             self, etas, state):
+        input_arrays = self.get_input_array_from_state_multi_model(
+            etas, state)
+        raveled_etas = etas.ravel()
+        transition_probabilities = np.zeros(
+            (len(raveled_etas), len(self.etas)))
+        for eta, input_array in input_arrays.items():
+            transition_probs = self.transitioner_model[eta].predict_proba(
+                input_array)
+            if self.dt_seconds != dataset_dt_seconds:
+                ratio = self.dt_seconds / dataset_dt_seconds
+                p_stay = transition_probs[:, eta]
+                p_transition = 1 - p_stay
+                p_transition_new = p_transition * ratio
+                p_stay_new = 1 - p_transition_new
+                transition_probs = transition_probs * ratio
+                transition_probs[:, eta] = p_stay_new
+                transition_probabilities[
+                    raveled_etas == eta, :] = transition_probs
+        return transition_probabilities
+
+    def get_transition_probabilities_efficient(self, etas, state):
         input_array = self.get_input_array_from_state(etas, state)
-        transition_probabilities = self.model.predict_proba(
+        transition_probabilities = self.transitioner_model.predict_proba(
             input_array)
         if self.dt_seconds != dataset_dt_seconds:
             ratio = self.dt_seconds / dataset_dt_seconds
@@ -279,8 +382,13 @@ class EtaTransitioner(object):
     def transition_etas_efficient(self, etas, state):
         if not self.is_trained:
             raise Exception('Transition Matrix Model not Trained')
-        probabilities = self.get_transition_probabilities_efficient(
-            etas, state)
+        if self.multi_model_transitioner:
+            probabilities = \
+                self.get_transition_probabilities_efficient_multi_model(
+                    etas, state)
+        else:
+            probabilities = self.get_transition_probabilities_efficient(
+                etas, state)
         c = probabilities.cumsum(axis=1)
         u = np.random.rand(len(c), 1)
         return (u < c).argmax(axis=1).reshape(etas.shape)
