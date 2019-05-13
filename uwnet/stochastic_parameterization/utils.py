@@ -33,9 +33,9 @@ default_binning_method = 'column_integrated_qt_residuals'
 # default_binning_quantiles = (0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1)
 # default_binning_quantiles = (.1, .3, .7, .9, 1)
 # default_binning_quantiles = (1,)
-default_binning_quantiles = (
-    .001, .005, .01, .02, .05, .15, .35, .5, .65, .85, .95, .98, .99, .995, .999, 1)  # noqa
-# default_binning_quantiles = (.01, .05, .15, .35, .5, .65, .85, .95, .99, 1)
+# default_binning_quantiles = (
+#     .001, .005, .01, .02, .05, .15, .35, .5, .65, .85, .95, .98, .99, .995, .999, 1)  # noqa
+default_binning_quantiles = (.01, .05, .15, .35, .5, .65, .85, .95, .99, 1)
 
 # ---- eta transitioner model ----
 gbc = GradientBoostingClassifier(max_depth=500, verbose=2)

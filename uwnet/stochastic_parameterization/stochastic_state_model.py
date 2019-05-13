@@ -55,7 +55,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             include_output_in_transition_model=True,
             time_idx_to_use_for_eta_initialization='random',
             markov_process=True,
-            multi_model_transitioner=False,
+            multi_model_transitioner=True,
             change_blurred_var_names=True,
             verbose=True):
         super(StochasticStateModel, self).__init__()

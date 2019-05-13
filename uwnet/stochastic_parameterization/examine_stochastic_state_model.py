@@ -223,6 +223,7 @@ def evaluate_stochasticity_of_model(model, n_simulations=20):
 
 def compare_true_to_simulated_q1_q2_distributions(
         model,
+        base_model,
         true_etas=False,
         only_tropics=False,
         use_true_eta_start=True,
@@ -368,7 +369,7 @@ if __name__ == '__main__':
     base_model = StochasticStateModel(
         ds_location,
         t_start=0,
-        t_stop=200,
+        t_stop=50,
         base_model_location=dir_ + 'full_model/1.pkl',
         verbose=False,
         binning_quantiles=(1,),
@@ -379,7 +380,7 @@ if __name__ == '__main__':
         ds_location=ds_location,
         eta_coarsening=None,
         t_start=0,
-        t_stop=50,
+        t_stop=200,
         blur_sigma=None,
         base_model_location=dir_ + 'full_model/1.pkl',
         verbose=True,
@@ -390,4 +391,4 @@ if __name__ == '__main__':
     # evaluate_stochasticity_of_model(model)
     # plot_true_eta_vs_simulated_eta()
     compare_true_to_simulated_q1_q2_distributions(
-        model, true_etas=False, only_tropics=True)
+        model, base_model, true_etas=False, only_tropics=True)

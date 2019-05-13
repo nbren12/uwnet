@@ -369,7 +369,10 @@ class EtaTransitioner(object):
                 #         :, self.possible_eta_transitions[eta]] = transition_probs
                 # except:
                 #     import pdb; pdb.set_trace()
-                transition_probabilities[raveled_etas == eta, :] = transition_probs
+                try:
+                    transition_probabilities[raveled_etas == eta, :] = transition_probs
+                except:
+                    import pdb; pdb.set_trace()
         return transition_probabilities
 
     def get_transition_probabilities_efficient(self, etas, state):
