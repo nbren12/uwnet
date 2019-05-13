@@ -17,7 +17,7 @@ from uwnet.stochastic_parameterization.utils import (
 from uwnet.xarray_interface import XRCallMixin
 from uwnet.tensordict import TensorDict
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import Ridge
 from torch import nn
 from torch.serialization import SourceChangeWarning
 import warnings
@@ -45,7 +45,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             t_stop=copy(default_t_stop),
             blur_sigma=None,
             eta_coarsening=None,
-            residual_model_class=LinearRegression,
+            residual_model_class=Ridge,
             binning_quantiles=copy(default_binning_quantiles),
             binning_method=copy(default_binning_method),
             ds_location=copy(default_ds_location),

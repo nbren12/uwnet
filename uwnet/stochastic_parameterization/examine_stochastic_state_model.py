@@ -143,8 +143,8 @@ def get_column_moistening_and_heating_comparisons(
     ds = get_dataset(
         ds_location=ds_location,
         base_model_location=dir_ + 'full_model/1.pkl',
-        t_start=100,
-        t_stop=200)
+        t_start=400,
+        t_stop=500)
     if use_true_eta_start:
         model.eta = ds.isel(time=0).eta.values
     qts_pred = []
@@ -368,7 +368,7 @@ if __name__ == '__main__':
     base_model = StochasticStateModel(
         ds_location,
         t_start=0,
-        t_stop=50,
+        t_stop=200,
         base_model_location=dir_ + 'full_model/1.pkl',
         verbose=False,
         binning_quantiles=(1,),

@@ -207,6 +207,10 @@ class EtaTransitioner(object):
                 ])
         if self.quantile_transform_data:
             x_data = quantile_transform(x_data, axis=0)
+        self.possible_eta_transitions = {
+            eta: np.sort(np.unique(y_data[x_data[:, 0] == eta]))
+            for eta in self.etas
+        }
         return {
             eta: (
                 x_data[x_data[:, 0] == eta][:, 1:],
@@ -222,7 +226,7 @@ class EtaTransitioner(object):
         if self.verbose:
             print('\n\nTransitioner Train Score:',
                   f'{model.score(x_data, y_data)}')
-            print('\n\nTransitioner Test Score:',
+            print('Transitioner Test Score:',
                   f'{model.score(x_test, y_test)}')
         return model
 
@@ -337,7 +341,7 @@ class EtaTransitioner(object):
         if self.quantile_transform_data:
             return quantile_transform(input_array, axis=0)
         return {
-            eta: input_array[input_array[:, 0]][:, 1:] == eta
+            eta: input_array[input_array[:, 0] == eta][:, 1:]
             for eta in self.etas
         }
 
@@ -349,18 +353,23 @@ class EtaTransitioner(object):
         transition_probabilities = np.zeros(
             (len(raveled_etas), len(self.etas)))
         for eta, input_array in input_arrays.items():
-            transition_probs = self.transitioner_model[eta].predict_proba(
-                input_array)
-            if self.dt_seconds != dataset_dt_seconds:
-                ratio = self.dt_seconds / dataset_dt_seconds
-                p_stay = transition_probs[:, eta]
-                p_transition = 1 - p_stay
-                p_transition_new = p_transition * ratio
-                p_stay_new = 1 - p_transition_new
-                transition_probs = transition_probs * ratio
-                transition_probs[:, eta] = p_stay_new
-                transition_probabilities[
-                    raveled_etas == eta, :] = transition_probs
+            if input_array.shape[0] > 0:
+                transition_probs = self.transitioner_model[eta].predict_proba(
+                    input_array)
+                if self.dt_seconds != dataset_dt_seconds:
+                    ratio = self.dt_seconds / dataset_dt_seconds
+                    p_stay = transition_probs[:, eta]
+                    p_transition = 1 - p_stay
+                    p_transition_new = p_transition * ratio
+                    p_stay_new = 1 - p_transition_new
+                    transition_probs = transition_probs * ratio
+                    transition_probs[:, eta] = p_stay_new
+                # try:
+                #     transition_probabilities[raveled_etas == eta, :][
+                #         :, self.possible_eta_transitions[eta]] = transition_probs
+                # except:
+                #     import pdb; pdb.set_trace()
+                transition_probabilities[raveled_etas == eta, :] = transition_probs
         return transition_probabilities
 
     def get_transition_probabilities_efficient(self, etas, state):
