@@ -59,8 +59,9 @@ print_sam_checks:
 	@grep Prec data/samNN/checks/sam_nn.txt
 
 ## Call nextflow to produce the training data.
-${TRAINING_DATA}:
-	snakemake data/processed/training.nc
+data:
+	snakemake zonal_time_mean --configfile setup/olympus/config.yaml  -j 20
+.PHONY: data
 
 train: #${TRAINING_DATA}
 	python -m uwnet.train with assets/training_configurations/default.json  \
@@ -127,6 +128,9 @@ compile_sam:
 
 build_image:
 	docker-compose build sam
+
+enter:
+	docker-compose run -w /uwnet sam
 
 test:
 	$(MACHINE_SCRIPTS)/run_tests.sh
