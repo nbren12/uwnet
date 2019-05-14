@@ -137,6 +137,7 @@ def trim_extreme_values(array):
 
 def get_column_moistening_and_heating_comparisons(
         model,
+        base_model,
         true_etas=True,
         only_tropics=False,
         use_true_eta_start=True):
@@ -238,6 +239,7 @@ def compare_true_to_simulated_q1_q2_distributions(
         slis_pred_base,
     ) = get_column_moistening_and_heating_comparisons(
         model,
+        base_model,
         true_etas=true_etas,
         only_tropics=only_tropics,
         use_true_eta_start=use_true_eta_start)
@@ -380,7 +382,7 @@ if __name__ == '__main__':
         ds_location=ds_location,
         eta_coarsening=None,
         t_start=0,
-        t_stop=200,
+        t_stop=50,
         blur_sigma=None,
         base_model_location=dir_ + 'full_model/1.pkl',
         verbose=True,
