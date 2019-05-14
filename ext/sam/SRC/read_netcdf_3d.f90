@@ -34,10 +34,10 @@ contains
        call task_abort()
     end if
 
-    if (nsubdomains > 1) then
-       print *, 'NetCDF initialization only works with a single processor'
-       call task_abort()
-    end if
+    ! if (nsubdomains > 1) then
+    !    print *, 'NetCDF initialization only works with a single processor'
+    !    call task_abort()
+    ! end if
 
     ! initialize microphysics
     call micro_init()
@@ -211,6 +211,7 @@ contains
     !based on John Truesdale's getncdata_real_1d
 
     ! input/output variables
+    use grid, only: rank, masterproc
     integer, intent(in)   :: NCID
     character, intent(in) :: varName*(*)
     logical, intent(in) :: required, USE_NF_REAL
@@ -226,8 +227,11 @@ contains
     integer     start(3), count(3)
     integer     var_ndims, dim_size, dims_set, i, n, var_type
     logical usable_var
-    logical masterproc
-    masterproc = .true.
+
+    integer :: i_global, j_global
+
+
+    call task_rank_to_index(rank, i_global, j_global)
 
     nx = size(var, 1)
     ny = size(var, 2)
@@ -297,7 +301,7 @@ contains
 
        ! extract the single latitude in the iop file
        if ( dim_name .EQ. 'x' ) then
-          start( i ) = 1
+          start( i ) = i_global + 1
           count( i ) = nx
           dims_set = dims_set + 1
           usable_var = .true.
@@ -305,7 +309,7 @@ contains
 
        ! extract the single longitude in the iop file
        if ( dim_name .EQ. 'y' ) then
-          start( i ) = 1
+          start( i ) = j_global + 1
           count( i ) = ny
           dims_set = dims_set + 1
           usable_var = .true.

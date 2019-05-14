@@ -1,7 +1,9 @@
 import os
 import sys
-from os.path import join, abspath
+from os.path import join, abspath, dirname
 from datetime import datetime
+
+import xarray as xr
 
 
 def get_current_date_string():
@@ -91,19 +93,43 @@ rule add_constant_and_2d_variables:
         # append these variables
         ds.to_netcdf(output[0], engine='h5netcdf')
 
+rule process_with_sam_once_concat:
+    input: "data/tmp/{step}/.done"
+    output: SAM_PROCESSED
+    run:
+        from src.data.sam import SAMRun
+        import shutil
+        path = dirname(input[0])
+        run = SAMRun(path, 'control')
+
+        ds = run.data_3d
+
+        ds = ds.rename({'time': 'step'})
+        ds = ds.assign_coords(time=ds.step[0], step=ds.step - ds.step[0])
+        ds = ds.expand_dims('time')
+        ds.attrs['sam_namelist'] = json.dumps(run.namelist)
+        ds.to_netcdf(output[0], unlimited_dims=['time'], engine='h5netcdf')
+
+        # clean up SAM run
+        shutil.rmtree(path)
+
 rule process_with_sam_once:
     input: DATA_PATH
-    output: SAM_PROCESSED
+    output: touch("data/tmp/{step}/.done")
     log: SAM_PROCESSED_LOG
-    params: sam=SAM_PATH
-    shell:
-        """
-        {sys.executable} -m src.sam.process_ngaqua \
-            -n {input}  \
-            --sam {params.sam} \
-            --parameters  assets/sam_preprocess.json \
-            {wildcards.step} {output} > {log} 2> {log}
-        """
+    shell: """
+    rundir=$(dirname {output})
+    rm -rf $rundir
+    {sys.executable} -m src.sam.create_case  \
+        -t {wildcards.step} \
+        -p assets/parameters_process.json \
+        -n data/raw/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX \
+        -s {SAM_PATH} \
+        $rundir
+    # run sam
+    {RUN_SAM_SCRIPT} $rundir >> {log} 2>> {log}
+    exit 0
+    """
 
 rule tropical_subset:
     input: TRAINING_DATA
@@ -113,7 +139,10 @@ rule tropical_subset:
 rule zonal_time_mean:
     input: TRAINING_DATA
     output: "data/processed/training.mean.nc"
-    shell: "ncwa -d step,0 -a step,x,time {input} {output}"
+    run:
+        ds = xr.open_dataset(input[0])
+        mean = ds.isel(step=0).mean(['x', 'time'])
+        mean.to_netcdf(output[0])
 
 
 ## SAM Execution ############################################################
@@ -140,11 +169,12 @@ rule sam_run:
     output: touch("data/runs/model{model}-epoch{epoch}/.{id}.done")
     log: "data/runs/model{model}-epoch{epoch}/{id}.log"
     params: rundir="data/runs/model{model}-epoch{epoch}/",
-            model="models/{model}/{epoch}.pkl"
+            model="models/{model}/{epoch}.pkl",
+            step=0
     shell: """
     rm -rf {params.rundir}
     {sys.executable} -m  src.sam.create_case -nn {params.model} \
-        -t 0 -p assets/parameters_sam_neural_network.json {params.rundir}
+        -t {params.step} -p assets/parameters_sam_neural_network.json {params.rundir}
     # run sam
     {RUN_SAM_SCRIPT} {params.rundir} >> {log} 2>> {log}
     exit 0
