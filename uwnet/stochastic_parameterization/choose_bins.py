@@ -16,7 +16,7 @@ data = get_dataset(
 
 dl = 0.0001
 max_iter = 1000
-learning_rate = 0.001
+learning_rate = 0.01
 min_distance_between_quantiles = 0.0001
 
 
@@ -59,7 +59,7 @@ def estimate_gradient(binning_quantiles):
     return gradient
 
 
-def update_binning_quantiles(binning_quantiles):
+def update_binning_quantiles(binning_quantiles, idx):
     gradient = estimate_gradient(binning_quantiles)
     new_binning_quantiles = copy(binning_quantiles)
     for idx, grad in enumerate(gradient[:-1]):
@@ -70,31 +70,36 @@ def update_binning_quantiles(binning_quantiles):
         else:
             min_ = new_binning_quantiles[
                 idx - 1] + min_distance_between_quantiles
+        lr = learning_rate / ((idx + 1) ** .5)
         new_quantile = max(min(
-            current_quantile - (grad * learning_rate), max_), min_)
+            current_quantile - (grad * lr), max_), min_)
         new_binning_quantiles[idx] = new_quantile
     return new_binning_quantiles
 
 
-def optimize_loss(starting_binning_quantiles):
+def optimize_binning_quantiles(n_bins, verbose=False):
+    starting_binning_quantiles = np.linspace(0, 1, n_bins + 1)[1:]
     current_loss = loss(starting_binning_quantiles)
     binning_quantiles = starting_binning_quantiles
     best_loss = float('inf')
+    best_loss_idx = 0
     best_binning_quantile = copy(starting_binning_quantiles)
     idx = 0
-    while (idx < max_iter):
-        binning_quantiles = update_binning_quantiles(binning_quantiles)
+    while (idx < max_iter) and (idx - best_loss_idx) < 10:
+        binning_quantiles = update_binning_quantiles(binning_quantiles, idx)
         current_loss = loss(binning_quantiles)
-        print(current_loss)
+        if verbose:
+            print(current_loss)
         if current_loss < best_loss:
             best_loss = current_loss
             best_binning_quantile = copy(binning_quantiles)
+            best_loss_idx = idx
         idx += 1
-        if not idx % 20:
+        if verbose and not idx % 20:
             print(best_binning_quantile)
     return best_binning_quantile
 
 
 if __name__ == '__main__':
-    optimize_loss(
-        np.array([0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1]))
+    best_quantiles = optimize_binning_quantiles(7)
+    print(f'\n\n\n\nBest binning quantiles: {best_quantiles}')
