@@ -8,6 +8,7 @@ import matplotlib.colors as colors
 
 
 article_style = {'axes.titlesize': 'medium', 'axes.labelsize': 'small'}
+plt.style.use('tableau-colorblind10')
 
 
 def nbsubplots(nrows=1, ncols=1, w=None, h=1.0, aspect=1.0, **kwargs):
