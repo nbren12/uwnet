@@ -62,7 +62,8 @@ def plot_pw_tropics_zonal_variance_over_time(
         label='True Data')
     if ds_no_parameterization:
         ds_no_parameterization.isel(
-            y=range(28, 36)).PW.mean('y').var('x').plot(label='True Data')
+            y=range(28, 36)).PW.mean('y').var('x').plot(
+                label='No Parameterization')
     plt.ylabel('Equator Zonal Variance in PW (mm)')
     plt.xlabel('Time')
     plt.legend(loc='best')
@@ -81,8 +82,8 @@ def plot_u_rmse_over_time(
     no_param_model_error = ((
             ds_no_param.USFC.values - ds_true.isel(z=0).U.values) ** 2).mean(
             axis=1).mean(axis=1)
-    plt.plot(base_model_error, label='Base Model')
     plt.plot(stochastic_model_error, label='Stochastic Model')
+    plt.plot(base_model_error, label='Base Model')
     plt.plot(no_param_model_error, label='No Parameterization')
     plt.legend(loc='best')
     plt.title('USFC Global RMSE Over Time')
@@ -100,8 +101,8 @@ def plot_v_rmse_over_time(
     no_param_model_error = ((
             ds_no_param.VSFC.values - ds_true.isel(z=0).U.values) ** 2).mean(
             axis=1).mean(axis=1)
-    plt.plot(base_model_error, label='Base Model')
     plt.plot(stochastic_model_error, label='Stochastic Model')
+    plt.plot(base_model_error, label='Base Model')
     plt.plot(no_param_model_error, label='No Parameterization')
     plt.legend(loc='best')
     plt.title('VSFC Global RMSE Over Time')
@@ -118,8 +119,8 @@ def plot_rmse_over_time(ds_s, ds_b, ds_true, no_param, var):
     no_param_model_error = ((
             no_param[var].values - ds_true[var].values) ** 2).mean(
             axis=1).mean(axis=1)
-    plt.plot(base_model_error, label='Base Model')
     plt.plot(stochastic_model_error, label='Stochastic Model')
+    plt.plot(base_model_error, label='Base Model')
     plt.plot(no_param_model_error, label='No Parameterization')
     plt.title(f'{var} Glabal RMSE Over Time')
     plt.ylabel(f'{var} Global RMSE')
