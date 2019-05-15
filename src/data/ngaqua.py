@@ -1,6 +1,24 @@
 """Routines for opening the NGAqua Dataset"""
 import xarray as xr
 import os
+from os.path import join
+from uwnet import thermo
+
+
+class NGAqua:
+    def __init__(self, basedir):
+        self.basedir = basedir
+
+    @property
+    def data_2d(self):
+        path = join(self.basedir, "coarse", "2d", "all.nc")
+        ds = xr.open_dataset(path).sortby('time')
+        ds = ds.assign(NPNN=thermo.net_precipitation_from_prec_evap(ds),
+                         NHNN=thermo.net_heating_from_data_2d(ds))
+        # adjust coordinates
+        ds['x'] -= ds.x[0]
+        ds['y'] -= ds.y[0]
+        return ds
 
 
 def _rename_var(z, coords):
