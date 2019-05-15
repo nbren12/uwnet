@@ -1,4 +1,5 @@
 from .sam import SAMRun
+from .ngaqua import NGAqua
 import xarray as xr
 from pathlib import Path
 
