@@ -33,10 +33,8 @@ class EtaTransitioner(object):
             binning_quantiles=copy(default_binning_quantiles),
             binning_method=copy(default_binning_method),
             ds_location=copy(default_ds_location),
-            max_qt_for_residual_model=15,
-            multi_model_transitioner=False,
+            multi_model_transitioner=True,
             verbose=True,
-            max_sli_for_residual_model=18,
             use_nn_output=False,
             markov_process=True,
             base_model_location=copy(default_base_model_location),
@@ -60,8 +58,6 @@ class EtaTransitioner(object):
                 else:
                     blurred_predictors.append(input_)
             self.predictors = blurred_predictors
-        self.max_qt_for_residual_model = max_qt_for_residual_model
-        self.max_sli_for_residual_model = max_sli_for_residual_model
         self.poly_degree = poly_degree
         self.model = model
         self.is_trained = False
@@ -366,13 +362,11 @@ class EtaTransitioner(object):
                     transition_probs[:, eta] = p_stay_new
                 # try:
                 #     transition_probabilities[raveled_etas == eta, :][
-                #         :, self.possible_eta_transitions[eta]] = transition_probs
+                #         :, self.possible_eta_transitions[eta]] = transition_probs  # noqa
                 # except:
                 #     import pdb; pdb.set_trace()
-                try:
-                    transition_probabilities[raveled_etas == eta, :] = transition_probs
-                except:
-                    import pdb; pdb.set_trace()
+                transition_probabilities[
+                    raveled_etas == eta, :] = transition_probs
         return transition_probabilities
 
     def get_transition_probabilities_efficient(self, etas, state):

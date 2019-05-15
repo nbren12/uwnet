@@ -30,9 +30,13 @@ default_binning_method = 'column_integrated_qt_residuals'
 # default_binning_method = 'column_integrated_sli_residuals'
 
 # ---- binning quantiles ----
-default_binning_quantiles = (0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1)
+# default_binning_quantiles = (0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1)
+default_binning_quantiles = (
+    0.0073, 0.0557, 0.3024, 0.5967, 0.8348, 0.9666, 1.)
 # default_binning_quantiles = (
-#     0.0073, 0.0557, 0.3024, 0.5967, 0.8348, 0.9666, 1.)
+#     0.0072, 0.0499, 0.2326, 0.3327, 0.4166, 0.5001, 0.5836, 0.6672,
+#     0.7519, 0.8499, 0.9667, 1
+# )
 # default_binning_quantiles = (.1, .3, .7, .9, 1)
 # default_binning_quantiles = (1,)
 # default_binning_quantiles = (

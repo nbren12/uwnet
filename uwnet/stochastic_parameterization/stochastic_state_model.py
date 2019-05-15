@@ -13,11 +13,13 @@ from uwnet.stochastic_parameterization.utils import (
     default_ds_location,
     default_base_model_location,
     default_eta_transitioner_predictors,
+    default_eta_transitioner_poly_degree,
+    default_eta_transitioner_model,
 )
 from uwnet.xarray_interface import XRCallMixin
 from uwnet.tensordict import TensorDict
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import Ridge
+from sklearn.linear_model import LinearRegression
 from torch import nn
 from torch.serialization import SourceChangeWarning
 import warnings
@@ -41,11 +43,14 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             residual_model_inputs=model_inputs,
             max_sli_for_residual_model=18,
             max_qt_for_residual_model=15,
+            eta_transitioner_poly_degree=copy(
+                default_eta_transitioner_poly_degree),
+            eta_transitioner_model=copy(default_eta_transitioner_model),
             t_start=copy(default_t_start),
             t_stop=copy(default_t_stop),
             blur_sigma=None,
             eta_coarsening=None,
-            residual_model_class=Ridge,
+            residual_model_class=LinearRegression,
             binning_quantiles=copy(default_binning_quantiles),
             binning_method=copy(default_binning_method),
             ds_location=copy(default_ds_location),
@@ -63,6 +68,8 @@ class StochasticStateModel(nn.Module, XRCallMixin):
         self.t_stop = t_stop
         self.change_blurred_var_names = change_blurred_var_names
         self.blur_sigma = blur_sigma
+        self.eta_transitioner_model = eta_transitioner_model
+        self.eta_transitioner_poly_degree = eta_transitioner_poly_degree
         self.eta_coarsening = eta_coarsening
         self.eta_predictors = eta_predictors
         self.binning_quantiles = binning_quantiles
@@ -114,6 +121,8 @@ class StochasticStateModel(nn.Module, XRCallMixin):
         transitioner = EtaTransitioner(
             ds_location=self.ds_location,
             dt_seconds=self.eta_transitioner_dt_seconds,
+            model=self.eta_transitioner_model,
+            poly_degree=self.eta_transitioner_poly_degree,
             t_start=self.t_start,
             t_stop=self.t_stop,
             verbose=self.verbose,

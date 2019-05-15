@@ -382,7 +382,7 @@ if __name__ == '__main__':
         ds_location=ds_location,
         eta_coarsening=None,
         t_start=0,
-        t_stop=50,
+        t_stop=100,
         blur_sigma=None,
         base_model_location=dir_ + 'full_model/1.pkl',
         verbose=True,
