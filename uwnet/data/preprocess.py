@@ -25,7 +25,7 @@ def get_args_snakemake():
     return Namespace(
         time_step=int(snakemake.wildcards.step),
         sam_parameters=snakemake.input.sam_parameters,
-        sam=snakemake.config['sam_path'],
+        sam=snakemake.config.get('sam_path',  '/opt/sam'),
         ngaqua_root=snakemake.params.ngaqua_root,
         output=snakemake.output[0],
         sigma=sigma)
