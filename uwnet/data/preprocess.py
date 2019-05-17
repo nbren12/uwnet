@@ -25,6 +25,7 @@ def get_args_snakemake():
     return Namespace(
         time_step=int(snakemake.wildcards.step),
         sam_parameters=snakemake.input.sam_parameters,
+        sam=snakemake.config['sam_path'],
         ngaqua_root=snakemake.params.ngaqua_root,
         output=snakemake.output[0],
         sigma=sigma)
@@ -35,6 +36,7 @@ def get_args_argparse():
     parser = argparse.ArgumentParser(
         description='Pre-process a single time step')
     parser.add_argument('-n', '--ngaqua-root', type=str)
+    parser.add_argument('-s', '--sam', type=str, default='/opt/sam')
     parser.add_argument('-t', '--time-step', type=int, default=0)
     parser.add_argument('-p', '--sam-parameters', type=str, default=0)
     parser.add_argument(
@@ -58,7 +60,6 @@ def get_args():
 
 
 args = get_args()
-sam = "/opt/sam/"
 
 
 def get_extra_features(ngaqua: NGAqua, time_step):
@@ -98,7 +99,7 @@ if args.sam_parameters:
     with open(args.sam_parameters) as f:
         prm = json.load(f)
 
-path = run_sam_nsteps(ic, prm, sam_src=abspath(sam))
+path = run_sam_nsteps(ic, prm, sam_src=abspath(args.sam))
 files = os.path.join(path, 'OUT_3D', '*.nc')
 ds = xr.open_mfdataset(files)
 shutil.rmtree(path)

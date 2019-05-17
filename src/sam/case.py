@@ -21,6 +21,9 @@ export {{key}}={{val}}
 
 ulimit -s unlimited
 
+rm -f RUNDATA
+ln -s {{SAM}}/RUNDATA .
+
 # {{SAM}}/docker/cleancase.sh CASE
 {{SAM}}/OBJ/{{resolution}}/SAM_*
 {{SAM}}/docker/convert_files.sh

@@ -40,13 +40,14 @@ def get_parameters(n, dt=30.0):
     return prm
 
 
-def run_sam_nsteps(ic, prm, sam_src):
+def run_sam_nsteps(ic, prm, sam_src, **kwargs):
     path = tempfile.mkdtemp(dir=".")
     case = InitialConditionCase(
         ic=ic,
         prm=prm,
         path=path,
-        sam_src=sam_src)
+        sam_src=sam_src,
+        **kwargs)
 
     case.save()
     case.run()
