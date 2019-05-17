@@ -19,8 +19,10 @@ run_script = Template("""#!/bin/sh
 export {{key}}={{val}}
 {% endfor %}
 
+ulimit -s unlimited
+
 # {{SAM}}/docker/cleancase.sh CASE
-{{SAM}}/SAM_*
+{{SAM}}/OBJ/{{resolution}}/SAM_*
 {{SAM}}/docker/convert_files.sh
 """)
 
@@ -238,7 +240,8 @@ class Case(object):
     path = attr.ib(factory=_path_factory, converter=os.path.abspath)
     docker_image = attr.ib(default="nbren12/samuwgh:latest")
     env = attr.ib(factory=dict)
-    run_data = attr.ib(default='/opt/sam', converter=os.path.abspath)
+    run_data = attr.ib(default='/opt/sam/RUNDATA', converter=os.path.abspath)
+    resolution = attr.ib(default='128x64x34')
 
     @property
     def exe(self):
@@ -300,7 +303,8 @@ class Case(object):
 
     def save_script(self):
         with open(self.exe, 'w') as f:
-            f.write(run_script.render(env=self.env, SAM=self.sam_src))
+            f.write(run_script.render(env=self.env, SAM=self.sam_src,
+                                      resolution=self.resolution))
         os.chmod(self.exe, 0o755)
 
     def run(self):

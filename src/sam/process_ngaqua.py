@@ -10,6 +10,7 @@ import json
 import click
 
 import xarray as xr
+from uwnet.data.blur import blur_dataset
 from .case import InitialConditionCase, default_parameters, get_ngqaua_ic
 
 NGAQUA_ROOT = "/Users/noah/Data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX"
@@ -58,11 +59,13 @@ def run_sam_nsteps(ic, prm, sam_src):
 @click.argument('out_path', type=click.Path())
 @click.option('--sam', type=click.Path(), default='/opt/sam')
 @click.option('-p', '--parameters', type=click.Path())
-def main(ngaqua_root, out_path, t, sam, parameters):
+def main(ngaqua_root, out_path, t, sam, parameters, sigma):
     dt = 30.0
     n = 10
 
     ic = get_ngqaua_ic(ngaqua_root, t)
+    if sigma:
+        ic = blur_dataset(ic)
 
     if parameters:
         with open(parameters) as f:
