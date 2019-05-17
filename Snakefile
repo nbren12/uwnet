@@ -15,7 +15,7 @@ def get_current_date_string():
 DATA_PATH = config.get("data_path", "data/raw/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX")
 DATA_URL = "https://atmos.washington.edu/~nbren12/data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX.tar"
 NUM_STEPS = config.get('NSTEPS', 10)
-TRAINING_DATA = "data/processed/training.nc"
+TRAINING_DATA = "data/processed/training/{sigma}.nc"
 TROPICS_DATA = "data/processed/tropics.nc"
 SAM_RESOLUTION = "128x64x34"
 SAM_PATH = config.get("sam_path", f"/opt/sam/OBJ/{SAM_RESOLUTION}")
@@ -24,7 +24,6 @@ TODAY = get_current_date_string()
 RUN_SAM_SCRIPT = config.get("sam_script", "setup/docker/execute_run.sh")
 
 ## Temporary output locations
-SAM_PROCESSED = "data/tmp/{step}.nc"
 SAM_PROCESSED_LOG = "data/tmp/{step}.log"
 
 ## Set environmental variables
@@ -35,44 +34,34 @@ print("Number of steps to process:", NUM_STEPS)
 
 ## RULES
 rule all:
-    input: TROPICS_DATA
+    input: expand(TRAINING_DATA, sigma=["sigma0.75", "noBlur"])
 
 rule download_data:
     output: DATA_PATH
     shell: "cd data/raw && curl {DATA_URL} | tar xv"
 
 rule concat_sam_processed:
-    input: expand(SAM_PROCESSED, step=range(NUM_STEPS))
+    input: expand("data/tmp/{{sigma}}/{step}.nc", step=range(NUM_STEPS))
     output: TRAINING_DATA
     shell:
         """
         echo {input} | ncrcat -o {output}
         """
 
-rule process_with_sam_once_concat:
+rule process_with_sam_once_blurred:
     input: DATA_PATH,
            sam_parameters="assets/sam_preprocess.json"
-    output: SAM_PROCESSED
-    params: ngaqua_root=DATA_PATH, sigma=.75
+    output: "data/tmp/sigma{sigma}/{step}.nc"
+    params: ngaqua_root=DATA_PATH, sigma="{sigma}"
     script: "uwnet/data/preprocess.py"
 
+
 rule process_with_sam_once:
-    input: DATA_PATH
-    output: touch("data/tmp/{step}/.done")
-    log: SAM_PROCESSED_LOG
-    shell: """
-    rundir=$(dirname {output})
-    rm -rf $rundir
-    {sys.executable} -m src.sam.create_case  \
-        -t {wildcards.step} \
-        -p assets/parameters_process.json \
-        -n data/raw/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX \
-        -s {SAM_PATH} \
-        $rundir
-    # run sam
-    {RUN_SAM_SCRIPT} $rundir >> {log} 2>> {log}
-    exit 0
-    """
+    input: DATA_PATH,
+            sam_parameters="assets/sam_preprocess.json"
+    output: "data/tmp/noBlur/{step}.nc"
+    params: ngaqua_root=DATA_PATH, sigma=False
+    script: "uwnet/data/preprocess.py"
 
 rule tropical_subset:
     input: TRAINING_DATA

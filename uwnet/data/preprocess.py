@@ -22,6 +22,7 @@ def get_args_snakemake():
     sigma = snakemake.params.sigma
     if sigma:
         sigma = float(sigma)
+
     return Namespace(
         time_step=int(snakemake.wildcards.step),
         sam_parameters=snakemake.input.sam_parameters,
