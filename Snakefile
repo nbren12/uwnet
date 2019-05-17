@@ -40,7 +40,7 @@ rule download_data:
     output: DATA_PATH
     shell: "cd data/raw && curl {DATA_URL} | tar xv"
 
-rule concat_sam_processed:
+rule preprocess_concat_sam_processed:
     input: expand("data/tmp/{{sigma}}/{step}.nc", step=range(NUM_STEPS))
     output: TRAINING_DATA
     shell:
@@ -48,7 +48,7 @@ rule concat_sam_processed:
         echo {input} | ncrcat -o {output}
         """
 
-rule process_with_sam_once_blurred:
+rule preprocess_process_with_sam_once_blurred:
     input: DATA_PATH,
            sam_parameters="assets/sam_preprocess.json"
     output: "data/tmp/sigma{sigma}/{step}.nc"
@@ -56,7 +56,7 @@ rule process_with_sam_once_blurred:
     script: "uwnet/data/preprocess.py"
 
 
-rule process_with_sam_once:
+rule preprocess_process_with_sam_once:
     input: DATA_PATH,
             sam_parameters="assets/sam_preprocess.json"
     output: "data/tmp/noBlur/{step}.nc"
