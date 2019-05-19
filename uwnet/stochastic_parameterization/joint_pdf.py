@@ -115,7 +115,7 @@ def plot(df, title=''):
 def main(ngaqua, get_stats=True):
 
     if ngaqua:
-        df = get_ng()
+        df = get_ng(t_start=0, t_stop=100)
     else:
         dir_ = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'  # noqa
         ds_location = dir_ + 'training.nc'

@@ -14,7 +14,7 @@ data = get_dataset(
     binning_quantiles=(1,)
 ).column_integrated_qt_residuals.values.ravel()
 
-dl = 0.0001
+dl = 0.001
 max_iter = 1000
 learning_rate = 0.01
 min_distance_between_quantiles = 0.0001
@@ -101,5 +101,5 @@ def optimize_binning_quantiles(n_bins, verbose=False):
 
 
 if __name__ == '__main__':
-    best_quantiles = optimize_binning_quantiles(7)
+    best_quantiles = optimize_binning_quantiles(20)
     print(f'\n\n\n\nBest binning quantiles: {best_quantiles}')

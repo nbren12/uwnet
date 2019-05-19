@@ -133,8 +133,6 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             binning_quantiles=self.binning_quantiles,
             binning_method=self.binning_method,
             markov_process=self.markov_process,
-            max_qt_for_residual_model=self.max_qt_for_residual_model,
-            max_sli_for_residual_model=self.max_sli_for_residual_model,
             predictors_to_use=self.eta_predictors,
             base_model_location=self.base_model_location,
             blur_sigma=self.blur_sigma)
