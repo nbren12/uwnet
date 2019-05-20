@@ -23,6 +23,15 @@ DOCKER = config.get("docker", True)
 TODAY = get_current_date_string()
 RUN_SAM_SCRIPT = config.get("sam_script", "setup/docker/execute_run.sh")
 
+# wildcard targets
+TRAINING_CONFIG = "assets/training_configurations/{model}.json"
+TRAINED_MODEL = "models/{model}"
+TRAINING_LOG = "models/{model}/log"
+TRAINING_DONE = join(TRAINED_MODEL, ".done")
+SAM_RUN = "data/runs/{model}/epoch{epoch}/"
+SAM_RUN_STATUS = join(SAM_RUN, ".done")
+SAM_LOG = join(SAM_RUN, "log")
+
 ## Temporary output locations
 SAM_PROCESSED_LOG = "data/tmp/{step}.log"
 
@@ -98,14 +107,18 @@ rule sam_run_report:
 
 rule sam_run:
     # need to use a temporary file here so that the model output isn't deleted
-    output: touch("data/runs/model{model}-epoch{epoch}/.{id}.done")
-    log: "data/runs/model{model}-epoch{epoch}/{id}.log"
-    params: rundir="data/runs/model{model}-epoch{epoch}/",
-            model="models/{model}/{epoch}.pkl",
+    # input: TRAINED_MODEL
+    input: TRAINING_DONE
+    output: touch(SAM_RUN_STATUS)
+    log: SAM_LOG
+    params: rundir=SAM_RUN,
+            model= join(SAM_RUN, "{epoch}.pkl"),
+            ngaqua = DATA_PATH,
             step=0
     shell: """
     rm -rf {params.rundir}
     {sys.executable} -m  src.sam.create_case -nn {params.model} \
+        -n {params.ngaqua} \
         -t {params.step} -p assets/parameters_sam_neural_network.json {params.rundir}
     # run sam
     {RUN_SAM_SCRIPT} {params.rundir} >> {log} 2>> {log}
@@ -155,10 +168,14 @@ rule train_pca_pre_post:
     """
 
 rule train_model:
-    input: "models/prepost.pkl"
-    shell: """
-    python -m uwnet.train with data={TRAINING_DATA} prepost.path={input} prepost.kind='saved' \
-        batch_size=64 lr=.005 epochs=5 -m uwnet
+    input: TRAINING_CONFIG
+    output: touch(TRAINING_DONE)
+    log: join(TRAINED_MODEL, "log")
+    params:
+        dir=TRAINED_MODEL
+    shell: """ 
+    mkdir {output}
+    python -m uwnet.train with {input}  output_dir={params.dir} > {log} 2> {log}
     """
 
 rule debias_trained_model:
