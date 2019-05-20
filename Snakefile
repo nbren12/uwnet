@@ -112,14 +112,17 @@ rule sam_run:
     output: touch(SAM_RUN_STATUS)
     log: SAM_LOG
     params: rundir=SAM_RUN,
-            model= join(SAM_RUN, "{epoch}.pkl"),
+            model= join(TRAINED_MODEL, "{epoch}.pkl"),
             ngaqua = DATA_PATH,
+            sam_src = config['sam_path'],
             step=0
     shell: """
     rm -rf {params.rundir}
     {sys.executable} -m  src.sam.create_case -nn {params.model} \
         -n {params.ngaqua} \
-        -t {params.step} -p assets/parameters_sam_neural_network.json {params.rundir}
+        -s {params.sam_src} \
+        -t {params.step} -p assets/parameters_sam_neural_network.json \
+       {params.rundir}
     # run sam
     {RUN_SAM_SCRIPT} {params.rundir} >> {log} 2>> {log}
     exit 0
@@ -174,7 +177,6 @@ rule train_model:
     params:
         dir=TRAINED_MODEL
     shell: """ 
-    mkdir {output}
     python -m uwnet.train with {input}  output_dir={params.dir} > {log} 2> {log}
     """
 
