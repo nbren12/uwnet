@@ -104,6 +104,9 @@ def get_dataset(data):
     except ValueError:
         dataset = xr.open_dataset(data)
 
+    # add constant vars
+    dataset['layer_mass'] = dataset.layer_mass.isel(time=0).drop('time')
+
     try:
         return dataset.isel(step=0).drop('step').drop('p')
     except:
