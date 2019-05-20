@@ -34,7 +34,8 @@ class WeightedMeanSquaredError(Metric):
 
     def update(self, output):
         y_pred, y = output
-        squared_errors = ((y-y_pred) ** 2 * self.weights).sum()
+        squares = (y-y_pred) ** 2
+        squared_errors = (squares * self.weights).sum()
         self._sum_of_squared_errors += squared_errors.item()
         self._num_examples += y.shape[0] * y.shape[1]
 
