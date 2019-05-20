@@ -19,6 +19,8 @@ To see a list of all the available configuration options run::
 .. _Sacred: https://github.com/IDSIA/sacred
 
 """
+import matplotlib
+matplotlib.use('agg')
 import logging
 import os
 from contextlib import contextmanager
