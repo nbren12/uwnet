@@ -12,7 +12,7 @@ class NGAqua:
     @property
     def data_2d(self):
         path = join(self.basedir, "coarse", "2d", "all.nc")
-        ds = xr.open_dataset(path, chunks={'time': 1})#.sortby('time')
+        ds = xr.open_dataset(path, chunks={'time': 1}).sortby('time')
         ds = ds.assign(NPNN=thermo.net_precipitation_from_prec_evap(ds),
                        NHNN=thermo.net_heating_from_data_2d(ds))
         # adjust coordinates

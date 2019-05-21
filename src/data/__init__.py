@@ -40,6 +40,10 @@ def open_data(tag):
         raise NotImplementedError
 
 
+def open_ngaqua():
+    return NGAqua(ngaqua)
+
+
 def assign_apparent_sources(ds):
     from uwnet.thermo import compute_apparent_source
     return ds.assign(

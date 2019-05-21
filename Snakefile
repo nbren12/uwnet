@@ -31,6 +31,7 @@ TRAINING_DONE = join(TRAINED_MODEL, ".done")
 SAM_RUN = "data/runs/{model}/epoch{epoch}/"
 SAM_RUN_STATUS = join(SAM_RUN, ".done")
 SAM_LOG = join(SAM_RUN, "log")
+VISUALIZE_SAM_DIR = "reports/runs/{model}/epoch{epoch}"
 
 ## Temporary output locations
 SAM_PROCESSED_LOG = "data/tmp/{step}.log"
@@ -195,3 +196,12 @@ rule compute_noise_for_trained_model:
         import torch
         noise = fit(input[0])
         torch.save(noise, output[0])
+
+## Visualizations ########################################
+
+rule visualize_sam_run:
+    input: SAM_RUN_STATUS
+    output: directory(VISUALIZE_SAM_DIR)
+    params:
+        run = SAM_RUN
+    shell: "python -m src.visualizations.sam_run {params.run} {output}"

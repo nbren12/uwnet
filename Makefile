@@ -96,6 +96,8 @@ sync_data_to_drive:
 upload_reports:
 	rsync -avz reports/ olympus:~/public_html/reports/uwnet/
 
+sync_reports:
+	rsync -av reports/ ~/public_html/reports/uwnet
 
 setup:  create_environment install_hooks build_image
 
