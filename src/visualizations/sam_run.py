@@ -4,9 +4,24 @@ import os
 import click
 import matplotlib.pyplot as plt
 import numpy as np
+from jinja2 import Template
+from collections import defaultdict
 
 from src.data import SAMRun, open_ngaqua
 
+IMAGES = defaultdict(list)
+
+report_html = Template(
+"""
+{% for section, images in sections.items() %}
+<h1>{{section}}</h1>
+{% for image in images %}
+<img src="{{image}}" />
+{% endfor %}
+{% endfor %}
+
+"""
+)
 
 VARS_TO_MAP = ['PW', 'W500', 'NPNN', 'NHNN']
 VARS_TO_TROPICS = ['PW', 'W500', 'NPNN', 'NHNN', 'U850', 'V850']
@@ -26,6 +41,7 @@ def plot_tropics_avg_cases(runs, key='PW', output=None):
     plt.legend(labels)
     plt.title(f"Tropical average of {key}")
     if output:
+        IMAGES['Tropics Averages'].append(output)
         plt.savefig(output)
         plt.close()
 
@@ -38,6 +54,7 @@ def plot_2d_map(run, key, output=None):
     plt.suptitle(f"{name} {key}")
     if output:
         plt.savefig(output)
+        IMAGES['Maps'].append(output)
         plt.close()
 
 
@@ -51,11 +68,21 @@ def plot_2d_variables_tropics(run, output_dir):
         plot_tropics_avg_cases(run, key, output=f"{output_dir}/{key}.png")
 
 
+def relative_paths(paths, output_dir):
+    return [os.path.relpath(path, output_dir) for path in paths]
+
+
+def get_images_relative(output_dir):
+    return {section: relative_paths(images, output_dir) for section, images in
+            IMAGES.items()}
+
+
 @click.command()
 @click.argument('run_path', type=click.Path())
 @click.argument('output_dir', type=click.Path())
 @click.option('-c', '--case', type=str, default='control')
 def main(run_path, output_dir, case):
+    os.mkdir(output_dir)
     ngaqua = open_ngaqua()
     run = SAMRun(run_path, case=case)
 
@@ -73,6 +100,11 @@ def main(run_path, output_dir, case):
         pass
 
     plot_2d_maps((run, name), maps_dir)
+
+    sections = get_images_relative(output_dir)
+    with open(f"{output_dir}/index.html", "w") as f:
+        html = report_html.render(sections=sections)
+        f.write(html)
 
 
 if __name__ == '__main__':
