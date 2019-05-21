@@ -385,8 +385,7 @@ if __name__ == '__main__':
         t_stop=250,
         blur_sigma=None,
         base_model_location=dir_ + 'full_model/1.pkl',
-        verbose=True,
-        markov_process=True
+        verbose=True
     )
     model.train()
     # evaluate_stochasticity_of_model(model)

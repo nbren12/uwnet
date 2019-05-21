@@ -51,8 +51,8 @@ gbc = GradientBoostingClassifier(max_depth=500, verbose=2)
 lr = LogisticRegression(
     multi_class='multinomial', solver='lbfgs', max_iter=10000)
 mlp = MLPClassifier(hidden_layer_sizes=(250,), max_iter=1000)
-default_eta_transitioner_poly_degree = 1
-default_eta_transitioner_model = gbc
+default_eta_transitioner_poly_degree = 9
+default_eta_transitioner_model = lr
 default_eta_transitioner_predictors = [
     'SST',
     'PW',

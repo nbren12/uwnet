@@ -151,7 +151,7 @@ class EtaTransitioner(object):
         else:
             x_data = np.zeros((len(start), 0))
         for predictor in self.predictors:
-            data = ds.isel(time=start_times)[predictor].values
+            data = ds.isel(time=stop_times)[predictor].values
             if len(data.shape) == 4:
                 data = np.average(
                     data, axis=1, weights=ds.layer_mass.values)
@@ -189,7 +189,7 @@ class EtaTransitioner(object):
         x_data = start.ravel().reshape(-1, 1)
 
         for predictor in self.predictors:
-            data = ds.isel(time=start_times)[predictor].values
+            data = ds.isel(time=stop_times)[predictor].values
             if len(data.shape) == 4:
                 data = np.average(
                     data, axis=1, weights=ds.layer_mass.values)
