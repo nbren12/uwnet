@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 from matplotlib import colors
-from sklearn.externals import joblib
+import joblib
 
 plt.style.use('tableau-colorblind10')
 
