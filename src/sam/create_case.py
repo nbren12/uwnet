@@ -38,7 +38,6 @@ def main(path,
          initial_condition,
          ngaqua_root,
          t,
-         model_run_path,
          parameters,
          debug,
          sam_src,
@@ -48,6 +47,9 @@ def main(path,
     run the model with docker.
 
     """
+
+    model_run_path = "model.pkl"
+
     if parameters:
         parameters = json.load(open(parameters))
     else:
