@@ -26,7 +26,7 @@ ngaqua = root / "data/raw/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX/"
 def open_data(tag):
     """Open commonly used datasets"""
     if tag == "training":
-        return xr.open_dataset(training_data).isel(step=0).drop('step')
+        return xr.open_dataset(training_data)
     elif tag == 'ngaqua_2d':
         return xr.open_dataset(str(ngaqua / 'coarse' / '2d' / 'all.nc'))\
             .sortby('time')

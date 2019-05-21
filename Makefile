@@ -5,7 +5,7 @@
 #################################################################################
 
 PROJECT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-# BUCKET = {{ cookiecutter.s3_bucket }}
+BUCKET =gs://uwnet-data
 # PROFILE = {{ cookiecutter.aws_profile }}
 PROJECT_NAME = uwnet
 PYTHON_INTERPRETER = python
@@ -134,5 +134,9 @@ enter:
 
 test:
 	$(MACHINE_SCRIPTS)/run_tests.sh
+
+sync_to_gcs:
+	gsutil rsync -r data/processed $(BUCKET)/data/processed
+	gsutil rsync -r data/raw $(BUCKET)/data/raw
 
 .PHONY: test

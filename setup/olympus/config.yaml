@@ -2,3 +2,4 @@ data_path: "/home/disk/eos8/nbren12/Data/id/2018-05-30-NG_5120x2560x34_4km_10s_Q
 sam_path: "/home/disk/eos4/nbren12/work/uwnet/ext/sam"
 docker: False
 sam_script: "setup/olympus/execute_run.sh"
+NSTEPS: 640

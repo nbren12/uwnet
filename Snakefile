@@ -14,18 +14,26 @@ def get_current_date_string():
 ## VARIABLES
 DATA_PATH = config.get("data_path", "data/raw/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX")
 DATA_URL = "https://atmos.washington.edu/~nbren12/data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX.tar"
-NUM_STEPS = config.get('NSTEPS', 640)
-TRAINING_DATA = "data/processed/training.nc"
+NUM_STEPS = config.get('NSTEPS', 10)
+TRAINING_DATA = "data/processed/training/{sigma}.nc"
 TROPICS_DATA = "data/processed/tropics.nc"
-SAM_PATH = config.get("sam_path", "/opt/sam")
+SAM_RESOLUTION = "128x64x34"
+SAM_PATH = config.get("sam_path", f"/opt/sam/OBJ/{SAM_RESOLUTION}")
 DOCKER = config.get("docker", True)
 TODAY = get_current_date_string()
 RUN_SAM_SCRIPT = config.get("sam_script", "setup/docker/execute_run.sh")
 
+# wildcard targets
+TRAINING_CONFIG = "assets/training_configurations/{model}.json"
+TRAINED_MODEL = "models/{model}"
+TRAINING_LOG = "models/{model}/log"
+TRAINING_DONE = join(TRAINED_MODEL, ".done")
+SAM_RUN = "data/runs/{model}/epoch{epoch}/"
+SAM_RUN_STATUS = join(SAM_RUN, ".done")
+SAM_LOG = join(SAM_RUN, "log")
+
 ## Temporary output locations
-SAM_PROCESSED = "data/tmp/{step}.nc"
 SAM_PROCESSED_LOG = "data/tmp/{step}.log"
-SAM_PROCESSED_ALL = "data/sam_processed.nc"
 
 ## Set environmental variables
 # add 'bin' folder to PATH
@@ -35,101 +43,34 @@ print("Number of steps to process:", NUM_STEPS)
 
 ## RULES
 rule all:
-    input: TROPICS_DATA
+    input: expand(TRAINING_DATA, sigma=["sigma0.75", "noBlur"])
 
 rule download_data:
     output: DATA_PATH
     shell: "cd data/raw && curl {DATA_URL} | tar xv"
 
-rule concat_sam_processed:
-    input: expand(SAM_PROCESSED, step=range(NUM_STEPS))
-    output: SAM_PROCESSED_ALL
+rule preprocess_concat_sam_processed:
+    input: expand("data/tmp/{{sigma}}/{step}.nc", step=range(NUM_STEPS))
+    output: TRAINING_DATA
     shell:
         """
         echo {input} | ncrcat -o {output}
         """
 
-rule add_constant_and_2d_variables:
-    input:
-        data = DATA_PATH,
-        sam  = SAM_PROCESSED_ALL
-    output:
-        TRAINING_DATA
-    run:
-        import xarray as xr
-        from uwnet.thermo import layer_mass
+rule preprocess_process_with_sam_once_blurred:
+    input: DATA_PATH,
+           sam_parameters="assets/sam_preprocess.json"
+    output: "data/tmp/sigma{sigma}/{step}.nc"
+    params: ngaqua_root=DATA_PATH, sigma="{sigma}"
+    script: "uwnet/data/preprocess.py"
 
-        stat_path = join(input.data, 'stat.nc')
-        twod_path = join(input.data, 'coarse', '2d', 'all.nc')
 
-        # compute layer_mass
-        stat = xr.open_dataset(stat_path)
-        rho = stat.RHO.isel(time=0).drop('time')
-        w = layer_mass(rho)
-
-        ds = xr.open_dataset(input.sam)
-
-        # get 2D variables
-        d2 = (xr.open_dataset(twod_path, chunks={'time': 1})
-              .sel(time=ds.time)
-              .assign_coords(x=ds.x, y=ds.y))
-
-        # add variables to three-d
-        ds['RADTOA'] = d2.LWNT - d2.SWNT
-        ds['RADSFC'] = d2.LWNS - d2.SWNS
-        ds['layer_mass'] = w
-        ds['rho'] = rho
-
-        for key in 'Prec SHF LHF SOLIN SST'.split():
-            ds[key] = d2[key]
-
-        # Compute forcings
-        for key in ['QT', 'SLI', 'U', 'V']:
-            forcing_key = 'F' + key
-            src = ds[key].diff('step') / ds.step.diff('step') / 86400
-            src = src.isel(step=0).drop('step')
-            ds[forcing_key] = src
-
-        # append these variables
-        ds.to_netcdf(output[0], engine='h5netcdf')
-
-rule process_with_sam_once_concat:
-    input: "data/tmp/{step}/.done"
-    output: SAM_PROCESSED
-    run:
-        from src.data.sam import SAMRun
-        import shutil
-        path = dirname(input[0])
-        run = SAMRun(path, 'control')
-
-        ds = run.data_3d
-
-        ds = ds.rename({'time': 'step'})
-        ds = ds.assign_coords(time=ds.step[0], step=ds.step - ds.step[0])
-        ds = ds.expand_dims('time')
-        ds.attrs['sam_namelist'] = json.dumps(run.namelist)
-        ds.to_netcdf(output[0], unlimited_dims=['time'], engine='h5netcdf')
-
-        # clean up SAM run
-        shutil.rmtree(path)
-
-rule process_with_sam_once:
-    input: DATA_PATH
-    output: touch("data/tmp/{step}/.done")
-    log: SAM_PROCESSED_LOG
-    shell: """
-    rundir=$(dirname {output})
-    rm -rf $rundir
-    {sys.executable} -m src.sam.create_case  \
-        -t {wildcards.step} \
-        -p assets/parameters_process.json \
-        -n data/raw/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX \
-        -s {SAM_PATH} \
-        $rundir
-    # run sam
-    {RUN_SAM_SCRIPT} $rundir >> {log} 2>> {log}
-    exit 0
-    """
+rule preprocess_process_with_sam_once:
+    input: DATA_PATH,
+            sam_parameters="assets/sam_preprocess.json"
+    output: "data/tmp/noBlur/{step}.nc"
+    params: ngaqua_root=DATA_PATH, sigma=False
+    script: "uwnet/data/preprocess.py"
 
 rule tropical_subset:
     input: TRAINING_DATA
@@ -166,15 +107,22 @@ rule sam_run_report:
 
 rule sam_run:
     # need to use a temporary file here so that the model output isn't deleted
-    output: touch("data/runs/model{model}-epoch{epoch}/.{id}.done")
-    log: "data/runs/model{model}-epoch{epoch}/{id}.log"
-    params: rundir="data/runs/model{model}-epoch{epoch}/",
-            model="models/{model}/{epoch}.pkl",
+    # input: TRAINED_MODEL
+    input: TRAINING_DONE
+    output: touch(SAM_RUN_STATUS)
+    log: SAM_LOG
+    params: rundir=SAM_RUN,
+            model= join(TRAINED_MODEL, "{epoch}.pkl"),
+            ngaqua = DATA_PATH,
+            sam_src = config['sam_path'],
             step=0
     shell: """
     rm -rf {params.rundir}
     {sys.executable} -m  src.sam.create_case -nn {params.model} \
-        -t {params.step} -p assets/parameters_sam_neural_network.json {params.rundir}
+        -n {params.ngaqua} \
+        -s {params.sam_src} \
+        -t {params.step} -p assets/parameters_sam_neural_network.json \
+       {params.rundir}
     # run sam
     {RUN_SAM_SCRIPT} {params.rundir} >> {log} 2>> {log}
     exit 0
@@ -223,10 +171,13 @@ rule train_pca_pre_post:
     """
 
 rule train_model:
-    input: "models/prepost.pkl"
-    shell: """
-    python -m uwnet.train with data={TRAINING_DATA} prepost.path={input} prepost.kind='saved' \
-        batch_size=64 lr=.005 epochs=5 -m uwnet
+    input: TRAINING_CONFIG
+    output: touch(TRAINING_DONE)
+    log: join(TRAINED_MODEL, "log")
+    params:
+        dir=TRAINED_MODEL
+    shell: """ 
+    python -m uwnet.train with {input}  output_dir={params.dir} > {log} 2> {log}
     """
 
 rule debias_trained_model:
