@@ -18,6 +18,7 @@ NUM_STEPS = config.get('NSTEPS', 10)
 TRAINING_DATA = "data/processed/training/{sigma}.nc"
 TROPICS_DATA = "data/processed/tropics.nc"
 SAM_RESOLUTION = "128x64x34"
+sam_src = config.get("sam_src", "/opt/sam")
 SAM_PATH = config.get("sam_path", f"/opt/sam/OBJ/{SAM_RESOLUTION}")
 DOCKER = config.get("docker", True)
 TODAY = get_current_date_string()
@@ -115,7 +116,7 @@ rule sam_run:
     params: rundir=SAM_RUN,
             model= join(TRAINED_MODEL, "{epoch}.pkl"),
             ngaqua = DATA_PATH,
-            sam_src = config['sam_path'],
+            sam_src = sam_src,
             step=0
     shell: """
     rm -rf {params.rundir}
