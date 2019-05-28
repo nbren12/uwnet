@@ -1,0 +1,41 @@
+{
+	"__doc__" : "Default configurations managed by sacred",
+	"batch_size" : 64,
+	"data" : "data/processed/training/noBlur.nc",
+	"epochs" : 5,
+	"loss_scale" : {
+		"LHF" : 150,
+		"Prec" : 8,
+		"QN" : 0.05,
+		"QP" : 0.05,
+		"QT" : 1,
+		"RADSFC" : 600,
+		"RADTOA" : 600,
+		"SHF" : 10,
+		"SLI" : 2.5,
+		"U" : 5,
+		"V" : 5
+	},
+	"lr" : 0.005,
+	"model_dir" : "models",
+	"output_dir" : null,
+	"prepost" : {
+		"kind" : "orig",
+		"path" : "models/prepost.pkl"
+	},
+	"prognostics" : [
+		"QT",
+		"SLI"
+	],
+	"seed" : 668752836,
+    "plots": {
+        "interval": 1,
+        "single_column_locations" : [
+            [
+                32,
+                0
+            ]
+        ]
+    },
+	"vertical_grid_size" : 34
+}
