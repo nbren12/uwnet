@@ -6,6 +6,10 @@ from datetime import datetime
 
 import xarray as xr
 
+## Set environmental variables
+# add 'bin' folder to PATH
+os.environ['PATH'] = os.path.abspath('bin') + ':' + os.environ['PATH']
+
 
 def get_current_date_string():
     today = datetime.now()
@@ -26,36 +30,27 @@ RUN_SAM_SCRIPT = config.get("sam_script", "setup/docker/execute_run.sh")
 
 # wildcard targets
 TRAINING_CONFIG = "assets/training_configurations/{model}.json"
-TRAINED_MODEL = "models/{model}"
-TRAINING_LOG = "models/{model}/log"
-TRAINING_DONE = join(TRAINED_MODEL, ".done")
-SAM_RUN = "data/runs/{model}/epoch{epoch}/"
+TRAINED_MODEL_DIR = "nn/{model}/"
+TRAINED_MODEL = "nn/{model}/{epoch}.pkl"
+TRAINING_LOG = "nn/{model}/log"
+SAM_RUN = "data/runs/{type}/{model}/epoch{epoch}/"
 SAM_RUN_STATUS = join(SAM_RUN, ".done")
 SAM_LOG = join(SAM_RUN, "log")
 VISUALIZE_SAM_DIR = "reports/runs/{model}/epoch{epoch}"
-MODEL_FILE = "models/{model}/{epoch}.pkl"
-DEBIASED_MODEL = "debiased_models/{model}/{epoch}.pkl"
+MODEL_FILE = "nn/{model}/{epoch}.pkl"
+DEBIASED_MODEL = "debiased/{model}/{epoch}.pkl"
 
-DEBIASED_SAM_RUN = "data/runs/debiased/{model}/epoch{epoch}/"
-DEBIASED_SAM_RUN_STATUS = join(DEBIASED_SAM_RUN, ".done")
-DEBIASED_SAM_LOG = join(DEBIASED_SAM_RUN, "log")
+SAM_RUNS = expand(SAM_RUN_STATUS, model=["NNLower", "NNAll"], epoch=["5"],
+                  type=["nn", "debiased"])
 
 
 ## Temporary output locations
 SAM_PROCESSED_LOG = "data/tmp/{step}.log"
 
-## Set environmental variables
-# add 'bin' folder to PATH
-os.environ['PATH'] = os.path.abspath('bin') + ':' + os.environ['PATH']
-
-
-DEBIASED_MODELS = expand(DEBIASED_MODEL, model=["NNLower", "NNAll"], epoch=["5"])
-DEBIASED_RUNS = expand(DEBIASED_SAM_RUN_STATUS, model=["NNLower", "NNAll"], epoch=["5"])
-RUNS = expand(SAM_RUN_STATUS, model=["NNLower", "NNAll"], epoch=["5"])
 
 ## RULES
 rule all:
-    input: DEBIASED_RUNS + RUNS
+    input: SAM_RUNS
 
 rule download_data:
     output: DATA_PATH
@@ -72,7 +67,7 @@ rule preprocess_concat_sam_processed:
 rule preprocess_process_with_sam_once_blurred:
     input: DATA_PATH,
            sam_parameters="assets/sam_preprocess.json"
-    output: "data/tmp/sigma{sigma}/{step}.nc"
+    output: temp("data/tmp/sigma{sigma}/{step}.nc")
     params: ngaqua_root=DATA_PATH, sigma="{sigma}"
     script: "uwnet/data/preprocess.py"
 
@@ -80,7 +75,7 @@ rule preprocess_process_with_sam_once_blurred:
 rule preprocess_process_with_sam_once:
     input: DATA_PATH,
             sam_parameters="assets/sam_preprocess.json"
-    output: "data/tmp/noBlur/{step}.nc"
+    output: temp("data/tmp/noBlur/{step}.nc")
     params: ngaqua_root=DATA_PATH, sigma=False
     script: "uwnet/data/preprocess.py"
 
@@ -117,15 +112,9 @@ rule sam_run_report:
     rm -f {params.ipynb}
     """
 
-def sam_run_params(wildcards):
-
-    return dict(
-    )
-
 rule sam_run:
     # need to use a temporary file here so that the model output isn't deleted
-# input: TRAINED_MODEL
-    input: TRAINING_DONE
+    input: "{type}/{model}/{epoch}.pkl"
     output: touch(SAM_RUN_STATUS)
     log: SAM_LOG
     params: rundir=SAM_RUN,
@@ -133,27 +122,6 @@ rule sam_run:
             ngaqua=DATA_PATH,
             sam_src=config['sam_path'],
             step=0
-    shell: """
-    rm -rf {params.rundir}
-    {sys.executable} -m  src.sam.create_case -nn {params.model} \
-    -n {params.ngaqua} \
-    -s {params.sam_src} \
-    -t {params.step} -p assets/parameters_sam_neural_network.json \
-    {params.rundir}
-    # run sam
-    {RUN_SAM_SCRIPT} {params.rundir} >> {log} 2>> {log}
-    exit 0
-    """
-
-
-rule debiased_run:
-    # need to use a temporary file here so that the model output isn't deleted
-# input: TRAINED_MODEL
-    input: DEBIASED_MODEL
-    output: touch(DEBIASED_SAM_RUN_STATUS)
-    log: DEBIASED_SAM_LOG
-    params: model=DEBIASED_MODEL, ngaqua=DATA_PATH, rundir=DEBIASED_SAM_RUN,
-            sam_src=config['sam_path'], step=0
     shell: """
     rm -rf {params.rundir}
     {sys.executable} -m  src.sam.create_case -nn {params.model} \
@@ -208,26 +176,29 @@ rule train_pca_pre_post:
     python -m uwnet.train train_pre_post with data={TRAINING_DATA} prepost.path={output}
     """
 
-rule train_model:
-    input: TRAINING_CONFIG
-    output: touch(TRAINING_DONE)
-    log: join(TRAINED_MODEL, "log")
-    params:
-        dir=TRAINED_MODEL
-    shell: """ 
-    python -m uwnet.train with {input}  output_dir={params.dir} > {log} 2> {log}
-    """
-
 
 def get_training_data(wildcards):
     path = TRAINING_CONFIG.format(**wildcards)
     with open(path) as f:
         model_config = json.load(f)
-    return model_config['data']
+        return model_config['data']
 
 
-rule train_debias_model:
-    input: TRAINING_DONE
+rule train_nn:
+    input:
+        config=TRAINING_CONFIG,
+        data=get_training_data
+    output: TRAINED_MODEL
+    log: join(TRAINED_MODEL, "log")
+    params:
+        dir=TRAINED_MODEL_DIR
+    shell: """
+    python -m uwnet.train with {input.config}  output_dir={params.dir} > {log} 2> {log}
+    """
+
+
+rule debias_nn:
+    input: TRAINED_MODEL
     output: DEBIASED_MODEL
     params: data=get_training_data, prognostics=['QT', 'SLI'], model=MODEL_FILE
     script: "src/models/debias.py"
