@@ -36,7 +36,7 @@ VISUALIZE_SAM_DIR = "reports/runs/{model}/epoch{epoch}"
 MODEL_FILE = "models/{model}/{epoch}.pkl"
 DEBIASED_MODEL = "debiased_models/{model}/{epoch}.pkl"
 
-DEBIASED_SAM_RUN = "data/runs/{model}/debiased/epoch{epoch}/"
+DEBIASED_SAM_RUN = "data/runs/debiased/{model}/epoch{epoch}/"
 DEBIASED_SAM_RUN_STATUS = join(DEBIASED_SAM_RUN, ".done")
 DEBIASED_SAM_LOG = join(DEBIASED_SAM_RUN, "log")
 
