@@ -32,7 +32,7 @@ RUN_SAM_SCRIPT = config.get("sam_script", "setup/docker/execute_run.sh")
 TRAINING_CONFIG = "assets/training_configurations/{model}.json"
 TRAINED_MODEL_DIR = "nn/{model}/"
 TRAINED_MODEL = "nn/{model}/{epoch}.pkl"
-TRAINING_LOG = "nn/{model}/log"
+TRAINING_LOG = "nn/{model}/{epoch}.log"
 SAM_RUN = "data/runs/{type}/{model}/epoch{epoch}/"
 SAM_RUN_STATUS = join(SAM_RUN, ".done")
 SAM_LOG = join(SAM_RUN, "log")
@@ -53,7 +53,7 @@ rule all:
     input: SAM_RUNS
 
 rule download_data:
-    output: DATA_PATH
+    output: directory(DATA_PATH)
     shell: "cd data/raw && curl {DATA_URL} | tar xv"
 
 rule preprocess_concat_sam_processed:
@@ -118,7 +118,7 @@ rule sam_run:
     output: touch(SAM_RUN_STATUS)
     log: SAM_LOG
     params: rundir=SAM_RUN,
-            model=join(TRAINED_MODEL, "{epoch}.pkl"),
+            model=TRAINED_MODEL,
             ngaqua=DATA_PATH,
             sam_src=config['sam_path'],
             step=0
@@ -189,7 +189,7 @@ rule train_nn:
         config=TRAINING_CONFIG,
         data=get_training_data
     output: TRAINED_MODEL
-    log: join(TRAINED_MODEL, "log")
+    log: TRAINING_LOG
     params:
         dir=TRAINED_MODEL_DIR
     shell: """
