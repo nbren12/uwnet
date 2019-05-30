@@ -9,11 +9,12 @@ from uwnet.metrics import r2_score
 from uwnet.thermo import integrate_q1, integrate_q2
 
 
+
+
 @common.cache
 def get_data():
+    model = common.get_model('NN-Lower')
     ds = open_data('training').pipe(assign_apparent_sources)
-
-    model = torch.load('../../data/runs/model268-epoch5.debiased/model.pkl')
     outputs = model.xmodel(ds)
     for key in outputs:
         ds['F' + key + 'NN'] = outputs[key]
@@ -103,6 +104,7 @@ def plot(ds):
 
 
 if __name__ == '__main__':
-    plot(get_r2s())
+    data = get_r2s()
+    plot(data)
     plt.savefig("r2.png")
     plt.savefig("r2.pdf")

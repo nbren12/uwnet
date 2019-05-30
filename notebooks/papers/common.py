@@ -1,3 +1,4 @@
+import torch
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -14,6 +15,9 @@ run_labels = {'debias': 'NN-Lower', 'unstable': 'NN-All', 'micro': 'Base'}
 
 ignored_input_levels = {'QT': 442, 'SLI': 267}
 
+def get_model(name):
+    if name == 'NN-Lower':
+        return torch.load("../../debiased_models/NNLower/5.pkl")
 
 def setup_matplotlib():
 

@@ -7,6 +7,10 @@ from src.data import runs, training_data
 from uwnet.thermo import vorticity
 
 
+RUNS = ['debias', 'unstable', 'micro']
+time_range = slice(100, 110)
+
+
 def rms(x, dim=None):
     if dim is None:
         dim = ['x', 'y']
@@ -23,11 +27,11 @@ def global_mass_weighted_rms(ds, reference='truth'):
     return np.sqrt(sum_squares)
 
 
-@common.cache
+# @common.cache
 def get_data():
 
     ds = get_merged_data(['U', 'V', 'SLI', 'QT'],
-                         ['debias', 'unstable', 'micro'])
+                         RUNS)
     # compute vorticity
     ds['VORT'] = vorticity(ds.U, ds.V)
 
@@ -37,13 +41,15 @@ def get_data():
 
 
 def get_merged_data(variables, run_names):
-    truth = xr.open_dataset(training_data).isel(step=0)\
-                                          .drop('step')\
-                                          .sel(time=slice(100, 110))
+    truth = xr.open_dataset(training_data).sel(time=time_range)
     data = {'truth': truth[variables]}
 
     for run in run_names:
-        data[run] = runs[run].data_3d[variables].load().interp(time=truth.time)
+        ds = runs[run].data_3d[variables].load()
+        max_time = float(ds.time.max())
+        min_time = float(ds.time.min())
+        times_to_interp = [t for t in truth.time if min_time <= float(t) <= max_time]
+        data[run] = ds.interp(time=times_to_interp)
 
     ds = xr.concat(data.values(), dim=list(data.keys()))
     ds['layer_mass'] = truth.layer_mass
@@ -111,17 +117,23 @@ def hide_spines(ax, spines):
         
 def plot(df):
 
-    df = df.sel(time=slice(None, 108.5))
+#     df = df.sel(time=slice(None, 108.5))
+    
+    df = df.where((df.concat_dim != 'unstable') | (df.time <= df.time[0] + 2.374))
     df['time'] = df.time - df.time[0]
     df['VORT'] *= 1e6
     
     fig, axs = plt.subplots(3, 3, figsize=(common.textwidth, common.textwidth/1.3), constrained_layout=True)
     letters = 'abcdefghijklm'
     count = 0
+    
+    nregion = 3
+    nvars = 3
+    nrun = len(RUNS)
 
-    for i in range(3):
-        for j in range(3):
-            for k in range(3):
+    for i in range(nvars):
+        for j in range(nregion):
+            for k in range(nrun):
 
                 ax = axs[i,j]
                 run = str(df.concat_dim[k].values)

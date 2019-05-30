@@ -12,10 +12,8 @@ pw_name = 'pw'
 netprec_name  = 'net_precip'
 
 def get_ng_and_semiprog():
-    model_path = "../../models/268/5.debiased.pkl"
-
     # open model
-    model = torch.load(model_path)
+    model = common.get_model('NN-Lower')
 
     # get data
     ds = open_data('training').sel(time=slice(100,115))

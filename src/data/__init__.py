@@ -8,11 +8,12 @@ _this_file = Path(__file__)
 root = _this_file.parent.parent.parent
 
 runs = {
+    # this run is broken:
     'micro': 'data/runs/2018-12-27-microphysics/',
     'dry': 'data/runs/2018-12-27-dry/',
-    'debias': 'data/runs/model268-epoch5.debiased/',
-    'unstable': 'data/runs/model265-epoch3',
-    'nudge': 'data/runs/model268-epoch5.nudge',
+    'debias': 'data/runs/debiased/NNLower/epoch5/',
+    'unstable': 'data/runs/debiased/NNAll/epoch5/',
+    #'nudge': 'data/runs/model268-epoch5.nudge',
 }
 
 runs = {key: SAMRun(root / val, 'control') for key, val in runs.items()}
