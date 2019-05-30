@@ -12,6 +12,7 @@ runs = {
     'micro': 'data/runs/2018-12-27-microphysics/',
     'dry': 'data/runs/2018-12-27-dry/',
     'debias': 'data/runs/debiased/NNLower/epoch5/',
+    'no_debias': 'data/runs/nn/NNLower/epoch5/',
     'unstable': 'data/runs/debiased/NNAll/epoch5/',
     #'nudge': 'data/runs/model268-epoch5.nudge',
 }
