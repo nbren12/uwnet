@@ -90,9 +90,14 @@ end if
 if(flag.eq.5) then
    call bound_exchange(u,dimx1_u,dimx2_u,dimy1_u,dimy2_u,nzm,2,3,2+NADV,2+NADV,1)
    call bound_exchange(v,dimx1_v,dimx2_v,dimy1_v,dimy2_v,nzm,2+NADV,2+NADV,2,3,2)
-   call bound_exchange(w,dimx1_w,dimx2_w,dimy1_w,dimy2_w,nz,2+NADV,2+NADV,2+NADV,2+NADV,3)	
+   call bound_exchange(w,dimx1_w,dimx2_w,dimy1_w,dimy2_w,nz,2+NADV,2+NADV,2+NADV,2+NADV,3)
 
+   ! exchange the thermodynamic vars
+   call bound_exchange(t,dimx1_s,dimx2_s,dimy1_s,dimy2_s,nzm,2+NADVS,2+NADVS,2+NADVS,2+NADVS,4)
 
+   i = 1
+   call bound_exchange(micro_field(:,:,:,i),dimx1_s,dimx2_s,dimy1_s,dimy2_s,nzm, &
+        3+NADVS,3+NADVS,3+NADVS,3+NADVS,5)
 endif
 
         
