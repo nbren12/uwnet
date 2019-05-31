@@ -157,8 +157,20 @@ def get_data(
     return M, ds.p.values.ravel()
 
 
-def main(**kwargs):
-    return plot_jacobian([M, pres], **kwargs)
+def main():
+    import sys
+    unstable_path, stable_path = sys.argv[1:]
+    nn_all_path = "nn/NNAll/5.pkl"
+    nn_lower_path = "nn/NNLower/5.pkl"
+    
+    y_index = 32
+    
+    axs = plot(get_data(nn_all_path, y_index))
+    plt.savefig(unstable_path)
+
+    args = get_data(nn_lower_path, y_index)
+    plot_with_dashes(args)
+    plt.savefig(stable_path)
 
 
 if __name__ == '__main__':

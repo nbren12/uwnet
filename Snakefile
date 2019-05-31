@@ -45,13 +45,34 @@ SAM_RUNS = expand(SAM_RUN_STATUS, model=["NNLower", "NNAll"], epoch=["5"],
                   type=["nn", "debiased"])
 
 
+# Plots
+scripts = ['bias','qp_acf',
+ 'damping_coefs',
+ 'hovmoller_mean_pw_prec',
+ 'pattern_correlation',
+ 'pdf',
+ 'precip_maps',
+ 'predicted_vs_actual_q1',
+ 'r2_q1_q2',
+ 'rms_weather_plots',
+ 'snapshots_pw',
+ 'spinup_error']
+
+jacobian_figures_relative = ["saliency-unstable.png", "saliency-stable.png"]
+jacobian_figures_absolute = [join("notebooks/papers/", fig) 
+                             for fig in jacobian_figures_relative]
+
+other_figures_absolute = [join("notebooks/papers/", script + ".pdf") 
+                         for script in scripts]
+all_figs = jacobian_figures_absolute + other_figures_absolute
+
 ## Temporary output locations
 SAM_PROCESSED_LOG = "data/tmp/{step}.log"
 
 
 ## RULES
 rule all:
-    input: SAM_RUNS
+    input: SAM_RUNS, all_figs
 
 rule download_data:
     output: directory(DATA_PATH)
@@ -224,20 +245,14 @@ rule visualize_sam_run:
     shell: "python -m src.visualizations.sam_run {params.run} {output}"
 
 ## Plots for paper ########################################
-scripts = ['bias',
- 'damping_coefs',
- 'fqt_qt_timeseries',
- 'hovmoller_mean_pw_prec',
- 'instability_wmax',
- 'jacobian',
- 'pattern_correlation',
- 'pdf',
- 'precip_maps',
- 'predicted_vs_actual_q1',
- 'r2_q1_q2',
- 'rms_weather_plots',
- 'snapshots_pw',
- 'spinup_error']
+
+rule paper_plots:
+    input: all_figs
+
+rule vis_jacobian:
+    input: SAM_RUNS
+    output: jacobian_figures_absolute
+    shell: "python notebooks/papers/jacobian.py {output}"
 
 rule run_vis_script:
     input: script="notebooks/papers/{script}.py", runs=SAM_RUNS
