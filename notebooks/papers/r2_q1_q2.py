@@ -106,5 +106,4 @@ def plot(ds):
 if __name__ == '__main__':
     data = get_r2s()
     plot(data)
-    plt.savefig("r2.png")
-    plt.savefig("r2.pdf")
+    plt.savefig("r2_q1_q2.pdf")

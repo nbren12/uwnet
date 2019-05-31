@@ -168,5 +168,9 @@ def plot(df):
     axs[-1,0].legend(frameon=False)
 
 if __name__ == '__main__':
+    import sys
+    output = sys.argv[1]
+    
     df = get_data()
     plot(df)
+    plt.savefig(output)

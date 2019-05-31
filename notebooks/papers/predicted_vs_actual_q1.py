@@ -70,5 +70,4 @@ def plot(args):
 
 
 plot([q1, q1_pred, q2, q2_pred])
-plt.savefig("q1_vs_q2.pdf")
-plt.savefig("q1_vs_q2.png")
+plt.savefig("predicted_vs_actual_q1.pdf")

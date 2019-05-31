@@ -93,4 +93,4 @@ def get_time_series_data():
 
 
 plot(get_data())
-plt.savefig("damping.pdf")
+plt.savefig("damping_coefs.pdf")

@@ -108,4 +108,4 @@ def plot(data):
 if __name__ == '__main__':
     data = get_data(model="../models/277/5.pkl", num_pred_steps=3, num_time=60)
     plot(data)
-    plt.savefig("spinup.pdf")
+    plt.savefig("spinup_error.pdf")

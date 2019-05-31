@@ -18,7 +18,7 @@ def get_data():
 
     variables = ['PW']
     time = 105
-    unstable_time = 102.9375
+
 
     # open NN run
     run = runs['debias']
@@ -27,6 +27,7 @@ def get_data():
     # open NN run
     run = runs['unstable']
     unstable = run.data_2d.rename({'NPNN': 'net_precip'})
+    unstable_time = float(unstable.time[-1])
 
     # open microphysics
     run = runs['micro']

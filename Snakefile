@@ -222,3 +222,25 @@ rule visualize_sam_run:
     params:
         run = SAM_RUN
     shell: "python -m src.visualizations.sam_run {params.run} {output}"
+
+## Plots for paper ########################################
+scripts = ['bias',
+ 'damping_coefs',
+ 'fqt_qt_timeseries',
+ 'hovmoller_mean_pw_prec',
+ 'instability_wmax',
+ 'jacobian',
+ 'pattern_correlation',
+ 'pdf',
+ 'precip_maps',
+ 'predicted_vs_actual_q1',
+ 'r2_q1_q2',
+ 'rms_weather_plots',
+ 'snapshots_pw',
+ 'spinup_error']
+
+rule run_vis_script:
+    input: script="notebooks/papers/{script}.py", runs=SAM_RUNS
+    output: "notebooks/papers/{script}.pdf"
+    shell: "cd notebooks/papers/ && python {wildcards.script}.py {wildcards.script}.pdf"
+

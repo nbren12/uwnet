@@ -161,5 +161,5 @@ def main(**kwargs):
     return plot_jacobian([M, pres], **kwargs)
 
 
-# if __name__ == '__main__':
-#     main()
+if __name__ == '__main__':
+    main()

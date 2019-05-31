@@ -81,3 +81,4 @@ def plot(data):
 
 data = get_data()
 plot(data)
+plt.savefig("precip_maps.pdf")
