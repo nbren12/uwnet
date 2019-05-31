@@ -246,6 +246,10 @@ rule visualize_sam_run:
 
 ## Plots for paper ########################################
 
+rule upload_figs:
+    input: all_figs
+    shell: "cp {input} ~/public_html/reports/uwnet/plots2019/"
+
 rule paper_plots:
     input: all_figs
 
