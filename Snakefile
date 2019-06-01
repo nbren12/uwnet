@@ -37,7 +37,7 @@ TRAINING_LOG = "nn/{model}/{epoch}.log"
 SAM_RUN = "data/runs/{type}/{model}/epoch{epoch}/"
 SAM_RUN_STATUS = join(SAM_RUN, ".done")
 SAM_LOG = join(SAM_RUN, "log")
-VISUALIZE_SAM_DIR = "reports/runs/{model}/epoch{epoch}"
+VISUALIZE_SAM_DIR = "reports/runs/{type}/{model}/epoch{epoch}"
 MODEL_FILE = "nn/{model}/{epoch}.pkl"
 DEBIASED_MODEL = "debiased/{model}/{epoch}.pkl"
 
