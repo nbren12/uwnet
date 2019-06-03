@@ -20,11 +20,11 @@ def get_current_date_string():
 DATA_PATH = config.get("data_path", "data/raw/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX")
 DATA_URL = "https://atmos.washington.edu/~nbren12/data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX.tar"
 NUM_STEPS = config.get('NSTEPS', 10)
-TRAINING_DATA = "data/processed/training/{sigma}.nc"
+TRAINING_DATA = "data/processed/training/{data_name}.nc"
 TROPICS_DATA = "data/processed/tropics.nc"
 SAM_RESOLUTION = "128x64x34"
-sam_src = config.get("sam_src", "/opt/sam")
-SAM_PATH = config.get("sam_path", f"/opt/sam/OBJ/{SAM_RESOLUTION}")
+sam_src = config.get("sam_path", "/opt/sam")
+print("SAM_SRC", sam_src)
 DOCKER = config.get("docker", True)
 TODAY = get_current_date_string()
 RUN_SAM_SCRIPT = config.get("sam_script", "setup/docker/execute_run.sh")
@@ -41,7 +41,7 @@ VISUALIZE_SAM_DIR = "reports/runs/{type}/{model}/epoch{epoch}"
 MODEL_FILE = "nn/{model}/{epoch}.pkl"
 DEBIASED_MODEL = "debiased/{model}/{epoch}.pkl"
 
-SAM_RUNS = expand(SAM_RUN_STATUS, model=["NNLower", "NNAll"], epoch=["5"],
+SAM_RUNS = expand(SAM_RUN_STATUS, model=["NNLower", "NNAll", "NNManuscript"], epoch=["5"],
                   type=["nn", "debiased"])
 
 
@@ -79,7 +79,7 @@ rule download_data:
     shell: "cd data/raw && curl {DATA_URL} | tar xv"
 
 rule preprocess_concat_sam_processed:
-    input: expand("data/tmp/{{sigma}}/{step}.nc", step=range(NUM_STEPS))
+    input: expand("data/tmp/{{data_name}}/{step}.nc", step=range(NUM_STEPS))
     output: TRAINING_DATA
     shell:
         """
@@ -98,6 +98,14 @@ rule preprocess_process_with_sam_once:
     input: DATA_PATH,
             sam_parameters="assets/sam_preprocess.json"
     output: temp("data/tmp/noBlur/{step}.nc")
+    params: ngaqua_root=DATA_PATH, sigma=False
+    script: "uwnet/data/preprocess.py"
+
+
+rule preprocess_process_with_sam_no_hypderdiff:
+    input: DATA_PATH,
+            sam_parameters="assets/sam_preprocess_no_hyperdiff.json"
+    output: temp("data/tmp/advectionOnly/{step}.nc")
     params: ngaqua_root=DATA_PATH, sigma=False
     script: "uwnet/data/preprocess.py"
 
@@ -149,11 +157,11 @@ rule sam_run:
     {sys.executable} -m  src.sam.create_case -nn {params.model} \
     -n {params.ngaqua} \
     -s {params.sam_src} \
-    -t {params.step} -p assets/parameters_sam_neural_network.json \
+    -t {params.step} \
+    -p assets/parameters_sam_neural_network.json \
     {params.rundir}
     # run sam
     {RUN_SAM_SCRIPT} {params.rundir} >> {log} 2>> {log}
-    exit 0
     """
 
 rule nudge_run:

@@ -5,4 +5,3 @@ ulimit -s unlimited
 
 cd $1
 ./run.sh
-exit 0
