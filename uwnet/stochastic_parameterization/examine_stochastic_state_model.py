@@ -91,7 +91,7 @@ def plot_residuals_by_eta():
         draw_histogram(residuals, title=f'SLI residuals for eta={eta}')
 
 
-def simulate_eta(ds):
+def simulate_eta(model, ds):
     etas = []
     for time in range(len(ds.time)):
         etas.append(model.eta)
@@ -103,22 +103,34 @@ def simulate_eta(ds):
     return np.stack(etas)
 
 
-def plot_true_eta_vs_simulated_eta(ds=None):
+def plot_true_eta_vs_simulated_eta(model, ds=None):
     if not ds:
         ds = get_dataset(
             ds_location=ds_location,
             base_model_location=dir_ + 'full_model/1.pkl',
             t_start=50,
-            t_stop=75)
-    simulated_eta = simulate_eta(ds)
+            t_stop=200)
+    simulated_eta = simulate_eta(model, ds)
     true_eta = ds.eta.values
     for eta in range(ds.eta.values.min(), ds.eta.values.max() + 1):
         true_y_distribution = pd.DataFrame(
             np.argwhere(true_eta == eta), columns=['time', 'y', 'x']
-        ).y.value_counts().sort_index().tolist()
+        ).y.value_counts()
         simulated_y_distribution = pd.DataFrame(
             np.argwhere(simulated_eta == eta), columns=['time', 'y', 'x']
-        ).y.value_counts().sort_index().tolist()
+        ).y.value_counts()
+
+        true_y_distribution = [
+            true_y_distribution[idx] if idx in true_y_distribution.index
+            else 0
+            for idx in range(len(ds.y.values))
+        ]
+        simulated_y_distribution = [
+            simulated_y_distribution[idx]
+            if idx in simulated_y_distribution.index
+            else 0
+            for idx in range(len(ds.y.values))
+        ]
         draw_barplot_multi(
             [true_y_distribution, simulated_y_distribution],
             [''] * len(ds.y),
@@ -164,11 +176,11 @@ def get_column_moistening_and_heating_comparisons(
                 for var in ['QT', 'SLI']:
                     forcing[var] = forcing[var][:, 28:36, :]
         qts_pred.extend(
-            pred['QT'].T.dot(layer_mass).ravel() / liquid_water_density)
+            -pred['QT'].T.dot(layer_mass).ravel() / liquid_water_density)
         qts_true.extend(
-            true['QT'].T.dot(layer_mass).ravel() / liquid_water_density)
+            -true['QT'].T.dot(layer_mass).ravel() / liquid_water_density)
         qts_pred_base.extend(
-            pred_base['QT'].T.dot(layer_mass).ravel() / liquid_water_density)
+            -pred_base['QT'].T.dot(layer_mass).ravel() / liquid_water_density)
         slis_pred.extend(
             pred['SLI'].T.dot(layer_mass).ravel() * (cp / sec_in_day))
         slis_true.extend(
@@ -303,92 +315,95 @@ def compare_true_to_simulated_q1_q2_distributions(
             sli_true_vs_base_ks))
         print('KS Divergence test: SLI true vs stochastic model: {}'.format(
             sli_true_vs_stochastic_ks))
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(1, 2)
     loghist(
         slis_true,
-        ax=ax,
+        ax=ax[0],
         upper_percentile=99.99,
         lower_percentile=0.01,
-        label='True',
+        label='True Data',
         gaussian_comparison=False
     )
     loghist(
         slis_pred,
-        ax=ax,
+        ax=ax[0],
         upper_percentile=99.99,
         lower_percentile=0.01,
-        label='Stochastic Model',
+        label='Stochastic Parameterization',
         gaussian_comparison=False
     )
     loghist(
         slis_pred_base,
-        ax=ax,
+        ax=ax[0],
         upper_percentile=99.99,
         lower_percentile=0.01,
-        label='Single Model',
+        label='NN Paramterization',
         gaussian_comparison=False
     )
-    plt.legend()
+    ax[0].legend()
+    ax[0].set_xlabel('W/m2')
+    ax[0].set_ylabel('Log Density')
     if true_etas:
-        title = 'Log Histogram for NN SLI Forcing, with True Eta Transitions'
+        title = 'Log PDF for NN Net Heating, with True Eta Transitions'
     else:
-        title = 'Log Histogram for NN SLI Forcing, with Simulated Eta Transitions'  # noqa
-    plt.title(title_prefix + title)
-    plt.show()
-
-    fig, ax = plt.subplots()
+        title = 'Log PDF for NN Net Heating'  # noqa
+    ax[0].title.set_text(title_prefix + title)
     loghist(
         qts_true,
-        ax=ax,
+        ax=ax[1],
         lower_percentile=.01,
-        label='True',
+        label='True Data',
         gaussian_comparison=False
     )
     loghist(
         qts_pred,
-        ax=ax,
+        ax=ax[1],
         lower_percentile=.01,
-        label='Stochastic Model',
+        label='Stochastic Paramterization',
         gaussian_comparison=False
     )
     loghist(
         qts_pred_base,
-        ax=ax,
+        ax=ax[1],
         lower_percentile=.01,
-        label='Single Model',
+        label='NN Parameterization',
         gaussian_comparison=False
     )
-    plt.legend()
+    ax[1].legend()
+    ax[1].set_xlabel('mm/day')
+    ax[1].set_ylabel('Log Density')
+    ax[1]
     if true_etas:
-        title = 'Log Histogram for NN QT Forcing, with True Eta Transitions'
+        title = 'Log PDF for NN Net Precip, with True Eta Transitions'
     else:
-        title = 'Log Histogram for NN QT Forcing, with Simulated Eta Transitions'  # noqa
-    plt.title(title_prefix + title)
+        title = 'Log PDF for NN Net Precip'  # noqa
+    ax[1].title.set_text(title_prefix + title)
     plt.show()
 
 
 if __name__ == '__main__':
-    base_model = StochasticStateModel(
-        ds_location,
-        t_start=0,
-        t_stop=50,
-        base_model_location=dir_ + 'full_model/1.pkl',
-        verbose=False,
-        binning_quantiles=(1,),
-    )
-    base_model.train()
-    # base_model = torch.load(dir_ + 'full_model/1.pkl')
-    model = StochasticStateModel(
-        ds_location=ds_location,
-        eta_coarsening=None,
-        t_start=0,
-        t_stop=250,
-        blur_sigma=None,
-        base_model_location=dir_ + 'full_model/1.pkl',
-        verbose=True
-    )
-    model.train()
+    # base_model = StochasticStateModel(
+    #     ds_location,
+    #     t_start=0,
+    #     t_stop=50,
+    #     base_model_location=dir_ + 'full_model/1.pkl',
+    #     verbose=False,
+    #     binning_quantiles=(1,),
+    # )
+    # base_model.train()
+    base_model = torch.load(dir_ + 'base_model.pkl')
+    # model = StochasticStateModel(
+    #     ds_location=ds_location,
+    #     eta_coarsening=None,
+    #     t_start=0,
+    #     t_stop=250,
+    #     blur_sigma=None,
+    #     base_model_location=dir_ + 'full_model/1.pkl',
+    #     verbose=True
+    # )
+    # model.train()
+    model = torch.load(dir_ + 'stochastic_model_mlp.pkl')
     # evaluate_stochasticity_of_model(model)
-    # plot_true_eta_vs_simulated_eta()
+    plot_true_eta_vs_simulated_eta(model)
     compare_true_to_simulated_q1_q2_distributions(
-        model, base_model, true_etas=False, only_tropics=True)
+        model, base_model, true_etas=False, only_tropics=False)

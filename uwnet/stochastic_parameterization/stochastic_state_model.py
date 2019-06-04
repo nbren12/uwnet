@@ -28,7 +28,7 @@ warnings.filterwarnings("ignore", category=SourceChangeWarning)
 
 default_t_start = 100
 default_t_stop = 150
-model_inputs = ['SST', 'QT', 'SLI', 'SOLIN']
+model_inputs = ['SST', 'QT', 'SLI', 'SOLIN', 'LHF', 'SHF']
 default_quantile_transform_data = False
 
 

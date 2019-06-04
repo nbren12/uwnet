@@ -32,7 +32,7 @@ default_binning_method = 'column_integrated_qt_residuals'
 # ---- binning quantiles ----
 # default_binning_quantiles = (
 #     0.0066, 0.0337, 0.1228, 0.1986, 0.2498, 0.2999, 0.35, 0.4, 0.45,
-    # 0.5, 0.55, 0.6, 0.6501, 0.7001, 0.7502, 0.8003, 0.8511, 0.9101, 0.9795, 1)
+    # 0.5, 0.55, 0.6, 0.6501, 0.7001, 0.7502, 0.8003, 0.8511, 0.9101, 0.9795, 1)  # noqa
 # default_binning_quantiles = (0.06, 0.15, 0.30, 0.70, 0.85, 0.94, 1)
 default_binning_quantiles = (
     0.0073, 0.0557, 0.3024, 0.5967, 0.8348, 0.9666, 1.)
@@ -51,16 +51,16 @@ gbc = GradientBoostingClassifier(max_depth=500, verbose=2)
 lr = LogisticRegression(
     multi_class='multinomial', solver='lbfgs', max_iter=10000)
 mlp = MLPClassifier(hidden_layer_sizes=(250,), max_iter=1000)
-default_eta_transitioner_poly_degree = 9
-default_eta_transitioner_model = lr
+default_eta_transitioner_poly_degree = 1
+default_eta_transitioner_model = mlp
 default_eta_transitioner_predictors = [
     'SST',
     'PW',
     'SLI',
     # 'FQT',
     # 'FSLI',
-    # 'SHF',
-    # 'LHF',
+    'SHF',
+    'LHF',
     'SOLIN',
     # 'RADSFC',
     # 'RADTOA',

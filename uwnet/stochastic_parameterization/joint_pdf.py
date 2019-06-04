@@ -12,14 +12,16 @@ from uwnet.stochastic_parameterization.stochastic_state_model import (
 
 pw_name = 'pw'
 netprec_name = 'net_precip'
+only_tropics = True
 
 
 def get_data(model, **kwargs):
     # get data
     ds = get_dataset(set_eta=False, **kwargs)
-    model.eta = model.eta[(ds.y > 4.5e6) & (ds.y < 5.5e6)]
-    ds = ds.sel(
-        time=slice(100, 115), y=slice(4.5e6, 5.5e6))
+    ds = ds.sel(time=slice(100, 115))
+    if only_tropics:
+        model.eta = model.eta[(ds.y > 4.5e6) & (ds.y < 5.5e6)]
+        ds = ds.sel(y=slice(4.5e6, 5.5e6))
     # ds = ds.sel(time=slice(100, 115))
     usrf = np.sqrt(ds.U.isel(z=0)**2 + ds.V.isel(z=0)**2)
     ds['surface_wind_speed'] = usrf
@@ -38,8 +40,9 @@ def get_data(model, **kwargs):
 
 
 def get_ng(**kwargs):
-    ds = get_dataset(set_eta=False, **kwargs).sel(
-        time=slice(100, 115), y=slice(4.5e6, 5.5e6))
+    ds = get_dataset(set_eta=False, **kwargs).sel(time=slice(100, 115))
+    if only_tropics:
+        ds = ds.sel(y=slice(4.5e6, 5.5e6))
     # ds = get_dataset(set_eta=False).sel(time=slice(100, 115))
 
     def integrate_moist(src):
@@ -57,7 +60,7 @@ def get_ng(**kwargs):
 
 def hexbin(ax, df, quantiles=[.01, .1, .5, .9, .99],
            y_quantiles=[.01, .1, .5, .9, .99],
-           xlim=[32, 55], ylim=[-20, 35]):
+           xlim=[32, 55], ylim=[-20, 35], title=''):
     #     levels = np.linspace(0, .04, 21)
     df = df.sample(10000)
     im = sns.kdeplot(df.pw, df.net_precip, ax=ax,
@@ -76,6 +79,7 @@ def hexbin(ax, df, quantiles=[.01, .1, .5, .9, .99],
     ax.set_ylabel('Net Precip. (mm/d)')
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
+    ax.title.set_text(title)
     return im
 
 
@@ -124,6 +128,7 @@ def main(ngaqua, get_stats=True):
             ds_location=ds_location,
             base_model_location=base_model_location,
             verbose=True,
+            binning_quantiles=(1,),
             markov_process=False,
             include_output_in_transition_model=True
         )
@@ -138,10 +143,63 @@ def main(ngaqua, get_stats=True):
     plt.show()
 
 
+def plot_ngaqua_vs_nn_vs_base_model():
+    df_ng = get_ng(t_start=0, t_stop=100)
+    dir_ = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'  # noqa
+    ds_location = dir_ + 'training.nc'
+    base_model_location = dir_ + 'full_model/1.pkl'
+    # model = StochasticStateModel(
+    #     ds_location=ds_location,
+    #     base_model_location=base_model_location,
+    #     verbose=True,
+    #     # binning_quantiles=(1,),
+    #     markov_process=True,
+    #     t_start=0,
+    #     t_stop=250,
+    #     include_output_in_transition_model=True
+    # )
+    # model.train()
+    import torch
+    model = torch.load(dir_ + 'stochastic_model_mlp.pkl')
+    df_nn = get_data(
+        model,
+        ds_location=ds_location,
+        base_model_location=base_model_location)
+    # base_model = StochasticStateModel(
+    #     ds_location=ds_location,
+    #     base_model_location=base_model_location,
+    #     verbose=True,
+    #     binning_quantiles=(1,),
+    #     markov_process=True,
+    #     t_start=0,
+    #     t_stop=250,
+    #     include_output_in_transition_model=True
+    # )
+    # base_model.train()
+    base_model = torch.load(dir_ + 'base_model.pkl')
+    df_nn_base = get_data(
+        base_model,
+        ds_location=ds_location,
+        base_model_location=base_model_location)
+    fig, ax = plt.subplots(1, 3, sharex=True, sharey=True)
+    hexbin(ax[0], df_ng, title='True Data')
+    print('true data stats: ')
+    stats(df_ng)
+    hexbin(ax[1], df_nn, title='Stochastic Parameterization')
+    print('\n\nStochastic model stats: ')
+    stats(df_nn)
+    hexbin(ax[2], df_nn_base, title='Non-Stochastic NN Parameterization')
+    print('\n\nBase model stats: ')
+    stats(df_nn_base)
+    fig.suptitle('Net Precip / PW Joint PDF')
+    plt.show()
+
+
 def plot_df(df, title=''):
     plot(df, title)
     plt.show()
 
 
 if __name__ == '__main__':
-    main(False, False)
+    # main(False, False)
+    plot_ngaqua_vs_nn_vs_base_model()
