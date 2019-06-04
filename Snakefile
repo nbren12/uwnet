@@ -78,6 +78,9 @@ SAM_PROCESSED_LOG = "data/tmp/{step}.log"
 rule all:
     input: all_figs, SAM_REPORTS
 
+rule run_reports:
+    input: SAM_REPORTS
+
 rule download_data:
     output: directory(DATA_PATH)
     shell: "cd data/raw && curl {DATA_URL} | tar xv"
