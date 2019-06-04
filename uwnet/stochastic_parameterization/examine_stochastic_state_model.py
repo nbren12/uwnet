@@ -344,28 +344,28 @@ def compare_true_to_simulated_q1_q2_distributions(
     ax[0].set_xlabel('W/m2')
     ax[0].set_ylabel('Log Density')
     if true_etas:
-        title = 'Log PDF for NN Net Heating, with True Eta Transitions'
+        title = 'Log PDF for NN Net Heating, with True Markov States'
     else:
         title = 'Log PDF for NN Net Heating'  # noqa
     ax[0].title.set_text(title_prefix + title)
     loghist(
         qts_true,
         ax=ax[1],
-        lower_percentile=.01,
+        upper_percentile=99.99,
         label='True Data',
         gaussian_comparison=False
     )
     loghist(
         qts_pred,
         ax=ax[1],
-        lower_percentile=.01,
+        upper_percentile=99.99,
         label='Stochastic Paramterization',
         gaussian_comparison=False
     )
     loghist(
         qts_pred_base,
         ax=ax[1],
-        lower_percentile=.01,
+        upper_percentile=99.99,
         label='NN Parameterization',
         gaussian_comparison=False
     )
@@ -374,7 +374,7 @@ def compare_true_to_simulated_q1_q2_distributions(
     ax[1].set_ylabel('Log Density')
     ax[1]
     if true_etas:
-        title = 'Log PDF for NN Net Precip, with True Eta Transitions'
+        title = 'Log PDF for NN Net Precip, with True Markov States'
     else:
         title = 'Log PDF for NN Net Precip'  # noqa
     ax[1].title.set_text(title_prefix + title)
@@ -404,6 +404,6 @@ if __name__ == '__main__':
     # model.train()
     model = torch.load(dir_ + 'stochastic_model_mlp.pkl')
     # evaluate_stochasticity_of_model(model)
-    plot_true_eta_vs_simulated_eta(model)
+    # plot_true_eta_vs_simulated_eta(model)
     compare_true_to_simulated_q1_q2_distributions(
         model, base_model, true_etas=False, only_tropics=False)
