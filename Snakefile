@@ -34,18 +34,20 @@ TRAINING_CONFIG = "assets/training_configurations/{model}.json"
 TRAINED_MODEL_DIR = "nn/{model}/"
 TRAINED_MODEL = "nn/{model}/{epoch}.pkl"
 TRAINING_LOG = "nn/{model}/{epoch}.log"
-SAM_RUN = "data/runs/{type}/{model}/epoch{epoch}/"
+SAM_RUN = "data/runs/{sam_params}/{type}/{model}/epoch{epoch}/"
 SAM_RUN_STATUS = join(SAM_RUN, ".done")
 SAM_LOG = join(SAM_RUN, "log")
-VISUALIZE_SAM_DIR = "reports/runs/{type}/{model}/epoch{epoch}"
+VISUALIZE_SAM_DIR = "reports/runs/{sam_params}/{type}/{model}/epoch{epoch}"
 MODEL_FILE = "nn/{model}/{epoch}.pkl"
 DEBIASED_MODEL = "debiased/{model}/{epoch}.pkl"
 
 types = ["nn", "debiased"]
 models = ["NNLower", "NNAll", "NNManuscript"]
-SAM_RUNS = expand(SAM_RUN_STATUS, model=models, epoch=["5"], type=types)
-SAM_REPORTS = expand(VISUALIZE_SAM_DIR, model=models, epoch=["5"], type=types)
+sam_params = ["samnn"]
+SAM_RUNS = expand(SAM_RUN_STATUS, model=models, epoch=["5"], type=types, sam_params=sam_params)
 
+SAM_REPORTS = expand(VISUALIZE_SAM_DIR, model=models, epoch=["5"], type=types, sam_params=sam_params)
+SAM_REPORTS.append(VISUALIZE_SAM_DIR.format(sam_params='samnn_khyp1e15', type='debiased', model='NNManuscript', epoch='5'))
 
 # Plots
 scripts = ['bias','qp_acf',
@@ -74,7 +76,7 @@ SAM_PROCESSED_LOG = "data/tmp/{step}.log"
 
 ## RULES
 rule all:
-    input: SAM_RUNS, all_figs, SAM_REPORTS
+    input: all_figs, SAM_REPORTS
 
 rule download_data:
     output: directory(DATA_PATH)
@@ -153,6 +155,7 @@ rule sam_run:
             model=TRAINED_MODEL,
             ngaqua=DATA_PATH,
             sam_src=sam_src,
+            sam_params="assets/{sam_params}.json",
             step=0
     shell: """
     rm -rf {params.rundir}
@@ -160,7 +163,7 @@ rule sam_run:
     -n {params.ngaqua} \
     -s {params.sam_src} \
     -t {params.step} \
-    -p assets/parameters_sam_neural_network.json \
+    -p {params.sam_params} \
     {params.rundir}
     # run sam
     {RUN_SAM_SCRIPT} {params.rundir} >> {log} 2>> {log}
