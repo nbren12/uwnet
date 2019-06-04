@@ -41,8 +41,10 @@ VISUALIZE_SAM_DIR = "reports/runs/{type}/{model}/epoch{epoch}"
 MODEL_FILE = "nn/{model}/{epoch}.pkl"
 DEBIASED_MODEL = "debiased/{model}/{epoch}.pkl"
 
-SAM_RUNS = expand(SAM_RUN_STATUS, model=["NNLower", "NNAll", "NNManuscript"], epoch=["5"],
-                  type=["nn", "debiased"])
+types = ["nn", "debiased"]
+models = ["NNLower", "NNAll", "NNManuscript"]
+SAM_RUNS = expand(SAM_RUN_STATUS, model=models, epoch=["5"], type=types)
+SAM_REPORTS = expand(VISUALIZE_SAM_DIR, model=models, epoch=["5"], type=types)
 
 
 # Plots
@@ -72,7 +74,7 @@ SAM_PROCESSED_LOG = "data/tmp/{step}.log"
 
 ## RULES
 rule all:
-    input: SAM_RUNS, all_figs
+    input: SAM_RUNS, all_figs, SAM_REPORTS
 
 rule download_data:
     output: directory(DATA_PATH)
