@@ -53,7 +53,7 @@ def validate_data(run):
     duration  = end_time - start_time
 
     if duration < 1.0:
-        raise ValueError("Duration of run is only {duration} days")
+        raise ValueError(f"Duration of run is only {duration} days")
 
 
 def plot_2d_map(run, key, output=None):
@@ -103,8 +103,9 @@ def main(run_path, output_dir, case):
 
     try:
         validate_data(run)
-    except ValueError:
+    except ValueError as e:
         print("Exception caught. Exiting gracefully.")
+        print(e)
         sys.exit(0)
 
     if run_path[-1] == '/':
