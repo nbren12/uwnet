@@ -10,6 +10,7 @@ from uwnet.stochastic_parameterization.stochastic_state_model import (
     StochasticStateModel,
 )
 
+dir_ = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'
 pw_name = 'pw'
 netprec_name = 'net_precip'
 only_tropics = True
@@ -39,8 +40,14 @@ def get_data(model, **kwargs):
     return ds.to_dataframe()
 
 
-def get_ng(**kwargs):
-    ds = get_dataset(set_eta=False, **kwargs).sel(time=slice(100, 115))
+def get_ng(
+        ds=None,
+        t_start=100,
+        t_stop=115,
+        **kwargs):
+    if ds is None:
+        ds = get_dataset(set_eta=False, **kwargs)
+    ds = ds.sel(time=slice(t_start, t_stop))
     if only_tropics:
         ds = ds.sel(y=slice(4.5e6, 5.5e6))
     # ds = get_dataset(set_eta=False).sel(time=slice(100, 115))
@@ -48,8 +55,10 @@ def get_ng(**kwargs):
     def integrate_moist(src):
         return (src * ds.layer_mass).sum('z') / 1000
 
-    q2 = compute_apparent_source(ds.QT, 86400 * ds.FQT)
-
+    if 'FQT' in ds:
+        q2 = compute_apparent_source(ds.QT, 86400 * ds.FQT)
+    else:
+        q2 = ds.FQTNN
     ng = xr.Dataset({
         netprec_name: -integrate_moist(q2),
         pw_name: integrate_moist(ds.QT)
@@ -121,7 +130,6 @@ def main(ngaqua, get_stats=True):
     if ngaqua:
         df = get_ng(t_start=0, t_stop=100)
     else:
-        dir_ = '/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/'  # noqa
         ds_location = dir_ + 'training.nc'
         base_model_location = dir_ + 'full_model/1.pkl'
         model = StochasticStateModel(
@@ -140,6 +148,37 @@ def main(ngaqua, get_stats=True):
     plot(df)
     if get_stats:
         stats(df)
+    plt.show()
+
+
+def plot_comparison_of_joint_pdf():
+    t_start = 102.625
+    t_stop = 106.625
+    ds_base = xr.open_dataset('/Users/stewart/Desktop/base_out_3d.nc')
+    ds_stochastic = xr.open_dataset(
+        '/Users/stewart/Desktop/stochastic_out_3d.nc')
+    ds_true = xr.open_dataset(dir_ + 'training.nc')
+    ds_stochastic = ds_stochastic.sortby('time')
+    ds_base = ds_base.sortby('time')
+    for ds in [ds_stochastic, ds_base]:
+        ds['layer_mass'] = ds_true.layer_mass
+    df_true = get_ng(
+        ds=ds_true,
+        t_start=t_start,
+        t_stop=t_stop)
+    df_base = get_ng(
+        ds=ds_base,
+        t_start=t_start,
+        t_stop=t_stop)
+    df_stocahstic = get_ng(
+        ds=ds_stochastic,
+        t_start=t_start,
+        t_stop=t_stop)
+    fig, ax = plt.subplots(1, 3, sharex=True, sharey=True)
+    hexbin(ax[0], df_true, title='NG-Aqua')
+    hexbin(ax[1], df_stocahstic, title='Stochastic Parameterization')
+    hexbin(ax[2], df_base, title='Non-Stochastic NN Parameterization')
+    fig.suptitle('Net Precip / PW Joint PDF')
     plt.show()
 
 
@@ -185,10 +224,10 @@ def plot_ngaqua_vs_nn_vs_base_model():
     hexbin(ax[0], df_ng, title='True Data')
     print('true data stats: ')
     stats(df_ng)
-    hexbin(ax[1], df_nn, title='Stochastic Parameterization')
+    hexbin(ax[2], df_nn, title='Stochastic Parameterization')
     print('\n\nStochastic model stats: ')
     stats(df_nn)
-    hexbin(ax[2], df_nn_base, title='Non-Stochastic NN Parameterization')
+    hexbin(ax[1], df_nn_base, title='Non-Stochastic NN Parameterization')
     print('\n\nBase model stats: ')
     stats(df_nn_base)
     fig.suptitle('Net Precip / PW Joint PDF')
@@ -202,4 +241,5 @@ def plot_df(df, title=''):
 
 if __name__ == '__main__':
     # main(False, False)
-    plot_ngaqua_vs_nn_vs_base_model()
+    # plot_ngaqua_vs_nn_vs_base_model()
+    plot_comparison_of_joint_pdf()
