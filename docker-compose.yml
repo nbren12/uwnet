@@ -10,3 +10,11 @@ services:
       - ./uwnet:/opt/uwnet
       - ./:/uwnet
       - ./ext/sam:/opt/sam
+  jupyter:
+    build: 
+      context: .
+      dockerfile: Dockerfile.jupyter
+    volumes:
+      - ./:/opt/uwnet
+    ports:
+      - "8888:8888"

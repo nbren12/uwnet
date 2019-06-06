@@ -34,7 +34,7 @@ RUN conda update -y conda
 RUN conda install -y -c pytorch pytorch torchvision cudatoolkit=10.0
 RUN conda install -c conda-forge -y numpy toolz xarray netcdf4 scipy scikit-learn matplotlib zarr dask pytest jinja2 jupyterlab
 RUN conda install -c bioconda -c conda-forge snakemake-minimal
-RUN pip install cffi click attrs sacred f90nml sphinx==1.7 recommonmark doctr sphinx_rtd_theme git+https://github.com/nbren12/gnl@master#subdirectory=python h5netcdf pytorch-ignite
+RUN pip install cffi click attrs sacred f90nml sphinx==1.7 recommonmark doctr sphinx_rtd_theme git+https://github.com/nbren12/gnl@master#subdirectory=python h5netcdf pytorch-ignite tqdm seaborn
 
 # add callpy library
 ADD ext/sam/ext/call_py_fort /opt/call_py_fort
