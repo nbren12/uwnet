@@ -132,7 +132,7 @@ build_image:
 	docker-compose build sam
 
 enter:
-	docker-compose run -w /uwnet sam
+	docker run -w $(shell pwd) -v /home:/home -it nbren12/uwnet:latest bash
 
 test:
 	$(MACHINE_SCRIPTS)/run_tests.sh

@@ -3,7 +3,7 @@ FROM nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
 RUN apt-get update && apt-get install -y \
     libnetcdff-dev libnetcdf-dev \
     build-essential gfortran \
-    libmpich-dev  csh  \
+    libmpich-dev  csh  nco \
     gdb curl git cmake
 
 # compile sam utilities
@@ -33,8 +33,8 @@ RUN conda update -y conda
 # install pytorch
 RUN conda install -y -c pytorch pytorch torchvision cudatoolkit=10.0
 RUN conda install -c conda-forge -y numpy toolz xarray netcdf4 scipy scikit-learn matplotlib zarr dask pytest jinja2 jupyterlab
-RUN pip install cffi click attrs sacred
 RUN conda install -c bioconda -c conda-forge snakemake-minimal
+RUN pip install cffi click attrs sacred f90nml sphinx==1.7 recommonmark doctr sphinx_rtd_theme git+https://github.com/nbren12/gnl@master#subdirectory=python h5netcdf pytorch-ignite
 
 # add callpy library
 ADD ext/sam/ext/call_py_fort /opt/call_py_fort
@@ -45,11 +45,7 @@ ENV LD_LIBRARY_PATH=/usr/local/lib
 
 # Install SAM Python modules
 ENV PYTHONPATH=/opt/sam/SRC/python:${PYTHONPATH}
-# ADD UWNET to path
 ENV PYTHONPATH=/opt/sam/SCRIPTS/python/:/opt/:${PYTHONPATH}
-
-
-RUN pip install f90nml sphinx==1.7 recommonmark doctr sphinx_rtd_theme
 
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
@@ -60,12 +56,6 @@ ADD setup/docker /opt/sam_compile_scripts
 ENV LOCAL_FLAGS=/opt/sam_compile_scripts/local_flags.mk
 RUN bash -c "cd /opt/sam && export NX=128 && export NY=64 && export NZ=34 && export NSUBX=1 && export NSUBY=1 && ./Build"
 RUN bash -c "cd /opt/sam && export NX=512 && export NY=256 && export NZ=34 && export NSUBX=2 && export NSUBY=2 && ./Build"
-
-# gnl
-RUN pip install git+https://github.com/nbren12/gnl@master#subdirectory=python
-RUN pip install h5netcdf
-RUN apt-get install -y nco
-RUN pip install pytorch-ignite
 
 # install uwnet
 ADD . /opt/uwnet
