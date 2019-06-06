@@ -9,7 +9,7 @@ avg_days = [105, 110]
 
 
 def avg(nn):
-    return nn.sel(time=slice(*avg_days)).mean(['x', 'time'])
+    return nn.sortby('time').sel(time=slice(*avg_days)).mean(['x', 'time'])
 
 
 def get_data():

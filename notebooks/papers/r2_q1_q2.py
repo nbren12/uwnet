@@ -7,6 +7,7 @@ import common
 from src.data import assign_apparent_sources, open_data
 from uwnet.metrics import r2_score
 from uwnet.thermo import integrate_q1, integrate_q2
+from uwnet.utils import map_dataset
 
 
 
@@ -14,8 +15,12 @@ from uwnet.thermo import integrate_q1, integrate_q2
 @common.cache
 def get_data():
     model = common.get_model('NN-Lower')
-    ds = open_data('training').pipe(assign_apparent_sources)
-    outputs = model.xmodel(ds)
+    ds = open_data('training')\
+               .chunk({'time': 1})\
+               .pipe(assign_apparent_sources)
+    
+    outputs = map_dataset(ds, model.call_with_xr, 'time')
+    
     for key in outputs:
         ds['F' + key + 'NN'] = outputs[key]
 

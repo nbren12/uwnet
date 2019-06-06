@@ -3,8 +3,8 @@ import sys
 from os.path import join, abspath, dirname
 import json
 from datetime import datetime
+from src import data
 
-import xarray as xr
 
 ## Set environmental variables
 # add 'bin' folder to PATH
@@ -20,7 +20,7 @@ singularity: "docker://nbren12/uwnet:latest"
 ## VARIABLES
 DATA_PATH = config.get("data_path", "data/raw/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX")
 DATA_URL = "https://atmos.washington.edu/~nbren12/data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX.tar"
-NUM_STEPS = config.get('NSTEPS', 10)
+NUM_STEPS = config.get('NSTEPS', 640)
 TRAINING_DATA = "data/processed/training/{data_name}.nc"
 TROPICS_DATA = "data/processed/tropics.nc"
 SAM_RESOLUTION = "128x64x34"
@@ -41,13 +41,15 @@ VISUALIZE_SAM_DIR = "reports/runs/{sam_params}/{type}/{model}/epoch{epoch}"
 MODEL_FILE = "nn/{model}/{epoch}.pkl"
 DEBIASED_MODEL = "debiased/{model}/{epoch}.pkl"
 
-types = ["nn", "debiased"]
-models = ["NNLower", "NNAll", "NNManuscript"]
+# types = ["nn", "debiased"]
+# models = ["NNLower", "NNAll", "NNManuscript"]
+types = ["nn"]
+models = ["NNLower", "NNAll"]
 sam_params = ["samnn"]
 SAM_RUNS = expand(SAM_RUN_STATUS, model=models, epoch=["5"], type=types, sam_params=sam_params)
 
 SAM_REPORTS = expand(VISUALIZE_SAM_DIR, model=models, epoch=["5"], type=types, sam_params=sam_params)
-SAM_REPORTS.append(VISUALIZE_SAM_DIR.format(sam_params='samnn_khyp1e15', type='debiased', model='NNManuscript', epoch='5'))
+#SAM_REPORTS.append(VISUALIZE_SAM_DIR.format(sam_params='samnn_khyp1e15', type='debiased', model='NNManuscript', epoch='5'))
 
 # Plots
 scripts = ['bias','qp_acf',
@@ -122,11 +124,12 @@ rule tropical_subset:
     shell: "ncks -d y,24,40 {input} {output}"
 
 rule zonal_time_mean:
-    input: TRAINING_DATA
-    output: "data/processed/training.mean.nc"
+    input: data.training_data
+    output: data.ngaqua_climate_path
     run:
+        import xarray as xr
         ds = xr.open_dataset(input[0])
-        mean = ds.isel(step=0).mean(['x', 'time'])
+        mean = ds.mean(['x', 'time'])
         mean.to_netcdf(output[0])
 
 
@@ -226,6 +229,7 @@ rule train_nn:
     input:
         config=TRAINING_CONFIG,
         data=get_training_data
+    resources: mem_mb=26000
     output: TRAINED_MODEL
     log: TRAINING_LOG
     params:
@@ -268,9 +272,10 @@ rule upload_figs:
 
 rule paper_plots:
     input: all_figs
+    
 
 rule vis_jacobian:
-    input: SAM_RUNS
+    input: SAM_RUNS, data.ngaqua_climate_path
     output: jacobian_figures_absolute
     shell: "python notebooks/papers/jacobian.py {output}"
 

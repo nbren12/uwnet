@@ -12,7 +12,7 @@ import common
 
 plt.style.use("tableau-colorblind10")
 
-model_path = "../../debiased_models/NNLower/5.pkl"
+model_path = "../../nn/NNLower/5.pkl"
 
 # open model
 model = torch.load(model_path)

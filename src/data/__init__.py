@@ -9,10 +9,10 @@ root = _this_file.parent.parent.parent
 
 runs = {
     'micro': 'data/runs/2018-12-27-microphysics/',
-    'debias': 'data/runs/samnn/debiased/NNManuscript/epoch5/',
-    'khyp1e15': 'data/runs/samnn/debiased/NNManuscript/epoch5/',
-    'no_debias': 'data/runs/samnn/nn/NNManuscript/epoch5/',
-    'unstable': 'data/runs/samnn/debiased/NNAll/epoch5/',
+    'debias': 'data/runs/samnn/nn/NNLower/epoch5/',
+    'khyp1e15': 'data/runs/samnn/nn/NNManuscript/epoch5/',
+#     'no_debias': 'data/runs/samnn/nn/NNManuscript/epoch5/',
+    'unstable': 'data/runs/samnn/nn/NNAll/epoch5/',
 }
 
 runs = {key: SAMRun(root / val, 'control') for key, val in runs.items()}

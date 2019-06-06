@@ -17,7 +17,7 @@ ignored_input_levels = {'QT': 442, 'SLI': 267}
 
 def get_model(name):
     if name == 'NN-Lower':
-        return torch.load("../../debiased_models/NNLower/5.pkl")
+        return torch.load("../../nn/NNLower/5.pkl")
 
 def setup_matplotlib():
 
