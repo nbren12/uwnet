@@ -15,6 +15,7 @@ def get_current_date_string():
     today = datetime.now()
     return today.isoformat().split('T')[0]
 
+singularity: "docker://nbren12/uwnet:latest"
 
 ## VARIABLES
 DATA_PATH = config.get("data_path", "data/raw/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX")
@@ -27,7 +28,6 @@ sam_src = config.get("sam_path", "/opt/sam")
 print("SAM_SRC", sam_src)
 DOCKER = config.get("docker", True)
 TODAY = get_current_date_string()
-RUN_SAM_SCRIPT = config.get("sam_script", "setup/docker/execute_run.sh")
 
 # wildcard targets
 TRAINING_CONFIG = "assets/training_configurations/{model}.json"
@@ -169,7 +169,8 @@ rule sam_run:
     -p {params.sam_params} \
     {params.rundir}
     # run sam
-    {RUN_SAM_SCRIPT} {params.rundir} >> {log} 2>> {log}
+    cd {params.rundir}
+    sh run.sh >> log 2>> log
     """
 
 rule nudge_run:
@@ -200,7 +201,6 @@ rule save_sam_interface_state:
     {sys.executable} -m  src.sam.create_case \
          -p assets/parameters_save_python_state.json \
          $dir
-    execute_run.sh $dir
     mv -f $dir/state.pt assets/
     rm -rf $dir
     """
