@@ -40,6 +40,7 @@ def plot_net_precip_at_one_day(ds_s, ds_b, ds_true):
         pred = pred.rename('Net Precip.')
         pred.plot(
             ax=ax[2],
+            # add_colorbar=False,
             vmin=true.min() - 1,
             vmax=true.max() + 1)
         ax[2].title.set_text('Stochastic NN-Predicted Net Precip')
@@ -193,11 +194,11 @@ def plot_rmse_over_time(ds_s, ds_b, ds_true, no_param, var):
 
 if __name__ == '__main__':
     dir_ = '/Users/stewart/Desktop/'
-    # ds_no_param = xr.open_dataset(dir_ + 'no_parameterization.nc')
-    ds_no_param = None
+    ds_no_param = xr.open_dataset(dir_ + 'no_parameterization.nc')
+    # ds_no_param = None
     # ds_no_param = xr.open_dataset(dir_ + 'no_parameterization_long_run.nc')
     # ds_s = xr.open_dataset(dir_ + 'stochastic_model_gcm_output_long_run.nc')
-    ds_s = xr.open_dataset(dir_ + 'stochastic_model_gcm_output.nc')
+    ds_s = xr.open_dataset(dir_ + 'stochastic_model_gcm_output_good.nc')
     # ds_s = xr.open_dataset(dir_ + 'stochastic_model_gcm_output_short_dt.nc')
     # ds_s = xr.open_dataset(dir_ + 'no_hyper_diffuse.nc')
     # ds_b = xr.open_dataset(dir_ + 'base_model_gcm_output_long_run.nc')
@@ -209,13 +210,12 @@ if __name__ == '__main__':
         t_start=0,
         t_stop=len(ds_b.time))
     ds_true['NPNN'] = ds_true.Prec - lhf_to_evap(ds_true.LHF)
-    import pdb; pdb.set_trace()
     # plot_u_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param)
     # plot_v_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param)
-    # plot_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param, 'PW')
-    # plot_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param, 'NPNN')
+    plot_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param, 'PW')
+    plot_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param, 'NPNN')
     plot_net_precip_at_one_day(ds_s, ds_b, ds_true)
-    plot_total_pw_over_time(ds_s, ds_b, ds_true, ds_no_param)
-    plot_npnn_over_time(ds_s, ds_b, ds_true)
+    # plot_total_pw_over_time(ds_s, ds_b, ds_true, ds_no_param)
+    # plot_npnn_over_time(ds_s, ds_b, ds_true)
     plot_zonal_mean_npnn_over_time(ds_s, ds_b, ds_true)
-    plot_pw_tropics_zonal_variance_over_time(ds_s, ds_b, ds_true, ds_no_param)
+    # plot_pw_tropics_zonal_variance_over_time(ds_s, ds_b, ds_true, ds_no_param)

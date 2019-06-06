@@ -100,7 +100,7 @@ def get_model(config):
         #     time_idx_to_use_for_eta_initialization=0)
         # model.train()
         # model.eval()
-        model = torch.load('base_model.pkl')
+        model = torch.load('stochastic_model.pkl')
         model.dt_seconds = 120
         return CFVariableNameAdapter(
             NumpyWrapper(model), label='neural_network')

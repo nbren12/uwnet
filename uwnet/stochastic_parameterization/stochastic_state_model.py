@@ -348,7 +348,6 @@ class StochasticStateModel(nn.Module, XRCallMixin):
                     eta, output, x, indices)
                 for key in self.prognostics:
                     output[key][:, indices[:, 0], indices[:, 1]] += (
-                        self.dt_seconds / dataset_dt_seconds) * (
                             torch.from_numpy(
                                 model[key].predict(x_data[key]).T).float())
         if return_stochastic_state:

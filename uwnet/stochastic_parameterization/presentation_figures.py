@@ -1,9 +1,6 @@
 import torch
 from matplotlib import pyplot as plt
 import xarray as xr
-from uwnet.stochastic_parameterization.utils import (
-    get_dataset,
-)
 from uwnet.thermo import (
     compute_apparent_source,
     liquid_water_density,
@@ -24,13 +21,13 @@ def plot_net_precip(model_s, model_b, ds):
     true = -(compute_apparent_source(
         ds.QT, ds.FQT * 86400).isel(time=0).dot(ds.layer_mass) /
         liquid_water_density
-     )
+    )
     true.plot(
         ax=ax[0],
         add_colorbar=False,
-        vmin=-100,
+        vmin=true.min() - 1,
         cmap=style,
-        vmax=100)
+        vmax=true.max() + 1)
     ax[0].title.set_text('NG-Aqua Net Precip')
     pred_b = -(model_b.predict(ds.isel(time=[0]))['QT'].dot(
         ds.layer_mass).isel(time=0) / liquid_water_density)
@@ -40,8 +37,8 @@ def plot_net_precip(model_s, model_b, ds):
     pred_b.plot(
         ax=ax[1],
         add_colorbar=False,
-        vmin=-100,
-        vmax=100,
+        vmin=true.min() - 1,
+        vmax=true.max() + 1,
         cmap=style)
 
     pred_s = -(model_s.predict(ds.isel(time=[0]))['QT'].dot(
@@ -51,11 +48,13 @@ def plot_net_precip(model_s, model_b, ds):
     pred_s = pred_s.rename('Net Precip.')
     pred_s.plot(
         ax=ax[2],
-        vmin=-100,
-        vmax=100,
+        vmin=true.min() - 1,
+        vmax=true.max() + 1,
+        # add_colorbar=False,
         cmap=style)
     ax[2].title.set_text('Stochastic Model Net Precip')
     fig.suptitle('Net Precip Comparison')
+    fig.subplots_adjust(wspace=0.1, hspace=0.3)
     plt.show()
 
 
@@ -64,13 +63,13 @@ def plot_net_heating(model, ds):
     true = (compute_apparent_source(
         ds.SLI, ds.FSLI * 86400).isel(time=0).dot(ds.layer_mass)
         * (cp / sec_in_day)
-     )
+    )
     true.plot(
         ax=ax[0],
         add_colorbar=False,
-        vmin=-600,
+        vmin=true.min() - 1,
         cmap=style,
-        vmax=3200)
+        vmax=true.max() + 1)
     ax[0].title.set_text('NG-Aqua Net Heating')
     pred = (model.predict(ds.isel(time=[0]))['SLI'].dot(
         ds.layer_mass).isel(time=0) * (cp / sec_in_day))
@@ -79,8 +78,9 @@ def plot_net_heating(model, ds):
     pred = pred.rename('Net Heating')
     pred.plot(
         ax=ax[1],
-        vmin=-600,
-        vmax=3200,
+        vmin=true.min() - 1,
+        vmax=true.max() + 1,
+        # add_colorbar=False,
         cmap=style)
     ax[1].title.set_text('NN-Predicted Net Heating')
     fig.suptitle('Net Heating Comparison')
@@ -135,8 +135,7 @@ def plot_3d_vars():
 if __name__ == '__main__':
     base_model = torch.load(dir_ + 'base_model.pkl')
     stochastic_model = torch.load(dir_ + 'stochastic_model.pkl')
-    # plot_net_precip(model, ds)
-    # plot_net_heating(model, ds)
+    # plot_net_heating(base_model, ds)
     # plot_2d_vars()
     # plot_2d_over_time()
     plot_net_precip(stochastic_model, base_model, ds)
