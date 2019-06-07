@@ -28,12 +28,17 @@ sam_src = config.get("sam_path", "/opt/sam")
 print("SAM_SRC", sam_src)
 DOCKER = config.get("docker", True)
 TODAY = get_current_date_string()
+num_epoch = config.get("num_epoch", 5)
+epochs = list(range(1, num_epoch+1))
 
 # wildcard targets
 TRAINING_CONFIG = "assets/training_configurations/{model}.json"
 TRAINED_MODEL_DIR = "nn/{model}/"
-TRAINED_MODEL = "nn/{model}/{epoch}.pkl"
-TRAINING_LOG = "nn/{model}/{epoch}.log"
+
+TRAINING_LOG = f"nn/{{model}}/{num_epoch}.log" # change this
+TRAINED_MODEL = f"nn/{{model}}/{num_epoch}.log" # change this
+NN_METRIC = "nn/{model}/{epoch}.json"
+
 SAM_RUN = "data/runs/{sam_params}/{type}/{model}/epoch{epoch}/"
 SAM_RUN_STATUS = join(SAM_RUN, ".done")
 SAM_LOG = join(SAM_RUN, "log")
@@ -49,6 +54,7 @@ sam_params = ["samnn"]
 SAM_RUNS = expand(SAM_RUN_STATUS, model=models, epoch=["5"], type=types, sam_params=sam_params)
 
 SAM_REPORTS = expand(VISUALIZE_SAM_DIR, model=models, epoch=["5"], type=types, sam_params=sam_params)
+
 #SAM_REPORTS.append(VISUALIZE_SAM_DIR.format(sam_params='samnn_khyp1e15', type='debiased', model='NNManuscript', epoch='5'))
 
 # Plots
@@ -79,6 +85,9 @@ SAM_PROCESSED_LOG = "data/tmp/{step}.log"
 ## RULES
 rule all:
     input: all_figs, SAM_REPORTS
+
+rule nn_metrics:
+    input: expand(NN_METRIC, model=models, epoch=epochs)
 
 rule run_reports:
     input: SAM_REPORTS
@@ -230,13 +239,19 @@ rule train_nn:
         config=TRAINING_CONFIG,
         data=get_training_data
     resources: mem_mb=26000
-    output: TRAINED_MODEL
+    output: expand("nn/{{model}}/{epoch}.pkl", epoch=epochs)
     log: TRAINING_LOG
     params:
         dir=TRAINED_MODEL_DIR
     shell: """
     python -m uwnet.train with {input.config}  output_dir={params.dir} > {log} 2> {log}
     """
+
+rule nn_metric:
+    input: get_training_data, "nn/{model}/{epoch}.pkl"
+    output: NN_METRIC
+    resources: mem_mb=8000
+    shell: "python uwnet/criticism/evaluate.py {input} > {output}"
 
 
 rule debias_nn:
