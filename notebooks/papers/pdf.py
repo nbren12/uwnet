@@ -14,7 +14,6 @@ netprec_name  = 'net_precip'
 def get_ng_and_semiprog():
     # open model
     model = common.get_model('NN-Lower')
-
     # get data
     ds = open_data('training').sel(time=slice(100,115))
 
@@ -39,7 +38,6 @@ def get_ng_and_semiprog():
     return ng, ds
 
 
-@common.cache
 def get_data(start_time=100, end_time=120):
 
 

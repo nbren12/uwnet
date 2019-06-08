@@ -7,15 +7,15 @@ _this_file = Path(__file__)
 
 root = _this_file.parent.parent.parent
 
-runs = {
+run_paths = {
     'micro': 'data/runs/2018-12-27-microphysics/',
-    'debias': 'data/runs/samnn/nn/NNLower/epoch5/',
-    'khyp1e15': 'data/runs/samnn/nn/NNManuscript/epoch5/',
+    'debias': 'data/runs/samnn/nn/NNLower/epoch4/',
+#     'khyp1e15': 'data/runs/samnn/nn/NNManuscript/epoch5/',
 #     'no_debias': 'data/runs/samnn/nn/NNManuscript/epoch5/',
     'unstable': 'data/runs/samnn/nn/NNAll/epoch5/',
 }
 
-runs = {key: SAMRun(root / val, 'control') for key, val in runs.items()}
+runs = {key: SAMRun(root / val, 'control') for key, val in run_paths.items()}
 
 training_data = str(root / "data/processed/training/noBlur.nc")
 ngaqua_climate_path = str(root / "data/processed/training.mean.nc")

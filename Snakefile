@@ -51,11 +51,17 @@ DEBIASED_MODEL = "debiased/{model}/{epoch}.pkl"
 types = ["nn"]
 models = ["NNLower", "NNAll"]
 sam_params = ["samnn"]
-SAM_RUNS = expand(SAM_RUN_STATUS, model=models, epoch=["5"], type=types, sam_params=sam_params)
 
-SAM_REPORTS = expand(VISUALIZE_SAM_DIR, model=models, epoch=["5"], type=types, sam_params=sam_params)
+# SAM_RUNS = expand(SAM_RUN_STATUS, model=models, epoch=["5"], type=types, sam_params=sam_params)
+SAM_RUNS = data.run_paths.values()
+SAM_REPORTS = []
 
-#SAM_REPORTS.append(VISUALIZE_SAM_DIR.format(sam_params='samnn_khyp1e15', type='debiased', model='NNManuscript', epoch='5'))
+def add_report(type, model, epoch, sam_params='samnn'):
+    SAM_REPORTS.append(VISUALIZE_SAM_DIR.format(sam_params=sam_params, type=type, model=model, epoch=str(epoch)))
+
+add_report('nn', 'NNLower', 4)
+add_report('nn', 'NNLower', 4, sam_params='samnn_khyp1e15')
+add_report('nn', 'NNAll', 5)
 
 # Plots
 scripts = ['bias','qp_acf',
@@ -86,10 +92,13 @@ SAM_PROCESSED_LOG = "data/tmp/{step}.log"
 rule all:
     input: all_figs, SAM_REPORTS
 
+rule figures:
+    input: all_figs
+
 rule nn_metrics:
     input: expand(NN_METRIC, model=models, epoch=epochs)
 
-rule run_reports:
+rule reports:
     input: SAM_REPORTS
 
 rule download_data:
@@ -167,14 +176,13 @@ rule sam_run:
     output: touch(SAM_RUN_STATUS)
     log: SAM_LOG
     params: rundir=SAM_RUN,
-            model=TRAINED_MODEL,
             ngaqua=DATA_PATH,
             sam_src=sam_src,
             sam_params="assets/{sam_params}.json",
             step=0
     shell: """
     rm -rf {params.rundir}
-    {sys.executable} -m  src.sam.create_case -nn {params.model} \
+    {sys.executable} -m  src.sam.create_case -nn {input} \
     -n {params.ngaqua} \
     -s {params.sam_src} \
     -t {params.step} \
