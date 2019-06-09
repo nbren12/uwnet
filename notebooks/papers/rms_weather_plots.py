@@ -8,7 +8,7 @@ from uwnet.thermo import vorticity
 
 
 RUNS = ['debias', 'unstable', 'micro']
-time_range = slice(100, 110)
+time_range = slice(100.625, 110.625)
 
 
 def rms(x, dim=None):
@@ -23,7 +23,7 @@ def global_mass_weighted_rms(ds, reference='truth'):
 
     M = ds.layer_mass.sum('z')
     squares = (truth - preds)**2 * ds.layer_mass / M
-    sum_squares = squares.sum('z').mean(['x', 'y'])
+    sum_squares = squares.sum('z', skipna=False).mean(['x', 'y'])
     return np.sqrt(sum_squares)
 
 
@@ -46,10 +46,7 @@ def get_merged_data(variables, run_names):
 
     for run in run_names:
         ds = runs[run].data_3d[variables].load()
-        max_time = float(ds.time.max())
-        min_time = float(ds.time.min())
-        times_to_interp = [t for t in truth.time if min_time <= float(t) <= max_time]
-        data[run] = ds.interp(time=times_to_interp)
+        data[run] = ds.interp(time=truth.time)
 
     ds = xr.concat(data.values(), dim=list(data.keys()))
     ds['layer_mass'] = truth.layer_mass
@@ -118,8 +115,6 @@ def hide_spines(ax, spines):
 def plot(df):
 
 #     df = df.sel(time=slice(None, 108.5))
-    
-    df = df.where((df.concat_dim != 'unstable') | (df.time <= df.time[0] + 2.374))
     df['time'] = df.time - df.time[0]
     df['VORT'] *= 1e6
     
