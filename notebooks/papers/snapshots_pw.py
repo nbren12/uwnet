@@ -86,8 +86,8 @@ def plot_inset_nn_all(ax, pw, xlim=(12e6,16e6), ylim=(4e6,6e6)):
 
 
 def plot(plotme):
-    w= common.textwidth + 1
-    fig = plt.figure(1, figsize=(w, w/2))
+    w= common.textwidth
+    fig = plt.figure(1, figsize=(w, w/1.8))
 
     grid = AxesGrid(
         fig,
@@ -127,8 +127,8 @@ def plot(plotme):
         ax.set_title(f'{abc[count]}) {run}', loc='left')
         count += 1
         
-        if run.startswith('NN-All'):
-            plot_inset_nn_all(ax, val)
+#         if run.startswith('NN-All'):
+#             plot_inset_nn_all(ax, val)
 
     axs = np.reshape(grid, (2, 2))
     common.label_outer_axes(axs, "x (1000 km)", "y (1000 km)")
