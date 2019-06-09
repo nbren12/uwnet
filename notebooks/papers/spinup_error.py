@@ -85,6 +85,7 @@ def plot(data):
 
     m = common.get_vmax(data)
     kw = dict(levels=common.diverging_levels(25, 5), cmap='RdBu_r')
+    axs[0,0].invert_yaxis()
     for k in range(4):
         v = data.isel(step=k).squeeze()
         # import pdb; pdb.set_trace()
@@ -94,11 +95,11 @@ def plot(data):
         axs[0,k].set_title(f"{abcd[k]}) {get_title(k)}", loc='left')
         # v.plot(col='step', x='time')
 
-    axs[0,0].invert_yaxis()
+
     plt.colorbar(im, ax=axs, orientation='horizontal',
                  shrink=.3, aspect=2)
 
-    axs[0,0].yaxis.set_major_locator(plt.MaxNLocator(4))
+#     axs[0,0].yaxis.set_major_locator(plt.MaxNLocator(4))
 
     common.label_outer_axes(axs, "day", "p (mb)")
 
