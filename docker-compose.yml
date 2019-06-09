@@ -18,5 +18,6 @@ services:
     volumes:
       - ./:/opt/uwnet
       - /home/paperspace/.jupyter:/root/.jupyter
+      - /storage:/storage
     ports:
       - "8888:8888"
