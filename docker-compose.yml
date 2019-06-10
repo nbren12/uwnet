@@ -21,3 +21,10 @@ services:
       - /storage:/storage
     ports:
       - "8888:8888"
+  bash:
+    image: nbren12/uwnet:latest
+    runtime: nvidia
+    volumes:
+      - ./:/opt/uwnet
+      - /home/paperspace/.jupyter:/root/.jupyter
+      - /storage:/storage
