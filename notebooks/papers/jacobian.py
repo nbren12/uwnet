@@ -3,6 +3,8 @@ from collections import defaultdict
 from random import randint
 
 import matplotlib.pyplot as plt
+from matplotlib.colors import SymLogNorm, Normalize
+import matplotlib
 import numpy as np
 import xarray as xr
 from toolz import curry
@@ -46,17 +48,42 @@ def plot(args):
             val = jac[outkey][inkey]
             val = val.detach().numpy()
 
+            # select the colorbar norm
             vmax = get_vmax(val)
-
-            im = ax.pcolormesh(p, p, val, cmap='RdBu_r', vmax=vmax, vmin=-vmax)
+#             do_sym_log = vmax > 10
+           
+#             if do_sym_log:
+#                 linthresh = 1.0
+#                 norm = SymLogNorm(
+#                     linthresh=linthresh, linscale=20, vmin=-vmax, vmax=vmax)
+#             else:
+#                 norm = Normalize(vmin=-vmax, vmax=vmax)
+            if inkey == 'QT':
+                norm = Normalize(vmin=-1.5, vmax=1.5)
+            else:
+                norm =  Normalize(vmin=-1.0, vmax=1.0)
+            
+            im = ax.pcolormesh(p, p, val, cmap='RdBu_r', norm=norm)
+            ax.contourf(
+                p, p, val, levels=[-100,-10,10, 100] , extend='both', colors='none',
+                hatches=['xxxx', '...', None, '...', 'xxxx'],)
+            
             letter = abc[k]
             ax.set_title(f"{letter}) d{outkey}/dt from {inkey}", loc='left')
             ax.set_xlabel(f"Pressure ({inkey})")
             ax.set_ylabel(f"Pressure (d{outkey}/dt)")
             ax.invert_yaxis()
             ax.invert_xaxis()
+    
+            cb = plt.colorbar(im, ax=ax, pad=-.04)
+            
+#             if do_sym_log:
+#                 locator = matplotlib.ticker.SymmetricalLogLocator(
+#                     linthresh=linthresh, base=10)
+#                 locator.set_params(numticks=5)
+#                 cb.locator = locator
+#                 cb.update_ticks()
 
-            plt.colorbar(im, ax=ax, pad=-.04)
             k += 1
 
     return axs
