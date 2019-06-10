@@ -10,7 +10,7 @@ root = _this_file.parent.parent.parent
 run_paths = {
     'micro': 'data/runs/2018-12-27-microphysics/',
     'debias': 'data/runs/samnn/nn/NNLower/epoch4/',
-#     'khyp1e15': 'data/runs/samnn/nn/NNManuscript/epoch5/',
+    'khyp1e15': 'data/runs/samnn_khyp1e15/nn/NNLower/epoch4/',
 #     'no_debias': 'data/runs/samnn/nn/NNManuscript/epoch5/',
     'unstable': 'data/runs/samnn/nn/NNAll/epoch5/',
 }
