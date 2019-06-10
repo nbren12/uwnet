@@ -141,4 +141,8 @@ sync_to_gcs:
 	gsutil rsync -r data/processed $(BUCKET)/data/processed
 	gsutil rsync -r data/raw $(BUCKET)/data/raw
 
+upload_figs:
+	scp notebooks/papers/*.png notebooks/papers/*.pdf \
+        olympus:/home/disk/user_www/nbren12/reports/uwnet/plots2019/
+
 .PHONY: test

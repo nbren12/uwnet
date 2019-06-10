@@ -17,7 +17,6 @@ output = ["snapshots_pw.pdf"]
 def get_data():
 
     variables = ['PW']
-    time = 105
 
 
     # open NN run
@@ -27,7 +26,8 @@ def get_data():
     # open NN run
     run = runs['unstable']
     unstable = run.data_2d.rename({'NPNN': 'net_precip'})
-    unstable_time = float(unstable.time[-1])
+    time = float(unstable.time[-1])
+    print(time)
 
     # open microphysics
     run = runs['micro']
@@ -44,7 +44,7 @@ def get_data():
         'NG-Aqua': ng[variables].interp(time=time),
         'NN-Lower': nn[variables].interp(time=time),
         'Base': micro[variables].interp(time=time),
-        f'NN-All (t={unstable_time})': unstable[variables].interp(time=unstable_time)
+        f'NN-All': unstable[variables].interp(time=time)
     }
     
     
