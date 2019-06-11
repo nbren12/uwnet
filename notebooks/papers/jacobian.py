@@ -9,6 +9,8 @@ import numpy as np
 import xarray as xr
 from toolz import curry
 
+plt.rcParams['hatch.color'] = '0.5'
+
 import torch
 from common import get_vmax
 from src.data import ngaqua_climate_path
