@@ -129,7 +129,8 @@ compile_sam:
 	$(MACHINE_SCRIPTS)/compile_sam.sh
 
 build_image:
-	docker-compose build sam
+	docker build -t nbren12/uwnet:latest .
+	docker-compose build jupyter
 
 enter:
 	docker run -w $(shell pwd) -v /home:/home -it nbren12/uwnet:latest bash
