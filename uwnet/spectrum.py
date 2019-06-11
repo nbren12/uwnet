@@ -92,3 +92,52 @@ def kinetic_energy_spectrum_staggered(*args):
     vels = interpolated_velocities(*args)
     return kinetic_energy_spectrum(*vels)
 
+
+def autocorr(x: xr.DataArray,
+             dim: str,
+             base_state_dims=(),
+             avg_dims=(),
+             n=None) -> xr.DataArray:
+    """Auto-correlation of a time series
+
+    Parameters
+    ----------
+    x : xr.DataArray
+        Array to compute auto-correlation of
+    dim : str
+        Dimensions to copmute auto-correlation over
+    base_state_dims : Sequence[str]
+        List of dimensions
+
+    Returns
+    -------
+    autocorrelation
+    """
+
+    base_state_dims = (dim, ) + tuple(base_state_dims)
+    avg_dims = base_state_dims + tuple(avg_dims)
+
+    if n is None:
+        n = len(x[dim])
+    lags = np.arange(1, n // 2)
+
+    time = x[dim]
+    # assume constant spacing
+    dt = float(time[1] - time[0])
+
+    x = x - x.mean(base_state_dims)
+
+    denom = (x * x).sum(avg_dims)
+
+    corrs = []
+    for lag in lags:
+        print("Lag", lag)
+        shift = {dim: lag}
+        xs = x.shift(**shift)
+        corr = (xs * x).dropna(dim).sum(avg_dims) / denom
+        corrs.append(corr)
+
+    lags = xr.DataArray(
+        lags * dt, name='lag', attrs={'units': 'day'}, dims=['lag'])
+
+    return xr.concat(corrs, dim=lags)
