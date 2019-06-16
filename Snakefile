@@ -74,7 +74,8 @@ scripts = ['bias','qp_acf',
  'r2_q1_q2',
  'rms_weather_plots',
  'snapshots_pw',
- 'spinup_error']
+ 'spinup_error',
+ 'bootstrap']
 
 jacobian_figures_relative = ["saliency-unstable.png", "saliency-stable.png"]
 jacobian_figures_absolute = [join("notebooks/papers/", fig) 
