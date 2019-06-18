@@ -125,14 +125,12 @@ docs:
 install_hooks:
 	cp -f git-hooks/* .git/hooks/
 
-compile_sam:
-	$(MACHINE_SCRIPTS)/compile_sam.sh
-
 build_image:
-	docker-compose build sam
+	docker build -t nbren12/uwnet:latest .
+	docker-compose build jupyter
 
 enter:
-	docker-compose run -w /uwnet sam
+	docker run -w $(shell pwd) -v /home:/home -it nbren12/uwnet:latest bash
 
 test:
 	$(MACHINE_SCRIPTS)/run_tests.sh
@@ -140,5 +138,9 @@ test:
 sync_to_gcs:
 	gsutil rsync -r data/processed $(BUCKET)/data/processed
 	gsutil rsync -r data/raw $(BUCKET)/data/raw
+
+upload_figs:
+	scp notebooks/papers/*.png notebooks/papers/*.pdf \
+        olympus:/home/disk/user_www/nbren12/reports/uwnet/plots2019/
 
 .PHONY: test

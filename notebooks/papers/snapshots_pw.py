@@ -17,7 +17,7 @@ output = ["snapshots_pw.pdf"]
 def get_data():
 
     variables = ['PW']
-    times = [105]
+
 
     # open NN run
     run = runs['debias']
@@ -26,6 +26,8 @@ def get_data():
     # open NN run
     run = runs['unstable']
     unstable = run.data_2d.rename({'NPNN': 'net_precip'})
+    time = float(unstable.time[-1])
+    print(time)
 
     # open microphysics
     run = runs['micro']
@@ -38,13 +40,15 @@ def get_data():
     # make sure the x and y value agree
     ng = ng.assign(x=nn.x, y=nn.y)
 
-    data = [ng, nn, unstable, micro]
-    tags = ['NG-Aqua', 'NN-Lower', 'NN-All', 'Base']
-
-    plotme = xr.concat(
-        [run[variables].interp(time=times) for run in data], dim=tags)
-
-    return plotme.sel(time=times).squeeze('time')
+    runs_at_time = {
+        'NG-Aqua': ng[variables].interp(time=time),
+        'NN-Lower': nn[variables].interp(time=time),
+        'Base': micro[variables].interp(time=time),
+        f'NN-All': unstable[variables].interp(time=time)
+    }
+    
+    
+    return xr.concat(list(runs_at_time.values()), dim=list(runs_at_time.keys()))
 
 
 def plot_inset_nn_all(ax, pw, xlim=(12e6,16e6), ylim=(4e6,6e6)):
@@ -82,8 +86,8 @@ def plot_inset_nn_all(ax, pw, xlim=(12e6,16e6), ylim=(4e6,6e6)):
 
 
 def plot(plotme):
-    w= common.textwidth + 1
-    fig = plt.figure(1, figsize=(w, w/2))
+    w= common.textwidth
+    fig = plt.figure(1, figsize=(w, w/1.8))
 
     grid = AxesGrid(
         fig,
@@ -123,18 +127,14 @@ def plot(plotme):
         ax.set_title(f'{abc[count]}) {run}', loc='left')
         count += 1
         
-        if run in['NN-All']:
-            plot_inset_nn_all(ax, val)
+#         if run.startswith('NN-All'):
+#             plot_inset_nn_all(ax, val)
 
     axs = np.reshape(grid, (2, 2))
     common.label_outer_axes(axs, "x (1000 km)", "y (1000 km)")
 
 
-def main():
-    plotme = get_data()
-    plot(plotme)
-    plt.savefig(output[0])
-
-
 if __name__ == '__main__':
-    main()
+    data = get_data()
+    plot(data)
+    plt.savefig(output[0])

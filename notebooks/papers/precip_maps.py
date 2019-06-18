@@ -17,9 +17,9 @@ def get_data():
     time = ds.time[0] + 2
 
     # compute expected_precip
-    model = torch.load('../../data/runs/model268-epoch5.debiased/model.pkl')
+    model = torch.load('../../nn/NNLower/5.pkl')
     data_at_time = ds.sel(time=time).load()
-    neural_net_srcs = model.xmodel(data_at_time)
+    neural_net_srcs = model.call_with_xr(data_at_time)
     semi_prognostic = -integrate_q2(neural_net_srcs['QT'], ds.layer_mass)
 
     # net precip from model
@@ -31,10 +31,10 @@ def get_data():
 
     evap = lhf_to_evap(ds.LHF)
     net_precip_truth = ds.Prec - evap
-
+    
     return xr.Dataset({
         'NG-Aqua': net_precip_truth.interp(time=time),
-        'SemiProg': semi_prognostic,
+        'SemiProg': semi_prognostic.interp(time=time),
         'DEBIAS': net_precip.interp(time=time),
         'MICRO': micro.interp(time=time),
     }).compute()
@@ -79,4 +79,6 @@ def plot(data):
     grid[3].set_title("d) Base Simulation", loc='left')
 
 
-plot(get_data())
+data = get_data()
+plot(data)
+plt.savefig("precip_maps.pdf")

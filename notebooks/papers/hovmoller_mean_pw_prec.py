@@ -41,14 +41,8 @@ def iterate_over_dim(data, dim):
         yield str(data[dim][i].values), data.isel(**{dim: i})
 
 
-def plot_row(groupby, letter=slice(None), label='', **kwargs):
-    fig, axs = plt.subplots(
-        3,
-        1,
-        figsize=(common.onecolumn, 4.5),
-        sharex=True,
-        sharey=True,
-        constrained_layout=True)
+def plot_row(axs, groupby, letter=slice(None), label='', **kwargs):
+
 
     abc = 'abcdefg' [letter]
     for a, ax, val in zip(abc, axs, groupby):
@@ -65,17 +59,26 @@ def plot_row(groupby, letter=slice(None), label='', **kwargs):
 
 def main():
     plotme = get_data()
+    
+    fig, axs = plt.subplots(
+        3,
+        2,
+        figsize=(common.textwidth, 4.5),
+        sharex=True,
+        sharey=True,
+        constrained_layout=True)
 
     plot_row(
+        axs[:,0],
         iterate_over_dim(plotme.PW, 'concat_dim'),
         label='PW (mm)',
         cbar_kwargs=dict(pad=.02),
         levels=np.r_[5:55:5],
         add_labels=False,
         letter=slice(0, None, 2))
-    plt.savefig("hov_mean_pw.pdf")
 
     plot_row(
+        axs[:,1],
         iterate_over_dim(plotme.net_precip, 'concat_dim'),
         label='Net Precipitation (mm/day)',
         cbar_kwargs=dict(pad=.02),
@@ -83,7 +86,7 @@ def main():
         cmap='RdBu_r',
         extend='both',
         letter=slice(1, None, 2))
-    plt.savefig("hov_mean_prec.pdf")
+    plt.savefig("hovmoller_mean_pw_prec.pdf")
 
 
 if __name__ == '__main__':

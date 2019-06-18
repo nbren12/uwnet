@@ -9,7 +9,7 @@ avg_days = [105, 110]
 
 
 def avg(nn):
-    return nn.sel(time=slice(*avg_days)).mean(['x', 'time'])
+    return nn.sortby('time').sel(time=slice(*avg_days)).mean(['x', 'time'])
 
 
 def get_data():
@@ -27,7 +27,7 @@ def get_data():
 
     length_domain = 160e3 * len(ds.x)
     plotme['stream_function'] = (
-        plotme.V * ds.layer_mass).cumsum('z') * length_domain
+        plotme.V * ds.layer_mass[0]).cumsum('z') * length_domain
 
     plotme = plotme.assign(p=plotme.p[0]).swap_dims({'z': 'p'})
 
@@ -90,5 +90,6 @@ def plot(plotme):
 
 
 if __name__ == '__main__':
-    plot(get_data())
+    data = get_data()
+    plot(data)
     plt.savefig("bias.pdf")

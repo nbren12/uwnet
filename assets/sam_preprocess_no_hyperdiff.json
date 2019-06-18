@@ -47,6 +47,7 @@
     "save2dbin": true,
     "save3dbin": true,
     "dosgsthermo": false,
+    "dohyperdiffusion": false,
     "initial_condition_netcdf": "CASE/ic.nc",
     "perturb_type": 23
   },

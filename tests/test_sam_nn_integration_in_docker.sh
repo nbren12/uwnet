@@ -1,8 +1,5 @@
 #!/bin/sh
 
-# exit on errors
-# set -e
-
 rundir="test_sam"
 
 checkRun()
@@ -22,7 +19,7 @@ checkRun()
 
 rm -rf $rundir
 
-SAM=$(pwd)/ext/sam/OBJ/128x64x34/SAM_ADV_MPDATA_SGS_TKE_RAD_CAM_MICRO_SAM1MOM
+SAM=/opt/sam/OBJ/128x64x34/SAM_ADV_MPDATA_SGS_TKE_RAD_CAM_MICRO_SAM1MOM
 
 python -m src.sam.create_case \
        -ic assets/NG1/ic.nc \
@@ -33,7 +30,7 @@ python -m src.sam.create_case \
 echo "Running SAM"
 (
     cd $rundir
-    $SAM > log 2> err
+    $SAM || exit 0
 )
 
 checkRun $rundir
