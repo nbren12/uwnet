@@ -125,9 +125,6 @@ docs:
 install_hooks:
 	cp -f git-hooks/* .git/hooks/
 
-compile_sam:
-	$(MACHINE_SCRIPTS)/compile_sam.sh
-
 build_image:
 	docker build -t nbren12/uwnet:latest .
 	docker-compose build jupyter
