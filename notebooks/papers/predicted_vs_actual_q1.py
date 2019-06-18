@@ -12,14 +12,14 @@ import common
 
 plt.style.use("tableau-colorblind10")
 
-model_path = "../../models/268/5.debiased.pkl"
+model_path = "../../nn/NNLower/5.pkl"
 
 # open model
 model = torch.load(model_path)
 
 # get data
 ds = xr.open_dataset(training_data).isel(
-    step=0, time=slice(10, 12), x=slice(0, 1))
+      time=slice(10, 12), x=slice(0, 1))
 q1 = compute_apparent_source(ds.SLI, 86400 * ds.FSLI)
 q2 = compute_apparent_source(ds.QT, 86400 * ds.FQT)
 pres = ds.p[0]
@@ -70,5 +70,4 @@ def plot(args):
 
 
 plot([q1, q1_pred, q2, q2_pred])
-plt.savefig("q1_vs_q2.pdf")
-plt.savefig("q1_vs_q2.png")
+plt.savefig("predicted_vs_actual_q1.pdf")

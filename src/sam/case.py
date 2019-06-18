@@ -311,7 +311,8 @@ class Case(object):
         os.chmod(self.exe, 0o755)
 
     def run(self):
-        subprocess.run(['execute_run.sh', self.path])
+        exe = os.path.join(self.path, 'run.sh')
+        subprocess.run(exe, cwd=self.path)
 
     def convert_files_to_netcdf(self):
         cmd = make_docker_cmd(

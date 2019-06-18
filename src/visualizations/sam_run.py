@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import os
-
+import sys
 import click
 import matplotlib.pyplot as plt
 import numpy as np
@@ -46,9 +46,24 @@ def plot_tropics_avg_cases(runs, key='PW', output=None):
         plt.close()
 
 
+def validate_data(run):
+    data_2d = run.data_2d
+    start_time = float(data_2d.time.min())
+    end_time = float(data_2d.time.max())
+    duration  = end_time - start_time
+
+    if duration < 1.0:
+        raise ValueError(f"Duration of run is only {duration} days")
+
+
 def plot_2d_map(run, key, output=None):
     run, name = run
-    times_to_plot = np.arange(101, 110, 1)
+    data_2d = run.data_2d
+
+    start_time = float(data_2d.time.min())
+    end_time = float(data_2d.time.max())
+    times_to_plot = np.arange(start_time, end_time, 1)
+
     data = run.data_2d[key].sel(time=times_to_plot)
     data.plot(col='time', col_wrap=3, aspect=2, size=2)
     plt.suptitle(f"{name} {key}")
@@ -85,6 +100,13 @@ def main(run_path, output_dir, case):
     os.mkdir(output_dir)
     ngaqua = open_ngaqua()
     run = SAMRun(run_path, case=case)
+
+    try:
+        validate_data(run)
+    except ValueError as e:
+        print("Exception caught. Exiting gracefully.")
+        print(e)
+        sys.exit(0)
 
     if run_path[-1] == '/':
         run_path = run_path[:-1]

@@ -1,9 +1,14 @@
 import torch
 from toolz import merge_with, first, merge
+import itertools
+import dask.bag as db
+import dask.array as da
+from dask.delayed import delayed
+import xarray as xr
 
 
-def stack_dicts(seq):
-    return merge_with(lambda x: torch.stack(x, dim=1), seq)
+def stack_dicts(delayeds):
+    return merge_with(lambda x: torch.stack(x, dim=1), delayeds)
 
 
 def select_time(batch, i):
@@ -20,8 +25,8 @@ def get_batch_size(batch):
     return first(batch.values()).size(0)
 
 
-def concat_dicts(seq, dim=1):
-    return merge_with(lambda x: torch.cat(x, dim=dim), *seq)
+def concat_dicts(delayeds, dim=1):
+    return merge_with(lambda x: torch.cat(x, dim=dim), *delayeds)
 
 
 def batch_to_model_inputs(batch, aux, prog, diag, forcing, constants):
@@ -79,3 +84,64 @@ def mean_other_dims(x, dim):
     """Take a mean over all dimensions but the one specified"""
     other_dims = get_other_dims(x, dim)
     return mean_over_dims(x, other_dims)
+
+
+def split_by_chunks(dataset):
+    chunk_slices = {}
+    for dim, chunks in dataset.chunks.items():
+        slices = []
+        start = 0
+        for chunk in chunks:
+            stop = start + chunk
+            slices.append(slice(start, stop))
+            start = stop
+        chunk_slices[dim] = slices
+    for slices in itertools.product(*chunk_slices.values()):
+        selection = dict(zip(chunk_slices.keys(), slices))
+        yield delayed(lambda selection: dataset[selection].load())(selection)
+
+
+def dataset_to_bag(dataset):
+    return db.from_delayed(
+        [delayed(lambda x: [x])(chunk) for chunk in split_by_chunks(dataset)])
+
+
+def getarr(delayed_dataset, key, meta):
+    delayed_dataset = delayed_dataset[0]
+    delayed_arr = delayed_dataset[key]
+    arr = da.from_delayed(delayed_arr, shape=meta.shape, dtype=meta.dtype)
+    return xr.DataArray(arr, dims=meta.dims, coords=meta.coords)
+
+
+def getds(delayed_dataset, meta):
+    ds = xr.Dataset({})
+    for key in meta:
+        ds[key] = getarr(delayed_dataset, key, meta[key])
+
+    return ds
+
+
+def bag_to_dataset(bag, meta=None, dim='time'):
+    if meta is None:
+        meta = get_meta(bag)
+    arrays = [getds(it, meta).drop(dim) for it in bag.to_delayed()]
+    return xr.concat(arrays, dim)
+
+
+def get_meta(bag):
+    return bag.to_delayed()[0][0].compute()
+
+
+def map_dataset(dataset, fun, dim):
+    """Map a function accross the dimensions of a dataset
+
+    Notes
+    -----
+    Computing a mean with the resulting dataset fails
+
+    """
+    chunked = dataset.chunk({dim: 1})
+    # We don't really need to use a bag here. a list of delayed objects will do
+    bag = dataset_to_bag(chunked)
+    transformed = bag.map(fun)
+    return bag_to_dataset(transformed)

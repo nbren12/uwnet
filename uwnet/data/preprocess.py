@@ -40,8 +40,7 @@ def get_args_argparse():
     parser.add_argument('-s', '--sam', type=str, default='/opt/sam')
     parser.add_argument('-t', '--time-step', type=int, default=0)
     parser.add_argument('-p', '--sam-parameters', type=str, default=0)
-    parser.add_argument(
-        '-s', '--sigma', type=float, help='Radius for Gaussian blurring')
+    parser.add_argument('--sigma', type=float, help='Radius for Gaussian blurring')
 
     parser.add_argument('output')
     return parser.parse_args()

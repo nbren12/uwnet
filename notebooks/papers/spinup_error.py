@@ -45,9 +45,9 @@ def predict_for_each_time(model, location, num_pred_steps=20, num_time=160):
 
 
 @common.cache
-def get_data(model="../../models/277/1.pkl", **kwargs):
+def get_data(model="../../nn/277/1.pkl", **kwargs):
     # open model and training data
-    model = torch.load("../../models/277/1.pkl")
+    model = torch.load(model)
     ds = open_data('training')
 
     # select x=0, y=32
@@ -85,6 +85,7 @@ def plot(data):
 
     m = common.get_vmax(data)
     kw = dict(levels=common.diverging_levels(25, 5), cmap='RdBu_r')
+    axs[0,0].invert_yaxis()
     for k in range(4):
         v = data.isel(step=k).squeeze()
         # import pdb; pdb.set_trace()
@@ -94,11 +95,11 @@ def plot(data):
         axs[0,k].set_title(f"{abcd[k]}) {get_title(k)}", loc='left')
         # v.plot(col='step', x='time')
 
-    axs[0,0].invert_yaxis()
+
     plt.colorbar(im, ax=axs, orientation='horizontal',
                  shrink=.3, aspect=2)
 
-    axs[0,0].yaxis.set_major_locator(plt.MaxNLocator(4))
+#     axs[0,0].yaxis.set_major_locator(plt.MaxNLocator(4))
 
     common.label_outer_axes(axs, "day", "p (mb)")
 
@@ -106,6 +107,6 @@ def plot(data):
 
 
 if __name__ == '__main__':
-    data = get_data(model="../models/277/5.pkl", num_pred_steps=3, num_time=60)
+    data = get_data(model="../../nn/277/5.pkl", num_pred_steps=3, num_time=60)
     plot(data)
-    plt.savefig("spinup.pdf")
+    plt.savefig("spinup_error.pdf")

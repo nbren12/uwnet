@@ -1,57 +1,113 @@
 import os
 import sys
 from os.path import join, abspath, dirname
+import json
 from datetime import datetime
+from src import data
 
-import xarray as xr
+
+## Set environmental variables
+# add 'bin' folder to PATH
+os.environ['PATH'] = os.path.abspath('bin') + ':' + os.environ['PATH']
 
 
 def get_current_date_string():
     today = datetime.now()
     return today.isoformat().split('T')[0]
 
+singularity: "docker://nbren12/uwnet:latest"
 
 ## VARIABLES
 DATA_PATH = config.get("data_path", "data/raw/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX")
 DATA_URL = "https://atmos.washington.edu/~nbren12/data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX.tar"
-NUM_STEPS = config.get('NSTEPS', 10)
-TRAINING_DATA = "data/processed/training/{sigma}.nc"
+NUM_STEPS = config.get('NSTEPS', 640)
+TRAINING_DATA = "data/processed/training/{data_name}.nc"
 TROPICS_DATA = "data/processed/tropics.nc"
 SAM_RESOLUTION = "128x64x34"
-SAM_PATH = config.get("sam_path", f"/opt/sam/OBJ/{SAM_RESOLUTION}")
+sam_src = config.get("sam_path", "/opt/sam")
+print("SAM_SRC", sam_src)
 DOCKER = config.get("docker", True)
 TODAY = get_current_date_string()
-RUN_SAM_SCRIPT = config.get("sam_script", "setup/docker/execute_run.sh")
+num_epoch = config.get("num_epoch", 5)
+epochs = list(range(1, num_epoch+1))
 
 # wildcard targets
 TRAINING_CONFIG = "assets/training_configurations/{model}.json"
-TRAINED_MODEL = "models/{model}"
-TRAINING_LOG = "models/{model}/log"
-TRAINING_DONE = join(TRAINED_MODEL, ".done")
-SAM_RUN = "data/runs/{model}/epoch{epoch}/"
+TRAINED_MODEL_DIR = "nn/{model}/"
+
+TRAINING_LOG = f"nn/{{model}}/{num_epoch}.log" # change this
+TRAINED_MODEL = f"nn/{{model}}/{num_epoch}.log" # change this
+NN_METRIC = "nn/{model}/{epoch}.json"
+
+SAM_RUN = "data/runs/{sam_params}/{type}/{model}/epoch{epoch}/"
 SAM_RUN_STATUS = join(SAM_RUN, ".done")
 SAM_LOG = join(SAM_RUN, "log")
-VISUALIZE_SAM_DIR = "reports/runs/{model}/epoch{epoch}"
+VISUALIZE_SAM_DIR = "reports/runs/{sam_params}/{type}/{model}/epoch{epoch}"
+MODEL_FILE = "nn/{model}/{epoch}.pkl"
+DEBIASED_MODEL = "debiased/{model}/{epoch}.pkl"
+
+# types = ["nn", "debiased"]
+# models = ["NNLower", "NNAll", "NNManuscript"]
+types = ["nn"]
+models = ["NNLower", "NNAll"]
+sam_params = ["samnn"]
+
+# SAM_RUNS = expand(SAM_RUN_STATUS, model=models, epoch=["5"], type=types, sam_params=sam_params)
+SAM_RUNS = data.run_paths.values()
+SAM_REPORTS = []
+
+def add_report(type, model, epoch, sam_params='samnn'):
+    SAM_REPORTS.append(VISUALIZE_SAM_DIR.format(sam_params=sam_params, type=type, model=model, epoch=str(epoch)))
+
+add_report('nn', 'NNLower', 4)
+add_report('nn', 'NNLower', 4, sam_params='samnn_khyp1e15')
+add_report('nn', 'NNAll', 5)
+
+# Plots
+scripts = ['bias','qp_acf',
+ 'damping_coefs',
+ 'hovmoller_mean_pw_prec',
+ 'pattern_correlation',
+ 'pdf',
+ 'precip_maps',
+ 'predicted_vs_actual_q1',
+ 'r2_q1_q2',
+ 'rms_weather_plots',
+ 'snapshots_pw',
+ 'spinup_error',
+ 'bootstrap']
+
+jacobian_figures_relative = ["saliency-unstable.png", "saliency-stable.png"]
+jacobian_figures_absolute = [join("notebooks/papers/", fig) 
+                             for fig in jacobian_figures_relative]
+
+other_figures_absolute = [join("notebooks/papers/", script + ".pdf") 
+                         for script in scripts]
+all_figs = jacobian_figures_absolute + other_figures_absolute
 
 ## Temporary output locations
 SAM_PROCESSED_LOG = "data/tmp/{step}.log"
 
-## Set environmental variables
-# add 'bin' folder to PATH
-os.environ['PATH'] = os.path.abspath('bin') + ':' + os.environ['PATH']
-
-print("Number of steps to process:", NUM_STEPS)
 
 ## RULES
 rule all:
-    input: expand(TRAINING_DATA, sigma=["sigma0.75", "noBlur"])
+    input: all_figs, SAM_REPORTS
+
+rule figures:
+    input: all_figs
+
+rule nn_metrics:
+    input: expand(NN_METRIC, model=models, epoch=epochs)
+
+rule reports:
+    input: SAM_REPORTS
 
 rule download_data:
-    output: DATA_PATH
+    output: directory(DATA_PATH)
     shell: "cd data/raw && curl {DATA_URL} | tar xv"
 
 rule preprocess_concat_sam_processed:
-    input: expand("data/tmp/{{sigma}}/{step}.nc", step=range(NUM_STEPS))
+    input: expand("data/tmp/{{data_name}}/{step}.nc", step=range(NUM_STEPS))
     output: TRAINING_DATA
     shell:
         """
@@ -61,7 +117,7 @@ rule preprocess_concat_sam_processed:
 rule preprocess_process_with_sam_once_blurred:
     input: DATA_PATH,
            sam_parameters="assets/sam_preprocess.json"
-    output: "data/tmp/sigma{sigma}/{step}.nc"
+    output: temp("data/tmp/sigma{sigma}/{step}.nc")
     params: ngaqua_root=DATA_PATH, sigma="{sigma}"
     script: "uwnet/data/preprocess.py"
 
@@ -69,7 +125,15 @@ rule preprocess_process_with_sam_once_blurred:
 rule preprocess_process_with_sam_once:
     input: DATA_PATH,
             sam_parameters="assets/sam_preprocess.json"
-    output: "data/tmp/noBlur/{step}.nc"
+    output: temp("data/tmp/noBlur/{step}.nc")
+    params: ngaqua_root=DATA_PATH, sigma=False
+    script: "uwnet/data/preprocess.py"
+
+
+rule preprocess_process_with_sam_no_hypderdiff:
+    input: DATA_PATH,
+            sam_parameters="assets/sam_preprocess_no_hyperdiff.json"
+    output: temp("data/tmp/advectionOnly/{step}.nc")
     params: ngaqua_root=DATA_PATH, sigma=False
     script: "uwnet/data/preprocess.py"
 
@@ -79,11 +143,12 @@ rule tropical_subset:
     shell: "ncks -d y,24,40 {input} {output}"
 
 rule zonal_time_mean:
-    input: TRAINING_DATA
-    output: "data/processed/training.mean.nc"
+    input: data.training_data
+    output: data.ngaqua_climate_path
     run:
+        import xarray as xr
         ds = xr.open_dataset(input[0])
-        mean = ds.isel(step=0).mean(['x', 'time'])
+        mean = ds.mean(['x', 'time'])
         mean.to_netcdf(output[0])
 
 
@@ -108,25 +173,25 @@ rule sam_run_report:
 
 rule sam_run:
     # need to use a temporary file here so that the model output isn't deleted
-    # input: TRAINED_MODEL
-    input: TRAINING_DONE
+    input: "{type}/{model}/{epoch}.pkl"
     output: touch(SAM_RUN_STATUS)
     log: SAM_LOG
     params: rundir=SAM_RUN,
-            model= join(TRAINED_MODEL, "{epoch}.pkl"),
-            ngaqua = DATA_PATH,
-            sam_src = config['sam_path'],
+            ngaqua=DATA_PATH,
+            sam_src=sam_src,
+            sam_params="assets/{sam_params}.json",
             step=0
     shell: """
     rm -rf {params.rundir}
-    {sys.executable} -m  src.sam.create_case -nn {params.model} \
-        -n {params.ngaqua} \
-        -s {params.sam_src} \
-        -t {params.step} -p assets/parameters_sam_neural_network.json \
-       {params.rundir}
+    {sys.executable} -m  src.sam.create_case -nn {input} \
+    -n {params.ngaqua} \
+    -s {params.sam_src} \
+    -t {params.step} \
+    -p {params.sam_params} \
+    {params.rundir}
     # run sam
-    {RUN_SAM_SCRIPT} {params.rundir} >> {log} 2>> {log}
-    exit 0
+    cd {params.rundir}
+    sh run.sh >> log 2>> log
     """
 
 rule nudge_run:
@@ -157,7 +222,6 @@ rule save_sam_interface_state:
     {sys.executable} -m  src.sam.create_case \
          -p assets/parameters_save_python_state.json \
          $dir
-    execute_run.sh $dir
     mv -f $dir/state.pt assets/
     rm -rf $dir
     """
@@ -171,20 +235,38 @@ rule train_pca_pre_post:
     python -m uwnet.train train_pre_post with data={TRAINING_DATA} prepost.path={output}
     """
 
-rule train_model:
-    input: TRAINING_CONFIG
-    output: touch(TRAINING_DONE)
-    log: join(TRAINED_MODEL, "log")
+
+def get_training_data(wildcards):
+    path = TRAINING_CONFIG.format(**wildcards)
+    with open(path) as f:
+        model_config = json.load(f)
+        return model_config['data']
+
+
+rule train_nn:
+    input:
+        config=TRAINING_CONFIG,
+        data=get_training_data
+    resources: mem_mb=26000
+    output: expand("nn/{{model}}/{epoch}.pkl", epoch=epochs)
+    log: TRAINING_LOG
     params:
-        dir=TRAINED_MODEL
-    shell: """ 
-    python -m uwnet.train with {input}  output_dir={params.dir} > {log} 2> {log}
+        dir=TRAINED_MODEL_DIR
+    shell: """
+    python -m uwnet.train with {input.config}  output_dir={params.dir} > {log} 2> {log}
     """
 
-rule debias_trained_model:
-    input: "models/{model}.pkl"
-    output: "models/{model}.debiased.pkl"
-    params: data=TRAINING_DATA, prognostics=['QT', 'SLI']
+rule nn_metric:
+    input: get_training_data, "nn/{model}/{epoch}.pkl"
+    output: NN_METRIC
+    resources: mem_mb=8000
+    shell: "python uwnet/criticism/evaluate.py {input} > {output}"
+
+
+rule debias_nn:
+    input: TRAINED_MODEL
+    output: DEBIASED_MODEL
+    params: data=get_training_data, prognostics=['QT', 'SLI'], model=MODEL_FILE
     script: "src/models/debias.py"
 
 
@@ -205,3 +287,24 @@ rule visualize_sam_run:
     params:
         run = SAM_RUN
     shell: "python -m src.visualizations.sam_run {params.run} {output}"
+
+## Plots for paper ########################################
+
+rule upload_figs:
+    input: all_figs
+    shell: "cp {input} ~/public_html/reports/uwnet/plots2019/"
+
+rule paper_plots:
+    input: all_figs
+    
+
+rule vis_jacobian:
+    input: SAM_RUNS, data.ngaqua_climate_path
+    output: jacobian_figures_absolute
+    shell: "python notebooks/papers/jacobian.py {output}"
+
+rule run_vis_script:
+    input: script="notebooks/papers/{script}.py", runs=SAM_RUNS
+    output: "notebooks/papers/{script}.pdf"
+    shell: "cd notebooks/papers/ && python {wildcards.script}.py {wildcards.script}.pdf"
+

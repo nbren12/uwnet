@@ -70,8 +70,7 @@ def plot_twin(df, keys, labels, a):
 def get_data():
 
     # get data
-    ds = xr.open_dataset(training_data, chunks={'time': 20}).isel(step=0)
-
+    ds = xr.open_dataset(training_data, chunks={'time': 20})
     sources = dict(
         q1=compute_apparent_source(ds.SLI, 86400 * ds.FSLI),
         q2=compute_apparent_source(ds.QT, 86400 * ds.FQT))
@@ -94,4 +93,4 @@ def get_time_series_data():
 
 
 plot(get_data())
-plt.savefig("damping.pdf")
+plt.savefig("damping_coefs.pdf")
