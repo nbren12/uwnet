@@ -11,7 +11,7 @@ from toolz import curry
 from torch.nn.functional import mse_loss
 
 from uwnet.utils import mean_other_dims
-from .timestepper import predict_multiple_steps, TimeStepper
+from .timestepper import predict_multiple_steps, TimeStepper, Batch
 from . import tensordict
 
 
@@ -102,7 +102,9 @@ def equilibrium_penalty(criterion, model, batch, dt, n=20):
     return compute_loss(criterion, mean, state)
 
 
-def instability_penalty_step(self, engine, batch, alpha=1.0):
+def instability_penalty_step(self, engine, data, alpha=1.0):
+    # TODO pass the list of prognostics to step
+    batch = Batch(data.float(), prognostics=['QT', 'SLI'])
     self.optimizer.zero_grad()
 
     dt = .125
@@ -166,7 +168,9 @@ def get_input_output(model, dt, batch):
     # return pred, x1
 
     # pred = x0 + dt * src + dt * 86400 * forcing
-    return src, (x1-x0)/dt - 86400 * forcing
+    # residual forcing
+    residual = (x1-x0)/dt - 86400 * forcing
+    return src, residual
 
 
 def get_step(name, self, kwargs):

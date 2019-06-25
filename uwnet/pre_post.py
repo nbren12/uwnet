@@ -160,8 +160,7 @@ def get_pre_post_orig(data, data_loader, n):
     from .normalization import Scaler
     inputs = [('QT', n), ('SLI', n),
               ('SST', 1), ('SOLIN', 1)]
-    # scaler = Scaler().fit_generator(data_loader)
-    scaler = Scaler().fit_xarray(data)
+    scaler = Scaler().fit_generator(data_loader)
     scaler.outputs = inputs
     scaler.inputs = inputs
     # post processor

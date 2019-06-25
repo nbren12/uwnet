@@ -7,7 +7,15 @@ from .tensordict import TensorDict
 
 @attr.s
 class Batch(object):
-    """A object for getting appropriate fields from a batch of data"""
+    """A object for getting appropriate fields from a batch of data
+
+    Attributes
+    ----------
+    data
+    prognostics
+    time_dim
+    batch_dim
+    """
     data = attr.ib(converter=TensorDict)
     prognostics = attr.ib()
     time_dim = 1

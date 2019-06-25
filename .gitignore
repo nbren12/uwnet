@@ -6,7 +6,7 @@ __pycache__
 .cache
 .ipynb_checkpoints
 /UNKNOWN.egg-info
-data
+/data
 .DS_Store
 ## Core latex/pdflatex auxiliary files:
 *.aux

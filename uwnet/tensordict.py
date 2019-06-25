@@ -3,6 +3,7 @@ from abc import ABCMeta
 from collections import KeysView, MutableMapping, defaultdict
 
 import torch
+import numpy as np
 from toolz import curry, first
 
 mathfuns = [
@@ -105,6 +106,12 @@ class TensorDict(MutableMapping, metaclass=ArithmaticMeta):
         else:
             raise ValueError(
                 f"the sizes are unique along dimension {dim}")
+
+    @classmethod
+    def from_numpy_dict(cls, data):
+        data_dict = {key: torch.from_numpy(np.asarray(arr))
+                     for key, arr in data.items()}
+        return cls(data_dict)
 
 
 def stack(seq, dim=0):

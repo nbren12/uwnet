@@ -4,6 +4,7 @@ import torch
 from toolz import curry
 from .testing import assert_tensors_allclose, mock_data
 from .normalization import Scaler
+from uwnet.tensordict import TensorDict
 
 approx = curry(pytest.approx, abs=1e-6)
 
@@ -35,9 +36,8 @@ def test_scaler_fit_generator():
     a = torch.rand(shape)
 
     def generator():
-        from uwnet.timestepper import Batch
         for arr in a.split(2, dim=0):
-            yield Batch({name: a}, prognostics=[name])
+            yield TensorDict({name: a})
 
     scaler = Scaler().fit_generator(generator())
 

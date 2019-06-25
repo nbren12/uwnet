@@ -79,6 +79,10 @@ def get_extra_features(ngaqua: NGAqua, time_step):
     d2['layer_mass'] = w
     d2['rho'] = rho
 
+    # 3d variables
+    qrad = ngaqua.data_3d.QRAD.drop(['x', 'y'])
+    d2['QRAD'] = qrad.sel(time=time)
+
     return d2
 
 

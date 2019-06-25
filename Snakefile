@@ -22,6 +22,7 @@ DATA_PATH = config.get("data_path", "data/raw/2018-05-30-NG_5120x2560x34_4km_10s
 DATA_URL = "https://atmos.washington.edu/~nbren12/data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX.tar"
 NUM_STEPS = config.get('NSTEPS', 640)
 TRAINING_DATA = "data/processed/training/{data_name}.nc"
+RESHAPED_DATA = "data/processed/reshaped/{data_name}.zarr"
 TROPICS_DATA = "data/processed/tropics.nc"
 SAM_RESOLUTION = "128x64x34"
 sam_src = config.get("sam_path", "/opt/sam")
@@ -49,7 +50,7 @@ DEBIASED_MODEL = "debiased/{model}/{epoch}.pkl"
 # types = ["nn", "debiased"]
 # models = ["NNLower", "NNAll", "NNManuscript"]
 types = ["nn"]
-models = ["NNLower", "NNAll"]
+models = ["NNLower"]
 sam_params = ["samnn"]
 
 # SAM_RUNS = expand(SAM_RUN_STATUS, model=models, epoch=["5"], type=types, sam_params=sam_params)
@@ -91,10 +92,7 @@ SAM_PROCESSED_LOG = "data/tmp/{step}.log"
 
 ## RULES
 rule all:
-    input: all_figs, SAM_REPORTS
-
-rule figures:
-    input: all_figs
+    input: SAM_REPORTS
 
 rule nn_metrics:
     input: expand(NN_METRIC, model=models, epoch=epochs)
@@ -136,6 +134,14 @@ rule preprocess_process_with_sam_no_hypderdiff:
     output: temp("data/tmp/advectionOnly/{step}.nc")
     params: ngaqua_root=DATA_PATH, sigma=False
     script: "uwnet/data/preprocess.py"
+
+rule reshape_training_data:
+    input: TRAINING_DATA
+    output: directory(RESHAPED_DATA)
+    params:
+        variables = ('QT', 'SLI', 'SOLIN', 'SST', 'QRAD', 'FQT', 'FSLI'),
+        shuffle = True
+    script: "uwnet/data/reshape.py"
 
 rule tropical_subset:
     input: TRAINING_DATA
@@ -242,6 +248,8 @@ def get_training_data(wildcards):
         model_config = json.load(f)
         return model_config['data']
 
+rule train_models:
+    input: expand("nn/{model}/{epoch}.pkl", epoch=epochs, model=models)
 
 rule train_nn:
     input:
@@ -257,7 +265,7 @@ rule train_nn:
     """
 
 rule nn_metric:
-    input: get_training_data, "nn/{model}/{epoch}.pkl"
+    input: "data/processed/training/noBlur.nc", "nn/{model}/{epoch}.pkl"
     output: NN_METRIC
     resources: mem_mb=8000
     shell: "python uwnet/criticism/evaluate.py {input} > {output}"

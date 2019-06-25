@@ -50,8 +50,18 @@ def add_tuples(x, y):
     return tuple(xx + yy for xx, yy in zip(x, y))
 
 
-def moments(batch):
-    data = batch.data.double()
+def moments(data):
+    """Compute the first and second moments over first two dimensions
+
+    Parameters
+    ----------
+    data : TensorDict
+
+    Returns
+    -------
+    num_examples, ex, ex2
+    """
+    data = data.double()
     first_variable = first(data.values())
     shape = first_variable.shape
     num_examples = shape[1] * shape[0]

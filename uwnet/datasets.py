@@ -5,6 +5,9 @@ from torch.utils.data import Dataset
 from itertools import product
 import xarray as xr
 
+from uwnet.utils import dataset_to_broadcastable_array_dict
+from uwnet.tensordict import TensorDict
+
 
 def _stack_or_rename(x, **kwargs):
     for key, val in kwargs.items():
@@ -126,6 +129,49 @@ class XRTimeSeries(Dataset):
     def scale(self):
         std = self.std
         return valmap(lambda x: x.max(), std)
+
+
+from dataclasses import dataclass
+
+
+@dataclass
+class XarrayBatchLoader:
+    """Yield batches from an xarray"""
+    dataset: xr.Dataset
+    batch_size: int
+    dims: tuple = ('sample', 'time', 'z', 'x', 'y')
+    variables: list = None
+    torch: bool = False
+
+    @property
+    def batches(self):
+        n = self.num_samples
+        batch_size = self.batch_size
+        indices = list(range(0, n, batch_size)) + [n]
+        batches = [slice(i_start, i_end)
+                   for i_start, i_end in zip(indices[:-1], indices[1:])]
+        return batches
+
+
+    @property
+    def num_samples(self):
+        return len(self.dataset.sample)
+
+    def __len__(self):
+        return len(self.batches)
+
+    def __iter__(self):
+        for batch in self.batches:
+            if self.variables is None:
+                variables = list(self.dataset.data_vars)
+            else:
+                variables = self.variables
+            subset = self.dataset[variables].isel(sample=batch)
+            numpy_dict = dataset_to_broadcastable_array_dict(subset, dims=self.dims)
+            if self.torch:
+                yield TensorDict.from_numpy_dict(numpy_dict)
+            else:
+                yield numpy_dict
 
 
 def get_timestep(data):

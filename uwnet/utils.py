@@ -145,3 +145,33 @@ def map_dataset(dataset, fun, dim):
     bag = dataset_to_bag(chunked)
     transformed = bag.map(fun)
     return bag_to_dataset(transformed)
+
+
+def dataarray_to_broadcastable_array(
+        array : xr.DataArray, dims):
+    """Convert list an DataArray to an numpy array with a specified
+    dimenionality
+
+    Parameters
+    ----------
+    arrays: xr.DataArray
+    dims : Sequence[str]
+        desired ordering of the dimensions
+    """
+    # transpose data if necessary
+    dims_in_array = [dim for dim in dims
+                     if dim in array.dims]
+
+    transposed = array.transpose(*dims_in_array)
+
+    # expand null dims
+    index = tuple(slice(None) if dim in array.dims else None
+                  for dim in dims)
+
+    # get data
+    return transposed.data[index]
+
+
+def dataset_to_broadcastable_array_dict(dataset, dims):
+    return {key: dataarray_to_broadcastable_array(dataset[key], dims)
+            for key in dataset.data_vars}

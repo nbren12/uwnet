@@ -1,7 +1,7 @@
 {
 	"__doc__" : "Default configurations managed by sacred",
 	"batch_size" : 64,
-	"data" : "data/processed/training/noBlur.nc",
+	"data" : "data/processed/reshaped/noBlur.zarr",
 	"epochs" : 5,
 	"loss_scale" : {
 		"LHF" : 150,

@@ -45,7 +45,9 @@ build_image:
 	docker build -t nbren12/uwnet:latest .
 
 enter:
-	docker run -w $(shell pwd) -v $(shell pwd):$(shell pwd) -it nbren12/uwnet:latest bash
+	docker run -w /opt/uwnet -v $(shell pwd):/opt/uwnet \
+    --user $(shell id -u):$(shell id -g) \
+    -it nbren12/uwnet:latest bash
 
 test:
 	$(MACHINE_SCRIPTS)/run_tests.sh

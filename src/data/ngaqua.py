@@ -21,15 +21,22 @@ class NGAqua:
         return ds
 
     @property
-    def stat(self):
-        stat_path = join(self.basedir, 'stat.nc')
-        return xr.open_dataset(stat_path)
+    def data_3d(self):
+        path = join(self.basedir, "coarse", "3d", "all.nc")
+        ds = xr.open_dataset(path, chunks={'time': 1})
+        return ds
 
     @property
     def times_3d(self):
         path = join(self.basedir, "coarse", "3d", "all.nc")
         ds = xr.open_dataset(path, cache=False)
         return list(ds.time)
+
+    @property
+    def stat(self):
+        path = join(self.basedir, "stat.nc")
+        return xr.open_dataset(path)
+
 
 
 def _rename_var(z, coords):

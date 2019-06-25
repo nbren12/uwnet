@@ -34,7 +34,8 @@ from toolz import curry
 import torch
 from ignite.engine import Engine, Events
 from torch.utils.data import DataLoader
-from uwnet.datasets import XRTimeSeries, get_timestep
+from uwnet.thermo import sec_in_day
+from uwnet.datasets import XRTimeSeries, get_timestep, XarrayBatchLoader
 from uwnet.loss import get_input_output, get_step, weighted_mean_squared_error
 from uwnet.model import get_model
 from uwnet.pre_post import get_pre_post
@@ -42,7 +43,6 @@ from uwnet.training_plots import TrainingPlotManager
 
 ex = Experiment("Q1", interactive=True)
 
-XRTimeSeries = ex.capture(XRTimeSeries)
 TrainingPlotManager = ex.capture(TrainingPlotManager, prefix='plots')
 get_model = ex.capture(get_model, prefix='model')
 get_pre_post = ex.capture(get_pre_post, prefix='prepost')
@@ -52,6 +52,7 @@ get_pre_post = ex.capture(get_pre_post, prefix='prepost')
 def my_config():
     """Default configurations managed by sacred"""
     data = "data/processed/training.nc"
+    predict_radiation = True
     lr = .001
     epochs = 2
     model_dir = 'models'
@@ -74,15 +75,8 @@ def my_config():
     }
 
     # y indices to use for training
-    training_slices = dict(
-        y=(None, None),
-        x=(10, None),
-        time=(None, None), )
-
-    validation_slices = dict(
-        y=(None, None),
-        x=(0, 10),
-        time=(None, None), )
+    validation_slices = slice(0, 2000)
+    training_slices = slice(2000, None)
 
     output_dir = None
 
@@ -99,20 +93,26 @@ def my_config():
 
 
 @ex.capture
-def get_dataset(data):
+def get_dataset(data, predict_radiation):
     # _log.info("Opening xarray dataset")
     try:
         dataset = xr.open_zarr(data)
     except ValueError:
         dataset = xr.open_dataset(data)
 
-    # add constant vars
-    dataset['layer_mass'] = dataset.layer_mass.isel(time=0).drop('time')
+    if not predict_radiation:
+        dataset['FSLI'] = dataset['FSLI'] + dataset['QRAD'] / sec_in_day
 
     try:
         return dataset.isel(step=0).drop('step').drop('p')
     except:
         return dataset
+
+
+def get_plot_manager(model):
+    from src.data import open_data
+    dataset = open_data('training')
+    return TrainingPlotManager(ex, model, dataset)
 
 
 @ex.capture
@@ -127,28 +127,23 @@ def get_data_loader(data: xr.Dataset, train, training_slices,
     else:
         slices = validation_slices
 
-    ds = data.isel(
-        y=slice(*slices['y']),
-        x=slice(*slices['x']),
-        time=slice(*slices['time']))
+    ds = data.isel(sample=slices)
 
-    def my_collate_fn(batch):
-        return Batch(default_collate(batch), prognostics)
+    # List needed variables
+    variables = prognostics + ['SST', 'SOLIN', 'QRAD']
+    for variable in prognostics:
+        forcing_key = 'F' + variable
+        variables.append(forcing_key)
 
-    train_data = XRTimeSeries(ds)
-
-    if len(train_data) == 0:
-        raise ValueError("No data available. Are any of the slices in "
-                         "training_slices or validation_slices length 0.")
-    return DataLoader(
-        train_data,
-        batch_size=batch_size,
-        shuffle=True,
-        collate_fn=my_collate_fn)
+    train_data = XarrayBatchLoader(ds, batch_size=batch_size, variables=variables, torch=True)
+    return train_data
 
 
 def get_validation_engine(model, dt):
-    def _validate(engine, batch):
+    def _validate(engine, data):
+        from uwnet.timestepper import Batch
+        # TODO this code duplicaates loss.py:107
+        batch = Batch(data.float(), prognostics=['QT', 'SLI'])
         return get_input_output(model, dt, batch)
 
     return Engine(_validate)
@@ -197,7 +192,7 @@ class Trainer(object):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
         self.criterion = weighted_mean_squared_error(
             weights=self.mass / self.mass.mean(), dim=-3)
-        self.plot_manager = TrainingPlotManager(ex, self.model, self.dataset)
+        self.plot_manager = get_plot_manager(self.model)
         self.setup_validation_engine()
         self.setup_engine()
 
