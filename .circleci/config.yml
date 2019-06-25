@@ -1,0 +1,11 @@
+version: 2
+jobs:
+ build:
+   machine: true
+   steps:
+     - checkout
+     - run: docker build -t nbren12/uwnet:$CIRCLE_BRANCH .
+     # run tests
+     - run: |
+        docker run -w /opt/uwnet -v $PWD:/opt/uwnet  nbren12/uwnet:$CIRCLE_BRANCH pytest
+        docker run -w /opt/uwnet -v $PWD:/opt/uwnet  nbren12/uwnet:$CIRCLE_BRANCH tests/test_sam_nn_integration_in_docker.sh
