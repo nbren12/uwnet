@@ -32,6 +32,7 @@ from sacred import Experiment
 from toolz import curry
 
 import torch
+from torch.optim.lr_scheduler import StepLR
 from ignite.engine import Engine, Events
 from torch.utils.data import DataLoader
 from uwnet.thermo import sec_in_day
@@ -90,6 +91,8 @@ def my_config():
         name='instability',
         kwargs={'alpha': 1.0}
     )
+    lr_decay_rate = None
+    lr_step_size = 5
 
 
 @ex.capture
@@ -170,7 +173,8 @@ class Trainer(object):
     """
 
     @ex.capture
-    def __init__(self, _run, lr, loss_scale):
+    def __init__(self, _run, lr, loss_scale,
+                 lr_decay_rate=None, lr_step_size=5):
         # setup logging
         logging.basicConfig(level=logging.INFO)
 
@@ -190,11 +194,22 @@ class Trainer(object):
         self.test_loader = get_data_loader(self.dataset, train=False)
         self.model = get_model(*get_pre_post(self.dataset, self.train_loader))
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
+
+        if lr_decay_rate is None:
+            self.lr_scheduler = None
+        else:
+            self.lr_scheduler = StepLR(
+                self.optimizer, step_size=lr_step_size, gamma=lr_decay_rate)
+
         self.criterion = weighted_mean_squared_error(
             weights=self.mass / self.mass.mean(), dim=-3)
         self.plot_manager = get_plot_manager(self.model)
         self.setup_validation_engine()
         self.setup_engine()
+
+    def step_lr_scheduler(self):
+        if self.lr_scheduler is not None:
+            self.lr_scheduler.step()
 
     def log_validation_results(self, trainer):
         self.tester.run(self.test_loader)
@@ -284,6 +299,8 @@ class Trainer(object):
             torch.save(self.model, epoch_file)
             ex.add_artifact(epoch_file)
             self.plot_manager(engine)
+
+        self.step_lr_scheduler()
 
     def _make_work_dir(self):
         try:

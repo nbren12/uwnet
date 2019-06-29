@@ -29,7 +29,7 @@ sam_src = config.get("sam_path", "/opt/sam")
 print("SAM_SRC", sam_src)
 DOCKER = config.get("docker", True)
 TODAY = get_current_date_string()
-num_epoch = config.get("num_epoch", 5)
+num_epoch = config.get("num_epoch", 20)
 epochs = list(range(1, num_epoch+1))
 
 # wildcard targets
@@ -50,7 +50,7 @@ DEBIASED_MODEL = "debiased/{model}/{epoch}.pkl"
 # types = ["nn", "debiased"]
 # models = ["NNLower", "NNAll", "NNManuscript"]
 types = ["nn"]
-models = ["NNLower"]
+models = ["NNLower", "NNLowerDecayLR"]
 sam_params = ["samnn"]
 
 # SAM_RUNS = expand(SAM_RUN_STATUS, model=models, epoch=["5"], type=types, sam_params=sam_params)
