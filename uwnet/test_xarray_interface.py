@@ -35,7 +35,7 @@ def test_call_with_xr_empty_data_fails():
     da = init_dataarray(shape).to_dataset(name=name)
     mock = Mock()
     with pytest.raises(
-            ValueError, message="'y' dimension of 'a' has length 0"):
+            ValueError, match="'y' dimension of 'a' has length 0"):
         call_with_xr(mock, da)
 
 
