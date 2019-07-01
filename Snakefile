@@ -50,7 +50,7 @@ DEBIASED_MODEL = "debiased/{model}/{epoch}.pkl"
 # types = ["nn", "debiased"]
 # models = ["NNLower", "NNAll", "NNManuscript"]
 types = ["nn"]
-models = ["NNLower", "NNLowerDecayLR"]
+models = ["NNLowerDecayLR"]
 sam_params = ["samnn"]
 
 # SAM_RUNS = expand(SAM_RUN_STATUS, model=models, epoch=["5"], type=types, sam_params=sam_params)
@@ -60,9 +60,7 @@ SAM_REPORTS = []
 def add_report(type, model, epoch, sam_params='samnn'):
     SAM_REPORTS.append(VISUALIZE_SAM_DIR.format(sam_params=sam_params, type=type, model=model, epoch=str(epoch)))
 
-add_report('nn', 'NNLower', 4)
-add_report('nn', 'NNLower', 4, sam_params='samnn_khyp1e15')
-add_report('nn', 'NNAll', 5)
+add_report('nn', 'NNLowerDecayLR', 20)
 
 # Plots
 scripts = ['bias','qp_acf',

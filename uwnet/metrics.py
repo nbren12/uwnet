@@ -68,5 +68,6 @@ def read_metrics_files():
 
     model_info = df.path.str.extract("(?P<type>.*?)/(?P<model>.*?)/(?P<epoch>.*).json")
     df_with_info = pd.concat([df, model_info], axis=1)
+    df_with_info['epoch'] = df_with_info.epoch.astype(int)
 
     return df_with_info.set_index(['type', 'model', 'epoch', 'path'])
