@@ -13,6 +13,7 @@ RCLONE_REMOTE ?= uwgoogledrive
 TRAINING_CONFIG=examples/sl_qt.config.yaml
 TRAINING_DATA ?= data/processed/2018-10-02-ngaqua-subset.nc
 DOCKER_IMAGE ?= nbren12/uwnet:latest
+DOCKER = nvidia-docker
 MACHINE ?= docker
 
 MACHINE_SCRIPTS = setup/$(MACHINE)
@@ -45,7 +46,7 @@ build_image:
 	docker build -t nbren12/uwnet:latest .
 
 enter:
-	docker run -w /opt/uwnet -v $(shell pwd):/opt/uwnet \
+	$(DOCKER) run -w /opt/uwnet -v $(shell pwd):/opt/uwnet \
     --user $(shell id -u):$(shell id -g) \
     -it nbren12/uwnet:latest bash
 
