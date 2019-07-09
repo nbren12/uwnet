@@ -73,9 +73,10 @@ def plot_struct_eig(eig):
 
 def plot_struct_eig_p(vec,
                       p,
+                      rho,
                       w_range=(-1, 1),
-                      s_range=(-2, 2),
-                      q_range=(-3, 3)):
+                      s_range=(-.5, .5),
+                      q_range=(-.5, .5)):
 
     fig, axs = plt.subplots(1, 3, figsize=(10, 3),
                             constrained_layout=True, sharey=True, sharex=True)
@@ -84,8 +85,8 @@ def plot_struct_eig_p(vec,
 
     w, s, q = np.split(vec, 3)
 
-    # convert to cm per second
-    w = w * 100
+    # convert to mb/hr
+    w = thermo.omega_from_w(w, rho) * 3600 / 100
     # normalize by maximum w
     scale = np.max(np.abs(w))
     w, s, q = w/scale, s/scale, q/scale
@@ -99,7 +100,7 @@ def plot_struct_eig_p(vec,
 
     im = plot_struct_2d(w, p, ax=axs[0], **get_kwargs(w_range))
     plt.colorbar(im, ax=axs[0], fraction=.1)
-    axs[0].set_title('W (cm/s)')
+    axs[0].set_title(r'$\omega$ (hPa/hr)')
 
     im = plot_struct_2d(s, p, ax=axs[1], **get_kwargs(s_range))
     plt.colorbar(im, ax=axs[1])
@@ -182,7 +183,7 @@ def plot_compare_stability_models(data=None):
     return data
 
 
-def plot_structure(coupler, p, wave_length, phase_speed, growth_rate):
+def plot_structure(coupler, p, rho, wave_length, phase_speed, growth_rate, **kwargs):
     # get closest eigenvector
     k = 2*np.pi/wave_length
     A = coupler.system_matrix(k)
@@ -195,7 +196,7 @@ def plot_structure(coupler, p, wave_length, phase_speed, growth_rate):
     value = values[closest_index]
 
     # plot the eigenpair
-    plot_struct_eig_p(vector, p)
+    plot_struct_eig_p(vector, p, rho, **kwargs)
     cp = -value.imag/k
     gr = value.real *86400
     plt.suptitle(f"Gr = {gr:.2f}; Cp={cp:.2f} ")
@@ -205,14 +206,14 @@ def plot_structure_nnlower_unstable_mode(**kwargs):
     path = "../../nn/NNLowerDecayLR/20.pkl"
     coupler, mean = get_coupler(path)
     p = np.array(mean.p)
-    plot_structure(coupler, p, **kwargs)
+    plot_structure(coupler, p, mean.rho.values, **kwargs)
 
 
 def plot_structure_nnall_unstable_mode(**kwargs):
     path = "../../nn/NNAll/20.pkl"
     coupler, mean = get_coupler(path)
     p = np.array(mean.p)
-    plot_structure(coupler, p, **kwargs)
+    plot_structure(coupler, p, mean.rho.values, **kwargs)
 
 
 def get_linear_response_functions():
