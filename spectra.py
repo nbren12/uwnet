@@ -127,14 +127,11 @@ def get_mean_data():
     return mean
 
 
-
 def get_coupler(path):
     mean = get_mean_data()
     model = torch.load(path)
     src_original = model_plus_damping(model,d0=1/86400/5)
-    return WaveCoupler.from_xarray_and_source(mean, source=src_original), mean
-
-
+    return WaveCoupler.from_xarray_and_source(mean, source=src_original, lrf_lid={'s': 20, 'q': 20}), mean
 
     
 def get_data():
