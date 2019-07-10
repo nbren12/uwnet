@@ -1,0 +1,49 @@
+On branch separate-qrad
+Your branch is up to date with 'origin/separate-qrad'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git checkout -- <file>..." to discard changes in working directory)
+
+	modified:   notebooks/lrf_paper/plots.ipynb
+	modified:   notebooks/metrics.ipynb
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+
+	.vscode/
+	notebook_to_reports.sh
+	notebooks/2019-04-16-Wave-equation-analysis-no-source.lyx
+	notebooks/2019-04-16-Wave-equation-analysis-no-source.lyx~
+	notebooks/2019-04-16-Wave-equation-analysis-no-source.tex
+	notebooks/Untitled.ipynb
+	notebooks/discuss-continuous-coordinates.ipynb
+	regression_data_0.001.csv
+
+no changes added to commit (use "git add" and/or "git commit -a")
+Git commit id:
+e4b9962356deafa9b011a308ef207ba8c6363ba7
+Git status:
+On branch separate-qrad
+Your branch is up to date with 'origin/separate-qrad'.
+
+Changes not staged for commit:
+  (use "git add <file>..." to update what will be committed)
+  (use "git checkout -- <file>..." to discard changes in working directory)
+
+	modified:   notebooks/lrf_paper/plots.ipynb
+	modified:   notebooks/metrics.ipynb
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+
+	.vscode/
+	notebook_to_reports.sh
+	notebooks/2019-04-16-Wave-equation-analysis-no-source.lyx
+	notebooks/2019-04-16-Wave-equation-analysis-no-source.lyx~
+	notebooks/2019-04-16-Wave-equation-analysis-no-source.tex
+	notebooks/Untitled.ipynb
+	notebooks/discuss-continuous-coordinates.ipynb
+	regression_data_0.001.csv
+
+no changes added to commit (use "git add" and/or "git commit -a")
