@@ -27,15 +27,10 @@ def get_eigen_pair_xarray(wave, k):
     return xr.Dataset({'value': (['m'], lam), 'vector':(['f', 'm'], r)}, coords={'k': k})
 
 
-def get_spectrum(wave):
+def compute_spectrum(wave):
     k = 2*np.pi * np.r_[:128] / 40e6
     eigs = [get_eigen_pair_xarray(wave, kk) for kk in k]
     return xr.concat(eigs, dim='k')
-
-
-def get_sorted_spectrum(wave):
-    eig = get_spectrum(wave)
-    return eig.groupby('k').apply(sortbyvalue)
 
 
 def plot_struct_x(eig):
@@ -83,6 +78,9 @@ def plot_struct_eig_p(vec,
 
     axs[0].invert_yaxis()
 
+    p = np.asarray(p)
+    rho = np.asarray(rho)
+
     w, s, q = np.split(vec, 3)
 
     # convert to mb/hr
@@ -117,7 +115,7 @@ def most_unstable(eig, c=100):
     return eig.isel(m=m)
 
 
-def scatter_spectra(eig, ax=None):
+def scatter_spectra(eig, ax=None, symlogy=True):
     if ax is None:
         ax = plt.gca()
 
@@ -128,13 +126,14 @@ def scatter_spectra(eig, ax=None):
 
     ax.scatter(cp , gr, c=plt.cm.Blues(k/k.max()), s=.5)
     ax.set_ylim(gr.min(), gr.max())
-    ax.set_yscale('symlog', linthreshy=.1)
-    ax.set_xticks([-50,-25,0,25,50])
+    if symlogy:
+        ax.set_yscale('symlog', linthreshy=.1)
+    # ax.set_xticks([-50,-25,0,25,50])
     ax.grid()
 
 def get_spectra_for_path(path):
     wave, mean = get_coupler(path)
-    eig = get_spectrum(wave)
+    eig = compute_spectrum(wave)
     eig['z'] = mean.z
     eig['p'] = mean.p
     return eig
