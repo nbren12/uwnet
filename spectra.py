@@ -27,8 +27,11 @@ def get_eigen_pair_xarray(wave, k):
     return xr.Dataset({'value': (['m'], lam), 'vector':(['f', 'm'], r)}, coords={'k': k})
 
 
-def compute_spectrum(wave):
-    k = 2*np.pi * np.r_[:128] / 40e6
+def compute_spectrum(wave, long_wave_km=40e6, short_wave_km=100e3):
+    high_freq = 2 *np.pi / short_wave_km
+    low_freq = 2*np.pi / long_wave_km
+
+    k = np.linspace(low_freq, high_freq, 100)
     eigs = [get_eigen_pair_xarray(wave, kk) for kk in k]
     return xr.concat(eigs, dim='k')
 
@@ -115,7 +118,7 @@ def most_unstable(eig, c=100):
     return eig.isel(m=m)
 
 
-def scatter_spectra(eig, ax=None, symlogy=True):
+def scatter_spectra(eig, ax=None, symlogy=True, cbar=True):
     if ax is None:
         ax = plt.gca()
 
@@ -124,12 +127,14 @@ def scatter_spectra(eig, ax=None, symlogy=True):
 
     cp, gr, k = [_.values.ravel() for _ in xr.broadcast(cp, gr, eig.k)]
 
-    ax.scatter(cp , gr, c=plt.cm.Blues(k/k.max()), s=.5)
+
+    im = ax.scatter(cp , gr, c=k, cmap='viridis', s=10)
     ax.set_ylim(gr.min(), gr.max())
     if symlogy:
         ax.set_yscale('symlog', linthreshy=.1)
     # ax.set_xticks([-50,-25,0,25,50])
-    ax.grid()
+    cb = plt.colorbar(im, ax=ax)
+    # cb.set_label(r"Wave number (1 / 2* pi 1000 km)")
 
 def get_spectra_for_path(path):
     wave, mean = get_coupler(path)
@@ -182,23 +187,27 @@ def plot_compare_stability_models(data=None):
     return data
 
 
-def plot_structure(coupler, p, rho, wave_length, phase_speed, growth_rate, **kwargs):
-    # get closest eigenvector
-    k = 2*np.pi/wave_length
-    A = coupler.system_matrix(k)
-    values, vectors = np.linalg.eig(A)
-
-    # get the matching eigenvector and value
+def find_eig(values, k, phase_speed, growth_rate):
     query = -phase_speed * 1j * k + growth_rate / 86400
     closest_index = np.argmin(np.abs(values-query))
+    return closest_index
+
+
+def plot_structure(coupler, p, rho, k, phase_speed, growth_rate, **kwargs):
+    # get closest eigenvector
+    values, vectors = coupler.get_eigen_pair(k)
+
+    # get the matching eigenvector and value
+    closest_index = find_eig(values, k, phase_speed, growth_rate)
     vector = vectors[:, closest_index]
     value = values[closest_index]
 
     # plot the eigenpair
     plot_struct_eig_p(vector, p, rho, **kwargs)
     cp = -value.imag/k
-    gr = value.real *86400
-    plt.suptitle(f"Gr = {gr:.2f}; Cp={cp:.2f} ")
+    gr = value.real * 86400
+    wave_length = 2*np.pi / k / 1000
+    plt.suptitle(rf"$\sigma$ = {gr:.2f}; $c_p$ ={cp:.2f}; $\lambda$={wave_length:.0f} km")
 
 
 def plot_structure_nnlower_unstable_mode(**kwargs):
@@ -243,3 +252,27 @@ def plot_compare_models_lrfs():
         axs[k].set_ylabel(r'$\Im$ (1/day)')
 
     axs[-1].set_xlabel(r'$\Re $(1/day)')
+
+
+def spectra_report(model_path,
+                   xlim_zoom=(-1, 1),
+                   structure_plots=((1.0, .2), (0, .9))):
+    coupler, mean = get_coupler(model_path)
+    eig = compute_spectrum(coupler)
+
+
+    with plt.style.context('ggplot'):
+        scatter_spectra(eig)
+        plt.figure()
+        scatter_spectra(eig, symlogy=False)
+        plt.xlim(xlim_zoom)
+        plt.ylim(bottom=0)
+
+        for k, cp, gr in structure_plots:
+            plt.figure()
+            plot_structure(coupler,
+                           mean.p,
+                           mean.rho,
+                           k,
+                           phase_speed=cp,
+                           growth_rate=gr)
