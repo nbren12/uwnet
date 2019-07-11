@@ -7,7 +7,7 @@ from src.data import open_data
 from uwnet.thermo import *
 
 
-def tropical_data():
+def subtropical_data():
     # load model and datya
     ds = open_data('training').sel(time=slice(120,140))
     p = open_data('pressure')
@@ -18,8 +18,12 @@ def tropical_data():
     ds['lts'] = lower_tropospheric_stability(ds.TABS, p, ds.SST, ds.Ps)
     ds['path'] = midtropospheric_moisture(ds.QV, p, bottom=850, top=600)
 
-    # select the tropics
-    tropics = ds.isel(y=(np.abs(lat)<  11))
+    # select the sub-tropics
+#     subtropics = (11 < np.abs(lat)) & (np.abs(lat) < 22.5)
+    subtropics = (np.abs(lat) < 22.5) & (np.abs(lat)>  11.25)
+    tropics_lat = (np.abs(lat) < 11.25)
+
+    tropics = ds.isel(y=subtropics)
 
     return tropics
 
@@ -114,6 +118,14 @@ def plot_line_by_key_altair(ds, key, title_fn=lambda x: '', cmap='viridis', c_so
     return alt.hconcat(chart_q1, chart_q2, title=title_fn(ds))
     
 
+def heating_weighted_height(q1, layer_mass):
+    weight = np.maximum(q1,0)  * layer_mass
+    weight = weight/weight.sum('z', skipna=False)
+    metric = (weight*q1.z).sum('z', skipna=False)
+    return metric.rename('heating_weighted_height')
+    
+    
+
 def get_data():
     """Get data averaged over a (LTS, mid trop humidity) space"""
     lts_plot_path = "sensitivity_to_lts.pdf"
@@ -121,11 +133,11 @@ def get_data():
     model_path = "../../../nn/NNLowerDecayLR/20.pkl"
 
     # bins for moisture and lower tropospheric stability
-    moisture_bins = np.linspace(0, 30, 30)
-    lts_bins = np.linspace(7.5, 17.5, 20)
+    moisture_bins = np.arange(15)*2
+    lts_bins = np.r_[7.5:17.5:.5]
 
     # load data
-    tropics = tropical_data()
+    tropics = subtropical_data()
     model = torch.load(model_path)
 
     # compute averages
@@ -133,9 +145,11 @@ def get_data():
     counts = groupby_2d(tropics, lambda x: x.gridcell.count(), lts_bins, moisture_bins)
 
     # compute nn output and diagnostics within bins
+    mass = tropics.layer_mass[0]
     output = compute_nn(model, bin_averages, ['path_bins', 'lts_bins'])
-    p_minus_e = integrate_q2(output.QT, tropics.layer_mass[0]).rename('net_precipitation')
-    heating = integrate_q1(output.SLI, tropics.layer_mass[0]).rename('net_heating')
+    p_minus_e = -integrate_q2(output.QT, tropics.layer_mass[0]).rename('net_precipitation')
+    heating = integrate_q2(output.SLI, mass).rename('net_heating')
+    
     
     # form into one dataset
     return xr.merge([
@@ -145,6 +159,7 @@ def get_data():
         }),
         p_minus_e,
         heating,
+        heating_weighted_height(output.SLI, mass),
         bin_averages,
         counts.rename('count')
     ])
