@@ -20,12 +20,11 @@ def subtropical_data():
 
     # select the sub-tropics
 #     subtropics = (11 < np.abs(lat)) & (np.abs(lat) < 22.5)
-    subtropics = (np.abs(lat) < 22.5) & (np.abs(lat)>  11.25)
+    subtropics = (np.abs(lat) < 22.5) #& (np.abs(lat)>  11.25)
     tropics_lat = (np.abs(lat) < 11.25)
+    
 
-    tropics = ds.isel(y=subtropics)
-
-    return tropics
+    return ds.isel(y=subtropics)
 
 
 def compute_nn(model, averages, dims):
