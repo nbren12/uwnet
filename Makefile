@@ -59,9 +59,12 @@ sync_to_gcs:
 	gsutil rsync -r nn $(BUCKET)/nn
 
 gcs_to_local:
-	gsutil rsync -r $(BUCKET)/data/processed data/processed 
-	gsutil rsync -r $(BUCKET)/data/raw data/raw 
-	gsutil rsync -r $(BUCKET)/nn nn 
+	mkdir -p data/processed
+	gsutil rsync -r $(BUCKET)/data/processed data/processed
+	mkdir -p data/raw
+	gsutil rsync -r $(BUCKET)/data/raw data/raw
+	mkdir -p nn
+	gsutil -m rsync -r $(BUCKET)/nn ./nn
 
 
 upload_figs:
