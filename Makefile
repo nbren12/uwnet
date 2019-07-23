@@ -5,7 +5,7 @@
 #################################################################################
 
 PROJECT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-BUCKET =gs://uwnet-data
+BUCKET = gs://vcm-ml-data/project_data/uwnet
 # PROFILE = {{ cookiecutter.aws_profile }}
 PROJECT_NAME = uwnet
 PYTHON_INTERPRETER = python
@@ -56,6 +56,13 @@ test:
 sync_to_gcs:
 	gsutil rsync -r data/processed $(BUCKET)/data/processed
 	gsutil rsync -r data/raw $(BUCKET)/data/raw
+	gsutil rsync -r nn $(BUCKET)/nn
+
+gcs_to_local:
+	gsutil rsync -r $(BUCKET)/data/processed data/processed 
+	gsutil rsync -r $(BUCKET)/data/raw data/raw 
+	gsutil rsync -r $(BUCKET)/nn nn 
+
 
 upload_figs:
 	scp notebooks/papers/*.png notebooks/papers/*.pdf \
