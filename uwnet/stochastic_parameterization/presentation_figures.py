@@ -1,5 +1,9 @@
 import torch
+import numpy as np
 from matplotlib import pyplot as plt
+from scipy.stats import gaussian_kde
+from uwnet.stochastic_parameterization.choose_bins import \
+    optimize_binning_quantiles
 import xarray as xr
 from uwnet.thermo import (
     compute_apparent_source,
@@ -132,11 +136,37 @@ def plot_3d_vars():
         plt.show()
 
 
+def plot_optimal_bins():
+    n_bins = 7
+    binning_quantiles = optimize_binning_quantiles(n_bins, verbose=False)
+    print(f'Binning Quantiles: {np.round(binning_quantiles, 4)}')
+    ax = plt.axes()
+    p = gaussian_kde(ds)
+    lower_percentile = 0.001
+    upper_percentile = 99.999
+    p1 = np.percentile(ds, lower_percentile)
+    p2 = np.percentile(ds, upper_percentile)
+    xx = np.linspace(p1, p2, 100)
+    y = np.log(p(xx))
+    ax.plot(xx, y)
+    ax.set_xlim([p1, p2])
+    bin_values = [np.quantile(ds, quantile) for quantile in binning_quantiles]
+    for bin_value in bin_values:
+        plt.axvline(x=bin_value, col='r')
+    plt.title(
+        f'Optimal {n_bins} bins superimposed on column integrated QT residuals'
+    )
+    plt.ylabel('Log Density')
+    plt.xlabel('Column Integrated QT Residual')
+    plt.show()
+
+
 if __name__ == '__main__':
     base_model = torch.load(dir_ + 'base_model.pkl')
     stochastic_model = torch.load(dir_ + 'stochastic_model.pkl')
     # plot_net_heating(base_model, ds)
     # plot_2d_vars()
     # plot_2d_over_time()
-    plot_net_precip(stochastic_model, base_model, ds)
+    # plot_net_precip(stochastic_model, base_model, ds)
     # plot_3d_vars()
+    plot_optimal_bins()

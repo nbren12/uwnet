@@ -392,17 +392,17 @@ if __name__ == '__main__':
     # )
     # base_model.train()
     base_model = torch.load(dir_ + 'base_model.pkl')
-    # model = StochasticStateModel(
-    #     ds_location=ds_location,
-    #     eta_coarsening=None,
-    #     t_start=0,
-    #     t_stop=250,
-    #     blur_sigma=None,
-    #     base_model_location=dir_ + 'full_model/1.pkl',
-    #     verbose=True
-    # )
-    # model.train()
-    model = torch.load(dir_ + 'stochastic_model_mlp.pkl')
+    model = StochasticStateModel(
+        ds_location=ds_location,
+        t_start=0,
+        t_stop=50,
+        blur_sigma=None,
+        eta_coarsening=2,
+        base_model_location=dir_ + 'full_model/1.pkl',
+        verbose=True
+    )
+    model.train()
+    # model = torch.load(dir_ + 'stochastic_model_mlp.pkl')
     # evaluate_stochasticity_of_model(model)
     # plot_true_eta_vs_simulated_eta(model)
     compare_true_to_simulated_q1_q2_distributions(
