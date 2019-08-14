@@ -9,7 +9,6 @@ from uwnet.stochastic_parameterization.utils import (
     default_binning_method,
     get_dataset,
     model_dir,
-    dataset_dt_seconds,
     default_ds_location,
     default_base_model_location,
     default_eta_transitioner_predictors,
@@ -38,7 +37,6 @@ class StochasticStateModel(nn.Module, XRCallMixin):
             self,
             dims=(64, 128),
             dt_seconds=10800,
-            eta_transitioner_dt_seconds=10800,
             prognostics=['QT', 'SLI'],
             residual_model_inputs=model_inputs,
             max_sli_for_residual_model=18,
@@ -89,10 +87,6 @@ class StochasticStateModel(nn.Module, XRCallMixin):
         self.prognostics = prognostics
         self.possible_etas = list(range(len(binning_quantiles)))
         self._dt_seconds = dt_seconds
-        self.eta_transitioner_dt_seconds = eta_transitioner_dt_seconds
-        if eta_transitioner_dt_seconds != dt_seconds:
-            warnings.warn(
-                'Eta Transitioner and Stochastic Model have differnet dts')
         self.setup_eta(time_idx_to_use_for_eta_initialization)
         self.residual_model_class = residual_model_class
         self.base_model = torch.load(base_model_location)
@@ -120,7 +114,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
     def setup_eta_transitioner(self):
         transitioner = EtaTransitioner(
             ds_location=self.ds_location,
-            dt_seconds=self.eta_transitioner_dt_seconds,
+            dt_seconds=self.dt_seconds,
             model=self.eta_transitioner_model,
             poly_degree=self.eta_transitioner_poly_degree,
             t_start=self.t_start,
@@ -270,7 +264,7 @@ class StochasticStateModel(nn.Module, XRCallMixin):
                 ds_location=self.ds_location,
                 t_start=self.t_start,
                 t_stop=self.t_stop,
-                eta_coarsening=None,
+                eta_coarsening=self.eta_coarsening,
                 binning_quantiles=self.binning_quantiles,
                 binning_method=self.binning_method,
                 base_model_location=self.base_model_location,

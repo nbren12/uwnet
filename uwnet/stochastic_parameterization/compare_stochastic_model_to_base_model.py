@@ -6,7 +6,7 @@ from uwnet.thermo import lhf_to_evap
 
 
 plt.style.use('tableau-colorblind10')
-plot_stochastic = True
+plot_stochastic = False
 
 
 def plot_net_precip_at_one_day(ds_s, ds_b, ds_true):
@@ -72,15 +72,15 @@ def plot_total_pw_over_time(
 
 def plot_npnn_over_time(ds_s, ds_b, ds_true, ds_no_parameterization=None):
     if plot_stochastic:
-        ds_s.isel(y=range(28, 36)).NPNN.mean(['x', 'y']).plot(
+        ds_s.NPNN.isel(y=range(30, 34)).mean(['x', 'y']).plot(
             label='Stochastic Neural Network Parameterization')
-    ds_b.isel(y=range(28, 36)).NPNN.mean(['x', 'y']).plot(
+    ds_b.NPNN.mean(['x', 'y']).plot(
         label='Neural Network Parameterization')
-    ds_true.isel(y=range(28, 36)).NPNN.mean(['x', 'y']).plot(label='True Data')
-    plt.ylabel('Mean NPNN in Tropics (mm/day)')
+    ds_true.NPNN.isel(y=range(30, 34)).mean(['x', 'y']).plot(label='True Data')
+    plt.ylabel('Mean Net Precipitation in Tropics (mm/day)')
     plt.xlabel('Time (hours)')
     plt.legend(loc='best')
-    plt.title('Mean NPNN in Tropics over Time')
+    plt.title('Mean Net Precipitation in Tropics over Time')
     plt.show()
 
 
@@ -198,11 +198,13 @@ if __name__ == '__main__':
     # ds_no_param = None
     # ds_no_param = xr.open_dataset(dir_ + 'no_parameterization_long_run.nc')
     # ds_s = xr.open_dataset(dir_ + 'stochastic_model_gcm_output_long_run.nc')
+    # ds_s = xr.open_dataset(dir_ + 'stochastic_model_gcm_output_coarse_grained.nc')
     ds_s = xr.open_dataset(dir_ + 'stochastic_model_gcm_output_good.nc')
     # ds_s = xr.open_dataset(dir_ + 'stochastic_model_gcm_output_short_dt.nc')
     # ds_s = xr.open_dataset(dir_ + 'no_hyper_diffuse.nc')
     # ds_b = xr.open_dataset(dir_ + 'base_model_gcm_output_long_run.nc')
     ds_b = xr.open_dataset(dir_ + 'base_model_gcm_output.nc')
+    # ds_b = xr.open_dataset(dir_ + 'stochastic_model_gcm_output_good.nc')
     # ds_b = xr.open_dataset(dir_ + 'no_hyper_diffuse_base_model.nc')
     ds_true = get_dataset(
         ds_location="/Users/stewart/projects/uwnet/uwnet/stochastic_parameterization/training.nc",  # noqa
@@ -212,10 +214,10 @@ if __name__ == '__main__':
     ds_true['NPNN'] = ds_true.Prec - lhf_to_evap(ds_true.LHF)
     # plot_u_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param)
     # plot_v_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param)
-    plot_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param, 'PW')
-    plot_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param, 'NPNN')
-    plot_net_precip_at_one_day(ds_s, ds_b, ds_true)
+    # plot_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param, 'PW')
+    # plot_rmse_over_time(ds_s, ds_b, ds_true, ds_no_param, 'NPNN')
+    # plot_net_precip_at_one_day(ds_s, ds_b, ds_true)
     # plot_total_pw_over_time(ds_s, ds_b, ds_true, ds_no_param)
-    # plot_npnn_over_time(ds_s, ds_b, ds_true)
-    plot_zonal_mean_npnn_over_time(ds_s, ds_b, ds_true)
+    plot_npnn_over_time(ds_s, ds_b, ds_true)
+    # plot_zonal_mean_npnn_over_time(ds_s, ds_b, ds_true)
     # plot_pw_tropics_zonal_variance_over_time(ds_s, ds_b, ds_true, ds_no_param)

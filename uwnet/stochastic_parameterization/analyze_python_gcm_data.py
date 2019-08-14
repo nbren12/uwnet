@@ -100,6 +100,7 @@ def plot_tropics_eta_distribution_over_time():
 
 def plot_nn_output_vs_true():
     no_param_run = load_files()
+    import pdb; pdb.set_trace()
     ds_no_param = get_dataset(
         ds_location=ds_dir + "training.nc",  # noqa
         set_eta=False,

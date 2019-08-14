@@ -86,21 +86,20 @@ def get_model(config):
     type = config['type']
     if type == 'neural_network':
         # model = torch.load(config['path'])
-        # model = StochasticStateModel(
-        #     dt_seconds=120,
-        #     # eta_transitioner_dt_seconds=30,
-        #     markov_process=True,
-        #     t_start=0,
-        #     t_stop=50,
-        #     eta_coarsening=None,
-        #     blur_sigma=None,
-        #     base_model_location='full_model/1.pkl',
-        #     ds_location='training.nc',
-        #     binning_quantiles=(1,),
-        #     time_idx_to_use_for_eta_initialization=0)
-        # model.train()
+        model = StochasticStateModel(
+            dt_seconds=120,
+            markov_process=True,
+            t_start=0,
+            t_stop=120,
+            eta_coarsening=4,
+            blur_sigma=None,
+            base_model_location='full_model/1.pkl',
+            ds_location='training.nc',
+            # binning_quantiles=(1,),
+            time_idx_to_use_for_eta_initialization=0)
+        model.train()
         # model.eval()
-        model = torch.load('stochastic_model.pkl')
+        # model = torch.load('stochastic_model.pkl')
         model.dt_seconds = 120
         return CFVariableNameAdapter(
             NumpyWrapper(model), label='neural_network')

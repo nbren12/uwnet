@@ -5,8 +5,7 @@ from uwnet.thermo import integrate_q2
 from uwnet.stochastic_parameterization.graph_utils import loghist
 
 ds_run = xr.open_dataset('/Users/stewart/Desktop/stochastic_out_3d.nc')
-ds_true = get_dataset(t_start=0, t_stop=80)
-
+ds_true = get_dataset(t_start=0, t_stop=80, set_eta=False)
 ds_run = ds_run.isel(y=range(28, 36))
 ds_true = ds_true.isel(y=range(28, 36))
 
