@@ -1,5 +1,9 @@
 bucket = "gs://vcm-ml-static/2019-08-19-noah-lrf-paper/"
-figures = spectra_input_vertical_levels.pdf
+figures = scary_instability.pdf \
+	  standing_instability.pdf spectra_input_vertical_levels.pdf
+
+dropbox: $(figures)
+	cp $(figures) ~/Dropbox/My\ Articles/InProgress/linear_response_function_paper/figs/
 
 sync: $(figures)
 	gsutil cp $(figures) $(bucket)

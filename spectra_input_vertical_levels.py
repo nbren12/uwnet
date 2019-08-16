@@ -11,7 +11,8 @@ panel_specs = [
 ]
 
 fig, axs = plt.subplots(
-    2, 2, figsize=(common.width, common.width), sharex=True, sharey=True)
+    2, 2, figsize=(common.width, common.width), sharex=True, sharey=True,
+    constrained_layout=True)
 
 for ax, (title, lrf_lid) in zip(axs.flat, panel_specs):
 
@@ -19,6 +20,7 @@ for ax, (title, lrf_lid) in zip(axs.flat, panel_specs):
     coupler, mean = get_coupler(model_path, lrf_lid=lrf_lid)
     eig = compute_spectrum(coupler)
     im = scatter_spectra(eig, ax=ax, cbar=False)
+    ax.set_title(title, loc="left")
 
 fig.colorbar(im, ax=axs.tolist(), shrink=.5)
 
