@@ -101,20 +101,26 @@ def plot_line_by_key_altair(ds, key, title_fn=lambda x: '', cmap='viridis', c_so
     
     z = alt.Y('z', axis=alt.Axis(title='z (m)'))
     color = alt.Color(key, scale=alt.Scale(scheme=cmap), sort=c_sort, legend=alt.Legend(title=c_title))
-
-    chart_q1 = (alt.Chart(df, width=200).mark_line()
-     .encode(alt.X('Q1', axis=alt.Axis(title='Q₁ (K/day)')),
-             z,
-             color, order='z')
-    )
-
-    chart_q2 = (alt.Chart(df, width=200).mark_line()
-     .encode(alt.X('Q2', axis=alt.Axis(title='Q₂ (g/kg/day)')),
-             z,
-             color, order='z')
-    )
     
-    return alt.hconcat(chart_q1, chart_q2, title=title_fn(ds))
+    
+    labels = [
+        ('a', 'QT', 'g/kg','Total Water'),
+        ('b', 'SLI', 'K', 'Liquid-Ice Static Energy'),
+        ('c', 'Q1NN', 'K/day', 'Q₁'),
+        ('d', 'Q2NN', 'g/kg/day', 'Q₂')
+    ]
+
+    charts = []
+    for letter, key, unit, label in labels:
+        chart = (alt.Chart(df, width=150).mark_line()
+         .encode(alt.X(key, axis=alt.Axis(title=unit)),
+                 z,
+                 color, order='z')
+         .properties(title=f'{letter}) {label}')
+        )
+        charts.append(chart)
+    
+    return alt.hconcat(*charts, title=title_fn(ds))
     
 
 def heating_weighted_height(q1, layer_mass):
@@ -153,8 +159,8 @@ def get_data():
     # form into one dataset
     return xr.merge([
         output.rename({
-            'QT': 'Q2',
-            'SLI': 'Q1'
+            'QT': 'Q2NN',
+            'SLI': 'Q1NN'
         }),
         p_minus_e,
         heating,
