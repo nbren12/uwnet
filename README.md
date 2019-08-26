@@ -37,3 +37,10 @@ look.
 
 
 [docker]: https://www.docker.com/
+
+# Evaluating performance
+
+Evaluating ML Paramerizations is somewhat different than normal ML scoring.
+Some useful metrics which work for xarray data are available in
+`uwnet.metrics`. In particular `uwnet.metrics.r2_score` computes the ubiquitous
+R2 score.
