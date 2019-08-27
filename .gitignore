@@ -2,3 +2,4 @@
 *.pdf
 *.svg
 
+/binned.nc
