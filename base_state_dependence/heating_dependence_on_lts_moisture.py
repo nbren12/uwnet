@@ -84,8 +84,8 @@ def groupby_2d(ds, fun, lts_bins, moisture_bins):
 def _to_plottable_dataframe(q2):
 
     df=  q2.to_dataframe().reset_index()
-    df['lts']  = df.lts_bins.apply(lambda x: x.mid)
-    df['path']  = df.path_bins.apply(lambda x: x.mid)
+    df['lts']  = df.lts_bins
+    df['path']  = df.path_bins
     df = df.drop(['lts_bins', 'path_bins'], axis=1)
     df = df.dropna()
     return df
@@ -135,7 +135,7 @@ def get_data():
     """Get data averaged over a (LTS, mid trop humidity) space"""
     lts_plot_path = "sensitivity_to_lts.pdf"
     moisture_plot_path = "sensitivity_to_moist.pdf"
-    model_path = "../../../nn/NNLowerDecayLR/20.pkl"
+    model_path = "../../nn/NNLowerDecayLR/20.pkl"
 
     # bins for moisture and lower tropospheric stability
     moisture_bins = np.arange(15)*2
@@ -169,3 +169,18 @@ def get_data():
         counts.rename('count')
     ])
     
+    
+def interval_coordinates_to_midpoint(ds):
+    new_coords = {}
+    coords = ds.coords
+    
+    for dim, coord in coords.items():
+        if dim.endswith('bins'):
+            new_coords[dim] = np.vectorize(lambda x: x.mid)(coord)
+    return ds.assign_coords(**new_coords)
+    
+    
+if __name__ == '__main__':
+    import sys
+    binned = get_data()
+    binned.pipe(interval_coordinates_to_midpoint).to_netcdf(sys.argv[1])
