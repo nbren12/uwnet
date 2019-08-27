@@ -35,7 +35,13 @@ def plot(eigs, xlim=None, ylim=None, **kwargs):
         eig = eigs.sel(title=title)
         im = scatter_spectra(eig, ax=ax, cbar=False, **kwargs)
         ax.set_title(title, loc="left")
-    fig.colorbar(im, ax=axs.tolist(), shrink=.5)
+
+    wave_length  = np.array([10, 100, 200, 300, 400, 500, 1000, 10000])
+    tick_locations = 2 * np.pi / wave_length / 1e3
+
+    cb = fig.colorbar(im, ax=axs.tolist(), ticks=tick_locations, shrink=.5)
+    cb.ax.set_yticklabels(wave_length)
+    cb.set_label('Wavelength (km)')
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
