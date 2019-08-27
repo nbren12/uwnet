@@ -1,6 +1,7 @@
 figures = [
     "scary_instability.pdf",
     "spectra_input_vertical_levels.pdf",
+    "spectra_input_vertical_levels_zoom.pdf",
     "standing_instability.pdf",
 ]
 
@@ -21,9 +22,6 @@ dropbox = "~/Dropbox/My\ Articles/InProgress/linear_response_function_paper/figs
 rule dropbox:
     input: figures + base_state_figs + vary_lat_lrf_figs
     shell: "cp {input} {dropbox}"
-
-rule all:
-    input: 
 
 rule base_state_plots:
     output:  base_state_figs
