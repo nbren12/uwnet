@@ -1,8 +1,11 @@
 figures = [
     "scary_instability.pdf",
+    "standing_instability.pdf",
+]
+
+spectra_figures = [
     "spectra_input_vertical_levels.pdf",
     "spectra_input_vertical_levels_zoom.pdf",
-    "standing_instability.pdf",
 ]
 
 base_state_figs = [
@@ -19,8 +22,10 @@ vary_lat_lrf_figs = [
 
 dropbox = "~/Dropbox/My\ Articles/InProgress/linear_response_function_paper/figs/"
 
+all_figures = figures + spectra_figures + base_state_figs + vary_lat_lrf_figs
+
 rule dropbox:
-    input: figures + base_state_figs + vary_lat_lrf_figs
+    input: all_figures
     shell: "cp {input} {dropbox}"
 
 rule base_state_plots:
@@ -30,6 +35,10 @@ rule base_state_plots:
 rule lrf_zonal_average_vary_lat_plots:
     output:  vary_lat_lrf_figs
     shell: "jupyter nbconvert --execute ./base_state_dependence/3.0-LRF-zonal-averages.ipynb"
+
+rule spectra_plots:
+    output: spectra_figures
+    script: "spectra_input_vertical_levels.py"
 
 rule stability_plots:
     output: "{script}.pdf"
