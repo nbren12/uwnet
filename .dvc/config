@@ -10,4 +10,4 @@ ask_password = True
 ['remote "paperspace"']
 url = /storage/dvc-remote
 [cache]
-dir = /storage/dvc-uwnet
+dir = /home/disk/eos8/nbren12/dvc-storage/

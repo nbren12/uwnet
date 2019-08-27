@@ -1,8 +1,8 @@
-md5: d4da6ecccd22ae8dec1caf70a2498191
-wdir: ../../..
+md5: 21645cdb3294d484c13a51b4d99d50be
+wdir: .
 outs:
-- md5: 8c8bb7a4a2ccf7737decb5dddd8312cf
-  path: data/processed/training/noBlur.nc
+- md5: 25a468aea629b54395a1cda083e910e8
+  path: noBlur.nc
   cache: true
   metric: false
   persist: false
