@@ -4,8 +4,8 @@ jobs:
    machine: true
    steps:
      - checkout
-     - run: docker build -t nbren12/uwnet:$CIRCLE_BRANCH .
+     - run: docker build -t test-uwnet-image .
      # run tests
      - run: |
-        docker run -w /opt/uwnet -v $PWD:/opt/uwnet  nbren12/uwnet:$CIRCLE_BRANCH pytest
-        docker run -w /opt/uwnet -v $PWD:/opt/uwnet  nbren12/uwnet:$CIRCLE_BRANCH tests/test_sam_nn_integration_in_docker.sh
+        docker run -w /opt/uwnet -v $PWD:/opt/uwnet test-uwnet-image pytest
+        docker run -w /opt/uwnet -v $PWD:/opt/uwnet test-uwnet-image tests/test_sam_nn_integration_in_docker.sh
