@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import altair as alt
 
-from src.data import open_data
+from src.data import open_data, assign_apparent_sources
 from uwnet.thermo import *
 
 def open_data_with_lts_and_path():
@@ -18,15 +18,15 @@ def open_data_with_lts_and_path():
     ds['path'] = midtropospheric_moisture(ds.QV, p, bottom=850, top=600)
     return ds
 
+
 def subtropical_data():
     # load model and datya
-    ds = open_data_with_lts_and_path()
+    ds = open_data_with_lts_and_path().pipe(assign_apparent_sources)
     lat = ds.lat
     # select the sub-tropics
 #     subtropics = (11 < np.abs(lat)) & (np.abs(lat) < 22.5)
     subtropics = (np.abs(lat) < 22.5) #& (np.abs(lat)>  11.25)
     tropics_lat = (np.abs(lat) < 11.25)
-    
 
     return ds.isel(y=subtropics)
 
