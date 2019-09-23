@@ -23,15 +23,24 @@ vary_lat_lrf_figs = [
     "base_state_dependence/LRFSVaryLat_in-s_out-s.pdf"
 ]
 
+maps = [
+    "base_state_dependence/q.png",
+    "base_state_dependence/lts.png",
+]
+
 binned_data_path = "binned.nc"
 
 dropbox = "~/Dropbox/My\ Articles/InProgress/linear_response_function_paper/figs/"
 
-all_figures = figures + spectra_figures + base_state_figs + vary_lat_lrf_figs
+all_figures = figures + spectra_figures + base_state_figs + vary_lat_lrf_figs + maps
 
 rule dropbox:
     input: all_figures
     shell: "cp {input} {dropbox}"
+    
+rule maps:
+    output: maps
+    shell: "cd base_state_dependence && python plot_lts_q.py"
 
 rule base_state_plots:
     input: binned_data_path

@@ -6,18 +6,22 @@ import altair as alt
 from src.data import open_data
 from uwnet.thermo import *
 
-
-def subtropical_data():
-    # load model and datya
+def open_data_with_lts_and_path():
     ds = open_data('training').sel(time=slice(120,140))
     p = open_data('pressure')
 
     # make necessary computations
-    lat = ngaqua_y_to_lat(ds.y)
+    ds['p'] = p
+    ds['lat'] = ngaqua_y_to_lat(ds.y)
     # compute LTS and Mid Trop moisture
     ds['lts'] = lower_tropospheric_stability(ds.TABS, p, ds.SST, ds.Ps)
     ds['path'] = midtropospheric_moisture(ds.QV, p, bottom=850, top=600)
+    return ds
 
+def subtropical_data():
+    # load model and datya
+    ds = open_data_with_lts_and_path()
+    lat = ds.lat
     # select the sub-tropics
 #     subtropics = (11 < np.abs(lat)) & (np.abs(lat) < 22.5)
     subtropics = (np.abs(lat) < 22.5) #& (np.abs(lat)>  11.25)
