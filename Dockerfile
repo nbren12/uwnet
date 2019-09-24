@@ -29,15 +29,10 @@ RUN cd /tmp/pFUnit-3.2.9 && \
 
 # add conda packages
 RUN conda update -y conda 
+ADD environment.yml /tmp/environment.yml
+RUN conda env update -f /tmp/environment.yml
+ENV PATH=/miniconda/envs/uwnet/bin:$PATH
 
-# install pytorch
-RUN conda install -y -c pytorch pytorch torchvision cudatoolkit=10.0
-RUN conda install -c conda-forge -y numpy toolz xarray netcdf4 scipy scikit-learn matplotlib zarr dask pytest jinja2 jupyterlab
-RUN conda install -c bioconda -c conda-forge snakemake-minimal
-RUN pip install cffi click attrs sacred f90nml sphinx==1.7 recommonmark doctr sphinx_rtd_theme git+https://github.com/nbren12/gnl@master#subdirectory=python h5netcdf pytorch-ignite tqdm seaborn \
-    xrft xgcm
-
-RUN pip install pymongo
 
 # add callpy library
 ADD ext/sam/ext/call_py_fort /opt/call_py_fort
