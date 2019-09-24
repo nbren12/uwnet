@@ -94,7 +94,8 @@ Out[12]:
 
 In [13]: # tendence of total water mixing ratio expected units = g/kg/day                                                                 
 
-In [14]: # tendence of tendency_of_liquid_ice_static_energy expected units =K/day                                           ```    
+In [14]: # tendence of tendency_of_liquid_ice_static_energy expected units =K/day                                           
+```    
 
 ## Configuring SAM to call this function
 
