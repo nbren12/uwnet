@@ -8,12 +8,17 @@ spectra_figures = [
     "spectra_input_vertical_levels_zoom.pdf",
 ]
 
+
 base_state_figs = [
-    "base_state_dependence/vary_lts.svg",
-    "base_state_dependence/vary_q.svg",
     "base_state_dependence/bins-a.pdf",
     "base_state_dependence/bins-b.pdf",
-    "base_state_dependence/bins-c.pdf"
+    "base_state_dependence/bins-c.pdf",
+    "base_state_dependence/bins-d.pdf"
+]
+
+base_state_pdfs = [
+    "base_state_dependence/vary_lts.pdf",
+    "base_state_dependence/vary_q.pdf"
 ]
 
 vary_lat_lrf_figs = [
@@ -32,7 +37,7 @@ binned_data_path = "binned.nc"
 
 dropbox = "~/Dropbox/My\ Articles/InProgress/linear_response_function_paper/figs/"
 
-all_figures = figures + spectra_figures + base_state_figs + vary_lat_lrf_figs + maps
+all_figures = figures + spectra_figures + base_state_figs + vary_lat_lrf_figs + maps + base_state_pdfs
 
 rule dropbox:
     input: all_figures
@@ -43,7 +48,9 @@ rule maps:
     shell: "cd base_state_dependence && python plot_lts_q.py"
 
 rule base_state_plots:
-    input: binned_data_path
+    input: binned_data_path,
+           "base_state_dependence/vary_lts.svg",
+           "base_state_dependence/vary_q.svg"
     output:  base_state_figs
     shell: "jupyter nbconvert --execute ./base_state_dependence/2.2-paper-plots.ipynb"
 
@@ -59,6 +66,13 @@ rule binned_data:
 rule spectra_plots:
     output: spectra_figures
     script: "spectra_input_vertical_levels.py"
+
+ruleorder: svg_to_pdf > stability_plots
+
+rule svg_to_pdf:
+    output: "base_state_dependence/{file}.pdf"
+    input: "base_state_dependence/{file}.svg"
+    shell: "inkscape {input} --export-pdf={output}"
 
 rule stability_plots:
     output: "{script}.pdf"

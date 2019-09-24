@@ -110,8 +110,10 @@ def plot_line_by_key_altair(ds, key, title_fn=lambda x: '', cmap='viridis', c_so
     labels = [
         ('a', 'QT', 'g/kg','Total Water'),
         ('b', 'SLI', 'K', 'Liquid-Ice Static Energy'),
-        ('c', 'Q1NN', 'K/day', 'Q₁'),
-        ('d', 'Q2NN', 'g/kg/day', 'Q₂')
+        ('c', 'Q1', 'K/day', 'Average Q₁'),
+        ('d', 'Q2', 'g/kg/day', 'Average Q₂'),
+        ('e', 'Q1NN', 'K/day', 'Q₁ Prediction'),
+        ('f', 'Q2NN', 'g/kg/day', 'Q₂ Prediction')
     ]
 
     charts = []
@@ -123,9 +125,11 @@ def plot_line_by_key_altair(ds, key, title_fn=lambda x: '', cmap='viridis', c_so
          .properties(title=f'{letter}) {label}')
         )
         charts.append(chart)
-    
-    return alt.hconcat(*charts, title=title_fn(ds))
-    
+
+    row1 = alt.hconcat(*charts[:3])
+    row2 = alt.hconcat(*charts[3:])
+    return alt.vconcat(row1, row2, title=title_fn(ds))
+
 
 def heating_weighted_height(q1, layer_mass):
     weight = np.maximum(q1,0)  * layer_mass
@@ -156,8 +160,8 @@ def get_data():
     # compute nn output and diagnostics within bins
     mass = tropics.layer_mass[0]
     output = compute_nn(model, bin_averages, ['path_bins', 'lts_bins'])
-    p_minus_e = -integrate_q2(output.QT, tropics.layer_mass[0]).rename('net_precipitation')
-    heating = integrate_q2(output.SLI, mass).rename('net_heating')
+    p_minus_e = -integrate_q2(output.QT, mass).rename('net_precipitation_nn')
+    heating = integrate_q1(output.SLI, mass).rename('net_heating_nn')
     
     
     # form into one dataset
@@ -170,7 +174,11 @@ def get_data():
         heating,
         heating_weighted_height(output.SLI, mass),
         bin_averages,
-        counts.rename('count')
+        counts.rename('count'),
+        -integrate_q2(bin_averages.Q2, mass).rename('net_precipitation_src'),
+        integrate_q1(bin_averages.Q1, mass).rename('net_heating_src'),
+        net_precipitation_from_prec_evap(bin_averages)
+        .rename('net_precipitation')
     ])
     
     
