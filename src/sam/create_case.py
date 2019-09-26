@@ -1,5 +1,5 @@
 import xarray as xr
-from os.path import join
+from os.path import join, abspath
 import json
 
 import click
@@ -12,6 +12,11 @@ resolution_help = (
     "Resolution of model to use. Only '128x64x34' and '512x256x34' are "
     "currently supported."""
 )
+
+
+def save_as_json(config, path):
+    with open(path, "w") as f:
+        json.dump(config, f)
 
 @click.command()
 @click.argument('path')
@@ -67,6 +72,7 @@ def main(path,
                                 prm=parameters, resolution=resolution)
 
     # configure neural network run
+    python_config_path = join(path, "python_config.json")
     if neural_network:
         case.prm['python']['dopython'] = False
 
@@ -82,8 +88,6 @@ def main(path,
 
         print(f"Copying neural networks to model directory")
         case.add(neural_network, model_run_path)
-        python_config['models'].append(
-            {"type": "neural_network", "path": model_run_path})
 
     if noise:
         noise_model_path = "noise.pkl"
@@ -93,7 +97,9 @@ def main(path,
 
     if 'nudging' in parameters:
         config = parameters['nudging']
-        case.env['UWNET_NUDGE_TIME_SCALE'] = config['time_scale']
+        config['ngaqua'] = abspath('data/processed/training/noBlur.nc')
+        config['type'] = 'nudging'
+        python_config['models'].append(config)
 
     if debug:
         case.prm['parameters'].update({
@@ -103,12 +109,9 @@ def main(path,
             'nstop': 120,
         })
 
-    dopython = case.prm.get('python', {}).get('dopython', False)
-    if dopython:
-        with open(join(path, "python_config.json"), "w") as f:
-            json.dump(python_config, f)
-
     case.save()
+    save_as_json(python_config, python_config_path)
+
 
 
 if __name__ == '__main__':

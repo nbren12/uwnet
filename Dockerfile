@@ -32,6 +32,7 @@ RUN conda update -y conda
 ADD environment.yml /tmp/environment.yml
 RUN conda env update -f /tmp/environment.yml
 ENV PATH=/miniconda/envs/uwnet/bin:$PATH
+RUN conda install -n uwnet netcdf4
 
 
 # add callpy library

@@ -198,12 +198,27 @@ rule sam_run:
     sh run.sh >> log 2>> log
     """
 
-rule nudge_run:
-    output: directory(f"data/runs/{TODAY}-nudging")
+rule nudging_run:
+    # need to use a temporary file here so that the model output isn't deleted
+    output: touch(f"data/runs/{TODAY}-nudging/.done")
+    params: rundir=f"data/runs/{TODAY}-nudging",
+            ngaqua=DATA_PATH,
+            sam_src=sam_src,
+            sam_params="assets/parameters_nudge_nn.json",
+            step=0
     shell: """
+    rm -rf {params.rundir}
     {sys.executable} -m  src.sam.create_case \
-    -t 0 -p assets/parameters_nudging.json {output}
+    -n {params.ngaqua} \
+    -s {params.sam_src} \
+    -t {params.step} \
+    -p {params.sam_params} \
+    {params.rundir}
+    # run sam
+    cd {params.rundir}
+    sh run.sh
     """
+
 
 rule micro_run:
     output: touch(f"data/runs/{TODAY}-{{kind}}/.{{id}}.done")

@@ -28,6 +28,19 @@ from torch import nn
 from uwnet.numpy_interface import NumpyWrapper
 from uwnet.sam_ngaqua import get_ngaqua_nudger
 import json
+from cProfile import Profile
+
+
+profiler = Profile()
+
+
+def initialize(state):
+    profiler.enable()
+
+
+def finalize(state):
+    profiler.disable()
+    profiler.dump_stats("python.profile")
 
 
 def get_configuration():
