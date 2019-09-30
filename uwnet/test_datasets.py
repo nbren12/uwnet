@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from uwnet.datasets import XRTimeSeries, get_timestep, XarrayBatchLoader
+from uwnet.ml_models.nn.datasets_handler import XRTimeSeries, get_timestep, XarrayBatchLoader
 
 
 def get_obj():

@@ -1,11 +1,10 @@
 """Integration tests"""
 import numpy as np
-from toolz import merge
 import pytest
 
 import xarray as xr
 from torch.utils.data import DataLoader
-from uwnet.datasets import XRTimeSeries
+from uwnet.ml_models.nn.datasets_handler import XRTimeSeries
 from uwnet.utils import batch_to_model_inputs
 
 

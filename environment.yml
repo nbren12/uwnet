@@ -15,6 +15,7 @@ dependencies:
   - h5netcdf
   - ipython
   - jupyterlab
+  - joblib=0.13
   - cython
   - torchvision-cpu
   - pytorch-cpu=1.0

@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import numpy as np
 import torch
 from toolz import valmap
@@ -7,7 +9,7 @@ import xarray as xr
 
 from uwnet.utils import dataset_to_broadcastable_array_dict
 from uwnet.tensordict import TensorDict
-
+from src.data import assign_apparent_sources
 
 def _stack_or_rename(x, **kwargs):
     for key, val in kwargs.items():
@@ -131,8 +133,6 @@ class XRTimeSeries(Dataset):
         return valmap(lambda x: x.max(), std)
 
 
-from dataclasses import dataclass
-
 
 @dataclass
 class XarrayBatchLoader:
@@ -172,7 +172,6 @@ class XarrayBatchLoader:
                 yield TensorDict.from_numpy_dict(numpy_dict)
             else:
                 yield numpy_dict
-
 
 def get_timestep(data):
     time_dim = 'time'

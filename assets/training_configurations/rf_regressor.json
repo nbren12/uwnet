@@ -1,0 +1,26 @@
+{
+	"model_type": "rf_regressor",
+	"model_params": {
+		"max_depth": 7,
+		"random_state": 0,
+		"n_estimators": 100,
+		"warm_start": true
+	},
+
+	"num_samples": 20000,
+	"num_batches_for_training": 5,
+	"batch_size": 256,
+	"num_batches_for_training": 5,
+
+	"data": "data/processed/reshaped/noBlur.zarr",
+	"existing_data_file": null,
+	"output_path": null,
+
+	"prognostics": [
+		"QT",
+		"SLI"
+	],
+	"seed": 668752836,
+	"vertical_grid_size": 34,
+	"predict_radiation": true
+}

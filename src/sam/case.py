@@ -114,7 +114,6 @@ sounding_template = """ z[m] p[mb] tp[K] q[g/kg] u[m/s] v[m/s]
   -999.000000    25.000000   608.551453    0.0    -0.0    0.0
 """
 
-
 def default_parameters():
     return {
         'parameters': {

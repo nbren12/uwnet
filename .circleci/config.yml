@@ -7,5 +7,6 @@ jobs:
      - run: docker build -t test-uwnet-image .
      # run tests
      - run: |
-        docker run -w /opt/uwnet -v $PWD:/opt/uwnet test-uwnet-image pytest
-        docker run -w /opt/uwnet -v $PWD:/opt/uwnet test-uwnet-image tests/test_sam_nn_integration_in_docker.sh
+        docker run -t -w /opt/uwnet -v $PWD:/opt/uwnet test-uwnet-image pytest
+        docker run -t -w /opt/uwnet -v $PWD:/opt/uwnet test-uwnet-image tests/test_sam_nn_integration_in_docker.sh
+        docker run -t -w /opt/uwnet -v $PWD:/opt/uwnet test-uwnet-image tests/test_sam_sklearn_integration.sh

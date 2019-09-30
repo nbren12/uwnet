@@ -26,6 +26,12 @@ def save_as_json(config, path):
     type=click.Path(),
     help='use the neural network in this pickled model file.')
 @click.option(
+    '-sk',
+    '--sklearn-generic',
+    type=click.Path(),
+    help='pickled model file for generic sklearn_generic regressor'
+)
+@click.option(
     '--noise',
     type=click.Path(),
     help='A noise model stored in a pickle file.')
@@ -38,6 +44,7 @@ def save_as_json(config, path):
 @click.option('-r', '--run-data', type=str, default='/opt/sam/RUNDATA')
 @click.option('--resolution', type=str, default='128x64x34', help=resolution_help)
 def main(path,
+         sklearn_generic,
          neural_network,
          noise,
          initial_condition,
@@ -82,12 +89,27 @@ def main(path,
                 dopython=True,
                 usepython=True,
                 function_name='call_neural_network',
-                module_name='uwnet.sam_interface'))
+                module_name='uwnet.ml_models.nn.sam_interface'))
 
         case.mkdir()
 
         print(f"Copying neural networks to model directory")
         case.add(neural_network, model_run_path)
+
+    if sklearn_generic:
+        case.prm['python']['dopython'] = False
+        case.prm['python'].update(
+            dict(
+                dopython=True,
+                usepython=True,
+                function_name='call_sklearn_model',
+                module_name='uwnet.ml_models.sklearn_generic.sam_interface'))
+
+        print(f"Copying model to run directory")
+        case.mkdir()
+        case.add(sklearn_generic, model_run_path)
+        python_config['models'].append(
+            {"type": "sklearn_generic", "path": model_run_path})
 
     if noise:
         noise_model_path = "noise.pkl"

@@ -24,7 +24,6 @@ matplotlib.use('agg')
 import logging
 import os
 from contextlib import contextmanager
-from functools import partial
 from os.path import join
 
 import xarray as xr
@@ -34,9 +33,8 @@ from toolz import curry
 import torch
 from torch.optim.lr_scheduler import StepLR
 from ignite.engine import Engine, Events
-from torch.utils.data import DataLoader
 from uwnet.thermo import sec_in_day
-from uwnet.datasets import XRTimeSeries, get_timestep, XarrayBatchLoader
+from .datasets_handler import get_timestep, XarrayBatchLoader
 from uwnet.loss import get_input_output, get_step, weighted_mean_squared_error
 from uwnet.model import get_model
 from uwnet.pre_post import get_pre_post
@@ -121,9 +119,6 @@ def get_plot_manager(model):
 @ex.capture
 def get_data_loader(data: xr.Dataset, train, training_slices,
                     validation_slices, prognostics, batch_size):
-
-    from torch.utils.data.dataloader import default_collate
-    from uwnet.timestepper import Batch
 
     if train:
         slices = training_slices

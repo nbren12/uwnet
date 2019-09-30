@@ -10,6 +10,27 @@ rho0 = 1.19
 sec_in_day = 86400
 liquid_water_density = 1000.0
 
+def compute_insolation(lat, day, scon=1367, eccf=1.0):
+    """Compute the solar insolation in W/m2 assuming perpetual equinox
+
+    Parameters
+    ----------
+    lat : (ny, nx)
+        latitude in degrees
+    day : float
+        day of year. Only uses time of day (the fraction).
+    scon : float
+        solar constant. Default 1367 W/m2
+        eccentricity factor. Ratio of orbital radius at perihelion and
+        aphelion. Default 1.0.
+
+    """
+    time_of_day = day % 1.0
+
+    # cos zenith angle
+    mu = -np.cos(2 * np.pi * time_of_day) * np.cos(np.pi * lat / 180)
+    mu[mu < 0] = 0.0
+    return scon * eccf * mu
 
 def metpy_wrapper(fun):
     """Given a metpy function return an xarray compatible version

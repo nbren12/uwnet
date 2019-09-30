@@ -19,6 +19,9 @@ From the project's root directory the docker environment can be entered by
 typing
 
     make enter
+    
+If you get an error `make: nvidia-docker: Command not found`, edit the Makefile to have `DOCKER = docker` 
+instead of `nvidia-docker`. (Assuming docker is already installed.)
 
 This opens a shell variable in a docker container with all the necessary
 software requirements.

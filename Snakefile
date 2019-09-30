@@ -34,24 +34,28 @@ epochs = list(range(1, num_epoch+1))
 
 # wildcard targets
 TRAINING_CONFIG = "assets/training_configurations/{model}.json"
-TRAINED_MODEL_DIR = "nn/{model}/"
+TRAINED_MODEL_DIR = f"{type}/{{model}}/"
 
-TRAINING_LOG = f"nn/{{model}}/{num_epoch}.log" # change this
-TRAINED_MODEL = f"nn/{{model}}/{num_epoch}.log" # change this
+TRAINING_LOG = f"{type}/{{model}}/{num_epoch}.log" # change this
+TRAINED_MODEL = f"{type}/{{model}}/{num_epoch}.log" # change this
 NN_METRIC = "nn/{model}/{epoch}.json"
 
 SAM_RUN = "data/runs/{sam_params}/{type}/{model}/epoch{epoch}/"
+SAM_RUN_SK = f"data/runs/sklearn/{{model}}"
 SAM_RUN_STATUS = join(SAM_RUN, ".done")
 SAM_LOG = join(SAM_RUN, "log")
+
 VISUALIZE_SAM_DIR = "reports/runs/{sam_params}/{type}/{model}/epoch{epoch}"
 MODEL_FILE = "nn/{model}/{epoch}.pkl"
 DEBIASED_MODEL = "debiased/{model}/{epoch}.pkl"
 
-# types = ["nn", "debiased"]
-# models = ["NNLower", "NNAll", "NNManuscript"]
 types = ["nn"]
-models = ["NNLowerDecayLR"]
+models = ["NNLower", "NNAll", "NNManuscript"]
 sam_params = ["samnn"]
+
+#types = ["sklearn"]
+#models = ["rf_regressor"]
+#sam_params = ["parameters_sam_rf_regressor"]
 
 # SAM_RUNS = expand(SAM_RUN_STATUS, model=models, epoch=["5"], type=types, sam_params=sam_params)
 SAM_RUNS = data.run_paths.values()
@@ -63,7 +67,8 @@ def add_report(type, model, epoch, sam_params='samnn'):
 add_report('nn', 'NNLowerDecayLR', 20)
 
 # Plots
-scripts = ['bias','qp_acf',
+scripts = ['bias',
+ 'qp_acf',
  'damping_coefs',
  'hovmoller_mean_pw_prec',
  'pattern_correlation',
@@ -77,10 +82,10 @@ scripts = ['bias','qp_acf',
  'bootstrap']
 
 jacobian_figures_relative = ["saliency-unstable.png", "saliency-stable.png"]
-jacobian_figures_absolute = [join("notebooks/papers/", fig) 
+jacobian_figures_absolute = [join("notebooks/papers/", fig)
                              for fig in jacobian_figures_relative]
 
-other_figures_absolute = [join("notebooks/papers/", script + ".pdf") 
+other_figures_absolute = [join("notebooks/papers/", script + ".pdf")
                          for script in scripts]
 all_figs = jacobian_figures_absolute + other_figures_absolute
 
@@ -126,7 +131,7 @@ rule preprocess_process_with_sam_once:
     script: "uwnet/data/preprocess.py"
 
 
-rule preprocess_process_with_sam_no_hypderdiff:
+rule preprocess_process_with_sam_no_hyperdiff:
     input: DATA_PATH,
             sam_parameters="assets/sam_preprocess_no_hyperdiff.json"
     output: temp("data/tmp/advectionOnly/{step}.nc")
@@ -175,7 +180,7 @@ rule sam_run_report:
     rm -f {params.ipynb}
     """
 
-rule sam_run:
+rule sam_run_nn:
     # need to use a temporary file here so that the model output isn't deleted
     input: "{type}/{model}/{epoch}.pkl"
     output: touch(SAM_RUN_STATUS)
@@ -197,6 +202,30 @@ rule sam_run:
     cd {params.rundir}
     sh run.sh >> log 2>> log
     """
+
+rule sam_run_sk:
+    # need to use a temporary file here so that the model output isn't deleted
+    input: "sklearn_models/{model}.pkl"
+    output: touch(join(SAM_RUN_SK,".done"))
+    log: join(SAM_RUN_SK, "log")
+    params: rundir=SAM_RUN_SK,
+            ngaqua=DATA_PATH,
+            sam_params="assets/parameters_sam_{model}.json",
+            sam_src=sam_src,
+            step=0
+    shell:  """
+    rm -rf {params.rundir}
+    {sys.executable} -m  src.sam.create_case -sk {input} \
+    -n {params.ngaqua} \
+    -s {params.sam_src} \
+    -p {params.sam_params} \
+    -t {params.step} \
+    {params.rundir}
+    # run sam
+    cd {params.rundir}
+    sh run.sh >> log 2>> log
+     """
+
 
 rule nudging_run:
     # need to use a temporary file here so that the model output isn't deleted
@@ -274,7 +303,21 @@ rule train_nn:
     params:
         dir=TRAINED_MODEL_DIR
     shell: """
-    python -m uwnet.train with {input.config}  output_dir={params.dir} > {log} 2> {log}
+    python -m uwnet.ml_models.train_nn with {input.config}  output_dir={params.dir} > {log} 2> {log}
+    """
+
+rule train_rf:
+    input:
+        config=TRAINING_CONFIG
+
+    resources: mem_mb=26000
+    output:  "sklearn_models/{model}.pkl"
+    log: "sklearn_models/{model}.log"
+    params:
+        dir=TRAINED_MODEL_DIR
+    shell:  """
+    python -m uwnet.ml_models.train_generic_sklearn -op {params.dir} -cf {input.config} \
+        > {log} 2> {log}
     """
 
 rule nn_metric:
@@ -317,7 +360,7 @@ rule upload_figs:
 
 rule paper_plots:
     input: all_figs
-    
+
 
 rule vis_jacobian:
     input: SAM_RUNS, data.ngaqua_climate_path
@@ -328,4 +371,3 @@ rule run_vis_script:
     input: script="notebooks/papers/{script}.py", runs=SAM_RUNS
     output: "notebooks/papers/{script}.pdf"
     shell: "cd notebooks/papers/ && python {wildcards.script}.py {wildcards.script}.pdf"
-
