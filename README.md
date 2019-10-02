@@ -1,5 +1,5 @@
 # Machine learning approaches to convective parametrization
-[![CircleCI](https://circleci.com/gh/VulcanTechnologies/uwnet.svg?style=svg&circle-token=3c696b66d8dd0b789e012a14e93a6397c2cbe833)](https://circleci.com/gh/VulcanTechnologies/uwnet)[![Build Status](https://travis-ci.org/nbren12/uwnet.svg?branch=master)](https://travis-ci.org/nbren12/uwnet)
+[![CircleCI](https://circleci.com/gh/VulcanClimateModeling/uwnet.svg?style=svg&circle-token=3c696b66d8dd0b789e012a14e93a6397c2cbe833)](https://circleci.com/gh/VulcanClimateModeling/uwnet)
 
 ## Documentation
 
