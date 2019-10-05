@@ -69,7 +69,9 @@ class XRTimeSeries(Dataset):
         """
         self.time_length = time_length or len(data.time)
         self.data = data
-        self.data_vars = set(data.data_vars)
+        self.numpy_data = {key: data[key].values for key in data.data_vars}
+        self.data_vars = set(data.data_vars) - {
+            'p', 'RHO', 'rho', 'Ps', 'layer_mass'}
         self.dims = {key: data[key].dims for key in data.data_vars}
         self.constants = {
             key
