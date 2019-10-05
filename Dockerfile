@@ -28,12 +28,15 @@ RUN cd /tmp/pFUnit-3.2.9 && \
     make install INSTALL_DIR=${PFUNIT}
 
 # add conda packages
-RUN conda install -y -c pytorch pytorch-cpu python=3.6 numpy toolz xarray \
-                        netcdf4 scipy scikit-learn matplotlib
-RUN pip install zarr cffi click attrs dask pytest sacred jinja2 pillow
-# ADD environment.yml /opt/environment.yml
-# RUN cd /opt && conda env create
-# ENV PATH=/miniconda/envs/uwnet/bin:${PATH}
+RUN conda update -y conda
+
+# install pytorch
+RUN conda install -y -c pytorch pytorch torchvision cudatoolkit=10.0
+RUN conda install -c conda-forge -y numpy toolz xarray netcdf4 scipy scikit-learn matplotlib zarr dask pytest jinja2 jupyterlab
+RUN conda install -c bioconda -c conda-forge snakemake-minimal
+RUN pip install cffi click attrs sacred f90nml sphinx==1.7 recommonmark doctr sphinx_rtd_theme git+https://github.com/nbren12/gnl@master#subdirectory=python h5netcdf pytorch-ignite tqdm seaborn \
+    xrft xgcm
+
 # add callpy library
 ADD ext/sam/ext/call_py_fort /opt/call_py_fort
 ENV PYTHONPATH=/opt/call_py_fort/src/:/opt/call_py_fort/test:$PYTHONPATH
@@ -44,7 +47,6 @@ ENV LD_LIBRARY_PATH=/usr/local/lib
 # Install SAM Python modules
 ENV PYTHONPATH=/opt/sam/SRC/python:${PYTHONPATH}
 ENV PYTHONPATH=/opt/sam/SCRIPTS/python/:/opt/:${PYTHONPATH}
-RUN pip install f90nml sphinx==1.7 recommonmark doctr sphinx_rtd_theme xarray==0.12.1
 
 ENV LC_ALL=C.UTF-8
 ENV LANG=C.UTF-8
