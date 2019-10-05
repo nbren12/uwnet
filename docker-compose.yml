@@ -1,4 +1,4 @@
-version: '3'
+version: '2.3'
 services:
   sam:
     build: ./
@@ -10,3 +10,21 @@ services:
       - ./uwnet:/opt/uwnet
       - ./:/uwnet
       - ./ext/sam:/opt/sam
+  jupyter:
+    build: 
+      context: .
+      dockerfile: Dockerfile.jupyter
+    runtime: nvidia
+    volumes:
+      - ./:/opt/uwnet
+      - /home/paperspace/.jupyter:/root/.jupyter
+      - /storage:/storage
+    ports:
+      - "8888:8888"
+  bash:
+    image: nbren12/uwnet:latest
+    runtime: nvidia
+    volumes:
+      - ./:/opt/uwnet
+      - /home/paperspace/.jupyter:/root/.jupyter
+      - /storage:/storage

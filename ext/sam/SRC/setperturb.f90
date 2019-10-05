@@ -158,12 +158,7 @@ select case (ptype)
      end do
 
   case(23) ! ndb: this is the option for loading the initial conditions from a netcdf
-     if (nsubdomains > 1) then
-        print *, '3D NetCDF input only works with a single processor'
-        call task_abort()
-     end if
      call set_field_from_nc(initial_condition_netcdf, micro_field, index_water_vapor)
-
   case default
 
        if(masterproc) print*,'perturb_type is not defined in setperturb(). Exitting...'

@@ -7,14 +7,20 @@ import common
 from src.data import assign_apparent_sources, open_data
 from uwnet.metrics import r2_score
 from uwnet.thermo import integrate_q1, integrate_q2
+from uwnet.utils import map_dataset
+
+
 
 
 @common.cache
 def get_data():
-    ds = open_data('training').pipe(assign_apparent_sources)
-
-    model = torch.load('../../data/runs/model268-epoch5.debiased/model.pkl')
-    outputs = model.xmodel(ds)
+    model = common.get_model('NN-Lower')
+    ds = open_data('training')\
+               .chunk({'time': 1})\
+               .pipe(assign_apparent_sources)
+    
+    outputs = map_dataset(ds, model.call_with_xr, 'time')
+    
     for key in outputs:
         ds['F' + key + 'NN'] = outputs[key]
 
@@ -103,6 +109,6 @@ def plot(ds):
 
 
 if __name__ == '__main__':
-    plot(get_r2s())
-    plt.savefig("r2.png")
-    plt.savefig("r2.pdf")
+    data = get_r2s()
+    plot(data)
+    plt.savefig("r2_q1_q2.pdf")

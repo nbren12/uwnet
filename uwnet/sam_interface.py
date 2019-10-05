@@ -169,7 +169,6 @@ def call_neural_network(state):
     # Compute the output of all the models
     all_outputs = {}
     for model in MODELS:
-        logger.info(f"Calling {model}")
         out = model(state)
         all_outputs.update(out)
 

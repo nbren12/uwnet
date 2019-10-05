@@ -8,7 +8,10 @@ from .case import InitialConditionCase, get_ngqaua_ic, default_parameters
 
 NGAQUA_ROOT = "/Users/stewart/projects/uwnet/data/processed/training.nc"
 
-
+resolution_help = (
+    "Resolution of model to use. Only '128x64x34' and '512x256x34' are "
+    "currently supported."""
+)
 
 @click.command()
 @click.argument('path')
@@ -26,19 +29,27 @@ NGAQUA_ROOT = "/Users/stewart/projects/uwnet/data/processed/training.nc"
 @click.option('-t', type=int, default=0)
 @click.option('-p', '--parameters', type=click.Path(), default=None)
 @click.option('-d', '--debug',  is_flag=True)
+@click.option('-s', '--sam-src', type=str, default='/opt/sam')
+@click.option('-r', '--run-data', type=str, default='/opt/sam/RUNDATA')
+@click.option('--resolution', type=str, default='128x64x34', help=resolution_help)
 def main(path,
          neural_network,
          noise,
          initial_condition,
          ngaqua_root,
          t,
-         model_run_path='model.pkl',
-         parameters=None,
-         debug=False):
+         parameters,
+         debug,
+         sam_src,
+         run_data,
+         resolution):
     """Create SAM case directory for an NGAqua initial value problem and optionally
     run the model with docker.
 
     """
+
+    model_run_path = "model.pkl"
+
     if parameters:
         parameters = json.load(open(parameters))
     else:
@@ -52,8 +63,8 @@ def main(path,
         initial_condition = xr.open_dataset(initial_condition)
 
     case = InitialConditionCase(path=path, ic=initial_condition,
-                                sam_src="/opt/sam",
-                                prm=parameters)
+                                sam_src=sam_src, run_data=run_data,
+                                prm=parameters, resolution=resolution)
 
     # configure neural network run
     if neural_network:

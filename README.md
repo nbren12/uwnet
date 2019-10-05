@@ -8,18 +8,33 @@ The documentation is hosted on github pages: https://nbren12.github.io/uwnet/
 
 ## Setup
 
-This project uses anaconda to manage the various libraries and packages used. If you do not already have it installed you will need to install [miniconda](https://conda.io/miniconda.html). Once that is installed the environment for this package can be installed by running
+The software requirements for this project are more complicated than most
+python data analysis projects because it uses several unique tools for running
+python codes from an atmospheric model written in Fortran. However, the entire
+workflow is containerized with [docker][docker], and can be run wherever docker
+is installed.
 
-    make create_environment
+# Quickstart
 
-Then, you have to activate this environment by running
+From the project's root directory the docker environment can be entered by
+typing
 
-    conda activate uwnet
+    make enter
 
-## Downloading the data
+This opens a shell variable in a docker container with all the necessary
+software requirements.
+
+To run the whole workflow from start to finish, type
+    
+    snakemake -j <number of parallel jobs>
+
+This will take a long time! To see all the steps and the corresponding commands
+in this workflow, type
+
+    snakemake -n -p
+
+This whole analysis is specified in the Snakefile, which is the first place to
+look.
 
 
-The data can be downloaded by running
-
-    make data
-
+[docker]: https://www.docker.com/

@@ -19,9 +19,13 @@ run_script = Template("""#!/bin/sh
 export {{key}}={{val}}
 {% endfor %}
 
+ulimit -s unlimited
+
+rm -f RUNDATA
 ln -s {{SAM}}/RUNDATA .
+
 # {{SAM}}/docker/cleancase.sh CASE
-{{SAM}}/SAM_*
+{{SAM}}/OBJ/{{resolution}}/SAM_*
 {{SAM}}/docker/convert_files.sh
 """)
 
@@ -239,6 +243,8 @@ class Case(object):
     path = attr.ib(factory=_path_factory, converter=os.path.abspath)
     docker_image = attr.ib(default="nbren12/samuwgh:latest")
     env = attr.ib(factory=dict)
+    run_data = attr.ib(default='/opt/sam/RUNDATA', converter=os.path.abspath)
+    resolution = attr.ib(default='128x64x34')
 
     @property
     def exe(self):
@@ -272,6 +278,7 @@ class Case(object):
         self.save_grd(self._z, grd)
         self.save_snd(snd)
         self.save_script()
+        self.link_run_data()
 
         with open(casename, "w") as f:
             f.write(self.name)
@@ -290,17 +297,22 @@ class Case(object):
         with open(path, "w") as f:
             f.write(sounding_template)
 
+    def link_run_data(self):
+        os.symlink(self.run_data, os.path.join(self.path, 'RUNDATA'))
+
     def save_rundata(self, path):
         src = f"{self.sam_src}/RUNDATA"
         shutil.copytree(src, path)
 
     def save_script(self):
         with open(self.exe, 'w') as f:
-            f.write(run_script.render(env=self.env, SAM=self.sam_src))
+            f.write(run_script.render(env=self.env, SAM=self.sam_src,
+                                      resolution=self.resolution))
         os.chmod(self.exe, 0o755)
 
     def run(self):
-        subprocess.run(['execute_run.sh', self.path])
+        exe = os.path.join(self.path, 'run.sh')
+        subprocess.run(exe, cwd=self.path)
 
     def convert_files_to_netcdf(self):
         cmd = make_docker_cmd(
@@ -338,9 +350,13 @@ class InitialConditionCase(Case):
         super(InitialConditionCase, self).save()
         self.save_ic()
 
+    def get_day(self):
+        return float(self.ic.time)
+
     def get_prm(self):
         path = os.path.relpath(self.initial_condition_path, self.path)
         self.prm['parameters']['initial_condition_netcdf'] = path
+        self.prm['parameters']['day0'] = self.get_day()
         self.prm['parameters']['perturb_type'] = 23
         return self.prm
 

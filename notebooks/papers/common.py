@@ -1,9 +1,10 @@
+import torch
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
 from matplotlib import colors
-from sklearn.externals import joblib
+import joblib
 
 plt.style.use('tableau-colorblind10')
 
@@ -14,6 +15,11 @@ run_labels = {'debias': 'NN-Lower', 'unstable': 'NN-All', 'micro': 'Base'}
 
 ignored_input_levels = {'QT': 442, 'SLI': 267}
 
+def get_model(name):
+    if name == 'NN-Lower':
+        return torch.load("../../nn/NNLower/4.pkl")
+    if name == 'NN-All':
+        return torch.load("../../nn/NNAll/5.pkl")
 
 def setup_matplotlib():
 

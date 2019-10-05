@@ -137,6 +137,11 @@ class IdentityOutput(nn.Module):
         ('SLI', 34),
     ]
 
+    outputs = [
+        ('QT', 34),
+        ('SLI', 34),
+    ]
+
     def forward(self, x):
         return x
 
@@ -180,7 +185,9 @@ def get_pre_post(data, data_loader, _config):
         lower = LowerAtmosInput()
         pre = Sequential(pre, lower)
         return pre, post
-    if kind == 'orig':
+    elif kind == 'orig':
         return get_pre_post_orig(data, data_loader, n=34)
+    elif kind == 'identity':
+        return LowerAtmosInput(), IdentityOutput()
     else:
         raise NotImplementedError

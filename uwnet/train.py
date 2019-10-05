@@ -19,6 +19,8 @@ To see a list of all the available configuration options run::
 .. _Sacred: https://github.com/IDSIA/sacred
 
 """
+import matplotlib
+matplotlib.use('agg')
 import logging
 import os
 from contextlib import contextmanager
@@ -98,12 +100,13 @@ def my_config():
 
 
 @ex.capture
-def get_dataset(data, _log):
-    _log.info("Opening xarray dataset")
+def get_dataset(data):
+    # _log.info("Opening xarray dataset")
     try:
         dataset = xr.open_zarr(data)
     except ValueError:
         dataset = xr.open_dataset(data)
+
     try:
         return dataset.isel(step=0).drop('step').drop('p')
     except Exception:
@@ -131,6 +134,10 @@ def get_data_loader(data: xr.Dataset, train, training_slices,
         return Batch(default_collate(batch), prognostics)
 
     train_data = XRTimeSeries(ds)
+
+    if len(train_data) == 0:
+        raise ValueError("No data available. Are any of the slices in "
+                         "training_slices or validation_slices length 0.")
     return DataLoader(
         train_data,
         batch_size=batch_size,

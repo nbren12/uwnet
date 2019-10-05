@@ -7,3 +7,7 @@ url = /home/disk/eos4/nbren12/eos8/dvc-storage
 ['remote "olympus-ssh"']
 url = ssh://nbren12@olympus:/home/disk/eos4/nbren12/eos8/dvc-storage
 ask_password = True
+['remote "paperspace"']
+url = /storage/dvc-remote
+[cache]
+dir = /home/disk/eos8/nbren12/dvc-storage/

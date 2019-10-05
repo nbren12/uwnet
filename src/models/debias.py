@@ -3,12 +3,11 @@ from uwnet.debias import insert_apparent_sources, LassoDebiasedModel
 import torch
 
 
-model = snakemake.input[0]
 o = snakemake.output
 p = snakemake.params
 
-ds = xr.open_dataset(p.data).isel(step=0)
-model = torch.load(model)
+ds = xr.open_dataset(p.data)
+model = torch.load(p.model)
 ds = insert_apparent_sources(ds, prognostics=p.prognostics)
 
 mapping = [

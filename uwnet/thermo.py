@@ -207,6 +207,16 @@ def net_heating(prec, shf, swns, swnt, lwns, lwnt):
     return prec * (Lc / sec_in_day) + net_radiation
 
 
+def net_heating_from_data_2d(data_2d):
+    prec = data_2d.Prec
+    shf = data_2d.SHF
+    swns = data_2d.SWNS
+    swnt = data_2d.SWNT
+    lwns = data_2d.LWNS
+    lwnt = data_2d.LWNT
+    return net_heating(prec, shf, swns, swnt, lwns, lwnt)
+
+
 def periodogram(pw: xr.DataArray, dim='x', freq_name='f'):
     from scipy import signal
     axis = pw.get_axis_num(dim)
@@ -223,3 +233,10 @@ def periodogram(pw: xr.DataArray, dim='x', freq_name='f'):
     coords[freq_name] = f
 
     return xr.DataArray(x, dims=dims, coords=coords)
+
+
+def water_budget(data_2d):
+    """Compute precipitable water budget from 2D data"""
+    storage = data_2d.PW.differentiate('time')
+    advection = storage + data_2d.NPNN
+    return xr.Dataset({'storage': storage, 'advection': advection, 'net_precip':  data_2d.NPNN})

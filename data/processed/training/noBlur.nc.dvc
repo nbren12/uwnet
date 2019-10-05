@@ -1,0 +1,8 @@
+md5: 21645cdb3294d484c13a51b4d99d50be
+wdir: .
+outs:
+- md5: 25a468aea629b54395a1cda083e910e8
+  path: noBlur.nc
+  cache: true
+  metric: false
+  persist: false
