@@ -11,9 +11,9 @@ ADD ext/sam/UTIL /sam/UTIL
 RUN make -C /sam/UTIL
 
 # Install miniconda to /miniconda
-RUN curl -LO http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
-RUN bash Miniconda3-latest-Linux-x86_64.sh -p /miniconda -b
-RUN rm Miniconda3-latest-Linux-x86_64.sh
+RUN curl -LO http://repo.continuum.io/miniconda/Miniconda3-4.6.14-Linux-x86_64.sh
+RUN bash Miniconda3-4.6.14-Linux-x86_64.sh -p /miniconda -b
+RUN rm Miniconda3-4.6.14-Linux-x86_64.sh
 ENV PATH=/miniconda/bin:${PATH}
 
 # install pfunit
