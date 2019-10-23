@@ -9,7 +9,7 @@ class SAMRun(object):
     """Class for opening SAM simulation results"""
     path = attr.ib()
     case = attr.ib(default='')
-    file_limit = attr.ib(default=200)
+    file_limit = attr.ib(default=400)
 
     def list_ncfiles_in_dir(self, dir, suffix='_'):
         pattern = f"{self.path}/{dir}/*_{self.case}{suffix}*.nc"
