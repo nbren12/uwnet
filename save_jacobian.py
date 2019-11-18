@@ -10,3 +10,6 @@ eq_mean = mean.isel(y=32)
 src = model_plus_damping(src)
 base_state = base_from_xarray(eq_mean)
 lrf = LinearResponseFunction.from_model(src, base_state)
+
+with open("lrf.json", "w") as f:
+    lrf.dump(f)
