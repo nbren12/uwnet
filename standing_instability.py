@@ -1,5 +1,5 @@
 from uwnet.wave.wave import LinearResponseFunction, WaveEq, WaveCoupler
-from uwnet.wave.spectra import plot_structure
+from uwnet.wave.spectra import plot_structure, compute_spectrum
 import matplotlib.pyplot as plt
 
 
@@ -7,15 +7,14 @@ import matplotlib.pyplot as plt
 with open("lrf.json") as f:
     lrf = LinearResponseFunction.load(f)
 
-
 # create a waveeq
 wave = WaveEq(lrf.base_state)
 
 # couple them
 coupler = WaveCoupler(wave, lrf)
 
+# specific plotting
 k = .00001
-
 k, cp, gr = (k, .1, .2)
 p = lrf.base_state['pressure']
 rho = lrf.base_state['density']
