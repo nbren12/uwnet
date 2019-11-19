@@ -99,6 +99,7 @@ def main(model_path):
 
     # form into one dataset
     return xr.merge([
+        bin_averages,
         output.rename({
             'QT': 'Q2NN',
             'SLI': 'Q1NN'
