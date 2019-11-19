@@ -1,33 +1,9 @@
-from uwnet.wave import LinearResponseFunction, base_from_xarray, model_plus_damping
+from uwnet.wave.wave import LinearResponseFunction, base_from_xarray, model_plus_damping, numpy2torch, torch2numpy, get_test_solution
 import xarray as xr
 import torch
 from typing import Mapping
 from uwnet.tensordict import TensorDict
 from uwnet.jacobian import dict_jacobian
-
-def torch2numpy(x):
-    if isinstance(x, Mapping):
-        return {key: torch2numpy(val) for key, val in x.items()}
-    else:
-        return x.detach().numpy()
-
-
-def numpy2torch(x):
-    if isinstance(x, Mapping):
-        return {key: numpy2torch(val) for key, val in x.items()}
-    else:
-        return torch.tensor(x, requires_grad=True).float()
-
-
-def get_test_solution(base_state):
-    from collections import namedtuple
-
-    s, q = base_state["SLI"].detach(), base_state["QT"].detach()
-    s.requires_grad = True
-    q.requires_grad = True
-    w = torch.zeros(s.size(0), requires_grad=True)
-    soln = namedtuple("Solution", ["w", "s", "q"])
-    return soln(w=w, s=s, q=q)
 
 
 def from_model(src, base_state):
