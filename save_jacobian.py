@@ -1,7 +1,12 @@
-from uwnet.wave.wave import LinearResponseFunction, base_from_xarray, model_plus_damping, numpy2torch, torch2numpy, get_test_solution
+from uwnet.wave.wave import (
+    LinearResponseFunction,
+    base_from_xarray,
+    model_plus_damping,
+    get_test_solution,
+)
+from uwnet.wave import utils
 import xarray as xr
 import torch
-from typing import Mapping
 from uwnet.tensordict import TensorDict
 from uwnet.jacobian import dict_jacobian
 
@@ -23,7 +28,7 @@ def from_model(src, base_state):
     lrf : dict
         dict of numpy arrays giving the linearized reponse function
     """
-    base_state_t = numpy2torch(base_state)
+    base_state_t = utils.numpy2torch(base_state)
     sol = get_test_solution(base_state_t)
     outs = {}
     if src is not None:
@@ -42,8 +47,9 @@ def from_model(src, base_state):
 
     ins = sol._asdict()
     jac = dict_jacobian(outs, ins)
-    numpy_jac = torch2numpy(jac)
+    numpy_jac = utils.torch2numpy(jac)
     return LinearResponseFunction(numpy_jac, base_state)
+
 
 path = "../../nn/NNLowerDecayLR/20.pkl"
 src = torch.load(path)

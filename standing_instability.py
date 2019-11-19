@@ -14,12 +14,11 @@ wave = WaveEq(lrf.base_state)
 coupler = WaveCoupler(wave, lrf)
 
 # specific plotting
-k = .00001
-k, cp, gr = (k, .1, .2)
-p = lrf.base_state['pressure']
-rho = lrf.base_state['density']
+k = 0.00001
+k, cp, gr = (k, 0.1, 0.2)
+p = lrf.base_state["pressure"]
+rho = lrf.base_state["density"]
 
-plot_structure(
-    coupler, p, rho, k, phase_speed=cp, growth_rate=gr)
+plot_structure(coupler, p, rho, k, phase_speed=cp, growth_rate=gr)
 
 plt.savefig("standing_instability.pdf")
