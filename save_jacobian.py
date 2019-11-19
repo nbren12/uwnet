@@ -51,9 +51,9 @@ def from_model(src, base_state):
     return LinearResponseFunction(numpy_jac, base_state)
 
 
-path = "../../nn/NNLowerDecayLR/20.pkl"
+path = "data/nn_lower_decay_lr_20.pkl"
 src = torch.load(path)
-mean = xr.open_dataset("../../data/processed/training.mean.nc")
+mean = xr.open_dataset("data/zonal_mean.nc")
 eq_mean = mean.isel(y=32)
 
 src = model_plus_damping(src)
