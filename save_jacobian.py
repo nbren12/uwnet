@@ -8,7 +8,7 @@ from uwnet.wave import utils
 import xarray as xr
 import torch
 from uwnet.tensordict import TensorDict
-from uwnet.jacobian import dict_jacobian
+from uwnet.wave.jacobian import dict_jacobian
 
 
 def from_model(src, base_state):
