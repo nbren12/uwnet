@@ -68,7 +68,7 @@ def read_3d_data():
     )
 
     data_vars["QV"] = (dims_3d, S34["QVhist"] * SECONDS_PER_DAY * KG_KG_TO_G_KG)
-    data_vars["T"] = (dims_3d, S34["Thist"])
+    data_vars["TABS"] = (dims_3d, S34["Thist"])
 
     # TODO Ask tom if scoor['lev'] as actually the pressure
     data_vars["p"] = (["z"], np.asarray(Scoor["lev"]))

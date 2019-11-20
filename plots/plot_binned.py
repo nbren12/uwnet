@@ -36,8 +36,8 @@ def plot_line_by_key_altair(
     )
 
     labels = [
-        ("a", "QT", "g/kg", "Total Water"),
-        ("b", "SLI", "K", "Liquid-Ice Static Energy"),
+        ("a", "QV", "g/kg", "Water Vapor"),
+        ("b", "TABS", "K", "Temperature"),
         ("c", "Q1", "K/day", "Average Q₁"),
         ("d", "Q2", "g/kg/day", "Average Q₂"),
         ("e", "Q1NN", "K/day", "Q₁ Prediction"),
