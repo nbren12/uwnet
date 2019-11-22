@@ -1,19 +1,29 @@
-lrf.json:
-	python save_jacobian.py
+LRFs = lrf/nn_NNAll_20.json lrf/nn_lower_decay_lr_20.json
 
-standing_instability.pdf: lrf.json
-	python standing_instability.py
+
+lrf: $(LRFs)
 
 data/binned.nc: data/nn_lower_decay_lr_20.pkl
 	rm -f $@
 	python  bin_data.py $< $@
 
 
-plots:
-	python histogram_plots.py data/binned.nc noah_bin_plots
+lrf/%.json: data/%.pkl
+	mkdir -p lrf && python save_jacobian.py $< $@
+
+plots: $(LRFs)
+	python histogram_plots.py data/binned.nc noah
 	python histogram_plots.py \
 		--lts-margin=5 \
 		--path-margin=16 \
-		data/tom_binned.nc tom_bin_plots
+		data/tom_binned.nc tom
+	bash svg_to_pdf.sh
+	python wave_structures.py
 
-.PHONY: plots
+
+lrf.json:
+	python save_jacobian.py 
+
+standing_instability.pdf: lrf.json
+	python standing_instability.py
+.PHONY: plots lrf

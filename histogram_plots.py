@@ -25,7 +25,7 @@ def parse_arguments():
         description='Make plots of bin averaged data')
 
     parser.add_argument('binned_data')
-    parser.add_argument('output')
+    parser.add_argument('prefix')
     parser.add_argument('--lts-margin', default=3, type=int)
     parser.add_argument('--path-margin', default=10, type=int)
 
@@ -35,32 +35,38 @@ def parse_arguments():
 args = parse_arguments()
 
 path = args.binned_data
-output_dir = args.output
 LTS_MARGIN = args.lts_margin
 PATH_MARGIN = args.path_margin
+pre = args.prefix
 
 binned = xr.open_dataset(path)
 
+os.makedirs('figs', exist_ok=True)
+os.chdir('figs')
 
-os.makedirs(output_dir, exist_ok=True)
-os.chdir(output_dir)
+fig, axs = plt.subplots(1, 3, figsize=(7, 3), sharex=True, sharey=True)
+i = 0
 
-plt.figure()
-binned['count'].plot()
-plt.savefig("bins-a.pdf")
+binned['count'].plot(ax=axs[i])
+axs[i].set_title("Count")
+i+=1
 
-plt.figure()
-binned.net_precipitation_nn.plot(cmap='seismic')
-plt.savefig('bins-b.pdf')
+binned.net_precipitation_nn.plot(cmap='seismic', ax=axs[i])
+axs[i].set_title("P - E [mm/day]")
+i+=1
 
-plt.figure()
 error = binned.net_precipitation_src - binned.net_precipitation_nn
-error.plot(cmap='seismic')
-plt.savefig('bins-c.pdf')
+error.plot(cmap='seismic', ax=axs[i])
+axs[i].set_title("P - E  Error [mm/day]")
+i+=1
+
+plt.tight_layout()
+
+fig.savefig(pre + 'bins.pdf')
 
 plt.figure()
 binned.net_heating_nn.plot(cmap='seismic')
-plt.savefig('bins-d.pdf')
+plt.savefig(pre + 'bins-d.pdf')
 
 ds = binned.isel(lts_bins=LTS_MARGIN)
 
@@ -71,7 +77,7 @@ chart = plot_line_by_key_altair(
     title_fn=lambda x: f'LTS bin: {x.lts_bins.item()} (K)',
     cmap='viridis',
     c_sort="ascending")
-chart.save("vary_q.svg")
+chart.save(pre + "vary_q.svg")
 
 moist_margin = binned.isel(path_bins=PATH_MARGIN)
 chart = plot_line_by_key_altair(
@@ -81,4 +87,4 @@ chart = plot_line_by_key_altair(
     title_fn=lambda x:
     f'Mid tropospheric humidity bin: {x.path_bins.item()} (mm)',
     cmap='viridis')
-chart.save("vary_lts.svg")
+chart.save(pre + "vary_lts.svg")

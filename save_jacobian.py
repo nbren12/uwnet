@@ -9,6 +9,7 @@ import xarray as xr
 import torch
 from uwnet.tensordict import TensorDict
 from uwnet.wave.jacobian import dict_jacobian
+import sys
 
 
 def from_model(src, base_state):
@@ -50,8 +51,9 @@ def from_model(src, base_state):
     numpy_jac = utils.torch2numpy(jac)
     return LinearResponseFunction(numpy_jac, base_state)
 
+path = sys.argv[1]
+output = sys.argv[2]
 
-path = "data/nn_lower_decay_lr_20.pkl"
 src = torch.load(path)
 mean = xr.open_dataset("data/zonal_mean.nc")
 eq_mean = mean.isel(y=32)
@@ -59,5 +61,5 @@ eq_mean = mean.isel(y=32)
 src = model_plus_damping(src)
 base_state = base_from_xarray(eq_mean)
 lrf = from_model(src, base_state)
-with open("lrf.json", "w") as f:
+with open(output, "w") as f:
     lrf.dump(f)
