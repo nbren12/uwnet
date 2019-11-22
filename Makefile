@@ -1,5 +1,6 @@
 LRFs = lrf/nn_NNAll_20.json lrf/nn_lower_decay_lr_20.json
 
+all: plots
 
 lrf: $(LRFs)
 
@@ -11,7 +12,12 @@ data/binned.nc: data/nn_lower_decay_lr_20.pkl
 lrf/%.json: data/%.pkl
 	mkdir -p lrf && python save_jacobian.py $< $@
 
-plots: $(LRFs)
+data/tom_binned.nc:
+	bash download_tom_data.sh
+	python parse_tom_data.py
+
+
+plots: $(LRFs) data/binned.nc data/tom_binned.nc
 	python histogram_plots.py data/binned.nc noah
 	python histogram_plots.py \
 		--lts-margin=5 \
