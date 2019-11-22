@@ -19,6 +19,7 @@ plots: $(LRFs)
 		data/tom_binned.nc tom
 	bash svg_to_pdf.sh
 	python wave_structures.py
+	python spectra_input_vertical_levels.py
 
 
 lrf.json:

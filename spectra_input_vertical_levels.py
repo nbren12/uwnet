@@ -1,22 +1,43 @@
-import common
-from uwnet.spectra import *
-import pandas as pd
+from uwnet.wave.wave import ablate_upper_atmosphere, LinearResponseFunction, WaveCoupler, WaveEq
+from uwnet.wave.spectra import compute_spectrum, scatter_spectra
+import numpy as np
 
-model_path = "../../nn/NNAll/20.pkl"
+from plots.common import WIDTH
+import matplotlib.pyplot as plt
+import pandas as pd
+import xarray as xr
+
+
+LRF = "lrf/nn_NNAll_20.json"
 
 panel_specs = [
-    ('a)', None),
+    ('a)', {}),
     ('b)', {'q': 15}),
     ('c)', {'s': 19}),
     ('d)', {'q': 15, 's': 19}),
 ]
 
 
+def get_wave_coupler(path, lrf_lid):
+
+    # open lrf
+    with open(path) as f:
+        lrf = LinearResponseFunction.load(f)
+
+    lrf.panes = ablate_upper_atmosphere(lrf.panes, lrf_lid)
+
+    # create a waveeq
+    wave = WaveEq(lrf.base_state)
+
+    # couple them
+    return WaveCoupler(wave, lrf)
+
+
 def get_data() -> xr.Dataset:
     titles = []
     eigs = []
     for title, lrf_lid in panel_specs:
-        coupler, mean = get_coupler(model_path, lrf_lid=lrf_lid)
+        coupler = get_wave_coupler(LRF, lrf_lid=lrf_lid)
         eig = compute_spectrum(coupler)
         eigs.append(eig)
         titles.append(title)
@@ -27,7 +48,7 @@ def get_data() -> xr.Dataset:
 def plot(eigs, xlim=None, ylim=None, **kwargs):
 
     fig, axs = plt.subplots(
-        2, 2, figsize=(common.width, common.width), sharex=True, sharey=True,
+        2, 2, figsize=(WIDTH, WIDTH), sharex=True, sharey=True,
         constrained_layout=True)
 
     for ax, (title, lrf_lid) in zip(axs.flat, panel_specs):
@@ -36,7 +57,7 @@ def plot(eigs, xlim=None, ylim=None, **kwargs):
         im = scatter_spectra(eig, ax=ax, cbar=False, **kwargs)
         ax.set_title(title, loc="left")
 
-    wave_length  = np.array([10, 100, 200, 300, 400, 500, 1000, 10000])
+    wave_length = np.array([10, 100, 200, 300, 400, 500, 1000, 10000])
     tick_locations = 2 * np.pi / wave_length / 1e3
 
     cb = fig.colorbar(im, ax=axs.tolist(), ticks=tick_locations, shrink=.5)
@@ -49,7 +70,7 @@ def plot(eigs, xlim=None, ylim=None, **kwargs):
 
 data = get_data()
 plot(data)
-plt.savefig("spectra_input_vertical_levels.pdf")
+plt.savefig("figs/spectra_input_vertical_levels.pdf")
 
 plot(data, xlim=[-10, 10], ylim=[-1, None], symlogy=False)
-plt.savefig("spectra_input_vertical_levels_zoom.pdf")
+plt.savefig("figs/spectra_input_vertical_levels_zoom.pdf")
