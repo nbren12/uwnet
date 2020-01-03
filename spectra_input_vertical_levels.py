@@ -11,10 +11,10 @@ import xarray as xr
 LRF = "lrf/nn_NNAll_20.json"
 
 PANEL_SPECS = [
-    ('a)', {}),
-    ('b)', {'q': 15}),
-    ('c)', {'s': 19}),
-    ('d)', {'q': 15, 's': 19}),
+    ('a) Full Atmosphere', {}),
+    ('b) No Upper Humidity', {'q': 15}),
+    ('c) No Upper Temperature', {'s': 19}),
+    ('d) No Upper Humidity or \nTemperature', {'q': 15, 's': 19}),
 ]
 
 
@@ -48,14 +48,13 @@ def get_data() -> xr.Dataset:
 def plot(eigs, xlim=None, ylim=None, **kwargs):
 
     fig, axs = plt.subplots(
-        2, 2, figsize=(WIDTH, WIDTH), sharex=True, sharey=True,
-        constrained_layout=True)
+        2, 2, figsize=(WIDTH, WIDTH), sharex=True, sharey=True)
 
     for ax, (title, lrf_lid) in zip(axs.flat, PANEL_SPECS):
         print(f"Plotting {title}")
         eig = eigs.sel(title=title)
         im = scatter_spectra(eig, ax=ax, cbar=False, **kwargs)
-        ax.set_title(title, loc="left")
+        ax.set_title(title, loc="left", fontsize=10)
     
     # remove xlabels for first row
     for ax in axs[0,:]:
