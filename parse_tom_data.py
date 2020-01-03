@@ -6,6 +6,8 @@ import xarray as xr
 
 SECONDS_PER_DAY = 86400
 KG_KG_TO_G_KG = 1000
+Q1_SCALE = SECONDS_PER_DAY
+Q2_SCALE = SECONDS_PER_DAY * KG_KG_TO_G_KG
 PATH_PKL = "data/PKL_DATA/"
 NN_NAME = "STAB"
 TRUTH_NAME = "truth"
@@ -55,19 +57,19 @@ def read_3d_data():
     data_vars = {}
     dims_3d = ["path_bins", "lts_bins", "z"]
 
-    data_vars["Q1NN"] = (dims_3d, S34["dTdthist"][NN_NAME] * SECONDS_PER_DAY)
-    data_vars["Q2NN"] = (dims_3d, S34["dqdthist"][NN_NAME] * SECONDS_PER_DAY)
+    data_vars["Q1NN"] = (dims_3d, S34["dTdthist"][NN_NAME] * Q1_SCALE)
+    data_vars["Q2NN"] = (dims_3d, S34["dqdthist"][NN_NAME] * Q2_SCALE)
 
     data_vars["Q1"] = (
         dims_3d,
-        S34["dTdthist"][TRUTH_NAME] * SECONDS_PER_DAY * KG_KG_TO_G_KG,
+        S34["dTdthist"][TRUTH_NAME] * Q1_SCALE
     )
     data_vars["Q2"] = (
         dims_3d,
-        S34["dqdthist"][TRUTH_NAME] * SECONDS_PER_DAY * KG_KG_TO_G_KG,
+        S34["dqdthist"][TRUTH_NAME] * Q2_SCALE
     )
 
-    data_vars["QV"] = (dims_3d, S34["QVhist"] * SECONDS_PER_DAY * KG_KG_TO_G_KG)
+    data_vars["QV"] = (dims_3d, S34["QVhist"] *  KG_KG_TO_G_KG)
     data_vars["TABS"] = (dims_3d, S34["Thist"])
 
     # TODO Ask tom if scoor['lev'] as actually the pressure

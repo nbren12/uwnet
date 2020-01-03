@@ -12,7 +12,7 @@ def _to_plottable_dataframe(q2):
 
 
 def get_pressure_encoding():
-    return alt.Y("p", axis=alt.Axis(title="p (hPa)"), scale=alt.Scale(domain=[1015, 0]))
+    return alt.Y("p", axis=alt.Axis(title="p (hPa)"), scale=alt.Scale(domain=[1000, 0]))
 
 
 def plot_line_by_key_altair(
