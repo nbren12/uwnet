@@ -74,7 +74,7 @@ chart = plot_line_by_key_altair(
     ds,
     'path',
     c_title='Q (mm)',
-    title_fn=lambda x: f'LTS bin: {x.lts_bins.item()} (K)',
+    title_fn=lambda x: f'LTS bin: {x.lts_bins.item(): 03.1f} (K)',
     cmap='viridis',
     c_sort="ascending")
 chart.save(pre + "vary_q.svg")
@@ -85,6 +85,6 @@ chart = plot_line_by_key_altair(
     'lts',
     c_title='LTS (K)',
     title_fn=lambda x:
-    f'Mid tropospheric humidity bin: {x.path_bins.item()} (mm)',
+    f'Mid tropospheric humidity bin: {x.path_bins.item(): 03.1f} (mm)',
     cmap='viridis')
 chart.save(pre + "vary_lts.svg")

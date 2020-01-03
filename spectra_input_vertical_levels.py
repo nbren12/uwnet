@@ -10,7 +10,7 @@ import xarray as xr
 
 LRF = "lrf/nn_NNAll_20.json"
 
-panel_specs = [
+PANEL_SPECS = [
     ('a)', {}),
     ('b)', {'q': 15}),
     ('c)', {'s': 19}),
@@ -36,7 +36,7 @@ def get_wave_coupler(path, lrf_lid):
 def get_data() -> xr.Dataset:
     titles = []
     eigs = []
-    for title, lrf_lid in panel_specs:
+    for title, lrf_lid in PANEL_SPECS:
         coupler = get_wave_coupler(LRF, lrf_lid=lrf_lid)
         eig = compute_spectrum(coupler)
         eigs.append(eig)
@@ -51,11 +51,19 @@ def plot(eigs, xlim=None, ylim=None, **kwargs):
         2, 2, figsize=(WIDTH, WIDTH), sharex=True, sharey=True,
         constrained_layout=True)
 
-    for ax, (title, lrf_lid) in zip(axs.flat, panel_specs):
+    for ax, (title, lrf_lid) in zip(axs.flat, PANEL_SPECS):
         print(f"Plotting {title}")
         eig = eigs.sel(title=title)
         im = scatter_spectra(eig, ax=ax, cbar=False, **kwargs)
         ax.set_title(title, loc="left")
+    
+    # remove xlabels for first row
+    for ax in axs[0,:]:
+        ax.set_xlabel('')
+
+    # remove ylabels for last column
+    for ax in axs[:,1]:
+        ax.set_ylabel('')
 
     wave_length = np.array([10, 100, 200, 300, 400, 500, 1000, 10000])
     tick_locations = 2 * np.pi / wave_length / 1e3
