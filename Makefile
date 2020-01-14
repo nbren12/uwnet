@@ -23,6 +23,7 @@ plots: $(LRFs) data/binned.nc data/tom_binned.nc
 		--lts-margin=5 \
 		--path-margin=16 \
 		data/tom_binned.nc tom
+	python bin_plots.py
 	bash svg_to_pdf.sh
 	python wave_structures.py
 	python spectra_input_vertical_levels.py

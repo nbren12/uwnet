@@ -44,32 +44,7 @@ binned = xr.open_dataset(path)
 os.makedirs('figs', exist_ok=True)
 os.chdir('figs')
 
-fig, axs = plt.subplots(1, 3, figsize=(7, 3), sharex=True, sharey=True)
-i = 0
-
-binned['count'].plot(ax=axs[i])
-axs[i].set_title("Count")
-i+=1
-
-binned.net_precipitation_nn.plot(cmap='seismic', ax=axs[i])
-axs[i].set_title("P - E [mm/day]")
-i+=1
-
-error = binned.net_precipitation_src - binned.net_precipitation_nn
-error.plot(cmap='seismic', ax=axs[i])
-axs[i].set_title("P - E  Error [mm/day]")
-i+=1
-
-plt.tight_layout()
-
-fig.savefig(pre + 'bins.pdf')
-
-plt.figure()
-binned.net_heating_nn.plot(cmap='seismic')
-plt.savefig(pre + 'bins-d.pdf')
-
 ds = binned.isel(lts_bins=LTS_MARGIN)
-
 chart = plot_line_by_key_altair(
     ds,
     'path',
