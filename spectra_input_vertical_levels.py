@@ -2,6 +2,7 @@ from uwnet.wave.wave import ablate_upper_atmosphere, LinearResponseFunction, Wav
 from uwnet.wave.spectra import compute_spectrum, scatter_spectra
 import numpy as np
 
+import common
 from plots.common import WIDTH
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -64,12 +65,7 @@ def plot(eigs, xlim=None, ylim=None, **kwargs):
     for ax in axs[:,1]:
         ax.set_ylabel('')
 
-    wave_length = np.array([10, 100, 200, 300, 400, 500, 1000, 10000])
-    tick_locations = 2 * np.pi / wave_length / 1e3
-
-    cb = fig.colorbar(im, ax=axs.tolist(), ticks=tick_locations, shrink=.5)
-    cb.ax.set_yticklabels(wave_length)
-    cb.set_label('Wavelength (km)')
+    common.add_wavelength_colorbar(fig, im, ax=axs.tolist(), shrink=.5)
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)

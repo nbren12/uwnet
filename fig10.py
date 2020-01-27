@@ -71,9 +71,9 @@ def pickle_data_to_lrfs(data, data2):
 
     for i in range(4):
         if i == 4:
-            d = data
-        else:
             d = data2
+        else:
+            d = data
         lrf = {
             "base_state": d["base_state"],
             "jacobian": d["linear_response_functions"][toplot_ind[i]][toplot_nam[i]],
@@ -138,7 +138,7 @@ def eig_lrf_plot(plot_data, eig_xlim=(-25, 25), eig_ylim=(-10, 10)):
     cb_lrf = fig.colorbar(lrf_im, ax=row_lrf.tolist(), pad=0.01)
     cb_lrf.set_label("1/day")
 
-    cb_eig = fig.colorbar(eig_im, ax=row_eig.tolist(), pad=0.01)
+    cb_eig = common.add_wavelength_colorbar(fig, eig_im, ax=row_eig.tolist(), pad=0.01)
     cb_eig.set_label("Wavenumber (1/k)")
 
     return fig
