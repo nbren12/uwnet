@@ -1,0 +1,4 @@
+- [ ] fix save_jacobian.py. This will require either 1) serializing the model
+  with onnx or 2) saving the uwnet directory structure.
+- [ ] Integrate with CI. The plot construction should be in CI. A good test of
+  reproducibility
