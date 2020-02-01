@@ -1,14 +1,13 @@
-from uwnet.wave.wave import (
+from wave import (
     LinearResponseFunction,
     base_from_xarray,
     model_plus_damping,
     get_test_solution,
-)
-from uwnet.wave import utils
+    utils)
 import xarray as xr
 import torch
 from uwnet.tensordict import TensorDict
-from uwnet.wave.jacobian import dict_jacobian
+from wave import dict_jacobian
 import sys
 
 

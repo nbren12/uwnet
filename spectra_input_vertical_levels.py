@@ -1,6 +1,5 @@
-from uwnet.wave.wave import ablate_upper_atmosphere, LinearResponseFunction, WaveCoupler, WaveEq
-from uwnet.wave.spectra import compute_spectrum, scatter_spectra
-import numpy as np
+from wave import ablate_upper_atmosphere, LinearResponseFunction, WaveCoupler, WaveEq
+from wave import compute_spectrum, scatter_spectra
 
 import common
 from plots.common import WIDTH

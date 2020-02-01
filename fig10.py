@@ -6,18 +6,12 @@
 # In[1]:
 
 
-
-import matplotlib as mpl
-import matplotlib.pylab as pl
 import matplotlib.pyplot as plt
-import numpy as np
-import xarray as xr
-from matplotlib.colors import ListedColormap
 from pylab import *
 
 # from uwnet.spectra import *
 from uwnet.plots.jacobian import plot
-from uwnet.wave import *
+from wave import *
 import common
 
 import logging
