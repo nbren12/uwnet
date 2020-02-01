@@ -2,26 +2,28 @@ import torch
 import numpy as np
 import xarray as xr
 
-from src.data import open_data, assign_apparent_sources
-from uwnet.thermo import *
+from wave.data import open_data, assign_apparent_sources
+from wave import thermo
 
 
 def open_data_with_lts_and_path():
     ds = open_data('training').sel(time=slice(120, 140))
-    p = open_data('pressure')
+    p = ds.p.isel(time=0)
 
     # make necessary computations
     ds['p'] = p
-    ds['lat'] = ngaqua_y_to_lat(ds.y)
+    ds['lat'] = thermo.ngaqua_y_to_lat(ds.y)
     # compute LTS and Mid Trop moisture
-    ds['lts'] = lower_tropospheric_stability(ds.TABS, p, ds.SST, ds.Ps)
-    ds['path'] = midtropospheric_moisture(ds.QV, p, bottom=850, top=600)
+    ds['lts'] = thermo.lower_tropospheric_stability(ds.TABS, p, ds.SST, ds.Ps)
+    ds['path'] = thermo.midtropospheric_moisture(ds.QV, p, bottom=850, top=600)
+
+    ds = assign_apparent_sources(ds)
     return ds
 
 
 def subtropical_data():
     # load model and datya
-    ds = open_data_with_lts_and_path().pipe(assign_apparent_sources)
+    ds = open_data_with_lts_and_path()
     lat = ds.lat
     # select the sub-tropics
     #     subtropics = (11 < np.abs(lat)) & (np.abs(lat) < 22.5)

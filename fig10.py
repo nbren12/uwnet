@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from pylab import *
 
 # from uwnet.spectra import *
-from uwnet.plots.jacobian import plot
+from wave.plots.jacobian import plot
 from wave import *
 import common
 

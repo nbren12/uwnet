@@ -4,6 +4,9 @@ all: plots
 
 lrf: $(LRFs)
 
+environment:
+	poetry install
+
 data/binned.nc: data/nn_lower_decay_lr_20.pkl
 	rm -f $@
 	python  bin_data.py $< $@

@@ -1,4 +1,4 @@
-from wave import (
+from wave.wave import (
     LinearResponseFunction,
     base_from_xarray,
     model_plus_damping,
@@ -6,8 +6,8 @@ from wave import (
     utils)
 import xarray as xr
 import torch
-from uwnet.tensordict import TensorDict
-from wave import dict_jacobian
+from wave.tensordict import TensorDict
+from wave.wave import dict_jacobian
 import sys
 
 
