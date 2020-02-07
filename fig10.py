@@ -7,6 +7,7 @@
 
 
 import matplotlib.pyplot as plt
+from matplotlib.colors import SymLogNorm
 from pylab import *
 
 # from uwnet.spectra import *
@@ -64,7 +65,7 @@ def pickle_data_to_lrfs(data, data2):
     lrfs = {}
 
     for i in range(4):
-        if i == 4:
+        if i == 3:
             d = data2
         else:
             d = data
@@ -107,7 +108,7 @@ def eig_lrf_plot(plot_data, eig_xlim=(-25, 25), eig_ylim=(-10, 10)):
     row_lrf = axs[0, :]
     row_eig = axs[1, :]
 
-    lrf_kwargs = {"vmin": -10, "vmax": 10, "cmap": "bwr"}
+    lrf_kwargs = {"norm": SymLogNorm(1.0, vmin=-10, vmax=10), "cmap": "bwr"}
 
     for k, key in enumerate(plot_data):
         lrf, eigs = plot_data[key]
