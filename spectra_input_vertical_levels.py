@@ -48,7 +48,7 @@ def get_data() -> xr.Dataset:
 def plot(eigs, xlim=None, ylim=None, **kwargs):
 
     fig, axs = plt.subplots(
-        2, 2, figsize=(WIDTH, WIDTH), sharex=True, sharey=True)
+        2, 2, figsize=(WIDTH, WIDTH/1.3), sharex=True, sharey=True)
 
     for ax, (title, lrf_lid) in zip(axs.flat, PANEL_SPECS):
         print(f"Plotting {title}")
@@ -64,14 +64,16 @@ def plot(eigs, xlim=None, ylim=None, **kwargs):
     for ax in axs[:,1]:
         ax.set_ylabel('')
 
+    plt.subplots_adjust(hspace=.4)
     common.add_wavelength_colorbar(fig, im, ax=axs.tolist(), shrink=.5)
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
 
 
+
 data = get_data()
-plot(data)
+plot(data, xlim=[-120, 120])
 plt.savefig("figs/spectra_input_vertical_levels.pdf")
 
 plot(data, xlim=[-10, 10], ylim=[-1, None], symlogy=False)
