@@ -115,7 +115,7 @@ def eig_lrf_plot(plot_data, eig_xlim=(-25, 25), eig_ylim=(-10, 10)):
         lrf_im = row_lrf[k].pcolormesh(p, p, stday * lrf["q"]["q"], **lrf_kwargs)
         _invert_axes(row_lrf[k])
 
-        eig_im = scatter_spectra(eigs, cbar=False, ax=row_eig[k])
+        eig_im = scatter_spectra(eigs, cbar=False, ax=row_eig[k], s=4)
         row_lrf[k].set_title(_get_letter(0, k, ncol) + ") " + key, loc="left")
         row_eig[k].set_title(_get_letter(1, k, ncol) + ")", loc="left")
         row_eig[k].set_xlim(eig_xlim)

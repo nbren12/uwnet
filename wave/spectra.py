@@ -9,6 +9,8 @@ from . import thermo
 from wave import *
 
 
+BOX_COLOR = "lightblue"
+
 class paths:
     all = "../../nn/NNAll/20.pkl"
     lower = "../../nn/NNLowerDecayLR/20.pkl"
@@ -123,7 +125,24 @@ def most_unstable(eig, c=100):
     return eig.isel(m=m)
 
 
-def scatter_spectra(eig, ax=None, symlogy=True, cbar=True):
+def add_boxes(ax):
+    max_cp = 5
+    max_gr = 0.0
+    width = 1000
+    height = 100
+
+    kwargs = dict(color=BOX_COLOR, zorder=-1000.0)
+
+    rect_right = plt.Rectangle((max_cp, max_gr), width, height, **kwargs)
+    rect_left = plt.Rectangle((-max_cp-width, max_gr), width, height, **kwargs)
+
+    ax.add_patch(rect_left)
+    ax.add_patch(rect_right)
+
+    ax.axhline(0.0, color='black', zorder=-500)
+
+
+def scatter_spectra(eig, ax=None, symlogy=True, cbar=True, box=True, s=10):
     if ax is None:
         ax = plt.gca()
 
@@ -132,7 +151,12 @@ def scatter_spectra(eig, ax=None, symlogy=True, cbar=True):
 
     cp, gr, k = [_.values.ravel() for _ in xr.broadcast(cp, gr, eig.k)]
 
-    im = ax.scatter(cp, gr, c=k, cmap="viridis", s=10, rasterized=True)
+    if box:
+        add_boxes(ax)
+
+
+    with plt.rc_context({'figure.dpi': 100}):
+        im = ax.scatter(cp, gr, c=k, cmap="viridis", s=s, rasterized=True)
     ax.set_ylim(gr.min(), gr.max())
     if symlogy:
         ax.set_yscale("symlog", linthreshy=0.1)
@@ -275,3 +299,15 @@ def plot_structure_from_path(model_path, structure=None, lrf_lid=None):
     eig = compute_spectrum(coupler)
     k, cp, gr = structure
     return plot_structure(coupler, mean.p, mean.rho, k, phase_speed=cp, growth_rate=gr)
+
+
+# TODO: refactor these plotting routines
+def plot_struct_2d(w, z, n=256, ax=None, **kwargs):
+    """Plot structure of eigenfunction over one phase of oscillation
+    """
+    phase = 2 * np.pi * np.r_[:n] / n
+    phi = np.exp(1j * phase)[:, None]
+    real_component = (w * phi).real
+    im = ax.contourf(phase, z, real_component.T, **kwargs)
+    ax.set_xlabel("phase (rad)")
+    return im
