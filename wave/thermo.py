@@ -83,3 +83,11 @@ def layer_mass_from_p(p, ps=None):
 
 
 midtropospheric_moisture = partial(water_vapor_path, bottom=850, top=600)
+
+
+def omega_from_w(w, rho):
+    """Presure velocity in anelastic framework
+
+    omega = dp_0/dt = dp_0/dz dz/dt = - rho_0 g w
+    """
+    return -w * rho * grav

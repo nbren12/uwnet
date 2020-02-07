@@ -28,8 +28,8 @@ ax.set_xlabel ('Regularization $\sigma$ (%)');
 ax.set_xlim((-1,26))
 ax.set_ylim((0,YMAX))
 
-ax2.scatter(100*S['Perturbation_std'],1/S['Growth_rate_daym1'],color='b')
-ax2.set_ylim((0,YMAX))
+ax2.semilogy(100*S['Perturbation_std'],1/S['Growth_rate_daym1'],'bo', markeredgecolor='black')
+# ax2.set_ylim((0,YMAX))
 ax2.set_ylabel('Diagnostic inverse growth rate\nof most unstable mode (days)',color='b')
 ax2.spines['right'].set_color('b')
 ax2.tick_params(axis='y', colors='b')

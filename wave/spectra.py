@@ -128,7 +128,7 @@ def most_unstable(eig, c=100):
 def add_boxes(ax):
     max_cp = 5
     max_gr = 0.0
-    width = 100
+    width = 1000
     height = 100
 
     kwargs = dict(color=BOX_COLOR, zorder=-1000.0)
@@ -299,3 +299,15 @@ def plot_structure_from_path(model_path, structure=None, lrf_lid=None):
     eig = compute_spectrum(coupler)
     k, cp, gr = structure
     return plot_structure(coupler, mean.p, mean.rho, k, phase_speed=cp, growth_rate=gr)
+
+
+# TODO: refactor these plotting routines
+def plot_struct_2d(w, z, n=256, ax=None, **kwargs):
+    """Plot structure of eigenfunction over one phase of oscillation
+    """
+    phase = 2 * np.pi * np.r_[:n] / n
+    phi = np.exp(1j * phase)[:, None]
+    real_component = (w * phi).real
+    im = ax.contourf(phase, z, real_component.T, **kwargs)
+    ax.set_xlabel("phase (rad)")
+    return im
