@@ -107,13 +107,13 @@ def plot_struct_eig_p(
         cbar = plt.colorbar(im, ax=ax, location="bottom")
         cbar.ax.set_xticklabels(cbar.ax.get_xticklabels(), rotation=70)
 
-        ax.set_title(title)
+        ax.set_title(title, loc='left')
 
-    plot_pane(axs[0], r"$\omega$ (hPa/hr)", w, p, **get_kwargs(w_range))
-    plot_pane(axs[1], "s (K)", s, p, **get_kwargs(s_range))
-    plot_pane(axs[2], "q (g/kg)", q, p, **get_kwargs(q_range))
-    plot_pane(axs[3], "Q1 (K/day)", q1, p, **get_kwargs(s_range))
-    plot_pane(axs[4], "Q2 (g/kg/day)", q2, p, **get_kwargs(q_range))
+    plot_pane(axs[0], r"a) $\omega$ (hPa/hr)", w, p, **get_kwargs(w_range))
+    plot_pane(axs[1], "b) s (K)", s, p, **get_kwargs(s_range))
+    plot_pane(axs[2], "c) q (g/kg)", q, p, **get_kwargs(q_range))
+    plot_pane(axs[3], "d) Q1 (K/day)", q1, p, **get_kwargs(s_range))
+    plot_pane(axs[4], "e) Q2 (g/kg/day)", q2, p, **get_kwargs(q_range))
 
     axs[0].set_ylabel("p (mb)")
 
