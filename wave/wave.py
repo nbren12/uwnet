@@ -414,7 +414,7 @@ class WaveCoupler:
         return k, As
 
     def source_terms(self, vec):
-        return self.system_matrix(k=0) @ vec
+        return self.source_jacobian() @ vec
 
     @staticmethod
     def from_tom_data(tom_data):
