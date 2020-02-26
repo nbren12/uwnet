@@ -38,7 +38,7 @@ def potential_temperature(temperature_kelvin, pressure_mb, p0=1015.0):
 def lower_tropospheric_stability(
         temperature_kelvin, pressure_mb, sst, p0=1015.0):
     theta = potential_temperature(temperature_kelvin, pressure_mb, p0)
-    i = np.argmin(np.abs(pressure_mb - 700))
+    i = int(np.argmin(np.abs(pressure_mb - 700)))
     return theta.isel(z=i) - sst
 
 

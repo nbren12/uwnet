@@ -5,6 +5,8 @@ import xarray as xr
 from wave.data import open_data, assign_apparent_sources
 from wave import thermo
 
+from uwnet.thermo import integrate_q2, integrate_q1, net_precipitation_from_prec_evap
+
 
 def open_data_with_lts_and_path():
     ds = open_data('training').sel(time=slice(120, 140))

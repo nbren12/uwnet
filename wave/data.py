@@ -1,5 +1,5 @@
-import intake
-
+import fsspec
+import xarray as xr
 from .thermo import compute_apparent_source
 
 TRAINING_DATA_PATH = "gs://vcm-ml-data/project_data/uwnet/2020-02-01-noBlur.zarr/"
@@ -7,7 +7,8 @@ TRAINING_DATA_PATH = "gs://vcm-ml-data/project_data/uwnet/2020-02-01-noBlur.zarr
 
 def open_data(tag):
     if tag == 'training':
-        return intake.open_zarr(TRAINING_DATA_PATH).to_dask()
+        return xr.open_dataset("../../data/processed/training/noBlur.nc")
+        return xr.open_zarr(fsspec.get_mapper(TRAINING_DATA_PATH))
 
 
 def assign_apparent_sources(ds):
