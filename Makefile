@@ -30,9 +30,13 @@ plots: $(LRFs) data/binned.nc data/tom_binned.nc
 	bash svg_to_pdf.sh
 	python wave_structures.py
 	python spectra_input_vertical_levels.py
-	python fig10.py
 	python fig11.py
 
+figs/fig10.pdf: data/tom_lrfs.json
+	python fig10.py $<
+
+data/tom_lrfs.json:
+	python download_tom_lrfs.py $@
 
 lrf.json:
 	python save_jacobian.py 

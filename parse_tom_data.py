@@ -20,6 +20,7 @@ def midpoint(x):
 def read_2d_data():
     filename = "9_30_Fig2_" + NN_NAME + ".pkl"
     path = os.path.join(PATH_PKL, filename)
+    S = np.load(path, allow_pickle=True)
 
     with open(path, "rb") as hf:
         S = pickle.load(hf)

@@ -6,6 +6,7 @@
 # In[1]:
 
 
+import sys
 import matplotlib.pyplot as plt
 from matplotlib.colors import SymLogNorm
 from pylab import *
@@ -14,23 +15,11 @@ from pylab import *
 from wave.plots.jacobian import plot
 from wave import *
 import common
+import wave
 
 import logging
 
 logging.basicConfig(level=logging.INFO)
-
-
-def open_pickles():
-    
-    url1 =  "https://github.com/tbeucler/CBRAIN-CAM/raw/master/notebooks/tbeucler_devlog/PKL_DATA/9_13_LRF.pkl"
-    
-    url2 = (
-        "https://github.com/tbeucler/CBRAIN-CAM/raw/master/notebooks/tbeucler_devlog/PKL_DATA/9_14_LRF.pkl"
-    )
-
-
-    return common.load_pickle_from_url(url1) , common.load_pickle_from_url(url2)
-
 
 # Define custom functions to plot Jacobian and growth rates
 def plot_lrf(data):
@@ -46,36 +35,6 @@ def plot_spectra(ax, data, **kwargs):
     eig = compute_spectrum(coupler)
 
     scatter_spectra(eig, cbar=False, ax=ax)
-
-
-def pickle_data_to_lrfs(data, data2):
-    toplot_nam = [
-        "MeanLRF_stable",
-        "MeanLRF_unstable",
-        "MeanLRF_unstable",
-        "MeanLRF_unstable",
-    ]
-    toplot_ind = [
-        0,
-        0,
-        3,
-        3,
-    ]  # Indices correspond to Perturbation amplitude arrays above
-    toplot_tit = ["Stable 1%", "Unstable 1%", "Unstable 10%", "Unstable 19%"]
-    lrfs = {}
-
-    for i in range(4):
-        if i == 3:
-            d = data2
-        else:
-            d = data
-        lrf = {
-            "base_state": d["base_state"],
-            "jacobian": d["linear_response_functions"][toplot_ind[i]][toplot_nam[i]],
-        }
-        lrfs[toplot_tit[i]] = lrf
-
-    return lrfs
 
 
 def _invert_axes(ax):
@@ -138,8 +97,12 @@ def eig_lrf_plot(plot_data, eig_xlim=(-25, 25), eig_ylim=(-10, 10)):
 
     return fig
 
-data, data2 = open_pickles()
-lrfs = pickle_data_to_lrfs(data, data2)
+
+INPUT = sys.argv[1]
+
+with open(INPUT) as f:
+    lrfs = wave.load(f)
+
 couplers = {key: WaveCoupler.from_tom_data(val) for key, val in lrfs.items()}
 logging.info("Computing the spectra")
 plot_data = {
