@@ -35,8 +35,14 @@ plots: $(LRFs) data/binned.nc data/tom_binned.nc
 figs/fig10.pdf: data/tom_lrfs.json
 	python fig10.py $<
 
+figs/figs11.pdf: data/tom_failure_time.json
+	python fig11.py $<
+
 data/tom_lrfs.json:
 	python download_tom_lrfs.py $@
+
+data/tom_failure_time.json:
+	python download_fig11_data.py $@
 
 lrf.json:
 	python save_jacobian.py 
