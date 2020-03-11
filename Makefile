@@ -1,3 +1,4 @@
+PKL_DATA=https://github.com/tbeucler/CBRAIN-CAM/raw/master/notebooks/tbeucler_devlog/PKL_DATA
 LRFs = lrf/nn_NNAll_20.json lrf/nn_lower_decay_lr_20.json
 
 all: plots
@@ -37,11 +38,17 @@ figs/fig10.pdf: data/tom_lrfs.json
 figs/Figure11.pdf: data/tom_failure_time.json
 	python fig11.py $<
 
+figs/S1.pdf: data/s1_data.nc figS1.py 
+	python figS1.py $< $@
+
 data/tom_lrfs.json:
 	python download_tom_lrfs.py $@
 
 data/tom_failure_time.json:
 	python download_fig11_data.py $@
+
+data/s1_data.nc:
+	python download_tom_bins_2d.py $(PKL_DATA)/2_27_FigS1_UNSTAB.pkl UNSTAB $@
 
 lrf.json:
 	python save_jacobian.py 
