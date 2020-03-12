@@ -32,6 +32,9 @@ plots: $(LRFs) data/binned.nc data/tom_binned.nc
 	python wave_structures.py
 	python spectra_input_vertical_levels.py
 
+figs/bins.pdf: bin_plots.py data/tom_binned.nc
+	python bin_plots.py
+
 figs/fig10.pdf figs/S2.pdf: data/tom_lrfs.json
 	python fig10-s2.py $< $@
 

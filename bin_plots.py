@@ -27,19 +27,24 @@ OUTPUT = "figs/bins.pdf"
 Q_LABEL = "Q (mm)"
 LTS_LABEL = "LTS (K)"
 
+def colorbar_lims(x):
+    m = max(abs(x.min().item()), abs(x.max().item()))
+    return {'vmin': -m, 'vmax': m}
 
 def plot_row(binned, axs):
-    common_kwargs = {'add_labels': False}
+    common_kwargs = {'add_labels': False, 'add_colorbar': False}
 
     i = 0
     binned['count'].plot(ax=axs[i], **common_kwargs)
     i+=1
 
-    binned.net_precipitation_nn.plot(cmap='seismic', ax=axs[i], **common_kwargs)
+    lims = colorbar_lims(binned.net_precipitation_src)
+    common_kwargs.update(lims)
+    im = binned.net_precipitation_nn.plot(cmap='seismic', ax=axs[i], **common_kwargs)
     i+=1
 
-    error = binned.net_precipitation_nn - binned.net_precipitation_src 
-    error.plot(cmap='seismic', ax=axs[i], **common_kwargs)
+    binned.net_precipitation_src.plot(cmap='seismic', ax=axs[i], **common_kwargs)
+    plt.colorbar(im, ax=axs[1:].tolist())
 
     for ax in axs[1:]:
         ax.set_ylabel('')
@@ -74,7 +79,7 @@ if __name__ == "__main__":
     plot_row(datasets['CRM'], axs=row1)
     plot_row(datasets['SP'], axs=row2)
 
-    set_row_titles(row1, ["a) Count\n", "b) Predicted\nP-E (mm/day)", "c) P-E Error\n(mm/day)"])
+    set_row_titles(row1, ["a) PDF\n", "b) Predicted P-E\n .  (mm/day)", "c) Actual P-E\n   (mm/day)"])
     set_row_titles(row2, ["d)", "e)", "f)"])
     label_axes(axs)
 
