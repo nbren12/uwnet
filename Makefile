@@ -32,8 +32,8 @@ plots: $(LRFs) data/binned.nc data/tom_binned.nc
 	python wave_structures.py
 	python spectra_input_vertical_levels.py
 
-figs/fig10.pdf: data/tom_lrfs.json
-	python fig10.py $<
+figs/fig10.pdf figs/S2.pdf: data/tom_lrfs.json
+	python fig10-s2.py $< $@
 
 figs/Figure11.pdf: data/tom_failure_time.json
 	python fig11.py $<

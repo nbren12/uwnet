@@ -60,8 +60,9 @@ def eig_lrf_plot(plot_data, eig_xlim=(-25, 25), eig_ylim=(-10, 10)):
     stday = 24 * 3600  # Covert from 1/s to 1/d
 
     ncol = len(plot_data)
+    width = 7.5 * ncol / 4 # was width originally for 4 panel layout
     fig, axs = plt.subplots(
-        2, ncol, figsize=(7.5, 4), gridspec_kw=dict(hspace=0.5, wspace=0.01)
+        2, ncol, figsize=(width, 4), gridspec_kw=dict(hspace=0.5, wspace=0.01)
     )
 
     row_lrf = axs[0, :]
@@ -99,17 +100,28 @@ def eig_lrf_plot(plot_data, eig_xlim=(-25, 25), eig_ylim=(-10, 10)):
 
 
 INPUT = sys.argv[1]
+OUTPUT = sys.argv[2]
+
 
 with open(INPUT) as f:
     lrfs = wave.load(f)
 
-couplers = {key: WaveCoupler.from_tom_data(val) for key, val in lrfs.items()}
+if OUTPUT == 'figs/fig10.pdf':
+    items = ["Stable 1%", "Unstable 1%", "Unstable 10%", "Unstable 20%"]
+elif OUTPUT == "figs/S2.pdf":
+    items = ["Stable", "Unstable"]
+    kwargs =  {'eig_xlim': (-300, 300)}
+else:
+    raise ValueError("Output not allowed.")
+
+print(f"Plotting {items}")
+print(f"Saving to {OUTPUT}")
+
+couplers = {key: WaveCoupler.from_tom_data(lrfs[key]) for key in items}
 logging.info("Computing the spectra")
 plot_data = {
     key: (lrfs[key], compute_spectrum(coupler)) for key, coupler in couplers.items()
 }
-
-
 logging.info("Plotting the spectra")
-fig = eig_lrf_plot(plot_data)
-fig.savefig("figs/fig10.pdf")
+fig = eig_lrf_plot(plot_data, **kwargs)
+fig.savefig(OUTPUT)
