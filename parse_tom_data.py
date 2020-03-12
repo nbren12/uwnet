@@ -1,14 +1,17 @@
 import os
 import pickle
+import sys
 
 import numpy as np
 import xarray as xr
+import fsspec
+
+import common
 
 SECONDS_PER_DAY = 86400
 KG_KG_TO_G_KG = 1000
 Q1_SCALE = SECONDS_PER_DAY
 Q2_SCALE = SECONDS_PER_DAY * KG_KG_TO_G_KG
-PATH_PKL = "data/PKL_DATA/"
 NN_NAME = "STAB"
 TRUTH_NAME = "truth"
 
@@ -17,13 +20,14 @@ def midpoint(x):
     return (x[1:] + x[:-1]) / 2
 
 
-def read_2d_data():
+def read_2d_data(PATH_PKL):
     filename = "9_30_Fig2_" + NN_NAME + ".pkl"
     path = os.path.join(PATH_PKL, filename)
-    S = np.load(path, allow_pickle=True)
+    # S = np.load(path, allow_pickle=True)
 
-    with open(path, "rb") as hf:
-        S = pickle.load(hf)
+    # with open(path, "rb") as hf:
+    #     S = pickle.load(hf)
+    S = common.load_pickle_from_url(path)
 
     # Coordinates
     coords = {"path_bins": midpoint(S["QMspace"]), "lts_bins": midpoint(S["LTSspace"])}
@@ -42,16 +46,16 @@ def read_2d_data():
     return xr.Dataset(data_vars, coords=coords)
 
 
-def read_3d_data():
+def read_3d_data(PATH_PKL):
 
     filename = "9_30_Fig3_" + NN_NAME + ".pkl"
     path_to_vertical_data = os.path.join(PATH_PKL, filename)
     path_to_coords = os.path.join(PATH_PKL, "11_2_SPCAM_coordinates.pkl")
 
-    with open(path_to_coords, "rb") as f:
+    with fsspec.open(path_to_coords, "rb") as f:
         Scoor = pickle.load(f)
 
-    with open(path_to_vertical_data, "rb") as f:
+    with fsspec.open(path_to_vertical_data, "rb") as f:
         S34 = pickle.load(f)
 
     # build dataset
@@ -78,6 +82,13 @@ def read_3d_data():
 
     return xr.Dataset(data_vars)
 
+path_pkl, output = sys.argv[1:]
+data_2d = read_2d_data(path_pkl)
+try:
+    data_3d = read_3d_data(path_pkl)
+except:
+    output_dataset = data_2d
+else:
+    output_dataset = xr.merge([data_3d, data_2d])
 
-output_dataset = xr.merge([read_3d_data(), read_2d_data()])
-output_dataset.to_netcdf("data/tom_binned.nc")
+output_dataset.to_netcdf(output)

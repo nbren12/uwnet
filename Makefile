@@ -17,8 +17,8 @@ lrf/%.json: data/%.pkl
 	mkdir -p lrf && python save_jacobian.py $< $@
 
 data/tom_binned.nc:
-	bash download_tom_data.sh
-	python parse_tom_data.py
+	# bash download_tom_data.sh
+	python parse_tom_data.py $(PKL_DATA) $@
 
 
 plots: $(LRFs) data/binned.nc data/tom_binned.nc

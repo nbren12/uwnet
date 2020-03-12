@@ -38,7 +38,7 @@ def plot_row(binned, axs):
     binned.net_precipitation_nn.plot(cmap='seismic', ax=axs[i], **common_kwargs)
     i+=1
 
-    error = binned.net_precipitation_src - binned.net_precipitation_nn
+    error = binned.net_precipitation_nn - binned.net_precipitation_src 
     error.plot(cmap='seismic', ax=axs[i], **common_kwargs)
 
     for ax in axs[1:]:
