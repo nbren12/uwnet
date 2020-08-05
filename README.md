@@ -13,6 +13,22 @@ python codes from an atmospheric model written in Fortran. However, the entire
 workflow is containerized with [docker][docker], and can be run wherever docker
 is installed.
 
+### Obtaining permission to use SAM
+
+The System for Atmospheric Modeling (SAM) is a key part of the pre-processing
+pipeline and prognostic evaluation of this machine learning project, but it is
+not necessary for offline evaluation or training.
+
+If you want access to SAM, please email the author Marat Khairoutdinov (cc'ing
+me) to ask for permission. Then, I can give you access to the slightly modified
+version of SAM used for this project.
+
+Once you have arranged this access, the SAM source code can be download to the
+path `ext/sam` using
+
+    git submodule --init --recursive
+
+
 # Quickstart
 
 From the project's root directory the docker environment can be entered by
