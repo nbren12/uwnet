@@ -1,0 +1,3 @@
+[submodule "ext/sam"]
+	path = ext/sam
+	url = git@github.com:nbren12/SAMUWgh.git
