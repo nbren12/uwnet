@@ -23,6 +23,7 @@ dependencies:
   - scikit-learn=0.20
   - sphinx=1.7
   - snakemake-minimal
+  - zarr
   - pytest
   - pip
   - pip:
@@ -33,7 +34,6 @@ dependencies:
       - f90nml
       - pymongo
       - click
-      - zarr
       - f90nml
       - sacred
       - recommonmark
