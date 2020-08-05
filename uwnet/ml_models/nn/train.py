@@ -39,6 +39,7 @@ from uwnet.loss import get_input_output, get_step, weighted_mean_squared_error
 from uwnet.model import get_model
 from uwnet.pre_post import get_pre_post
 from uwnet.training_plots import TrainingPlotManager
+from uwnet.metrics import WeightedMeanSquaredError
 
 ex = Experiment("Q1", interactive=True)
 
@@ -252,7 +253,6 @@ class Trainer(object):
 
     @ex.capture
     def setup_metrics_for_engine(self, engine, prognostics):
-        from .metrics import WeightedMeanSquaredError
 
         if not self.compute_metrics:
             return
