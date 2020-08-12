@@ -34,10 +34,9 @@ epochs = list(range(1, num_epoch+1))
 
 # wildcard targets
 TRAINING_CONFIG = "assets/training_configurations/{model}.json"
-TRAINED_MODEL_DIR = f"{type}/{{model}}/"
 
-TRAINING_LOG = f"{type}/{{model}}/{num_epoch}.log" # change this
-TRAINED_MODEL = f"{type}/{{model}}/{num_epoch}.log" # change this
+TRAINING_LOG = f"{{type}}/{{model}}/{num_epoch}.log" # change this
+TRAINED_MODEL = f"{{type}}/{{model}}/{num_epoch}.log" # change this
 NN_METRIC = "nn/{model}/{epoch}.json"
 
 SAM_RUN = "data/runs/{sam_params}/{type}/{model}/epoch{epoch}/"
@@ -291,7 +290,7 @@ def get_training_data(wildcards):
     path = TRAINING_CONFIG.format(**wildcards)
     with open(path) as f:
         model_config = json.load(f)
-        return model_config['data']
+        return [model_config['train_data'], model_config['test_data']]
 
 rule train_models:
     input: expand("nn/{model}/{epoch}.pkl", epoch=epochs, model=models)
@@ -302,11 +301,11 @@ rule train_nn:
         data=get_training_data
     resources: mem_mb=26000
     output: expand("nn/{{model}}/{epoch}.pkl", epoch=epochs)
-    log: TRAINING_LOG
+    log: f"nn/{{model}}/{num_epoch}.log"
     params:
-        dir=TRAINED_MODEL_DIR
+        dir="nn/{model}/"
     shell: """
-    python -m uwnet.ml_models.train_nn with {input.config}  output_dir={params.dir} > {log} 2> {log}
+    python -m uwnet.ml_models.nn.train with {input.config}  output_dir={params.dir} > {log} 2> {log}
     """
 
 rule train_rf:
@@ -316,8 +315,6 @@ rule train_rf:
     resources: mem_mb=26000
     output:  "sklearn_models/{model}.pkl"
     log: "sklearn_models/{model}.log"
-    params:
-        dir=TRAINED_MODEL_DIR
     shell:  """
     python -m uwnet.ml_models.train_generic_sklearn -op {params.dir} -cf {input.config} \
         > {log} 2> {log}

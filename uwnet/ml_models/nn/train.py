@@ -51,7 +51,9 @@ get_pre_post = ex.capture(get_pre_post, prefix='prepost')
 @ex.config
 def my_config():
     """Default configurations managed by sacred"""
-    data = "data/processed/training.nc"
+    train_data = ""
+    test_data = ""
+
     predict_radiation = True
     lr = .001
     epochs = 2
@@ -74,10 +76,6 @@ def my_config():
         'SLI': 2.5
     }
 
-    # y indices to use for training
-    validation_slices = slice(0, 2000)
-    training_slices = slice(2000, None)
-
     output_dir = None
 
     prognostics = ['QT', 'SLI']
@@ -95,8 +93,11 @@ def my_config():
 
 
 @ex.capture
-def get_dataset(data, predict_radiation):
+def get_dataset(train, train_data, test_data, predict_radiation):
     # _log.info("Opening xarray dataset")
+
+    data = train_data if train else test_data
+    
     try:
         dataset = xr.open_zarr(data)
     except ValueError:
@@ -118,14 +119,11 @@ def get_plot_manager(model):
 
 
 @ex.capture
-def get_data_loader(data: xr.Dataset, train, training_slices,
-                    validation_slices, prognostics, batch_size):
-
-    if train:
-        slices = training_slices
-    else:
-        slices = validation_slices
-
+def get_data_loader(
+    data: xr.Dataset,
+    prognostics, 
+    batch_size
+):
     ds = data.isel(sample=slices)
 
     # List needed variables
@@ -181,14 +179,16 @@ class Trainer(object):
         # get output directory
         self.output_dir = get_output_dir()
 
-        self.dataset = get_dataset()
-        self.mass = torch.tensor(self.dataset.layer_mass.values).view(
+        train_dataset = get_dataset(train=True)
+        test_dataset = get_dataset(train=False)
+
+        self.mass = torch.tensor(train_dataset.layer_mass.values).view(
             -1, 1, 1).float()
-        self.z = torch.tensor(self.dataset.z.values).float()
-        self.time_step = get_timestep(self.dataset)
-        self.train_loader = get_data_loader(self.dataset, train=True)
-        self.test_loader = get_data_loader(self.dataset, train=False)
-        self.model = get_model(*get_pre_post(self.dataset, self.train_loader))
+        self.z = torch.tensor(train_dataset.z.values).float()
+        self.time_step = get_timestep(train_dataset)
+        self.train_loader = get_data_loader(train_dataset)
+        self.test_loader = get_data_loader(test_dataset)
+        self.model = get_model(*get_pre_post(train_dataset, self.train_loader))
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
 
         if lr_decay_rate is None:
