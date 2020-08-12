@@ -22,7 +22,7 @@ DATA_PATH = config.get("data_path", "data/raw/2018-05-30-NG_5120x2560x34_4km_10s
 DATA_URL = "https://atmos.washington.edu/~nbren12/data/2018-05-30-NG_5120x2560x34_4km_10s_QOBS_EQX.tar"
 NUM_STEPS = config.get('NSTEPS', 640)
 TRAINING_DATA = "data/processed/training/{data_name}.nc"
-RESHAPED_DATA = "data/processed/reshaped/{data_name}.zarr"
+RESHAPED_DATA = "data/processed/reshaped/{data_name}/{train_or_test}.zarr"
 TROPICS_DATA = "data/processed/tropics.nc"
 SAM_RESOLUTION = "128x64x34"
 sam_src = config.get("sam_path", "/opt/sam")
@@ -102,6 +102,9 @@ rule nn_metrics:
 
 rule reports:
     input: SAM_REPORTS
+
+rule data:
+    input: expand(RESHAPED_DATA, data_name=['noBlur'], train_or_test=["train", "test"])
 
 rule download_data:
     output: directory(DATA_PATH)
