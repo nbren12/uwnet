@@ -27,8 +27,8 @@ def batch_to_mse(model, batch):
 
 def _parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument("model", help="path to model")
     parser.add_argument("data", help="path to zarr reshaped training or test data")
+    parser.add_argument("model", help="path to model")
 
     return parser.parse_args()
 

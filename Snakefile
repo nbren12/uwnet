@@ -29,7 +29,7 @@ sam_src = config.get("sam_path", "/opt/sam")
 print("SAM_SRC", sam_src)
 DOCKER = config.get("docker", True)
 TODAY = get_current_date_string()
-num_epoch = config.get("num_epoch", 20)
+num_epoch = config.get("num_epoch", 1)
 epochs = list(range(1, num_epoch+1))
 
 # wildcard targets
@@ -37,7 +37,7 @@ TRAINING_CONFIG = "assets/training_configurations/{model}.json"
 
 TRAINING_LOG = f"{{type}}/{{model}}/{num_epoch}.log" # change this
 TRAINED_MODEL = f"{{type}}/{{model}}/{num_epoch}.log" # change this
-NN_METRIC = "nn/{model}/{epoch}.json"
+NN_METRIC = "nn/{model}/{epoch}.{train_or_test}.json"
 
 SAM_RUN = "data/runs/{sam_params}/{type}/{model}/epoch{epoch}/"
 SAM_RUN_SK = f"data/runs/sklearn/{{model}}"
@@ -49,7 +49,7 @@ MODEL_FILE = "nn/{model}/{epoch}.pkl"
 DEBIASED_MODEL = "debiased/{model}/{epoch}.pkl"
 
 types = ["nn"]
-models = ["NNLower", "NNAll", "NNManuscript"]
+models = ["NNLower", "NNAll"]
 sam_params = ["samnn"]
 
 #types = ["sklearn"]
@@ -91,13 +91,8 @@ all_figs = jacobian_figures_absolute + other_figures_absolute
 ## Temporary output locations
 SAM_PROCESSED_LOG = "data/tmp/{step}.log"
 
-
-## RULES
-rule all:
-    input: SAM_REPORTS
-
 rule nn_metrics:
-    input: expand(NN_METRIC, model=models, epoch=epochs)
+    input: expand(NN_METRIC, model=models, epoch=epochs, train_or_test=["train", "test"])
 
 rule reports:
     input: SAM_REPORTS
@@ -321,11 +316,10 @@ rule train_rf:
     """
 
 rule nn_metric:
-    input: "data/processed/training/noBlur.nc", "nn/{model}/{epoch}.pkl"
+    input: "data/processed/reshaped/noBlur/{train_or_test}.zarr", "nn/{model}/{epoch}.pkl"
     output: NN_METRIC
     resources: mem_mb=8000
     shell: "python uwnet/criticism/evaluate.py {input} > {output}"
-
 
 rule debias_nn:
     input: TRAINED_MODEL
