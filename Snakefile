@@ -300,16 +300,6 @@ rule debias_nn:
     params: data=get_training_data, prognostics=['QT', 'SLI'], model=MODEL_FILE
     script: "src/models/debias.py"
 
-
-rule compute_noise_for_trained_model:
-    input: "models/{model}.pkl"
-    output: "noise/{model}.pkl"
-    run:
-        from uwnet.whitenoise import fit
-        import torch
-        noise = fit(input[0])
-        torch.save(noise, output[0])
-
 ## Visualizations ########################################
 
 rule visualize_sam_run:
