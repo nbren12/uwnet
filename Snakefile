@@ -29,7 +29,7 @@ sam_src = config.get("sam_path", "/opt/sam")
 print("SAM_SRC", sam_src)
 DOCKER = config.get("docker", True)
 TODAY = get_current_date_string()
-num_epoch = config.get("num_epoch", 1)
+num_epoch = config.get("num_epoch", 5)
 epochs = list(range(1, num_epoch+1))
 
 # wildcard targets
