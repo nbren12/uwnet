@@ -120,12 +120,10 @@ def get_plot_manager(model):
 
 @ex.capture
 def get_data_loader(
-    data: xr.Dataset,
+    ds: xr.Dataset,
     prognostics, 
     batch_size
 ):
-    ds = data.isel(sample=slices)
-
     # List needed variables
     variables = prognostics + ['SST', 'SOLIN', 'QRAD']
     for variable in prognostics:

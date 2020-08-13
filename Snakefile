@@ -301,11 +301,11 @@ rule train_nn:
         data=get_training_data
     resources: mem_mb=26000
     output: expand("nn/{{model}}/{epoch}.pkl", epoch=epochs)
-    log: f"nn/{{model}}/{num_epoch}.log"
+    log: f"nn/{{model}}/log"
     params:
         dir="nn/{model}/"
     shell: """
-    python -m uwnet.ml_models.nn.train with {input.config}  output_dir={params.dir} > {log} 2> {log}
+    python -m uwnet.ml_models.nn.train with {input.config}  epochs={num_epoch} output_dir={params.dir} > {log} 2> {log}
     """
 
 rule train_rf:
