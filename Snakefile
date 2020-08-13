@@ -63,33 +63,6 @@ SAM_REPORTS = []
 def add_report(type, model, epoch, sam_params='samnn'):
     SAM_REPORTS.append(VISUALIZE_SAM_DIR.format(sam_params=sam_params, type=type, model=model, epoch=str(epoch)))
 
-add_report('nn', 'NNLowerDecayLR', 20)
-
-# Plots
-scripts = ['bias',
- 'qp_acf',
- 'damping_coefs',
- 'hovmoller_mean_pw_prec',
- 'pattern_correlation',
- 'pdf',
- 'precip_maps',
- 'predicted_vs_actual_q1',
- 'r2_q1_q2',
- 'rms_weather_plots',
- 'snapshots_pw',
- 'spinup_error',
- 'bootstrap']
-
-jacobian_figures_relative = ["saliency-unstable.png", "saliency-stable.png"]
-jacobian_figures_absolute = [join("notebooks/papers/", fig)
-                             for fig in jacobian_figures_relative]
-
-other_figures_absolute = [join("notebooks/papers/", script + ".pdf")
-                         for script in scripts]
-all_figs = jacobian_figures_absolute + other_figures_absolute
-
-## Temporary output locations
-SAM_PROCESSED_LOG = "data/tmp/{step}.log"
 
 rule nn_metrics:
     input: expand(NN_METRIC, model=models, epoch=epochs, train_or_test=["train", "test"])
@@ -345,23 +318,3 @@ rule visualize_sam_run:
     params:
         run = SAM_RUN
     shell: "python -m src.visualizations.sam_run {params.run} {output}"
-
-## Plots for paper ########################################
-
-rule upload_figs:
-    input: all_figs
-    shell: "cp {input} ~/public_html/reports/uwnet/plots2019/"
-
-rule paper_plots:
-    input: all_figs
-
-
-rule vis_jacobian:
-    input: SAM_RUNS, data.ngaqua_climate_path
-    output: jacobian_figures_absolute
-    shell: "python notebooks/papers/jacobian.py {output}"
-
-rule run_vis_script:
-    input: script="notebooks/papers/{script}.py", runs=SAM_RUNS
-    output: "notebooks/papers/{script}.pdf"
-    shell: "cd notebooks/papers/ && python {wildcards.script}.py {wildcards.script}.pdf"
