@@ -190,3 +190,37 @@ def get_timestep(data):
         raise ValueError(
             f"Units of time are {time.units}, but must be either seconds"
             "or days")
+
+
+def get_dataset(train, train_data, test_data, predict_radiation):
+    # _log.info("Opening xarray dataset")
+
+    data = train_data if train else test_data
+    
+    try:
+        dataset = xr.open_zarr(data)
+    except ValueError:
+        dataset = xr.open_dataset(data)
+
+    if not predict_radiation:
+        dataset['FSLI'] = dataset['FSLI'] + dataset['QRAD'] / sec_in_day
+
+    try:
+        return dataset.isel(step=0).drop('step').drop('p')
+    except:
+        return dataset
+
+
+def get_data_loader(
+    ds: xr.Dataset,
+    prognostics, 
+    batch_size
+):
+    # List needed variables
+    variables = prognostics + ['SST', 'SOLIN', 'QRAD']
+    for variable in prognostics:
+        forcing_key = 'F' + variable
+        variables.append(forcing_key)
+
+    train_data = XarrayBatchLoader(ds, batch_size=batch_size, variables=variables, torch=True)
+    return train_data

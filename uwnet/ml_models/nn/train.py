@@ -34,7 +34,7 @@ import torch
 from torch.optim.lr_scheduler import StepLR
 from ignite.engine import Engine, Events
 from uwnet.thermo import sec_in_day
-from .datasets_handler import get_timestep, XarrayBatchLoader
+from .datasets_handler import get_timestep, XarrayBatchLoader, get_dataset, get_data_loader
 from uwnet.loss import get_input_output, get_step, weighted_mean_squared_error
 from uwnet.model import get_model
 from uwnet.pre_post import get_pre_post
@@ -44,8 +44,11 @@ from uwnet.metrics import WeightedMeanSquaredError
 ex = Experiment("Q1", interactive=True)
 
 TrainingPlotManager = ex.capture(TrainingPlotManager, prefix='plots')
+
 get_model = ex.capture(get_model, prefix='model')
 get_pre_post = ex.capture(get_pre_post, prefix='prepost')
+get_dataset = ex.capture(get_dataset)
+get_data_loader = ex.capture(get_data_loader)
 
 
 @ex.config
@@ -92,46 +95,10 @@ def my_config():
     lr_step_size = 5
 
 
-@ex.capture
-def get_dataset(train, train_data, test_data, predict_radiation):
-    # _log.info("Opening xarray dataset")
-
-    data = train_data if train else test_data
-    
-    try:
-        dataset = xr.open_zarr(data)
-    except ValueError:
-        dataset = xr.open_dataset(data)
-
-    if not predict_radiation:
-        dataset['FSLI'] = dataset['FSLI'] + dataset['QRAD'] / sec_in_day
-
-    try:
-        return dataset.isel(step=0).drop('step').drop('p')
-    except:
-        return dataset
-
-
 def get_plot_manager(model):
     from src.data import open_data
     dataset = open_data('training')
     return TrainingPlotManager(ex, model, dataset)
-
-
-@ex.capture
-def get_data_loader(
-    ds: xr.Dataset,
-    prognostics, 
-    batch_size
-):
-    # List needed variables
-    variables = prognostics + ['SST', 'SOLIN', 'QRAD']
-    for variable in prognostics:
-        forcing_key = 'F' + variable
-        variables.append(forcing_key)
-
-    train_data = XarrayBatchLoader(ds, batch_size=batch_size, variables=variables, torch=True)
-    return train_data
 
 
 def get_validation_engine(model, dt):
@@ -154,10 +121,6 @@ def get_output_dir(_run=None, model_dir=None, output_dir=None):
     else:
         file_name = str(_run._id)
         return join(model_dir, file_name)
-
-
-def is_one_dimensional(val):
-    return val.dim() == 2
 
 
 class Trainer(object):
