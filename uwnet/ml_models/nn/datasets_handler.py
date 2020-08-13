@@ -11,6 +11,8 @@ from uwnet.utils import dataset_to_broadcastable_array_dict
 from uwnet.tensordict import TensorDict
 from src.data import assign_apparent_sources
 
+from uwnet.thermo import sec_in_day
+
 def _stack_or_rename(x, **kwargs):
     for key, val in kwargs.items():
         if isinstance(val, str):
@@ -192,11 +194,9 @@ def get_timestep(data):
             "or days")
 
 
-def get_dataset(train, train_data, test_data, predict_radiation):
+def get_dataset(data, predict_radiation):
     # _log.info("Opening xarray dataset")
 
-    data = train_data if train else test_data
-    
     try:
         dataset = xr.open_zarr(data)
     except ValueError:

@@ -33,7 +33,6 @@ from toolz import curry
 import torch
 from torch.optim.lr_scheduler import StepLR
 from ignite.engine import Engine, Events
-from uwnet.thermo import sec_in_day
 from .datasets_handler import get_timestep, XarrayBatchLoader, get_dataset, get_data_loader
 from uwnet.loss import get_input_output, get_step, weighted_mean_squared_error
 from uwnet.model import get_model
@@ -128,7 +127,7 @@ class Trainer(object):
     """
 
     @ex.capture
-    def __init__(self, _run, lr, loss_scale,
+    def __init__(self, _run, lr, loss_scale, train_data, test_data,
                  lr_decay_rate=None, lr_step_size=5):
         # setup logging
         logging.basicConfig(level=logging.INFO)
@@ -140,8 +139,8 @@ class Trainer(object):
         # get output directory
         self.output_dir = get_output_dir()
 
-        train_dataset = get_dataset(train=True)
-        test_dataset = get_dataset(train=False)
+        train_dataset = get_dataset(train_data)
+        test_dataset = get_dataset(test_data)
 
         self.mass = torch.tensor(train_dataset.layer_mass.values).view(
             -1, 1, 1).float()
