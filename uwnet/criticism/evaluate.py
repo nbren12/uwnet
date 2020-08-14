@@ -12,8 +12,9 @@ def batch_to_residual(model, batch):
     from uwnet.timestepper import Batch
 
     batch = Batch(batch.float(), prognostics=["QT", "SLI"])
-    _, residual = get_input_output(model, 0.125, batch)
-    return residual
+    with torch.no_grad():
+        prediction, truth = get_input_output(model, 0.125, batch)
+    return prediction - truth
 
 
 def vertically_resolved_mse_from_residual(residual):
