@@ -2,6 +2,7 @@ PKL_DATA=https://github.com/tbeucler/CBRAIN-CAM/raw/master/notebooks/tbeucler_de
 LRFs = lrf/nn_NNAll_20.json lrf/nn_lower_decay_lr_20.json
 
 TOM_BINS = data/2020_03_14_For_Noah.nc
+FULL_DATA = ~/workspace/uwnet/data/processed/training/noBlur.nc
 
 all: plots
 
@@ -10,9 +11,9 @@ lrf: $(LRFs)
 environment:
 	poetry install
 
-data/binned.nc: data/nn_lower_decay_lr_20.pkl
+data/binned.nc: data/nn_NNAll_20.pkl $(FULL_DATA)
 	rm -f $@
-	python  bin_data.py $< $@
+	python  bin_data.py $^ $@
 
 
 lrf/%.json: data/%.pkl

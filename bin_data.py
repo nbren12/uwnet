@@ -8,8 +8,8 @@ from wave import thermo
 from uwnet.thermo import integrate_q2, integrate_q1, net_precipitation_from_prec_evap
 
 
-def open_data_with_lts_and_path():
-    ds = open_data('training').sel(time=slice(120, 140))
+def open_data_with_lts_and_path(data_path):
+    ds = xr.open_dataset(data_path).sel(time=slice(120, 140))
     p = ds.p.isel(time=0)
 
     # make necessary computations
@@ -23,9 +23,9 @@ def open_data_with_lts_and_path():
     return ds
 
 
-def subtropical_data():
+def subtropical_data(data_path):
     # load model and datya
-    ds = open_data_with_lts_and_path()
+    ds = open_data_with_lts_and_path(data_path)
     lat = ds.lat
     # select the sub-tropics
     #     subtropics = (11 < np.abs(lat)) & (np.abs(lat) < 22.5)
@@ -78,7 +78,7 @@ def groupby_2d(ds, fun, lts_bins, moisture_bins):
         'path', bins=moisture_bins).apply(_average_over_lts_bins))
 
 
-def main(model_path):
+def main(model_path, data_path):
     """Get data averaged over a (LTS, mid trop humidity) space"""
 
     # bins for moisture and lower tropospheric stability
@@ -86,7 +86,7 @@ def main(model_path):
     lts_bins = np.r_[7.5:17.5:.5]
 
     # load data
-    tropics = subtropical_data()
+    tropics = subtropical_data(data_path)
     model = torch.load(model_path)
 
     # compute averages
@@ -129,5 +129,5 @@ def interval_coordinates_to_midpoint(ds):
 
 if __name__ == '__main__':
     import sys
-    binned = main(sys.argv[1])
-    binned.pipe(interval_coordinates_to_midpoint).to_netcdf(sys.argv[2])
+    binned = main(sys.argv[1], sys.argv[2])
+    output_dataset = binned.pipe(interval_coordinates_to_midpoint).to_netcdf(sys.argv[3])
