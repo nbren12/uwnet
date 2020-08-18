@@ -84,11 +84,7 @@ def read_3d_data(PATH_PKL):
 
 path_pkl, output = sys.argv[1:]
 data_2d = read_2d_data(path_pkl)
-try:
-    data_3d = read_3d_data(path_pkl)
-except:
-    output_dataset = data_2d
-else:
-    output_dataset = xr.merge([data_3d, data_2d])
+data_3d = read_3d_data(path_pkl)
+output_dataset = xr.merge([data_3d, data_2d])
 
 output_dataset.to_netcdf(output)

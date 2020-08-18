@@ -19,10 +19,11 @@ import matplotlib.pyplot as plt
 from plots.plot_binned import plot_line_by_key_altair
 import argparse
 
+import sys
 
 
-SP_PATH = "data/tom_binned.nc"
-CRM_PATH = "data/binned.nc"
+SP_PATH = sys.argv[1]
+CRM_PATH = sys.argv[2]
 OUTPUT = "figs/bins.pdf"
 Q_LABEL = "Q (mm)"
 LTS_LABEL = "LTS (K)"

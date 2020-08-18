@@ -16,8 +16,9 @@ fsspec = "^0.6.2"
 requests = "^2.22.0"
 intake_xarray = "^0.3.1"
 gcsfs = "^0.6.0"
-pandas = "~0.25"
+pandas = "~1.0"
 altair = "^4.0.1"
+selenium = "^3.141.0"
 
 [tool.poetry.dev-dependencies]
 ipython = "^7.12.0"

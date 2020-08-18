@@ -4,6 +4,6 @@ svgFiles=$(find . -name '*.svg')
 for f in $svgFiles
 do
     base=${f%.*}
-    inkscape $base.svg --export-pdf=$base.pdf 2> /dev/null
+    inkscape $base.svg --batch-process --export-type=pdf --export-filename=$base.pdf > /dev/null
 done
 

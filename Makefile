@@ -1,6 +1,8 @@
 PKL_DATA=https://github.com/tbeucler/CBRAIN-CAM/raw/master/notebooks/tbeucler_devlog/PKL_DATA
 LRFs = lrf/nn_NNAll_20.json lrf/nn_lower_decay_lr_20.json
 
+TOM_BINS = data/2020_03_14_For_Noah.nc
+
 all: plots
 
 lrf: $(LRFs)
@@ -16,23 +18,23 @@ data/binned.nc: data/nn_lower_decay_lr_20.pkl
 lrf/%.json: data/%.pkl
 	mkdir -p lrf && python save_jacobian.py $< $@
 
-data/tom_binned.nc:
+data/2020_03_14_For_Noah.nc:
 	# bash download_tom_data.sh
 	python parse_tom_data.py $(PKL_DATA) $@
 
 
-plots: $(LRFs) data/binned.nc data/tom_binned.nc
+plots: $(LRFs) data/binned.nc $(TOM_BINS)
 	python histogram_plots.py data/binned.nc noah
 	python histogram_plots.py \
 		--lts-margin=5 \
 		--path-margin=16 \
-		data/tom_binned.nc tom
-	python bin_plots.py
+		data/2020_03_14_For_Noah.nc tom
+	python bin_plots.py $(TOM_BINS) data/binned.nc
 	bash svg_to_pdf.sh
 	python wave_structures.py
 	python spectra_input_vertical_levels.py
 
-figs/bins.pdf: bin_plots.py data/tom_binned.nc
+figs/bins.pdf: bin_plots.py $(TOM_BINS)
 	python bin_plots.py
 
 figs/fig10.pdf figs/S2.pdf: data/tom_lrfs.json
