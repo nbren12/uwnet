@@ -87,7 +87,7 @@ if __name__ == "__main__":
     label_row(row1[0], "GRCM")
     label_row(row2[0], "SP-CAM")
 
-    set_row_titles(row1, ["a) Histogram (count) \n", "b) Predicted P-E\n .  (mm/day)", "c) Actual P-E\n   (mm/day)"])
+    set_row_titles(row1, ["a) Histogram (count) \n", "b) Predicted P-E\n   (mm/day)", "c) Actual P-E\n   (mm/day)"])
     set_row_titles(row2, ["d)", "e)", "f)"])
     label_axes(axs)
 
