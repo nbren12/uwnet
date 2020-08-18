@@ -48,9 +48,11 @@ import seaborn
 import matplotlib.pyplot as plt
 
 ds = read_metrics("/Users/noah/workspace/uwnet/nn/**/*.json")
-df = ds.mean('n').to_dataframe().reset_index()
+df = ds.mean('n').sel(model='NNLower').to_dataframe().reset_index()
 plt.figure()
 seaborn.lineplot(x='epoch', y='mse_apparent_source_qt', hue='train_or_test', data=df, ci=None)
+plt.ylim(bottom=0.0)
 plt.figure()
 seaborn.lineplot(x='epoch', y='mse_apparent_source_sli', hue='train_or_test', data=df, ci=None)
+plt.ylim(bottom=0.0)
 plt.show()
