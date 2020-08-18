@@ -37,9 +37,9 @@ def plot_line_by_key_altair(
 
     labels = [
         ("a", "QV", "g/kg", "Water Vapor"),
-        ("b", "TABS", "K", "Temperature"),
-        ("c", "Q1", "K/day", "Average Q₁"),
-        ("d", "Q2", "g/kg/day", "Average Q₂"),
+        ("b", "Q1", "K/day", "Average Q₁"),
+        ("c", "Q2", "g/kg/day", "Average Q₂"),
+        ("d", "TABS", "K", "Temperature"),
         ("e", "Q1NN", "K/day", "Q₁ Prediction"),
         ("f", "Q2NN", "g/kg/day", "Q₂ Prediction"),
     ]
@@ -56,4 +56,11 @@ def plot_line_by_key_altair(
 
     row1 = alt.hconcat(*charts[:3])
     row2 = alt.hconcat(*charts[3:])
-    return alt.vconcat(row1, row2, title=title_fn(ds))
+
+    cols = [
+        alt.vconcat(charts[0], charts[3]),
+        alt.vconcat(charts[1], charts[4]).resolve_scale(x='shared'),
+        alt.vconcat(charts[2], charts[5]).resolve_scale(x='shared'),
+    ]
+
+    return alt.hconcat(*cols, title=title_fn(ds))
