@@ -36,7 +36,8 @@ def plot_row(binned, axs):
     common_kwargs = {'add_labels': False, 'add_colorbar': False}
 
     i = 0
-    binned['count'].plot(ax=axs[i], **common_kwargs)
+    count_im = binned['count'].plot(ax=axs[i], **common_kwargs)
+    plt.colorbar(count_im, ax=axs[i])
     i+=1
 
     lims = colorbar_lims(binned.net_precipitation_src)
@@ -80,7 +81,13 @@ if __name__ == "__main__":
     plot_row(datasets['CRM'], axs=row1)
     plot_row(datasets['SP'], axs=row2)
 
-    set_row_titles(row1, ["a) PDF\n", "b) Predicted P-E\n .  (mm/day)", "c) Actual P-E\n   (mm/day)"])
+    def label_row(ax, label):
+        ax.text(-.5, 0.4, label, transform=ax.transAxes, rotation=90, ha='center', va='center')
+
+    label_row(row1[0], "GRCM")
+    label_row(row2[0], "SP-CAM")
+
+    set_row_titles(row1, ["a) Histogram (count) \n", "b) Predicted P-E\n .  (mm/day)", "c) Actual P-E\n   (mm/day)"])
     set_row_titles(row2, ["d)", "e)", "f)"])
     label_axes(axs)
 
