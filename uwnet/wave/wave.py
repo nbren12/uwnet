@@ -12,9 +12,9 @@ from scipy import sparse
 from toolz import curry
 from toolz.curried import compose, first, get, valmap
 
-from .jacobian import dict_jacobian
+from ..jacobian import dict_jacobian
 from .tensordict import TensorDict
-from .thermo import Lc, cp, grav, interface_heights
+from ..thermo import Lc, cp, grav, interface_heights
 
 from . import utils
 

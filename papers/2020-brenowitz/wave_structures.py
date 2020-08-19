@@ -1,5 +1,5 @@
-from wave import LinearResponseFunction, WaveEq, WaveCoupler
-from wave.spectra import plot_structure
+from uwnet.wave import LinearResponseFunction, WaveEq, WaveCoupler
+from uwnet.wave.spectra import plot_structure
 import matplotlib.pyplot as plt
 
 def get_wave_coupler(path):

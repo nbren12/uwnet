@@ -33,7 +33,7 @@ def test_jacobian_norm():
 
     y = a.matmul(x)
     out = jacobian_norm(y, x)
-    expected = a.norm()**2 / 2
+    expected = a.norm() ** 2 / 2
     assert out.item() == pytest.approx(expected.item())
 
     # test gradient (see test_jacobian_backward docstring)

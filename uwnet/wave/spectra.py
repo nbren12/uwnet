@@ -5,7 +5,7 @@ import xarray as xr
 
 import common
 # from src.data import open_data
-from . import thermo
+from .. import thermo
 from wave import *
 
 

@@ -1,5 +1,5 @@
-from wave import ablate_upper_atmosphere, LinearResponseFunction, WaveCoupler, WaveEq
-from wave import compute_spectrum, scatter_spectra
+from uwnet.wave import ablate_upper_atmosphere, LinearResponseFunction, WaveCoupler, WaveEq
+from uwnet.wave import compute_spectrum, scatter_spectra
 
 import common
 from plots.common import WIDTH
