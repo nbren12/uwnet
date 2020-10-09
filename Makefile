@@ -5,7 +5,6 @@
 #################################################################################
 
 PROJECT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-BUCKET = gs://vcm-ml-data/project_data/uwnet
 # PROFILE = {{ cookiecutter.aws_profile }}
 PROJECT_NAME = uwnet
 PYTHON_INTERPRETER = python
