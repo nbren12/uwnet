@@ -78,6 +78,18 @@ To reproduce the plots for the Journal of Atmospheric science paper, run
 
     make jas2020
 
+The figures for this paper requires you to install
+[chromedriver](https://chromedriver.chromium.org/) to export to svg format. I
+did this on my mac with these commands:
+
+    # for svg saving from altair
+    brew install chromedriver
+
+    # on mac os to allow unverified developers
+    xattr -d com.apple.quarantine /usr/local/bin/chromedriver
+
+You also need to install Inkscape to convert the svg to pdf format.
+
 
 [docker]: https://www.docker.com/
 
