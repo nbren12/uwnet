@@ -7,13 +7,7 @@ The documentation is hosted on github pages: https://nbren12.github.io/uwnet/
 
 ## Setup
 
-The software requirements for this project are more complicated than most
-python data analysis projects because it uses several unique tools for running
-python codes from an atmospheric model written in Fortran. However, the entire
-workflow is containerized with [docker][docker], and can be run wherever docker
-is installed.
-
-### Obtaining permission to use SAM
+## Obtaining permission to use SAM
 
 The System for Atmospheric Modeling (SAM) is a key part of the pre-processing
 pipeline and prognostic evaluation of this machine learning project, but it is
@@ -29,7 +23,6 @@ path `ext/sam` using
     git submodule --init --recursive
 
 
-# Quickstart
 
 ## Setting up the environment
 
@@ -60,7 +53,7 @@ environment by running
 
 The instructions below assume you are in one of these environments
 
-## Running the workflow
+# Running the workflow
 
 To run train the models, type
     
