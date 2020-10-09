@@ -31,18 +31,38 @@ path `ext/sam` using
 
 # Quickstart
 
-From the project's root directory the docker environment can be entered by
+## Setting up the environment
+
+This project uses two dependency management systems. Docker is needed to run
+the SAM model and SAM-related preprocessing steps. you do not need this if
+you are only training a model from pre-processed data (the data in zenodo).
+Poetry is a simpler pure python solution that should work for most common scenarios.
+
+To use docker, you first need to build the image:
+
+    make build_image
+
+If you get an error `make: nvidia-docker: Command not found`, edit the
+Makefile to have `DOCKER = docker` instead of `nvidia-docker`. (Assuming
+docker is already installed.) Then, the docker environment can be entered by
 typing
 
     make enter
-    
-If you get an error `make: nvidia-docker: Command not found`, edit the Makefile to have `DOCKER = docker` 
-instead of `nvidia-docker`. (Assuming docker is already installed.)
 
 This opens a shell variable in a docker container with all the necessary
 software requirements.
 
-To run the whole workflow from start to finish, type
+To use poetry, you can install all the needed packages and enter a sandboxed
+environment by running
+
+    poetry install
+    poetry shell
+
+The instructions below assume you are in one of these environments
+
+## Running the workflow
+
+To run train the models, type
     
     snakemake -j <number of parallel jobs>
 
@@ -53,6 +73,10 @@ in this workflow, type
 
 This whole analysis is specified in the Snakefile, which is the first place to
 look.
+
+To reproduce the plots for the Journal of Atmospheric science paper, run
+
+    make jas2020
 
 
 [docker]: https://www.docker.com/

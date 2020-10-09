@@ -1,7 +1,17 @@
 version: 2
 jobs:
  build:
-   machine: true
-   steps:
-     - checkout
-     - run: make -C papers/2020-brenowitz/
+  docker:
+      - image: circleci/python:3.6.8
+
+    # The steps for our build-and-test
+    steps:
+      # Get the code
+      - checkout
+      # Let's install the dependencies
+      - run:
+          name: Install Dependencies
+          command: |
+            poetry install
+     - run: poetry run pytest
+       #- run: poetry run make -C papers/2020-brenowitz/
