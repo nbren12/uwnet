@@ -3,7 +3,7 @@ import pytest
 from functools import partial
 from unittest.mock import Mock
 
-from wave.wave import (
+from .wave import (
     WaveCoupler,
     LinearResponseFunction,
     _fill_zero_above_input_level,

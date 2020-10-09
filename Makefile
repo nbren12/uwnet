@@ -32,6 +32,9 @@ sync_reports:
 
 setup:  create_environment install_hooks build_image
 
+environment:
+	conda create -n uwnet -f 
+
 jupyter:
 	docker run -p 8888:8888 -v $(shell pwd):/pwd -w /pwd -v /Users:/Users $(DOCKER_IMAGE) jupyter lab  --port 8888 --ip=0.0.0.0  --allow-root
 
@@ -44,6 +47,9 @@ install_hooks:
 
 build_image:
 	docker build -t nbren12/uwnet:latest .
+
+jas2020:
+	make -C papers/2020-brenowitz/
 
 enter:
 	$(DOCKER) run -w /opt/uwnet -v $(shell pwd):/opt/uwnet \

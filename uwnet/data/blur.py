@@ -1,8 +1,7 @@
 import xarray as xr
-import gnl
 
 # needed for arr.ndimage xarray acessor
-import gnl.xarray
+from .. import ndimage_xarray
 
 
 def blur(arr, sigma):

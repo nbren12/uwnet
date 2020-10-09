@@ -26,7 +26,7 @@ def test_scaler_fit_xarray():
     ds = mock_data(init=np.random.random).to_dataset(name=name)
     scaler = Scaler().fit_xarray(ds)
 
-    expected = torch.from_numpy(ds.groupby('z').mean()[name].values)
+    expected = torch.from_numpy(ds.groupby('z').mean(...)[name].values)
     assert_tensors_allclose(scaler.mean[name], expected)
 
 

@@ -3,7 +3,7 @@ import numpy as np
 import torch
 import xarray as xr
 
-import common
+from . import common
 # from src.data import open_data
 from .. import thermo
 from wave import *
@@ -159,7 +159,7 @@ def scatter_spectra(eig, ax=None, symlogy=True, cbar=True, box=True, s=10):
         im = ax.scatter(cp, gr, c=k, cmap="viridis", s=s, rasterized=True)
     ax.set_ylim(gr.min(), gr.max())
     if symlogy:
-        ax.set_yscale("symlog", linthreshy=0.1)
+        ax.set_yscale("symlog", linthresh=0.1)
     # ax.set_xticks([-50,-25,0,25,50])
     ax.set_xlabel("Phase speed (m/s)")
     ax.set_ylabel("Growth rate (1/d)")

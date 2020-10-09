@@ -8,9 +8,6 @@ all: plots
 
 lrf: $(LRFs)
 
-environment:
-	poetry install
-
 data/binned.nc: data/nn_NNAll_20.pkl $(FULL_DATA)
 	rm -f $@
 	python  bin_data.py $^ $@

@@ -1,7 +1,7 @@
 from uwnet.wave import ablate_upper_atmosphere, LinearResponseFunction, WaveCoupler, WaveEq
 from uwnet.wave import compute_spectrum, scatter_spectra
 
-import common
+import uwnet.wave.common
 from plots.common import WIDTH
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -65,7 +65,7 @@ def plot(eigs, xlim=None, ylim=None, **kwargs):
         ax.set_ylabel('')
 
     plt.subplots_adjust(hspace=.4)
-    common.add_wavelength_colorbar(fig, im, ax=axs.tolist(), shrink=.5)
+    uwnet.wave.common.add_wavelength_colorbar(fig, im, ax=axs.tolist(), shrink=.5)
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
