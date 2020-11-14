@@ -1,40 +1,58 @@
-import matplotlib.pyplot as plt
-import xarray as xr
-import click
 import torch
-from uwnet.xarray_interface import call_with_xr
-import numpy as np
-from uwnet.metrics import r2_score
+from uwnet.loss import get_input_output
+from uwnet.utils import mean_other_dims
 import json
+from tqdm import tqdm
+import argparse
 
-def column_integrate(data_array, mass):
-    return (data_array * mass).sum('z')
-
-def water_imbalance(ds, mod, max_height, ax=None):
-    output = call_with_xr(mod, ds)
-
-    net_precip = -column_integrate(output.QT, ds.layer_mass).mean(['x', 'time']) / 1000
-    cfqt = column_integrate(ds.FQT, ds.layer_mass).mean(['x', 'time']) * 86400 / 1000
-
-    bias = cfqt - net_precip
-    ms_bias = float(np.sqrt((bias**2).mean()))
+import uwnet.ml_models.nn.datasets_handler as d
 
 
-    return {"mean_squared_net_precip_bias": ms_bias}
+def batch_to_residual(model, batch):
+    from uwnet.timestepper import Batch
+
+    batch = Batch(batch.float(), prognostics=["QT", "SLI"])
+    with torch.no_grad():
+        prediction, truth = get_input_output(model, 0.125, batch)
+    return prediction - truth
 
 
-@click.command()
-@click.argument('dataset')
-@click.argument('model')
-@click.option('-z', type=int, default=None, help='maximum height used in the network')
-@click.option('-o', '--output-path', type=click.Path(), default=None, help='where to save figure')
-def main(dataset, model, z, output_path=None):
-    model = torch.load(model)
-    ds = xr.open_dataset(dataset).isel(time=slice(0, 120))
-    imbalance = water_imbalance(ds, model, z)
-    print(json.dumps(imbalance))
+def vertically_resolved_mse_from_residual(residual):
+    return {k: mean_other_dims(residual[k] ** 2, 2).squeeze() for k in residual}
 
 
+def batch_to_mse(model, batch):
+    residual = batch_to_residual(model, batch)
+    return vertically_resolved_mse_from_residual(residual)
 
-if __name__ == '__main__':
-    main()
+
+def _parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("data", help="path to zarr reshaped training or test data")
+    parser.add_argument("model", help="path to model")
+
+    return parser.parse_args()
+
+
+args = _parse_args()
+
+model_path = args.model
+path = args.data
+prognostics = ["QT", "SLI"]
+
+model = torch.load(model_path)
+train_dataset = d.get_dataset(path, predict_radiation=False)
+dl = d.get_data_loader(train_dataset, prognostics, batch_size=64)
+
+total = {}
+count = 0
+for batch in tqdm(dl):
+    mse = batch_to_mse(model, batch)
+    for key in mse:
+        count += 1
+        alpha = 1 / count
+        zeros = torch.zeros_like(mse[key])
+        total[key] = total.get(key, zeros) * (1 - alpha) + mse[key] * alpha
+
+total = {"mse_apparent_source_" + k.lower(): total[k].numpy().tolist() for k in total}
+print(json.dumps(total))

@@ -5,15 +5,14 @@
 #################################################################################
 
 PROJECT_DIR := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
-BUCKET = gs://vcm-ml-data/project_data/uwnet
 # PROFILE = {{ cookiecutter.aws_profile }}
 PROJECT_NAME = uwnet
 PYTHON_INTERPRETER = python
 RCLONE_REMOTE ?= uwgoogledrive
 TRAINING_CONFIG=examples/sl_qt.config.yaml
 TRAINING_DATA ?= data/processed/2018-10-02-ngaqua-subset.nc
-DOCKER_IMAGE ?= nbren12/uwnet:latest
-DOCKER = nvidia-docker
+DOCKER_IMAGE ?= uwnet:latest
+DOCKER = docker
 MACHINE ?= docker
 
 MACHINE_SCRIPTS = setup/$(MACHINE)
@@ -32,6 +31,9 @@ sync_reports:
 
 setup:  create_environment install_hooks build_image
 
+environment:
+	conda create -n uwnet -f 
+
 jupyter:
 	docker run -p 8888:8888 -v $(shell pwd):/pwd -w /pwd -v /Users:/Users $(DOCKER_IMAGE) jupyter lab  --port 8888 --ip=0.0.0.0  --allow-root
 
@@ -43,12 +45,15 @@ install_hooks:
 	cp -f git-hooks/* .git/hooks/
 
 build_image:
-	docker build -t nbren12/uwnet:latest .
+	docker build -t uwnet:latest .
+
+jas2020:
+	make -C papers/2020-brenowitz/
 
 enter:
 	$(DOCKER) run -w /opt/uwnet -v $(shell pwd):/opt/uwnet \
     --user $(shell id -u):$(shell id -g) \
-    -it nbren12/uwnet:latest bash
+    -it uwnet:latest bash
 
 test:
 	$(MACHINE_SCRIPTS)/run_tests.sh

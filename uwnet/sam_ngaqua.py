@@ -7,6 +7,7 @@ import xarray as xr
 import numpy as np
 from toolz import valmap, curry
 from uwnet.thermo import compute_apparent_source
+from functools import lru_cache
 
 
 def _dataarray_to_numpy(x):
@@ -48,17 +49,28 @@ class NGAquaNudger(object):
     def get_previous_time_index(self, day):
         return np.searchsorted(self.ngaqua.time.values, day, side='right') - 1
 
+    @lru_cache(maxsize=20)
+    def cached_get_numpy_at_time(self, field, time_index):
+        return _dataarray_to_numpy(self.ngaqua[field].isel(time=time_index))
+
     def get_ngaqua_at_day(self, day):
         before = self.get_previous_time_index(day)
         after = before + 1
 
-        n0 = self.ngaqua.isel(time=before)
-        n1 = self.ngaqua.isel(time=after)
+        t0 = float(self.ngaqua.time[before])
+        t1 = float(self.ngaqua.time[after])
 
-        dt = float(n1.time - n0.time)
-        a = (day - n0.time) / dt
+        dt = t1 - t0
+        a = (day - t0) / dt
         assert 0 <= a < 1
-        return (1 - a) * n0 + a * n1
+
+        target = {}
+        for key in self.nudging_variables:
+            n0 = self.cached_get_numpy_at_time(key, before)
+            n1 = self.cached_get_numpy_at_time(key, after)
+
+            target[key] = (1 - a) * n0 + a * n1
+        return target
 
     def get_nudging(self, state):
         day = state['day']
@@ -67,7 +79,7 @@ class NGAquaNudger(object):
         return self.nudge_variables(state, target)
 
     def nudge_variable(self, x, target):
-        return (_dataarray_to_numpy(target) - x) / self.time_scale
+        return (target - x) / self.time_scale
 
     def _get_out_key(self, key):
         return key
@@ -93,6 +105,6 @@ def get_ngaqua_forcing():
 def get_ngaqua_nudger(config):
     path = config['ngaqua']
     time_scale = config['time_scale']
-    ds = xr.open_dataset(path).isel(step=0).chunk({'time': 1})
+    ds = xr.open_dataset(path).chunk({'time': 1})
     return NGAquaNudger(ds, time_scale=time_scale,
                         nudging_variables=['U', 'V', 'W', 'SLI', 'QT'])

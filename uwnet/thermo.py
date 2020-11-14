@@ -1,15 +1,44 @@
 """Thermodynamic and other math calculations
 """
+from functools import partial
 import numpy as np
 import xarray as xr
+from .xcalc import centderiv
 
 grav = 9.81
+R = 287.058
 cp = 1004
+kappa = R / cp
 Lc = 2.5104e6
 rho0 = 1.19
 sec_in_day = 86400
 liquid_water_density = 1000.0
 
+rad_earth = 6371e3  # m
+circumference_earth = rad_earth * 2 * np.pi
+
+
+def compute_insolation(lat, day, scon=1367, eccf=1.0):
+    """Compute the solar insolation in W/m2 assuming perpetual equinox
+
+    Parameters
+    ----------
+    lat : (ny, nx)
+        latitude in degrees
+    day : float
+        day of year. Only uses time of day (the fraction).
+    scon : float
+        solar constant. Default 1367 W/m2
+        eccentricity factor. Ratio of orbital radius at perihelion and
+        aphelion. Default 1.0.
+
+    """
+    time_of_day = day % 1.0
+
+    # cos zenith angle
+    mu = -np.cos(2 * np.pi * time_of_day) * np.cos(np.pi * lat / 180)
+    mu[mu < 0] = 0.0
+    return scon * eccf * mu
 
 def metpy_wrapper(fun):
     """Given a metpy function return an xarray compatible version
@@ -134,7 +163,6 @@ def get_geostrophic_winds(p, rho, min_cor=1e-5):
 
     """
     # get coriolis force
-    from gnl.xarray import centderiv
     fcor = coriolis_ngaqua(p.y)
     px = centderiv(p, dim='x') / rho
     py = centderiv(p, dim='y') / rho
@@ -240,3 +268,65 @@ def water_budget(data_2d):
     storage = data_2d.PW.differentiate('time')
     advection = storage + data_2d.NPNN
     return xr.Dataset({'storage': storage, 'advection': advection, 'net_precip':  data_2d.NPNN})
+
+
+def potential_temperature(temperature_kelvin, pressure_mb, p0=1015.0):
+    return temperature_kelvin * (p0 / pressure_mb)**kappa
+
+
+def lower_tropospheric_stability(
+        temperature_kelvin, pressure_mb, sst, p0=1015.0):
+    theta = potential_temperature(temperature_kelvin, pressure_mb, p0)
+    i = int(np.argmin(np.abs(np.asarray(pressure_mb) - 700)))
+    return theta.isel(z=i) - sst
+
+
+def water_vapor_path(qv, p, bottom=850, top=550, dim='z'):
+    """Water vapor path between specified pressure levels
+
+    Parameters
+    ----------
+    qv
+        water vapor in g/kg
+    p
+        pressure in mb
+    bottom, top : float
+        pressure at bottom and top
+    dim : default 'z'
+        vertical dimension of the data
+
+    Returns
+    -------
+    path
+        water vapor path in mm (liquid water equivalent)
+
+    """
+
+    dp = layer_mass_from_p(p)
+    masked = qv.where((p < bottom) & (p > top), 0)
+    mass = (masked * dp).sum(dim=dim)
+    return mass/liquid_water_density
+
+
+def layer_mass_from_p(p, ps=None):
+    if ps is None:
+        ps = 2 * p[0] - p[1]
+
+    ptop = p[-1] * 2 - p[-2]
+
+    pext = np.hstack((ps, p, ptop))
+    pint = (pext[1:] + pext[:-1]) / 2
+    dp = -np.diff(pint * 100) / grav
+
+    return xr.DataArray(dp, p.coords)
+
+
+midtropospheric_moisture = partial(water_vapor_path, bottom=850, top=600)
+
+
+def omega_from_w(w, rho):
+    """Presure velocity in anelastic framework
+
+    omega = dp_0/dt = dp_0/dz dz/dt = - rho_0 g w
+    """
+    return -w * rho * grav

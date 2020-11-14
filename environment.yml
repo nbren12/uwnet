@@ -15,6 +15,7 @@ dependencies:
   - h5netcdf
   - ipython
   - jupyterlab
+  - joblib=0.13
   - cython
   - torchvision-cpu
   - pytorch-cpu=1.0
@@ -22,10 +23,10 @@ dependencies:
   - scikit-learn=0.20
   - sphinx=1.7
   - snakemake-minimal
+  - zarr
   - pytest
   - pip
   - pip:
-      - -e .
       - git+https://github.com/nbren12/gnl@master#subdirectory=python
       - tqdm
       - metpy
@@ -33,7 +34,6 @@ dependencies:
       - f90nml
       - pymongo
       - click
-      - zarr
       - f90nml
       - sacred
       - recommonmark

@@ -1,5 +1,28 @@
 import torch
 from torch.autograd import grad
+from .xarray_interface import dataset_to_torch_dict
+import numpy as np
+
+
+def jacobian_from_xarray(model, ds):
+    torch_data = dataset_to_torch_dict(ds)
+    torch_data = torch_data[model.input_names]
+
+    # compute saliency map
+    jac = jacobian_from_model(model, torch_data)
+
+    return jac
+
+
+def dict_format_to_numpy(jac):
+    out = []
+    for outkey in jac:
+        row = []
+        for inkey in jac:
+            arr = jac[outkey][inkey].detach().numpy()
+            row.append(arr)
+        out.append(row)
+    return np.block(out)
 
 
 def jacobian_backward(y, x):
@@ -8,7 +31,7 @@ def jacobian_backward(y, x):
     out = 0.0
     for i in range(n):
         y_x = grad(y[i], x, create_graph=True)[0]
-        y_x2 = y_x.norm()**2 / 2
+        y_x2 = y_x.norm() ** 2 / 2
         y_x2.backward(retain_graph=True)
         out += y_x2.item()
     return out
@@ -19,11 +42,18 @@ def jacobian_norm(y, x):
     out = 0.0
     for i in range(n):
         y_x = grad(y[i], x, create_graph=True)[0]
-        out += y_x.norm()**2 / 2
+        out += y_x.norm() ** 2 / 2
     return out
 
 
 def jacobian(y, x):
+    """Jacobian of y with respect to x
+
+    Returns
+    -------
+    jacobian : torch.tensor
+        jacobian[i,j] is the partial derivative of y[i] with respect to x[j].
+    """
     n = len(y)
     jac = []
     for i in range(n):
@@ -61,7 +91,7 @@ def max_signed_eigvals(A, niter=100, m=1):
     # find maximum norm eigvalue
     lam, _ = max_eig_val(A, niter=niter, m=m)
     # if it is negative shift the matrix
-    h = - 1 / lam * .9
+    h = -1 / lam * 0.9
 
     I = torch.eye(A.size(0))
     B = I + h * A
@@ -74,13 +104,22 @@ def max_signed_eigvals(A, niter=100, m=1):
     return lam, lam_orig
 
 
-def dict_jacobian(y, d, progs=['QT', 'SLI']):
+def dict_jacobian(y, d, progs=["QT", "SLI"]):
+    """Compute Jacobian dictionary
+
+    Returns
+    -------
+    jacobian : dict of dicts
+        jacobian[outkey][inkey][i, j] is the sensitivity of
+        outkey[i] with respect to inkey[j]
+    """
     jac = {}
     for inkey in d:
         for outkey in y:
             try:
                 jac.setdefault(outkey, {})[inkey] = jacobian(
-                    y[outkey], d[inkey]).squeeze()
+                    y[outkey], d[inkey]
+                ).squeeze()
             except KeyError:
                 pass
     return jac

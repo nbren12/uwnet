@@ -1,0 +1,8 @@
+md5: 188b951f3d6a974fb0e960dcee4cc51a
+wdir: .
+outs:
+- md5: fde9027153f54b686e7ab352ebfdf491
+  path: binned.nc
+  cache: true
+  metric: false
+  persist: false

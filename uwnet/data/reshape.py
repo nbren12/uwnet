@@ -15,10 +15,20 @@ input_file = snakemake.input[0]
 output_file = snakemake.output[0]
 variables = snakemake.params.variables
 shuffle = snakemake.params.shuffle
+train_or_test = snakemake.wildcards.train_or_test
+
 chunk_size = 2**10
 
 # open data
 ds = xr.open_dataset(input_file)
+
+
+if train_or_test == "train":
+    ds = ds.isel(x=slice(0, 64))
+elif train_or_test == "test":
+    ds = ds.isel(x=slice(64, None))
+else:
+    raise NotImplementedError("{test_or_train} is not \"train\" or \"test\"")
 
 # perform basic validation
 assert ds['SLI'].dims == ('time', 'z', 'y', 'x')

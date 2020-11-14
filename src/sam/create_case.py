@@ -1,5 +1,5 @@
 import xarray as xr
-from os.path import join
+from os.path import join, abspath
 import json
 
 import click
@@ -13,6 +13,11 @@ resolution_help = (
     "currently supported."""
 )
 
+
+def save_as_json(config, path):
+    with open(path, "w") as f:
+        json.dump(config, f)
+
 @click.command()
 @click.argument('path')
 @click.option(
@@ -20,6 +25,12 @@ resolution_help = (
     '--neural-network',
     type=click.Path(),
     help='use the neural network in this pickled model file.')
+@click.option(
+    '-sk',
+    '--sklearn-generic',
+    type=click.Path(),
+    help='pickled model file for generic sklearn_generic regressor'
+)
 @click.option(
     '--noise',
     type=click.Path(),
@@ -33,6 +44,7 @@ resolution_help = (
 @click.option('-r', '--run-data', type=str, default='/opt/sam/RUNDATA')
 @click.option('--resolution', type=str, default='128x64x34', help=resolution_help)
 def main(path,
+         sklearn_generic,
          neural_network,
          noise,
          initial_condition,
@@ -67,6 +79,7 @@ def main(path,
                                 prm=parameters, resolution=resolution)
 
     # configure neural network run
+    python_config_path = join(path, "python_config.json")
     if neural_network:
         case.prm['python']['dopython'] = False
 
@@ -76,14 +89,27 @@ def main(path,
                 dopython=True,
                 usepython=True,
                 function_name='call_neural_network',
-                module_name='uwnet.sam_interface'))
+                module_name='uwnet.ml_models.nn.sam_interface'))
 
         case.mkdir()
 
         print(f"Copying neural networks to model directory")
         case.add(neural_network, model_run_path)
+
+    if sklearn_generic:
+        case.prm['python']['dopython'] = False
+        case.prm['python'].update(
+            dict(
+                dopython=True,
+                usepython=True,
+                function_name='call_sklearn_model',
+                module_name='uwnet.ml_models.sklearn_generic.sam_interface'))
+
+        print(f"Copying model to run directory")
+        case.mkdir()
+        case.add(sklearn_generic, model_run_path)
         python_config['models'].append(
-            {"type": "neural_network", "path": model_run_path})
+            {"type": "sklearn_generic", "path": model_run_path})
 
     if noise:
         noise_model_path = "noise.pkl"
@@ -93,7 +119,9 @@ def main(path,
 
     if 'nudging' in parameters:
         config = parameters['nudging']
-        case.env['UWNET_NUDGE_TIME_SCALE'] = config['time_scale']
+        config['ngaqua'] = abspath('data/processed/training/noBlur.nc')
+        config['type'] = 'nudging'
+        python_config['models'].append(config)
 
     if debug:
         case.prm['parameters'].update({
@@ -103,12 +131,9 @@ def main(path,
             'nstop': 120,
         })
 
-    dopython = case.prm.get('python', {}).get('dopython', False)
-    if dopython:
-        with open(join(path, "python_config.json"), "w") as f:
-            json.dump(python_config, f)
-
     case.save()
+    save_as_json(python_config, python_config_path)
+
 
 
 if __name__ == '__main__':

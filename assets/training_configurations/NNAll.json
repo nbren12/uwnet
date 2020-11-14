@@ -1,7 +1,8 @@
 {
 	"__doc__" : "Default configurations managed by sacred",
 	"batch_size" : 64,
-	"data" : "data/processed/reshaped/noBlur.zarr",
+	"test_data" : "data/processed/reshaped/noBlur/train.zarr",
+	"train_data" : "data/processed/reshaped/noBlur/test.zarr",
 	"epochs" : 5,
 	"loss_scale" : {
 		"LHF" : 150,

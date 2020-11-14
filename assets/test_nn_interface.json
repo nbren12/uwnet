@@ -58,7 +58,7 @@
     "usepython": true,
     "npython": 1,
     "function_name": "call_neural_network",
-    "module_name": "uwnet.sam_interface",
+    "module_name": "uwnet.ml_models.nn.sam_interface",
     "do_debias_lhf": true
   },
   "uwoptions": {}

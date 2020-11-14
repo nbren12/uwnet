@@ -99,12 +99,14 @@ def test_tensordict_split():
         assert split['a'].shape == (1, 1)
 
 
-def test_tensordict_dispatch():
+tensor = _get_tensordict_example()['a']
+@pytest.mark.parametrize('attr', dir(tensor))
+def test_tensordict_dispatch(attr):
+    if attr in ['imag', 'real']:
+        pytest.xfail()
     t = _get_tensordict_example()
     a = t['a']
-
-    for attr in dir(a):
-        getattr(t, attr)
+    getattr(t, attr)
 
 
 def test_stack():
