@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "uwnet"
-version = "0.1.0"
+version = "0.9.1"
 description = ""
 authors = ["Noah D. Brenowitz <nbren12@gmail.com>"]
 license = "MIT"
