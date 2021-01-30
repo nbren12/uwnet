@@ -1,7 +1,9 @@
 [tool.poetry]
 name = "uwnet"
 version = "0.9.1"
-description = ""
+description = "PyTorch training code for climate modeling"
+readme = "README.md"
+homepage = "https://github.com/nbren12/uwnet"
 authors = ["Noah D. Brenowitz <nbren12@gmail.com>"]
 license = "MIT"
 
